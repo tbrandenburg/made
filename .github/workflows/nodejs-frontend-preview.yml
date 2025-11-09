@@ -68,6 +68,17 @@ jobs:
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         run: npm install -g ngrok@4
 
+      - name: Configure ngrok auth token
+        if: ${{ steps.detect.outputs.frontend_found == 'true' }}
+        run: |
+          if [ -n "${{ secrets.NGROK_AUTHTOKEN }}" ]; then
+            echo "🔐 Adding ngrok auth token..."
+            ngrok config add-authtoken ${{ secrets.NGROK_AUTHTOKEN }}
+          else
+            echo "::error::Missing NGROK_AUTHTOKEN secret. Please add it to repo secrets."
+            exit 1
+          fi
+
       - name: Start ngrok tunnel
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         id: ngrok
