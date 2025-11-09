@@ -1,0 +1,23 @@
+{
+  "name": "made",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mobile Agentic Development Environment",
+  "workspaces": [
+    "packages/*",
+    "tests"
+  ],
+  "scripts": {
+    "dev": "cross-env MADE_HOME=../data MADE_WORKSPACE_HOME=../workspace-data concurrently \"npm:dev --workspace backend\" \"npm:dev --workspace frontend\"",
+    "build": "npm run build --workspace frontend",
+    "test": "npm run test --workspace tests",
+    "test:playwright": "playwright test",
+    "lint": "npm run lint --workspace frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "playwright": "^1.42.0",
+    "@playwright/test": "^1.42.0"
+  }
+}
