@@ -1,0 +1,172 @@
+name: NodeJS Frontend Preview
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20  # small buffer above 10-minute tunnel lifetime
+
+    env:
+      PREVIEW_TIMEOUT_MINUTES: 10
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Detect Node.js frontend directory
+        id: detect
+        run: |
+          echo "🔍 Searching for Node.js frontend in this PR branch..."
+          matches=$(find . -name "package.json" -exec jq -r 'select(.scripts.dev != null) | input_filename' {} + 2>/dev/null || true)
+
+          if [ -z "$matches" ]; then
+            echo "::warning::No Node.js frontend detected in this PR. This is expected for backend-only changes."
+            echo "🪄 Skipping preview deployment — no frontend present."
+            echo "frontend_found=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          dir=$(dirname "$(echo "$matches" | head -n 1)")
+          echo "✅ Found Node.js project at: $dir"
+          echo "frontend_dir=$dir" >> $GITHUB_OUTPUT
+          echo "frontend_found=true" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        if: ${{ steps.detect.outputs.frontend_found == 'true' }}
+        working-directory: ${{ steps.detect.outputs.frontend_dir }}
+        run: npm install
+
+      - name: Start dev server and wait until ready
+        if: ${{ steps.detect.outputs.frontend_found == 'true' }}
+        working-directory: ${{ steps.detect.outputs.frontend_dir }}
+        run: |
+          echo "🚀 Starting npm run dev in background..."
+          nohup npm run dev > server.log 2>&1 &
+          echo "⏳ Waiting for dev server to become available..."
+          for i in {1..30}; do
+            if nc -z localhost 5173 2>/dev/null || nc -z localhost 3000 2>/dev/null || nc -z localhost 8080 2>/dev/null; then
+              echo "✅ Dev server is ready."
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Install ngrok
+        if: ${{ steps.detect.outputs.frontend_found == 'true' }}
+        run: npm install -g ngrok@4
+
+      - name: Start ngrok tunnel
+        if: ${{ steps.detect.outputs.frontend_found == 'true' }}
+        id: ngrok
+        run: |
+          echo "🌐 Establishing ngrok tunnel (verbose mode enabled)..."
+
+          echo "🔎 Checking for active dev server..."
+          for port in 5173 3000 8080; do
+            echo "   Testing port $port..."
+            if nc -z localhost $port; then
+              target_port=$port
+              echo "✅ Detected running dev server on port $target_port"
+              break
+            fi
+          done
+
+          if [ -z "$target_port" ]; then
+            echo "❌ Could not detect an active dev server on common ports (5173, 3000, 8080)."
+            echo "💡 Check if your dev script actually starts a server."
+            echo "🪵 Showing last 20 lines of server.log (if exists):"
+            tail -n 20 ${{ steps.detect.outputs.frontend_dir }}/server.log || true
+            exit 1
+          fi
+
+          echo "🚀 Starting ngrok for port $target_port..."
+          echo "🔧 ngrok binary version:"
+          ngrok version || echo "⚠️ ngrok not found or failed to report version"
+
+          # Start ngrok with verbose logging
+          nohup ngrok http $target_port --log=stdout > ngrok.log 2>&1 &
+          NGROK_PID=$!
+          echo "🧩 ngrok process started with PID $NGROK_PID"
+          sleep 2
+
+          echo "⏳ Waiting for ngrok API (http://127.0.0.1:4040) to become available..."
+          for i in {1..30}; do
+            url=$(curl -s --max-time 2 http://127.0.0.1:4040/api/tunnels | grep -o 'https://[^"]*' | head -n 1 || true)
+            if [ -n "$url" ]; then
+              echo "✅ ngrok tunnel established successfully: $url"
+              echo "preview_url=$url" >> $GITHUB_OUTPUT
+              break
+            fi
+
+            echo "   ...still waiting ($i/30)"
+            # Show ngrok log tail every 5 attempts for visibility
+            if (( $i % 5 == 0 )); then
+              echo "🔍 Partial ngrok log:"
+              tail -n 10 ngrok.log || true
+            fi
+            sleep 2
+          done
+
+          # Final check
+          if [ -z "$url" ]; then
+            echo "❌ ngrok tunnel failed to start within timeout."
+            echo "🧾 Full ngrok log output for debugging:"
+            cat ngrok.log || true
+            echo "🧨 Killing ngrok process PID $NGROK_PID"
+            kill $NGROK_PID || true
+            exit 1
+          fi
+
+          echo "🎉 ngrok setup complete and verified."
+
+      - name: Send Telegram message
+        if: ${{ steps.detect.outputs.frontend_found == 'true' && success() }}
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          REPO=${{ github.repository }}
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          AUTHOR="${{ github.event.pull_request.user.login }}"
+          PREVIEW_URL="${{ steps.ngrok.outputs.preview_url }}"
+          TIMEOUT_MINUTES=${{ env.PREVIEW_TIMEOUT_MINUTES }}
+
+          ESCAPED_TITLE=$(echo "$PR_TITLE" | sed 's/[_*\[\]()~`>#+=|{}.!-]/\\&/g')
+          ESCAPED_AUTHOR=$(echo "$AUTHOR" | sed 's/[_*\[\]()~`>#+=|{}.!-]/\\&/g')
+
+          MSG=$(printf '%s\n' \
+            "🚀 *Preview ready for PR #$PR_NUMBER in $REPO*" \
+            "" \
+            "*Title:* $ESCAPED_TITLE" \
+            "*Author:* $ESCAPED_AUTHOR" \
+            "" \
+            "*Live Preview:* [Open Preview]($PREVIEW_URL)" \
+            "⏳ *This preview will expire in ${TIMEOUT_MINUTES} minutes.*" \
+            "" \
+            "[View on GitHub](https://github.com/$REPO/pull/$PR_NUMBER)"
+          )
+
+          curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+            -d "chat_id=$CHAT_ID" \
+            -d "parse_mode=MarkdownV2" \
+            --data-urlencode "text=$MSG"
+
+      - name: Keep ngrok alive
+        if: ${{ steps.detect.outputs.frontend_found == 'true' }}
+        run: |
+          echo "⏳ Keeping ngrok tunnel alive for $PREVIEW_TIMEOUT_MINUTES minutes..."
+          sleep $(( PREVIEW_TIMEOUT_MINUTES * 60 ))
