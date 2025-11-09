@@ -72,34 +72,65 @@ jobs:
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         id: ngrok
         run: |
-          echo "🌐 Establishing ngrok tunnel..."
+          echo "🌐 Establishing ngrok tunnel (verbose mode enabled)..."
+
+          echo "🔎 Checking for active dev server..."
           for port in 5173 3000 8080; do
+            echo "   Testing port $port..."
             if nc -z localhost $port; then
               target_port=$port
+              echo "✅ Detected running dev server on port $target_port"
               break
             fi
           done
 
           if [ -z "$target_port" ]; then
-            echo "❌ Could not detect an active dev server."
+            echo "❌ Could not detect an active dev server on common ports (5173, 3000, 8080)."
+            echo "💡 Check if your dev script actually starts a server."
+            echo "🪵 Showing last 20 lines of server.log (if exists):"
+            tail -n 20 ${{ steps.detect.outputs.frontend_dir }}/server.log || true
             exit 1
           fi
 
+          echo "🚀 Starting ngrok for port $target_port..."
+          echo "🔧 ngrok binary version:"
+          ngrok version || echo "⚠️ ngrok not found or failed to report version"
+
+          # Start ngrok with verbose logging
           nohup ngrok http $target_port --log=stdout > ngrok.log 2>&1 &
-          echo "⏳ Waiting for ngrok to provide a public URL..."
-          for i in {1..10}; do
-            url=$(curl -s http://127.0.0.1:4040/api/tunnels | grep -o 'https://[^"]*' | head -n 1)
-            [ -n "$url" ] && break
-            sleep 3
+          NGROK_PID=$!
+          echo "🧩 ngrok process started with PID $NGROK_PID"
+          sleep 2
+
+          echo "⏳ Waiting for ngrok API (http://127.0.0.1:4040) to become available..."
+          for i in {1..30}; do
+            url=$(curl -s --max-time 2 http://127.0.0.1:4040/api/tunnels | grep -o 'https://[^"]*' | head -n 1 || true)
+            if [ -n "$url" ]; then
+              echo "✅ ngrok tunnel established successfully: $url"
+              echo "preview_url=$url" >> $GITHUB_OUTPUT
+              break
+            fi
+
+            echo "   ...still waiting ($i/30)"
+            # Show ngrok log tail every 5 attempts for visibility
+            if (( $i % 5 == 0 )); then
+              echo "🔍 Partial ngrok log:"
+              tail -n 10 ngrok.log || true
+            fi
+            sleep 2
           done
 
+          # Final check
           if [ -z "$url" ]; then
-            echo "❌ Failed to obtain ngrok URL."
+            echo "❌ ngrok tunnel failed to start within timeout."
+            echo "🧾 Full ngrok log output for debugging:"
+            cat ngrok.log || true
+            echo "🧨 Killing ngrok process PID $NGROK_PID"
+            kill $NGROK_PID || true
             exit 1
           fi
 
-          echo "✅ Ngrok tunnel established: $url"
-          echo "preview_url=$url" >> $GITHUB_OUTPUT
+          echo "🎉 ngrok setup complete and verified."
 
       - name: Send Telegram message
         if: ${{ steps.detect.outputs.frontend_found == 'true' && success() }}
