@@ -1310,6 +1310,11 @@ body {
     gap: var(--space-8);
 }
 
+.btn span {
+    font-size: var(--font-size-lg);
+    line-height: 1;
+}
+
 .btn-primary {
     background: var(--color-primary);
     color: var(--color-btn-primary-text);

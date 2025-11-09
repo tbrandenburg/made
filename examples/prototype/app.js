@@ -898,32 +898,76 @@ function filterFiles() {
 
 // Publishment
 function publishAction(action) {
-    const actions = {
-        'remote': 'Creating remote repository on GitHub...',
-        'pr': 'Creating pull request...',
-        'deploy': 'Deploying to package manager...',
-        'preview': 'Creating web preview...'
+    // Define prompts for each action
+    const prompts = {
+        'init': 'Initialize this repository with proper structure, dependencies, and configuration files.',
+        'remote': 'Create a remote repository on GitHub for this project and configure the local remote.',
+        'pr': 'Create a pull request for the current changes with proper description and testing.',
+        'deploy': 'Package this project and deploy it to the appropriate package manager (npm, PyPI, etc).',
+        'preview': 'Generate a web preview or documentation site for this project and deploy it.',
+        'publish': 'Publish this project as a website, configure hosting, and set up deployment pipeline.'
     };
     
+    const actionNames = {
+        'init': 'Initialize Repository',
+        'remote': 'Create Remote Repository',
+        'pr': 'Create PR',
+        'deploy': 'Deploy to Package Manager',
+        'preview': 'Create Web Preview',
+        'publish': 'Publish Website'
+    };
+    
+    const prompt = prompts[action];
+    const actionName = actionNames[action];
+    
+    if (!prompt) return;
+    
+    // Initialize chat history if needed
     if (!state.chatHistory[state.currentRepo.id]) {
         state.chatHistory[state.currentRepo.id] = [];
     }
     
+    // Add user message with the prompt
     state.chatHistory[state.currentRepo.id].push({
         role: 'user',
-        message: actions[action],
+        message: prompt,
         timestamp: new Date().toISOString()
     });
     
-    document.getElementById('publishStatus').innerHTML = `<span style="color: var(--color-primary);">${actions[action]}</span>`;
+    // Update publish status
+    document.getElementById('publishStatus').innerHTML = `
+        <div style="margin-bottom: var(--space-12);">
+            <strong style="color: var(--color-primary);">${actionName}</strong> action triggered
+        </div>
+        <div style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">
+            Prompt injected: "${prompt}"
+        </div>
+        <div style="margin-top: var(--space-12); font-size: var(--font-size-sm); color: var(--color-success);">
+            ✓ Switched to Agent tab and sent prompt
+        </div>
+    `;
     
+    // Switch to Agent tab
+    switchRepoTab('agent');
+    
+    // Update tab active states
+    document.querySelectorAll('#repositorySubPage .tab').forEach((t, index) => {
+        t.classList.remove('active');
+        if (index === 0) t.classList.add('active');
+    });
+    
+    // Render the chat with the new message
+    renderRepoChat();
+    
+    // Simulate agent response with A2A mock
     setTimeout(() => {
         state.chatHistory[state.currentRepo.id].push({
             role: 'agent',
-            message: 'Action completed successfully! (Mock response)',
+            message: 'I understand your request. Based on our conversation context and your project needs, here\'s my analysis and recommendations for moving forward. I\'ve analyzed the requirements and will now proceed with implementing this step in your repository evolution.',
             timestamp: new Date().toISOString()
         });
-    }, 1000);
+        renderRepoChat();
+    }, 800);
 }
 
 // Artefacts

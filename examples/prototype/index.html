@@ -256,14 +256,30 @@
                     </div>
                     <div class="tab-content" id="publishmentTab">
                         <div class="button-bar">
-                            <button class="btn btn-secondary" onclick="publishAction('remote')">Create Remote Repository</button>
-                            <button class="btn btn-secondary" onclick="publishAction('pr')">Create PR</button>
-                            <button class="btn btn-secondary" onclick="publishAction('deploy')">Deploy to Package Manager</button>
-                            <button class="btn btn-secondary" onclick="publishAction('preview')">Create Web Preview</button>
+                            <button class="btn btn-secondary" onclick="publishAction('init')" title="Initialize this repository">
+                                <span>🚀</span> Initialize Repository
+                            </button>
+                            <button class="btn btn-secondary" onclick="publishAction('remote')" title="Create remote repository on GitHub">
+                                <span>🌐</span> Create Remote Repository
+                            </button>
+                            <button class="btn btn-secondary" onclick="publishAction('pr')" title="Create a pull request">
+                                <span>📝</span> Create PR
+                            </button>
+                            <button class="btn btn-secondary" onclick="publishAction('deploy')" title="Deploy to package manager">
+                                <span>📦</span> Deploy to Package Manager
+                            </button>
+                            <button class="btn btn-secondary" onclick="publishAction('preview')" title="Generate web preview">
+                                <span>👁️</span> Create Web Preview
+                            </button>
+                            <button class="btn btn-secondary" onclick="publishAction('publish')" title="Publish as website">
+                                <span>🌟</span> Publish Website
+                            </button>
                         </div>
                         <div class="panel">
-                            <div class="panel-title">Publish Status</div>
-                            <div id="publishStatus" style="color: var(--color-text-secondary);">No publish actions yet</div>
+                            <div class="panel-title">Publishment Actions</div>
+                            <div id="publishStatus" style="color: var(--color-text-secondary); line-height: 1.6;">
+                                Click any button above to inject a prompt into the Agent chat and automatically execute the action.
+                            </div>
                         </div>
                     </div>
                 </div>
