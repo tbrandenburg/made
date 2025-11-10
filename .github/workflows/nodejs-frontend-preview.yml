@@ -157,7 +157,7 @@ jobs:
           ESCAPED_AUTHOR=$(echo "$AUTHOR" | sed 's/[_*\[\]()~`>#+=|{}.!-]/\\&/g')
 
           MSG=$(printf '%s\n' \
-            "🚀 *Preview ready for PR #$PR_NUMBER in $REPO*" \
+            "🚀 *Preview ready for PR \\#$PR_NUMBER in $REPO*" \
             "" \
             "*Title:* $ESCAPED_TITLE" \
             "*Author:* $ESCAPED_AUTHOR" \
