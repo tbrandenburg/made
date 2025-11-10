@@ -59,7 +59,7 @@ test.describe('MADE journeys', () => {
   test('welcome and dashboard overview', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Mobile Agentic Development Environment' })).toBeVisible();
-    await page.getByRole('link', { name: 'Open', exact: true }).first().click();
+    await page.getByRole('link', { name: /^Dashboard/ }).click();
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByText('Project Count')).toBeVisible();
     await expect(page.getByText('1')).toBeVisible();
@@ -69,7 +69,7 @@ test.describe('MADE journeys', () => {
     await page.goto('/repositories');
     await expect(page.getByRole('heading', { name: 'Repositories' })).toBeVisible();
     await expect(page.getByText('demo-project')).toBeVisible();
-    await page.getByRole('button', { name: 'Open' }).click();
+    await page.getByRole('link', { name: /^demo-project/ }).click();
     await expect(page.getByRole('heading', { name: 'Repository: demo-project' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create File' })).toBeVisible();
     await page.getByRole('button', { name: 'Publishment' }).click();

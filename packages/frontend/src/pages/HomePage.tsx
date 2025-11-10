@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { Panel } from '../components/Panel';
 import '../styles/page.css';
 
@@ -20,11 +19,8 @@ export const HomePage: React.FC = () => {
       </header>
       <div className="panel-grid">
         {QUICK_LINKS.map((link) => (
-          <Panel key={link.title} title={link.title}>
+          <Panel key={link.title} title={link.title} to={link.to}>
             <p>{link.description}</p>
-            <Link className="link-button" to={link.to}>
-              Open
-            </Link>
           </Panel>
         ))}
       </div>
