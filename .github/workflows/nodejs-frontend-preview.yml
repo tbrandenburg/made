@@ -153,17 +153,18 @@ jobs:
           PREVIEW_URL="${{ steps.ngrok.outputs.preview_url }}"
           TIMEOUT_MINUTES=${{ env.PREVIEW_TIMEOUT_MINUTES }}
 
-          ESCAPED_TITLE=$(echo "$PR_TITLE" | sed 's/[_*\[\]()~`>#+=|{}.!-]/\\&/g')
-          ESCAPED_AUTHOR=$(echo "$AUTHOR" | sed 's/[_*\[\]()~`>#+=|{}.!-]/\\&/g')
+          ESCAPED_TITLE=$(echo "$PR_TITLE" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
+          ESCAPED_AUTHOR=$(echo "$AUTHOR" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
+          ESCAPED_REPO=$(echo "$REPO" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
 
           MSG=$(printf '%s\n' \
-            "🚀 *Preview ready for PR \\#$PR_NUMBER in $REPO*" \
+            "🚀 *Preview ready for PR \\#$PR_NUMBER in $ESCAPED_REPO*" \
             "" \
             "*Title:* $ESCAPED_TITLE" \
             "*Author:* $ESCAPED_AUTHOR" \
             "" \
             "*Live Preview:* [Open Preview]($PREVIEW_URL)" \
-            "⏳ *This preview will expire in ${TIMEOUT_MINUTES} minutes.*" \
+            "⏳ *This preview will expire in ${TIMEOUT_MINUTES} minutes\.*" \
             "" \
             "[View on GitHub](https://github.com/$REPO/pull/$PR_NUMBER)"
           )
