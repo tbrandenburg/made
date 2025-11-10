@@ -8,6 +8,7 @@ This file provides guidance for Codex Cloud on how to correctly build, run, and 
 - Run `npm install` to install all dependencies.
 - Ensure the environment variable `PORT` is respected (default: `3000`).
 - The app must listen on `0.0.0.0` (not `localhost`) to enable public preview.
+- The vite configuration has to be set up for allowing following remote hosts for previews (allowedHosts): .ngrok-free.dev, .ngrok.io, .ngrok.app
 
 ## Build & Run Instructions
 1. **Install dependencies**
