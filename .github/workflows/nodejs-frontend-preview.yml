@@ -11,6 +11,7 @@ jobs:
 
     env:
       PREVIEW_TIMEOUT_MINUTES: 10
+      NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
 
     steps:
       - name: Checkout PR branch
@@ -64,28 +65,14 @@ jobs:
             sleep 2
           done
 
-      - name: Install ngrok
-        if: ${{ steps.detect.outputs.frontend_found == 'true' }}
-        run: |
-          npm install -g ngrok@4
-          echo "$(npm root -g)/ngrok/bin" >> $GITHUB_PATH
-
-      - name: Configure ngrok auth token
-        if: ${{ steps.detect.outputs.frontend_found == 'true' }}
-        run: |
-          if [ -n "${{ secrets.NGROK_AUTHTOKEN }}" ]; then
-            echo "🔐 Adding ngrok auth token..."
-            ngrok config add-authtoken ${{ secrets.NGROK_AUTHTOKEN }}
-          else
-            echo "::error::Missing NGROK_AUTHTOKEN secret. Please add it to repo secrets."
-            exit 1
-          fi
-
-      - name: Start ngrok tunnel
+      - name: Start ngrok tunnel (v4 via npx, verbose)
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         id: ngrok
+        env:
+          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
         run: |
-          echo "🌐 Establishing ngrok tunnel (verbose mode enabled)..."
+          echo "🌐 Establishing ngrok tunnel (v4, verbose mode enabled)..."
+          echo "🔑 Using NGROK_AUTHTOKEN from environment (not stored on disk)."
 
           echo "🔎 Checking for active dev server..."
           for port in 5173 3000 8080; do
@@ -99,21 +86,19 @@ jobs:
 
           if [ -z "$target_port" ]; then
             echo "❌ Could not detect an active dev server on common ports (5173, 3000, 8080)."
-            echo "💡 Check if your dev script actually starts a server."
             echo "🪵 Showing last 20 lines of server.log (if exists):"
             tail -n 20 ${{ steps.detect.outputs.frontend_dir }}/server.log || true
             exit 1
           fi
 
-          echo "🚀 Starting ngrok for port $target_port..."
-          echo "🔧 ngrok binary version:"
-          ngrok version || echo "⚠️ ngrok not found or failed to report version"
+          echo "🚀 Starting ngrok for port $target_port (v4)..."
+          npx -y ngrok@4 version
 
-          # Start ngrok with verbose logging
-          nohup ngrok http $target_port --log=stdout > ngrok.log 2>&1 &
+          # Start ngrok v4 explicitly using npx with environment auth
+          nohup npx -y ngrok@4 http $target_port --log=stdout > ngrok.log 2>&1 &
           NGROK_PID=$!
           echo "🧩 ngrok process started with PID $NGROK_PID"
-          sleep 2
+          sleep 3
 
           echo "⏳ Waiting for ngrok API (http://127.0.0.1:4040) to become available..."
           for i in {1..30}; do
@@ -125,15 +110,14 @@ jobs:
             fi
 
             echo "   ...still waiting ($i/30)"
-            # Show ngrok log tail every 5 attempts for visibility
-            if (( $i % 5 == 0 )); then
+            # Show partial ngrok log every 5 iterations for visibility
+            if (( i % 5 == 0 )); then
               echo "🔍 Partial ngrok log:"
               tail -n 10 ngrok.log || true
             fi
             sleep 2
           done
 
-          # Final check
           if [ -z "$url" ]; then
             echo "❌ ngrok tunnel failed to start within timeout."
             echo "🧾 Full ngrok log output for debugging:"
