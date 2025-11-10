@@ -80,6 +80,20 @@ Access the web interface at `http://localhost:5173` to:
 4. **Define Constitutions** - Set development rules and guidelines
 5. **Edit Files** - Use the integrated editor with live preview
 
+## Docker Deployment
+
+Container images are provided for both the API backend and the static frontend. The [`docker-compose.yml`](./docker-compose.yml) file builds and runs the complete stack with one command.
+
+```bash
+# Build images and start the containers
+docker compose up --build
+
+# Backend API:    http://localhost:3000
+# Frontend (Nginx): http://localhost:8080
+```
+
+The backend persists its `.made` workspace inside the named `made-data` volume defined in the compose file. Environment variables such as `MADE_HOME`, `MADE_WORKSPACE_HOME`, or `PORT` can be overridden by editing the `backend` service configuration.
+
 ## Configuration
 
 Required environment variables / config:
@@ -88,6 +102,7 @@ Required environment variables / config:
 - `MADE_WORKSPACE_HOME` — string — default: `process.cwd()` — Root directory where repositories are stored
 - `PORT` — number — default: `3000` — Port for the backend API server
 - `NODE_ENV` — string — default: `development` — Environment mode (development/production)
+- `VITE_API_BASE` — string — default: `/api` — Frontend build-time override for the backend API base URL (used for containerized deployments)
 
 The application automatically creates a `.made` directory structure:
 ```
