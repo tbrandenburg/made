@@ -66,7 +66,9 @@ jobs:
 
       - name: Install ngrok
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
-        run: npm install -g ngrok@4
+        run: |
+          npm install -g ngrok@4
+          echo "$(npm root -g)/ngrok/bin" >> $GITHUB_PATH
 
       - name: Configure ngrok auth token
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
