@@ -65,10 +65,10 @@ jobs:
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         working-directory: ${{ steps.detect.outputs.frontend_dir }}
         run: |
-          echo "🚀 Starting Vite dev server (allowing all hosts for ngrok)..."
-          
-          # Run Vite in background with permissive host options
-          nohup npm run dev -- --host 0.0.0.0 --allowedHosts all > server.log 2>&1 &
+          echo "🚀 Starting Vite dev server..."
+
+          # Run Vite in background
+          nohup npm run dev > server.log 2>&1 &
           
           echo "⏳ Waiting for dev server to become available..."
           for i in {1..30}; do
