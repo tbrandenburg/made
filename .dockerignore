@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+Dockerfile*
+dist
+.git
+.gitignore
+README.md
+LICENSE
+*.md
+examples
+playwright-report
+packages/frontend/dist
+packages/backend/dist
+coverage
+.env
+.vscode
+.idea
