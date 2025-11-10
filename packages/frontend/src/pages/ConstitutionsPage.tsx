@@ -54,15 +54,7 @@ export const ConstitutionsPage: React.FC = () => {
                 </div>
                 <div className="panel-column">
                   {constitutions.map((constitution) => (
-                    <Panel
-                      key={constitution.name}
-                      title={constitution.name}
-                      actions={
-                        <button className="link-button" onClick={() => navigate(`/constitutions/${constitution.name}`)}>
-                          Open
-                        </button>
-                      }
-                    >
+                    <Panel key={constitution.name} title={constitution.name} to={`/constitutions/${constitution.name}`}>
                       <div className="metadata">
                         {typeof constitution.frontmatter?.type === 'string' && (
                           <span className="badge">{String(constitution.frontmatter.type)}</span>

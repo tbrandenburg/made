@@ -7,6 +7,25 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.panel-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.panel-link:hover,
+.panel-link:focus-visible {
+  background: var(--surface-strong);
+  transform: translateY(-4px);
+  box-shadow: 0 30px 60px rgba(15, 22, 40, 0.18);
+}
+
+.panel-link:focus-visible {
+  outline: 2px solid rgba(63, 116, 255, 0.35);
+  outline-offset: 4px;
 }
 
 .panel-header {

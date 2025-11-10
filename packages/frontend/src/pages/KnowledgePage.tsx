@@ -56,15 +56,7 @@ export const KnowledgePage: React.FC = () => {
                 </div>
                 <div className="panel-column">
                   {artefacts.map((artefact) => (
-                    <Panel
-                      key={artefact.name}
-                      title={artefact.name}
-                      actions={
-                        <button className="link-button" onClick={() => navigate(`/knowledge/${artefact.name}`)}>
-                          Open
-                        </button>
-                      }
-                    >
+                    <Panel key={artefact.name} title={artefact.name} to={`/knowledge/${artefact.name}`}>
                       <div className="metadata">
                         <span className="badge">{artefact.type ?? 'internal'}</span>
                         {artefact.tags && artefact.tags.length > 0 && (
