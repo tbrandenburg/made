@@ -27,6 +27,17 @@ jobs:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
+      - name: Install latest ngrok CLI (v4)
+        run: |
+          echo "🔧 Installing official ngrok CLI (v4)..."
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | \
+            sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | \
+            sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt-get update -y
+          sudo apt-get install -y ngrok
+          echo "✅ Installed $(ngrok version)"
+
       - name: Detect Node.js frontend directory
         id: detect
         run: |
@@ -65,7 +76,7 @@ jobs:
             sleep 2
           done
 
-      - name: Start ngrok tunnel (v4 via npx, verbose)
+      - name: Start ngrok tunnel (v4 CLI, verbose)
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         id: ngrok
         env:
@@ -91,11 +102,11 @@ jobs:
             exit 1
           fi
 
-          echo "🚀 Starting ngrok for port $target_port (v4)..."
-          npx -y ngrok@4 version
+          echo "🚀 Starting ngrok for port $target_port (v4 CLI)..."
+          ngrok version
 
-          # Start ngrok v4 explicitly using npx with environment auth
-          nohup npx -y ngrok@4 http $target_port --log=stdout > ngrok.log 2>&1 &
+          # Start ngrok v4 CLI directly with environment auth token
+          nohup ngrok http $target_port --log=stdout > ngrok.log 2>&1 &
           NGROK_PID=$!
           echo "🧩 ngrok process started with PID $NGROK_PID"
           sleep 3
