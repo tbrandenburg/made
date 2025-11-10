@@ -6,7 +6,13 @@ export default defineConfig({
   server: {
     port: 3000,
     host: '0.0.0.0',
-    allowedHosts: true,
+    
+    // ✅ allow ngrok tunnels to access the dev server
+    allowedHosts: [
+      '.ngrok-free.dev', // current default ngrok domain
+      '.ngrok.io',       // legacy domain
+      '.ngrok.app'       // alternate domain
+    ],
 
     proxy: {
       '/api': {
