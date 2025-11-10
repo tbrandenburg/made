@@ -1,0 +1,253 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f5f7fb;
+  --surface: rgba(255, 255, 255, 0.85);
+  --surface-strong: rgba(255, 255, 255, 0.95);
+  --text: #1a1d2a;
+  --muted: #5c6279;
+  --border: rgba(25, 39, 70, 0.1);
+  --accent: #3f74ff;
+  --accent-strong: #2f63e0;
+  --success: #14b86a;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --shadow: 0 20px 45px rgba(15, 22, 40, 0.12);
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+:root.dark {
+  --bg: #0f172a;
+  --surface: rgba(15, 23, 42, 0.75);
+  --surface-strong: rgba(22, 32, 58, 0.9);
+  --text: #f8fafc;
+  --muted: #cbd5f5;
+  --border: rgba(148, 163, 184, 0.2);
+  --accent: #60a5fa;
+  --accent-strong: #3b82f6;
+  --success: #34d399;
+  --warning: #facc15;
+  --danger: #f87171;
+  --shadow: 0 25px 50px rgba(8, 11, 19, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: radial-gradient(circle at top, rgba(96, 165, 250, 0.15), transparent),
+    radial-gradient(circle at bottom, rgba(56, 189, 248, 0.1), transparent), var(--bg);
+  transition: background 0.5s ease;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  border: none;
+  cursor: pointer;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+textarea {
+  min-height: 160px;
+  resize: vertical;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  color: var(--muted);
+}
+
+.icon-button:hover {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.primary {
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.9rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: white;
+  box-shadow: var(--shadow);
+}
+
+.secondary {
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.9rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.danger {
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.9rem;
+  background: var(--danger);
+  color: white;
+}
+
+.link-button {
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(63, 116, 255, 0.12);
+  color: var(--accent);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--accent);
+  font-size: 0.75rem;
+  margin-right: 0.5rem;
+}
+
+.badge.success {
+  background: rgba(20, 184, 106, 0.15);
+  color: var(--success);
+}
+
+.badge.warning {
+  background: rgba(250, 204, 21, 0.15);
+  color: var(--warning);
+}
+
+.alert {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.9rem;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.button-bar {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.chat-window {
+  background: var(--surface);
+  border-radius: 1rem;
+  padding: 1rem;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.chat-message {
+  background: rgba(59, 130, 246, 0.12);
+  padding: 0.75rem 1rem;
+  border-radius: 0.9rem;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+}
+
+.chat-message.agent {
+  background: rgba(20, 184, 106, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.25);
+}
+
+.chat-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.editor-input {
+  min-height: 320px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  background: var(--surface);
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  padding: 1rem;
+}
+
+.preview {
+  white-space: pre-wrap;
+  background: var(--surface);
+  border-radius: 1rem;
+  padding: 1rem;
+  min-height: 120px;
+}
+
+.markdown {
+  background: var(--surface);
+  border-radius: 1rem;
+  padding: 1.25rem;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  margin-top: 1.5rem;
+}
