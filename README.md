@@ -110,7 +110,7 @@ The backend provides a RESTful API with endpoints for:
 
 ## Tests & CI
 
-Run tests:
+### Quick Test Commands
 
 ```bash
 # Unit tests (Jest)
@@ -126,10 +126,58 @@ npm run test:watch
 npm run lint
 ```
 
+### Testing Execution Patterns
+
+**For Unit Tests (Jest):**
+```bash
+# Simple - no dependencies required
+npm test
+```
+
+**For End-to-End Tests (Playwright):**
+
+Playwright tests require the full application stack running. Follow this sequence:
+
+```bash
+# 1. First-time setup (one-time only)
+npm install
+npx playwright install                    # Download browser binaries
+sudo npx playwright install-deps         # Install system dependencies (optional)
+
+# 2. Start application servers (keep running)
+# Terminal 1 - Backend:
+cd packages/backend && npm run dev
+# Wait for: "MADE backend listening on http://0.0.0.0:3000"
+
+# Terminal 2 - Frontend:  
+cd packages/frontend && npm run dev
+# Wait for: "VITE v5.4.21 ready" and "Local: http://localhost:5173/"
+
+# 3. Verify server connectivity (optional)
+curl http://localhost:3000 -I            # Backend health check
+curl http://localhost:5173 -I            # Frontend health check
+
+# 4. Run tests (separate terminal)
+# Terminal 3 - Tests:
+npx playwright test                       # All tests
+npx playwright test --grep "test name"   # Specific test
+npx playwright test --headed             # Visual debugging
+```
+
+**Alternative - Combined Server Start:**
+```bash
+# Start both servers in background
+npm run dev &
+sleep 5                                   # Wait for startup
+npx playwright test                       # Run tests
+```
+
+### Testing Architecture
+
 Testing follows the pyramid approach:
-- **Unit Tests** - Core business logic and services
-- **Integration Tests** - API endpoints and database interactions  
-- **System Tests** - Complete user workflows with Playwright
+- **Unit Tests** - Core business logic and services (Jest)
+- **Integration Tests** - API endpoints and database interactions (Jest)
+- **System Tests** - Complete user workflows with UI (Playwright)
 
 ## Contributing
 
