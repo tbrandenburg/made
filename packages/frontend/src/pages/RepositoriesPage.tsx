@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { api, RepositorySummary } from '../hooks/useApi';
 import { Panel } from '../components/Panel';
 import { TabView } from '../components/TabView';
@@ -7,7 +6,6 @@ import { Modal } from '../components/Modal';
 import '../styles/page.css';
 
 export const RepositoriesPage: React.FC = () => {
-  const navigate = useNavigate();
   const [repositories, setRepositories] = useState<RepositorySummary[]>([]);
   const [activeTab, setActiveTab] = useState('repositories');
   const [createOpen, setCreateOpen] = useState(false);
@@ -62,15 +60,7 @@ export const RepositoriesPage: React.FC = () => {
                 {error && <div className="alert">{error}</div>}
                 <div className="panel-column">
                   {repositories.map((repo) => (
-                    <Panel
-                      key={repo.name}
-                      title={repo.name}
-                      actions={
-                        <button className="link-button" onClick={() => navigate(`/repositories/${repo.name}`)}>
-                          Open
-                        </button>
-                      }
-                    >
+                    <Panel key={repo.name} title={repo.name} to={`/repositories/${repo.name}`}>
                       <div className="metadata">
                         <span className={`badge ${repo.hasGit ? 'success' : 'warning'}`}>
                           {repo.hasGit ? 'Git' : 'No Git'}
