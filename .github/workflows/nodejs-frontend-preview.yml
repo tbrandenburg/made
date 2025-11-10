@@ -65,16 +65,22 @@ jobs:
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         working-directory: ${{ steps.detect.outputs.frontend_dir }}
         run: |
-          echo "🚀 Starting npm run dev in background..."
-          nohup npm run dev > server.log 2>&1 &
+          echo "🚀 Starting Vite dev server (allowing all hosts for ngrok)..."
+          
+          # Run Vite in background with permissive host options
+          nohup npm run dev -- --host 0.0.0.0 --allowedHosts all > server.log 2>&1 &
+          
           echo "⏳ Waiting for dev server to become available..."
           for i in {1..30}; do
             if nc -z localhost 5173 2>/dev/null || nc -z localhost 3000 2>/dev/null || nc -z localhost 8080 2>/dev/null; then
-              echo "✅ Dev server is ready."
+              echo "✅ Dev server is ready and externally accessible."
               break
             fi
             sleep 2
           done
+
+          echo "🔍 Last few lines of server.log:"
+          tail -n 15 server.log || true
 
       - name: Start ngrok tunnel (v4 CLI, verbose)
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
