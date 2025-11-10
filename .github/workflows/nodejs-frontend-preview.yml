@@ -158,6 +158,7 @@ jobs:
           AUTHOR="${{ github.event.pull_request.user.login }}"
           PREVIEW_URL="${{ steps.ngrok.outputs.preview_url }}"
           TIMEOUT_MINUTES=${{ env.PREVIEW_TIMEOUT_MINUTES }}
+          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           ESCAPED_TITLE=$(echo "$PR_TITLE" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
           ESCAPED_AUTHOR=$(echo "$AUTHOR" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
@@ -170,6 +171,7 @@ jobs:
             "*Author:* $ESCAPED_AUTHOR" \
             "" \
             "*Live Preview:* [Open Preview]($PREVIEW_URL)" \
+            "*Workflow:* [View Run]($WORKFLOW_URL)" \
             "⏳ *This preview will expire in ${TIMEOUT_MINUTES} minutes\.*" \
             "" \
             "[View on GitHub](https://github.com/$REPO/pull/$PR_NUMBER)"
