@@ -64,6 +64,8 @@ jobs:
       - name: Start dev server and wait until ready
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         working-directory: ${{ steps.detect.outputs.frontend_dir }}
+        env:
+          __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS: ".ngrok-free.dev,.ngrok.io,.ngrok.app"
         run: |
           echo "🚀 Starting Vite dev server..."
 
