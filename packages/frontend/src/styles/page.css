@@ -1,0 +1,135 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 720px;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.metric {
+  font-size: 2.8rem;
+  font-weight: 700;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 600;
+}
+
+.status-indicator .light {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+.status-indicator.ok .light {
+  background: var(--success);
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.6);
+}
+
+.metadata,
+.meta-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.meta-secondary {
+  color: var(--muted);
+}
+
+.file-browser {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.file-node {
+  display: flex;
+  flex-direction: column;
+}
+
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.75rem;
+  transition: background 0.2s ease;
+}
+
+.file-row:hover {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.file-spacer {
+  width: 24px;
+}
+
+.file-name {
+  flex: 1;
+  cursor: pointer;
+}
+
+.file-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.editor-grid,
+.artefact-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.editor-grid {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.artefact-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.settings-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.settings-row {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.repository-meta {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.publishment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}

@@ -1,0 +1,17 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  background: var(--surface-strong);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow);
+  z-index: 20;
+}
+
+.breadcrumb {
+  flex: 1;
+  margin-left: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}

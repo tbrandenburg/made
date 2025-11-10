@@ -1,0 +1,44 @@
+.panel {
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  border-radius: 1.5rem;
+  padding: 1.75rem;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.panel-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}

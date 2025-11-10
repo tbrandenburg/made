@@ -1,0 +1,35 @@
+.app-shell {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: 72px 1fr;
+  grid-template-areas:
+    'topbar topbar'
+    'sidebar content';
+  height: 100vh;
+  overflow: hidden;
+}
+
+.topbar {
+  grid-area: topbar;
+}
+
+.sidebar {
+  grid-area: sidebar;
+}
+
+.app-content {
+  grid-area: content;
+  padding: 2.5rem;
+  overflow-y: auto;
+  background: linear-gradient(135deg, rgba(63, 116, 255, 0.06), transparent);
+}
+
+@media (max-width: 1024px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: 72px auto;
+    grid-template-areas:
+      'topbar'
+      'content';
+  }
+}
