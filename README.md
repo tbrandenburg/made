@@ -2,7 +2,7 @@
 
 ![8382E3F9-F4E9-43DD-8BBD-E2C1E5206DC6](https://github.com/user-attachments/assets/dfb345f8-eb0a-4ac9-81b5-7fe729c3b0e4)
 
-**One-line:** A comprehensive web-based development environment for managing repositories, knowledge bases, and AI agent interactions.
+**One-line:** A comprehensive web-based development environment for managing repositories, knowledge bases, and AI agent interactions - optimized for your phone 📱!
 
 MADE (Mobile Agentic Development Environment) is a full-stack Node.js application that provides developers with an integrated workspace for project management, knowledge organization, and AI-powered development assistance. It features a React-based frontend with repository browsing, file editing, markdown-based knowledge management, and seamless agent communication through the A2A protocol.
 
