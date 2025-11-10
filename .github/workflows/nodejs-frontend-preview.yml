@@ -3,6 +3,13 @@ name: NodeJS Frontend Preview
 on:
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      timeout_minutes:
+        description: 'Preview timeout in minutes'
+        required: false
+        default: '5'
+        type: string
 
 jobs:
   preview:
@@ -10,14 +17,14 @@ jobs:
     timeout-minutes: 20  # small buffer above 10-minute tunnel lifetime
 
     env:
-      PREVIEW_TIMEOUT_MINUTES: 10
+      PREVIEW_TIMEOUT_MINUTES: ${{ github.event.inputs.timeout_minutes || '5' }}
       NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
 
     steps:
-      - name: Checkout PR branch
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -153,29 +160,51 @@ jobs:
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           REPO=${{ github.repository }}
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          AUTHOR="${{ github.event.pull_request.user.login }}"
           PREVIEW_URL="${{ steps.ngrok.outputs.preview_url }}"
           TIMEOUT_MINUTES=${{ env.PREVIEW_TIMEOUT_MINUTES }}
           WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          ESCAPED_TITLE=$(echo "$PR_TITLE" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
-          ESCAPED_AUTHOR=$(echo "$AUTHOR" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
-          ESCAPED_REPO=$(echo "$REPO" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_NUMBER=${{ github.event.pull_request.number }}
+            PR_TITLE="${{ github.event.pull_request.title }}"
+            AUTHOR="${{ github.event.pull_request.user.login }}"
+            
+            ESCAPED_TITLE=$(echo "$PR_TITLE" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
+            ESCAPED_AUTHOR=$(echo "$AUTHOR" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
+            ESCAPED_REPO=$(echo "$REPO" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
 
-          MSG=$(printf '%s\n' \
-            "🚀 *Preview ready for PR \\#$PR_NUMBER in $ESCAPED_REPO*" \
-            "" \
-            "*Title:* $ESCAPED_TITLE" \
-            "*Author:* $ESCAPED_AUTHOR" \
-            "" \
-            "*Live Preview:* [Open Preview]($PREVIEW_URL)" \
-            "*Workflow:* [View Run]($WORKFLOW_URL)" \
-            "⏳ *This preview will expire in ${TIMEOUT_MINUTES} minutes\.*" \
-            "" \
-            "[View on GitHub](https://github.com/$REPO/pull/$PR_NUMBER)"
-          )
+            MSG=$(printf '%s\n' \
+              "🚀 *Preview ready for PR \\#$PR_NUMBER in $ESCAPED_REPO*" \
+              "" \
+              "*Title:* $ESCAPED_TITLE" \
+              "*Author:* $ESCAPED_AUTHOR" \
+              "" \
+              "*Live Preview:* [Open Preview]($PREVIEW_URL)" \
+              "*Workflow:* [View Run]($WORKFLOW_URL)" \
+              "⏳ *This preview will expire in ${TIMEOUT_MINUTES} minutes\.*" \
+              "" \
+              "[View on GitHub](https://github.com/$REPO/pull/$PR_NUMBER)"
+            )
+          else
+            # Manual dispatch
+            BRANCH_NAME="${{ github.ref_name }}"
+            ACTOR="${{ github.actor }}"
+            
+            ESCAPED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
+            ESCAPED_ACTOR=$(echo "$ACTOR" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
+            ESCAPED_REPO=$(echo "$REPO" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
+
+            MSG=$(printf '%s\n' \
+              "🚀 *Manual preview deployed for $ESCAPED_REPO*" \
+              "" \
+              "*Branch:* $ESCAPED_BRANCH" \
+              "*Triggered by:* $ESCAPED_ACTOR" \
+              "" \
+              "*Live Preview:* [Open Preview]($PREVIEW_URL)" \
+              "*Workflow:* [View Run]($WORKFLOW_URL)" \
+              "⏳ *This preview will expire in ${TIMEOUT_MINUTES} minutes\.*"
+            )
+          fi
 
           curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
             -d "chat_id=$CHAT_ID" \
