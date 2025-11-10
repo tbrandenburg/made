@@ -59,7 +59,7 @@ test.describe('MADE journeys', () => {
   test('welcome and dashboard overview', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Mobile Agentic Development Environment' })).toBeVisible();
-    await page.getByRole('link', { name: /^Dashboard/ }).click();
+    await page.locator('.panel-grid').getByRole('link', { name: /Dashboard/ }).click();
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByText('Project Count')).toBeVisible();
     await expect(page.getByText('1')).toBeVisible();
@@ -71,9 +71,11 @@ test.describe('MADE journeys', () => {
     await expect(page.getByText('demo-project')).toBeVisible();
     await page.getByRole('link', { name: /^demo-project/ }).click();
     await expect(page.getByRole('heading', { name: 'Repository: demo-project' })).toBeVisible();
+    await page.getByRole('button', { name: 'File Browser' }).click();
     await expect(page.getByRole('button', { name: 'Create File' })).toBeVisible();
     await page.getByRole('button', { name: 'Publishment' }).click();
     await page.getByRole('button', { name: 'Create Pull Request' }).click();
+    await page.getByRole('button', { name: 'Agent' }).click();
     await expect(page.getByPlaceholder('Describe the change or ask the agent...')).toBeVisible();
   });
 });
