@@ -126,8 +126,6 @@ npm run test:watch
 npm run lint
 ```
 
-CI: Node.js ![CI Status](https://img.shields.io/badge/status-passing-green.svg)
-
 Testing follows the pyramid approach:
 - **Unit Tests** - Core business logic and services
 - **Integration Tests** - API endpoints and database interactions  
@@ -156,7 +154,6 @@ npm test && npm run test:e2e
 
 ## License
 
-![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)  
 This project is licensed under the MIT License — see the [LICENSE](./LICENSE) file for details.
 
 ## Security
