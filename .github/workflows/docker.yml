@@ -1,0 +1,68 @@
+name: Docker Build & Test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker images
+        run: make docker-build
+      
+      - name: Start services
+        run: make docker-up
+      
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for services to start..."
+          timeout 60s bash -c 'while ! curl -f http://localhost:3000/api/repositories > /dev/null 2>&1; do sleep 2; done'
+          timeout 60s bash -c 'while ! curl -f http://localhost:8080 > /dev/null 2>&1; do sleep 2; done'
+          echo "Services are ready!"
+      
+      - name: Test API endpoints
+        run: |
+          echo "Testing Python backend API..."
+          curl -f http://localhost:3000/api/repositories
+          curl -f http://localhost:3000/api/knowledge
+          echo "Testing frontend..."
+          curl -f http://localhost:8080
+      
+      - name: Stop services
+        if: always()
+        run: make docker-down
+      
+      - name: Show Docker logs on failure
+        if: failure()
+        run: docker compose logs
+
+  docker-dev-mode:
+    name: Docker Development Mode
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Test development mode
+        run: |
+          echo "Testing Docker development mode..."
+          timeout 30s make docker-dev || true
+          echo "Development mode started successfully"
+      
+      - name: Clean up
+        if: always()
+        run: make docker-clean

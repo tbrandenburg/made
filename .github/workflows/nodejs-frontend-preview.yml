@@ -63,31 +63,51 @@ jobs:
           echo "frontend_dir=$dir" >> $GITHUB_OUTPUT
           echo "frontend_found=true" >> $GITHUB_OUTPUT
 
+      - name: Set up Python
+        if: ${{ steps.detect.outputs.frontend_found == 'true' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install UV
+        if: ${{ steps.detect.outputs.frontend_found == 'true' }}
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      
       - name: Install dependencies
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
-        working-directory: ${{ steps.detect.outputs.frontend_dir }}
-        run: npm install
+        run: make install
 
-      - name: Start dev server and wait until ready
+      - name: Start MADE services (frontend + backend)
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
-        working-directory: ${{ steps.detect.outputs.frontend_dir }}
         run: |
-          echo "🚀 Starting Vite dev server..."
-
-          # Run Vite in background
-          nohup npm run dev > server.log 2>&1 &
+          echo "🚀 Starting MADE services with make run..."
           
-          echo "⏳ Waiting for dev server to become available..."
+          # Start both frontend and backend using make run
+          nohup make run > services.log 2>&1 &
+          SERVICES_PID=$!
+          echo "Services started with PID $SERVICES_PID"
+          
+          echo "⏳ Waiting for services to become available..."
+          # Wait for backend API
           for i in {1..30}; do
-            if nc -z localhost 5173 2>/dev/null || nc -z localhost 3000 2>/dev/null || nc -z localhost 8080 2>/dev/null; then
-              echo "✅ Dev server is ready and externally accessible."
+            if curl -f http://localhost:3000/api/repositories > /dev/null 2>&1; then
+              echo "✅ Backend API is ready on port 3000"
+              break
+            fi
+            sleep 3
+          done
+          
+          # Wait for frontend
+          for i in {1..30}; do
+            if nc -z localhost 5173 2>/dev/null; then
+              echo "✅ Frontend is ready on port 5173"
               break
             fi
             sleep 2
           done
-
-          echo "🔍 Last few lines of server.log:"
-          tail -n 15 server.log || true
+          
+          echo "🔍 Last few lines of services.log:"
+          tail -n 15 services.log || true
 
       - name: Start ngrok tunnel (v4 CLI, verbose)
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
@@ -98,22 +118,43 @@ jobs:
           echo "🌐 Establishing ngrok tunnel (v4, verbose mode enabled)..."
           echo "🔑 Using NGROK_AUTHTOKEN from environment (not stored on disk)."
 
-          echo "🔎 Checking for active dev server..."
-          for port in 5173 3000 8080; do
-            echo "   Testing port $port..."
-            if nc -z localhost $port; then
-              target_port=$port
-              echo "✅ Detected running dev server on port $target_port"
-              break
-            fi
-          done
+          echo "🔎 Checking for active services..."
+          frontend_ready=false
+          backend_ready=false
+          
+          # Check frontend (primary target for preview)
+          if nc -z localhost 5173; then
+            frontend_ready=true
+            target_port=5173
+            echo "✅ Frontend detected on port 5173 (primary target)"
+          fi
+          
+          # Check backend API
+          if nc -z localhost 3000; then
+            backend_ready=true
+            echo "✅ Backend API detected on port 3000"
+          fi
+          
+          # Fallback to other common ports if frontend not found
+          if [ "$frontend_ready" = false ]; then
+            for port in 3000 8080; do
+              echo "   Testing fallback port $port..."
+              if nc -z localhost $port; then
+                target_port=$port
+                echo "✅ Detected service on fallback port $target_port"
+                break
+              fi
+            done
+          fi
 
           if [ -z "$target_port" ]; then
-            echo "❌ Could not detect an active dev server on common ports (5173, 3000, 8080)."
-            echo "🪵 Showing last 20 lines of server.log (if exists):"
-            tail -n 20 ${{ steps.detect.outputs.frontend_dir }}/server.log || true
+            echo "❌ Could not detect active services on ports (5173, 3000, 8080)."
+            echo "🪵 Showing last 20 lines of services.log:"
+            tail -n 20 services.log || true
             exit 1
           fi
+          
+          echo "🎯 Using port $target_port for preview (frontend: $frontend_ready, backend: $backend_ready)"
 
           echo "🚀 Starting ngrok for port $target_port (v4 CLI)..."
           ngrok version
