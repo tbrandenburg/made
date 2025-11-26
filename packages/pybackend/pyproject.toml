@@ -14,6 +14,9 @@ dependencies = [
   "httpx>=0.24.0",
 ]
 
+[project.scripts]
+made-backend = "app:main"
+
 [build-system]
 requires = ["hatchling>=1.21"]
 build-backend = "hatchling.build"

@@ -24,3 +24,11 @@ def ensure_made_structure() -> Path:
     ensure_directory(made_dir / "knowledge")
     ensure_directory(made_dir / "constitutions")
     return made_dir
+
+
+def get_backend_host() -> str:
+    return os.environ.get("MADE_BACKEND_HOST", "0.0.0.0")
+
+
+def get_backend_port() -> int:
+    return int(os.environ.get("MADE_BACKEND_PORT", 3000))

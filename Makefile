@@ -77,7 +77,7 @@ system-test:
 	@echo "🚀 Starting services for system tests..."
 	@MADE_HOME=$(PWD)/workspace MADE_WORKSPACE_HOME=$(PWD)/workspace npm --workspace packages/frontend run dev -- --host 127.0.0.1 --port 5173 > frontend-test.log 2>&1 & \
 	FRONTEND_PID=$$!; \
-	cd $(PYBACKEND_DIR) && MADE_HOME=$(PWD)/../workspace MADE_WORKSPACE_HOME=$(PWD)/../workspace uv run uvicorn app:app --host 127.0.0.1 --port 3000 > ../backend-test.log 2>&1 & \
+	cd $(PYBACKEND_DIR) && MADE_HOME=$(PWD)/../workspace MADE_WORKSPACE_HOME=$(PWD)/../workspace MADE_BACKEND_HOST=127.0.0.1 MADE_BACKEND_PORT=3000 uv run made-backend > ../backend-test.log 2>&1 & \
 	BACKEND_PID=$$!; \
 	trap 'echo "🛑 Stopping test services..."; kill $$FRONTEND_PID $$BACKEND_PID 2>/dev/null || true; wait' EXIT INT TERM; \
 	echo "⏳ Waiting for services to be ready..."; \
@@ -132,12 +132,24 @@ run:
 	@echo "  📁 MADE_WORKSPACE_HOME: $(PWD)/workspace"
 	@echo ""
 	@echo "🔧 Starting Python backend..."
-	@cd $(PYBACKEND_DIR) && MADE_HOME=$(PWD)/workspace MADE_WORKSPACE_HOME=$(PWD)/workspace uv run uvicorn app:app --host $(HOST) --port $(PORT) & \
+	@cd $(PYBACKEND_DIR) && MADE_HOME=$(PWD)/workspace MADE_WORKSPACE_HOME=$(PWD)/workspace MADE_BACKEND_HOST=$(HOST) MADE_BACKEND_PORT=$(PORT) uv run made-backend & \
 	BACKEND_PID=$$!; \
 	sleep 2; \
 	echo "✅ Backend started (PID $$BACKEND_PID)"; \
 	echo "🔧 Starting frontend..."; \
-	trap 'echo ""; echo "⏹️  Stopping services..."; echo "  🛑 Stopping backend (PID $$BACKEND_PID)..."; kill $$BACKEND_PID 2>/dev/null || true; echo "  🛑 Stopping frontend..."; sleep 1; echo "✅ All services stopped"; exit 0' EXIT INT TERM; \
+	cleanup() { \
+		if [ "$$CLEANUP_DONE" != "1" ]; then \
+			export CLEANUP_DONE=1; \
+			echo ""; \
+			echo "⏹️  Stopping services..."; \
+			echo "  🛑 Stopping backend (PID $$BACKEND_PID)..."; \
+			kill $$BACKEND_PID 2>/dev/null || true; \
+			echo "  🛑 Stopping frontend..."; \
+			sleep 1; \
+			echo "✅ All services stopped"; \
+		fi; \
+	}; \
+	trap cleanup EXIT INT TERM; \
 	npm --workspace packages/frontend run dev -- --host $(HOST) --port $(FRONTEND_PORT)
 
 # Maintenance Tasks

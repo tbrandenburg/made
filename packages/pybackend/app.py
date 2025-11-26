@@ -27,7 +27,7 @@ from repository_service import (
     write_repository_file,
 )
 from settings_service import read_settings, write_settings
-from config import ensure_made_structure, get_made_directory, get_workspace_home
+from config import ensure_made_structure, get_made_directory, get_workspace_home, get_backend_host, get_backend_port
 
 app = FastAPI(title="MADE Python Backend")
 app.add_middleware(
@@ -288,13 +288,20 @@ def bootstrap():
 
 def start():
     import uvicorn
-
+    
     uvicorn.run(
-        "packages.pybackend.app:app",
-        host="0.0.0.0",
-        port=int(os.environ.get("PORT", 3000)),
+        "app:app",
+        host=get_backend_host(), 
+        port=get_backend_port(),
     )
 
 
-if __name__ == "__main__":
+def main():
+    """Entry point for the made-backend script."""
+    # Ensure MADE directory structure exists
+    ensure_made_structure()
     start()
+
+
+if __name__ == "__main__":
+    main()
