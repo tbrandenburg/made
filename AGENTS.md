@@ -36,7 +36,9 @@ Focus on lightweight, fast feedback — only essential tests are included.
 - [ ] **Unit Tests** — Cover core React components and utilities.
 - [ ] **Integration Tests** — Check that essential API calls work.
 - [ ] **System Tests** — Test main user flows with Playwright
-- [ ] **Smoke Tests** — Confirm app starts### 🐳 Dockerized Testing Checklist
+- [ ] **Smoke Tests** — Confirm app starts
+
+### 🐳 Dockerized Testing Checklist
 *Note: Use these tests only if you plan to containerize the application with Docker.*
 - [ ] **Component Tests** — Ensure each container builds and starts without errors.  
 - [ ] **Smoke Tests** — Run full stack with `docker-compose up --build -d`.  
