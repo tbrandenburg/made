@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { marked } from "marked";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
@@ -393,7 +394,14 @@ export const RepositoryPage: React.FC = () => {
             />
           </Panel>
           <Panel title="Preview">
-            <pre className="preview">{editorContent}</pre>
+            {selectedFile?.endsWith('.md') ? (
+              <div
+                className="markdown"
+                dangerouslySetInnerHTML={{ __html: marked(editorContent || "") }}
+              />
+            ) : (
+              <pre className="preview">{editorContent}</pre>
+            )}
           </Panel>
         </div>
       ),

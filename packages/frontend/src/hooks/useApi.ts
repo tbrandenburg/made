@@ -37,6 +37,8 @@ export const api = {
       projectCount: number;
       agentConnection: boolean;
       repositories: RepositorySummary[];
+      madeHome: string;
+      workspaceHome: string;
     }>("/dashboard"),
   listRepositories: () =>
     request<{ repositories: RepositorySummary[] }>("/repositories"),

@@ -7,6 +7,8 @@ import "../styles/page.css";
 type DashboardData = {
   projectCount: number;
   agentConnection: boolean;
+  madeHome: string;
+  workspaceHome: string;
 };
 
 export const DashboardPage: React.FC = () => {
@@ -20,6 +22,8 @@ export const DashboardPage: React.FC = () => {
         setData({
           projectCount: res.projectCount,
           agentConnection: res.agentConnection,
+          madeHome: res.madeHome,
+          workspaceHome: res.workspaceHome,
         }),
       )
       .catch((error) => console.error("Failed to load dashboard", error));
@@ -47,6 +51,12 @@ export const DashboardPage: React.FC = () => {
                       ? "Connection established"
                       : "Connection lost"}
                   </div>
+                </Panel>
+                <Panel title="MADE Home">
+                  <div className="path-info">{data?.madeHome ?? "—"}</div>
+                </Panel>
+                <Panel title="Workspace Home">
+                  <div className="path-info">{data?.workspaceHome ?? "—"}</div>
                 </Panel>
               </div>
             ),
