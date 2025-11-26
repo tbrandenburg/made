@@ -1,7 +1,7 @@
 from pathlib import Path
 import frontmatter
 
-from .config import ensure_made_structure
+from config import ensure_made_structure
 
 
 def get_constitution_directory() -> Path:

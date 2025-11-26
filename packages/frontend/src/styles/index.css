@@ -12,7 +12,13 @@
   --warning: #f59e0b;
   --danger: #ef4444;
   --shadow: 0 20px 45px rgba(15, 22, 40, 0.12);
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   background-color: var(--bg);
   color: var(--text);
 }
@@ -44,8 +50,10 @@ body,
 }
 
 body {
-  background: radial-gradient(circle at top, rgba(96, 165, 250, 0.15), transparent),
-    radial-gradient(circle at bottom, rgba(56, 189, 248, 0.1), transparent), var(--bg);
+  background:
+    radial-gradient(circle at top, rgba(96, 165, 250, 0.15), transparent),
+    radial-gradient(circle at bottom, rgba(56, 189, 248, 0.1), transparent),
+    var(--bg);
   transition: background 0.5s ease;
 }
 
@@ -225,7 +233,7 @@ textarea {
 
 .editor-input {
   min-height: 320px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
   background: var(--surface);
   border-radius: 1rem;
   border: 1px solid var(--border);

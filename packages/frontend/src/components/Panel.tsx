@@ -1,6 +1,6 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import '../styles/panel.css';
+import React from "react";
+import { Link } from "react-router-dom";
+import "../styles/panel.css";
 
 interface PanelProps {
   title?: string;
@@ -10,7 +10,13 @@ interface PanelProps {
   onClick?: React.MouseEventHandler<HTMLElement>;
 }
 
-export const Panel: React.FC<PanelProps> = ({ title, actions, children, to, onClick }) => {
+export const Panel: React.FC<PanelProps> = ({
+  title,
+  actions,
+  children,
+  to,
+  onClick,
+}) => {
   const content = (
     <>
       {(title || actions) && (

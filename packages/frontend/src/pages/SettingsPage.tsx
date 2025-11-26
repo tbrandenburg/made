@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { Panel } from '../components/Panel';
-import { TabView } from '../components/TabView';
-import { api } from '../hooks/useApi';
-import '../styles/page.css';
+import React, { useEffect, useState } from "react";
+import { Panel } from "../components/Panel";
+import { TabView } from "../components/TabView";
+import { api } from "../hooks/useApi";
+import "../styles/page.css";
 
 type SettingsMap = Record<string, unknown>;
 
 export const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SettingsMap>({});
-  const [activeTab, setActiveTab] = useState('settings');
+  const [activeTab, setActiveTab] = useState("settings");
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => {
@@ -16,8 +16,8 @@ export const SettingsPage: React.FC = () => {
       .getSettings()
       .then((data) => setSettings(data))
       .catch((error) => {
-        console.error('Failed to load settings', error);
-        setStatus('Failed to load settings');
+        console.error("Failed to load settings", error);
+        setStatus("Failed to load settings");
       });
   }, []);
 
@@ -28,10 +28,10 @@ export const SettingsPage: React.FC = () => {
   const handleSave = async () => {
     try {
       await api.saveSettings(settings);
-      setStatus('Settings saved');
+      setStatus("Settings saved");
     } catch (error) {
-      console.error('Failed to save settings', error);
-      setStatus('Save failed');
+      console.error("Failed to save settings", error);
+      setStatus("Save failed");
     }
   };
 
@@ -42,8 +42,8 @@ export const SettingsPage: React.FC = () => {
       <TabView
         tabs={[
           {
-            id: 'settings',
-            label: 'Settings',
+            id: "settings",
+            label: "Settings",
             content: (
               <Panel
                 title="Configuration"
@@ -59,16 +59,20 @@ export const SettingsPage: React.FC = () => {
                       <label htmlFor={`setting-${key}`}>{key}</label>
                       <input
                         id={`setting-${key}`}
-                        value={String(value ?? '')}
-                        onChange={(event) => handleChange(key, event.target.value)}
+                        value={String(value ?? "")}
+                        onChange={(event) =>
+                          handleChange(key, event.target.value)
+                        }
                       />
                     </div>
                   ))}
-                  {Object.keys(settings).length === 0 && <div className="empty">No settings available.</div>}
+                  {Object.keys(settings).length === 0 && (
+                    <div className="empty">No settings available.</div>
+                  )}
                 </div>
               </Panel>
-            )
-          }
+            ),
+          },
         ]}
         activeTab={activeTab}
         onTabChange={setActiveTab}

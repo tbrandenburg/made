@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { marked } from 'marked';
-import { Panel } from '../components/Panel';
-import { TabView } from '../components/TabView';
-import { api } from '../hooks/useApi';
-import '../styles/page.css';
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { marked } from "marked";
+import { Panel } from "../components/Panel";
+import { TabView } from "../components/TabView";
+import { api } from "../hooks/useApi";
+import "../styles/page.css";
 
 interface ChatMessage {
   id: string;
-  role: 'user' | 'agent';
+  role: "user" | "agent";
   text: string;
   timestamp: string;
 }
@@ -16,27 +16,27 @@ interface ChatMessage {
 export const ConstitutionPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('content');
+  const [activeTab, setActiveTab] = useState("content");
   const [frontmatter, setFrontmatter] = useState<Record<string, unknown>>({});
-  const [content, setContent] = useState('');
+  const [content, setContent] = useState("");
   const [chat, setChat] = useState<ChatMessage[]>([]);
-  const [prompt, setPrompt] = useState('');
+  const [prompt, setPrompt] = useState("");
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (!name) {
-      navigate('/constitutions');
+      navigate("/constitutions");
       return;
     }
     api
       .getConstitution(name)
       .then((data) => {
         setFrontmatter(data.frontmatter ?? data.data ?? {});
-        setContent(data.content ?? '');
+        setContent(data.content ?? "");
       })
       .catch((error) => {
-        console.error('Failed to load constitution', error);
-        setStatus('Failed to load constitution');
+        console.error("Failed to load constitution", error);
+        setStatus("Failed to load constitution");
       });
   }, [name, navigate]);
 
@@ -44,34 +44,39 @@ export const ConstitutionPage: React.FC = () => {
     if (!name) return;
     try {
       await api.saveConstitution(name, { content, frontmatter });
-      setStatus('Saved successfully');
+      setStatus("Saved successfully");
     } catch (error) {
-      console.error('Failed to save constitution', error);
-      setStatus('Save failed');
+      console.error("Failed to save constitution", error);
+      setStatus("Save failed");
     }
   };
 
   const handleSend = async () => {
     if (!name || !prompt.trim()) return;
     const timestamp = new Date().toISOString();
-    const userMessage: ChatMessage = { id: `${timestamp}-user`, role: 'user', text: prompt.trim(), timestamp };
+    const userMessage: ChatMessage = {
+      id: `${timestamp}-user`,
+      role: "user",
+      text: prompt.trim(),
+      timestamp,
+    };
     setChat((prev) => [...prev, userMessage]);
-    setPrompt('');
+    setPrompt("");
     try {
       const reply = await api.sendConstitutionAgent(name, userMessage.text);
       setChat((prev) => [
         ...prev,
         {
           id: reply.messageId,
-          role: 'agent',
+          role: "agent",
           text: reply.response,
-          timestamp: reply.sent
-        }
+          timestamp: reply.sent,
+        },
       ]);
-      setActiveTab('agent');
+      setActiveTab("agent");
     } catch (error) {
-      console.error('Failed to contact agent', error);
-      setStatus('Agent unavailable');
+      console.error("Failed to contact agent", error);
+      setStatus("Agent unavailable");
     }
   };
 
@@ -82,8 +87,8 @@ export const ConstitutionPage: React.FC = () => {
       <TabView
         tabs={[
           {
-            id: 'content',
-            label: 'Content',
+            id: "content",
+            label: "Content",
             content: (
               <div className="artefact-grid">
                 <Panel
@@ -98,8 +103,13 @@ export const ConstitutionPage: React.FC = () => {
                     <label htmlFor="constitution-type">Type</label>
                     <select
                       id="constitution-type"
-                      value={(frontmatter.type as string) || 'global'}
-                      onChange={(event) => setFrontmatter({ ...frontmatter, type: event.target.value })}
+                      value={(frontmatter.type as string) || "global"}
+                      onChange={(event) =>
+                        setFrontmatter({
+                          ...frontmatter,
+                          type: event.target.value,
+                        })
+                      }
                     >
                       <option value="global">Global</option>
                       <option value="project">Project</option>
@@ -114,24 +124,36 @@ export const ConstitutionPage: React.FC = () => {
                   />
                 </Panel>
                 <Panel title="Preview">
-                  <div className="markdown" dangerouslySetInnerHTML={{ __html: marked(content || '') }} />
+                  <div
+                    className="markdown"
+                    dangerouslySetInnerHTML={{ __html: marked(content || "") }}
+                  />
                 </Panel>
               </div>
-            )
+            ),
           },
           {
-            id: 'agent',
-            label: 'Agent',
+            id: "agent",
+            label: "Agent",
             content: (
               <Panel title="Agent Conversation">
                 <div className="chat-window">
                   {chat.map((message) => (
-                    <div key={message.id} className={`chat-message ${message.role}`}>
-                      <div className="chat-meta">{new Date(message.timestamp).toLocaleString()}</div>
+                    <div
+                      key={message.id}
+                      className={`chat-message ${message.role}`}
+                    >
+                      <div className="chat-meta">
+                        {new Date(message.timestamp).toLocaleString()}
+                      </div>
                       <pre>{message.text}</pre>
                     </div>
                   ))}
-                  {chat.length === 0 && <div className="empty">Engage agents to adapt the constitution.</div>}
+                  {chat.length === 0 && (
+                    <div className="empty">
+                      Engage agents to adapt the constitution.
+                    </div>
+                  )}
                 </div>
                 <textarea
                   value={prompt}
@@ -144,8 +166,8 @@ export const ConstitutionPage: React.FC = () => {
                   </button>
                 </div>
               </Panel>
-            )
-          }
+            ),
+          },
         ]}
         activeTab={activeTab}
         onTabChange={setActiveTab}

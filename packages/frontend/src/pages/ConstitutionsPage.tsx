@@ -1,23 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { api, ArtefactSummary } from '../hooks/useApi';
-import { Panel } from '../components/Panel';
-import { TabView } from '../components/TabView';
-import { Modal } from '../components/Modal';
-import '../styles/page.css';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api, ArtefactSummary } from "../hooks/useApi";
+import { Panel } from "../components/Panel";
+import { TabView } from "../components/TabView";
+import { Modal } from "../components/Modal";
+import "../styles/page.css";
 
 export const ConstitutionsPage: React.FC = () => {
   const [constitutions, setConstitutions] = useState<ArtefactSummary[]>([]);
-  const [activeTab, setActiveTab] = useState('constitutions');
+  const [activeTab, setActiveTab] = useState("constitutions");
   const [createOpen, setCreateOpen] = useState(false);
-  const [newName, setNewName] = useState('');
+  const [newName, setNewName] = useState("");
   const navigate = useNavigate();
 
   const loadConstitutions = () => {
     api
       .listConstitutions()
       .then((res) => setConstitutions(res.constitutions))
-      .catch((error) => console.error('Failed to load constitutions', error));
+      .catch((error) => console.error("Failed to load constitutions", error));
   };
 
   useEffect(() => {
@@ -26,13 +26,15 @@ export const ConstitutionsPage: React.FC = () => {
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
-    const filename = newName.trim().endsWith('.md') ? newName.trim() : `${newName.trim()}.md`;
+    const filename = newName.trim().endsWith(".md")
+      ? newName.trim()
+      : `${newName.trim()}.md`;
     await api.saveConstitution(filename, {
-      content: '# New Constitution\n',
-      frontmatter: { type: 'global' }
+      content: "# New Constitution\n",
+      frontmatter: { type: "global" },
     });
     setCreateOpen(false);
-    setNewName('');
+    setNewName("");
     loadConstitutions();
     navigate(`/constitutions/${filename}`);
   };
@@ -43,36 +45,51 @@ export const ConstitutionsPage: React.FC = () => {
       <TabView
         tabs={[
           {
-            id: 'constitutions',
-            label: 'Constitutions',
+            id: "constitutions",
+            label: "Constitutions",
             content: (
               <>
                 <div className="button-bar">
-                  <button className="primary" onClick={() => setCreateOpen(true)}>
+                  <button
+                    className="primary"
+                    onClick={() => setCreateOpen(true)}
+                  >
                     Create Constitution
                   </button>
                 </div>
                 <div className="panel-column">
                   {constitutions.map((constitution) => (
-                    <Panel key={constitution.name} title={constitution.name} to={`/constitutions/${constitution.name}`}>
+                    <Panel
+                      key={constitution.name}
+                      title={constitution.name}
+                      to={`/constitutions/${constitution.name}`}
+                    >
                       <div className="metadata">
-                        {typeof constitution.frontmatter?.type === 'string' && (
-                          <span className="badge">{String(constitution.frontmatter.type)}</span>
+                        {typeof constitution.frontmatter?.type === "string" && (
+                          <span className="badge">
+                            {String(constitution.frontmatter.type)}
+                          </span>
                         )}
                       </div>
                     </Panel>
                   ))}
-                  {constitutions.length === 0 && <div className="empty">No constitutions available.</div>}
+                  {constitutions.length === 0 && (
+                    <div className="empty">No constitutions available.</div>
+                  )}
                 </div>
               </>
-            )
-          }
+            ),
+          },
         ]}
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />
 
-      <Modal open={createOpen} title="Create Constitution" onClose={() => setCreateOpen(false)}>
+      <Modal
+        open={createOpen}
+        title="Create Constitution"
+        onClose={() => setCreateOpen(false)}
+      >
         <div className="form-group">
           <label htmlFor="constitution-name">File name</label>
           <input

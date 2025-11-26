@@ -1,18 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
-import { ThemeProvider } from './context/ThemeContext';
-import { TopBar } from './components/TopBar';
-import { Sidebar } from './components/Sidebar';
-import { HomePage } from './pages/HomePage';
-import { DashboardPage } from './pages/DashboardPage';
-import { RepositoriesPage } from './pages/RepositoriesPage';
-import { RepositoryPage } from './pages/RepositoryPage';
-import { KnowledgePage } from './pages/KnowledgePage';
-import { KnowledgeArtefactPage } from './pages/KnowledgeArtefactPage';
-import { ConstitutionsPage } from './pages/ConstitutionsPage';
-import { ConstitutionPage } from './pages/ConstitutionPage';
-import { SettingsPage } from './pages/SettingsPage';
-import './styles/layout.css';
+import React, { useEffect, useState } from "react";
+import { Routes, Route, useLocation } from "react-router-dom";
+import { ThemeProvider } from "./context/ThemeContext";
+import { TopBar } from "./components/TopBar";
+import { Sidebar } from "./components/Sidebar";
+import { HomePage } from "./pages/HomePage";
+import { DashboardPage } from "./pages/DashboardPage";
+import { RepositoriesPage } from "./pages/RepositoriesPage";
+import { RepositoryPage } from "./pages/RepositoryPage";
+import { KnowledgePage } from "./pages/KnowledgePage";
+import { KnowledgeArtefactPage } from "./pages/KnowledgeArtefactPage";
+import { ConstitutionsPage } from "./pages/ConstitutionsPage";
+import { ConstitutionPage } from "./pages/ConstitutionPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import "./styles/layout.css";
 
 const AppShell: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -28,8 +28,8 @@ const AppShell: React.FC = () => {
         setSidebarOpen(false);
       }
     };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   useEffect(() => {
@@ -39,7 +39,10 @@ const AppShell: React.FC = () => {
   return (
     <div className="app-shell">
       <TopBar onToggleSidebar={() => setSidebarOpen((open) => !open)} />
-      <Sidebar open={sidebarOpen} onNavigate={() => window.innerWidth < 1024 && setSidebarOpen(false)} />
+      <Sidebar
+        open={sidebarOpen}
+        onNavigate={() => window.innerWidth < 1024 && setSidebarOpen(false)}
+      />
       <main className="app-content">
         <Routes>
           <Route path="/" element={<HomePage />} />

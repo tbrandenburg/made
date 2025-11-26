@@ -4,11 +4,11 @@ import {
   CpuChipIcon,
   HomeModernIcon,
   RectangleGroupIcon,
-  Squares2X2Icon
-} from '@heroicons/react/24/outline';
-import React from 'react';
-import { NavLink } from 'react-router-dom';
-import '../styles/sidebar.css';
+  Squares2X2Icon,
+} from "@heroicons/react/24/outline";
+import React from "react";
+import { NavLink } from "react-router-dom";
+import "../styles/sidebar.css";
 
 type MenuItem = {
   path: string;
@@ -17,12 +17,12 @@ type MenuItem = {
 };
 
 const MENU_ITEMS: MenuItem[] = [
-  { path: '/', label: 'Homepage', icon: HomeModernIcon },
-  { path: '/dashboard', label: 'Dashboard', icon: Squares2X2Icon },
-  { path: '/repositories', label: 'Repositories', icon: RectangleGroupIcon },
-  { path: '/knowledge', label: 'Knowledge Base', icon: BookOpenIcon },
-  { path: '/constitutions', label: 'Constitution', icon: CpuChipIcon },
-  { path: '/settings', label: 'Settings', icon: AdjustmentsHorizontalIcon }
+  { path: "/", label: "Homepage", icon: HomeModernIcon },
+  { path: "/dashboard", label: "Dashboard", icon: Squares2X2Icon },
+  { path: "/repositories", label: "Repositories", icon: RectangleGroupIcon },
+  { path: "/knowledge", label: "Knowledge Base", icon: BookOpenIcon },
+  { path: "/constitutions", label: "Constitution", icon: CpuChipIcon },
+  { path: "/settings", label: "Settings", icon: AdjustmentsHorizontalIcon },
 ];
 
 interface SidebarProps {
@@ -32,7 +32,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ open, onNavigate }) => {
   return (
-    <nav className={`sidebar ${open ? 'open' : ''}`}>
+    <nav className={`sidebar ${open ? "open" : ""}`}>
       <div className="sidebar-header">MADE</div>
       <ul>
         {MENU_ITEMS.map((item) => {
@@ -41,7 +41,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onNavigate }) => {
             <li key={item.path}>
               <NavLink
                 to={item.path}
-                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                className={({ isActive }) =>
+                  `nav-link ${isActive ? "active" : ""}`
+                }
                 onClick={onNavigate}
               >
                 <Icon />

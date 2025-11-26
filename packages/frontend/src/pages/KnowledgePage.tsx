@@ -1,24 +1,24 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { api, ArtefactSummary } from '../hooks/useApi';
-import { Panel } from '../components/Panel';
-import { TabView } from '../components/TabView';
-import { Modal } from '../components/Modal';
-import '../styles/page.css';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api, ArtefactSummary } from "../hooks/useApi";
+import { Panel } from "../components/Panel";
+import { TabView } from "../components/TabView";
+import { Modal } from "../components/Modal";
+import "../styles/page.css";
 
 export const KnowledgePage: React.FC = () => {
   const [artefacts, setArtefacts] = useState<ArtefactSummary[]>([]);
-  const [activeTab, setActiveTab] = useState('artefacts');
+  const [activeTab, setActiveTab] = useState("artefacts");
   const [createOpen, setCreateOpen] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newTags, setNewTags] = useState('');
+  const [newName, setNewName] = useState("");
+  const [newTags, setNewTags] = useState("");
   const navigate = useNavigate();
 
   const loadArtefacts = () => {
     api
       .listKnowledge()
       .then((res) => setArtefacts(res.artefacts))
-      .catch((error) => console.error('Failed to load artefacts', error));
+      .catch((error) => console.error("Failed to load artefacts", error));
   };
 
   useEffect(() => {
@@ -27,14 +27,19 @@ export const KnowledgePage: React.FC = () => {
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
-    const filename = newName.trim().endsWith('.md') ? newName.trim() : `${newName.trim()}.md`;
+    const filename = newName.trim().endsWith(".md")
+      ? newName.trim()
+      : `${newName.trim()}.md`;
     await api.saveKnowledge(filename, {
-      content: '# New Artefact\n',
-      frontmatter: { type: 'internal', tags: newTags ? newTags.split(',').map((tag) => tag.trim()) : [] }
+      content: "# New Artefact\n",
+      frontmatter: {
+        type: "internal",
+        tags: newTags ? newTags.split(",").map((tag) => tag.trim()) : [],
+      },
     });
     setCreateOpen(false);
-    setNewName('');
-    setNewTags('');
+    setNewName("");
+    setNewTags("");
     loadArtefacts();
     navigate(`/knowledge/${filename}`);
   };
@@ -45,37 +50,54 @@ export const KnowledgePage: React.FC = () => {
       <TabView
         tabs={[
           {
-            id: 'artefacts',
-            label: 'Artefacts',
+            id: "artefacts",
+            label: "Artefacts",
             content: (
               <>
                 <div className="button-bar">
-                  <button className="primary" onClick={() => setCreateOpen(true)}>
+                  <button
+                    className="primary"
+                    onClick={() => setCreateOpen(true)}
+                  >
                     Create Artefact
                   </button>
                 </div>
                 <div className="panel-column">
                   {artefacts.map((artefact) => (
-                    <Panel key={artefact.name} title={artefact.name} to={`/knowledge/${artefact.name}`}>
+                    <Panel
+                      key={artefact.name}
+                      title={artefact.name}
+                      to={`/knowledge/${artefact.name}`}
+                    >
                       <div className="metadata">
-                        <span className="badge">{artefact.type ?? 'internal'}</span>
+                        <span className="badge">
+                          {artefact.type ?? "internal"}
+                        </span>
                         {artefact.tags && artefact.tags.length > 0 && (
-                          <span className="badge">{artefact.tags.join(', ')}</span>
+                          <span className="badge">
+                            {artefact.tags.join(", ")}
+                          </span>
                         )}
                       </div>
                     </Panel>
                   ))}
-                  {artefacts.length === 0 && <div className="empty">No artefacts available.</div>}
+                  {artefacts.length === 0 && (
+                    <div className="empty">No artefacts available.</div>
+                  )}
                 </div>
               </>
-            )
-          }
+            ),
+          },
         ]}
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />
 
-      <Modal open={createOpen} title="Create Knowledge Artefact" onClose={() => setCreateOpen(false)}>
+      <Modal
+        open={createOpen}
+        title="Create Knowledge Artefact"
+        onClose={() => setCreateOpen(false)}
+      >
         <div className="form-group">
           <label htmlFor="artefact-name">File name</label>
           <input

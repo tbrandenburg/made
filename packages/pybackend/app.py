@@ -3,11 +3,19 @@ import os
 from fastapi import Body, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from .agent_service import send_agent_message
-from .constitution_service import list_constitutions, read_constitution, write_constitution
-from .dashboard_service import get_dashboard_summary
-from .knowledge_service import list_knowledge_artefacts, read_knowledge_artefact, write_knowledge_artefact
-from .repository_service import (
+from agent_service import send_agent_message
+from constitution_service import (
+    list_constitutions,
+    read_constitution,
+    write_constitution,
+)
+from dashboard_service import get_dashboard_summary
+from knowledge_service import (
+    list_knowledge_artefacts,
+    read_knowledge_artefact,
+    write_knowledge_artefact,
+)
+from repository_service import (
     create_repository,
     create_repository_file,
     delete_repository_file,
@@ -18,8 +26,8 @@ from .repository_service import (
     rename_repository_file,
     write_repository_file,
 )
-from .settings_service import read_settings, write_settings
-from .config import ensure_made_structure, get_made_directory, get_workspace_home
+from settings_service import read_settings, write_settings
+from config import ensure_made_structure, get_made_directory, get_workspace_home
 
 app = FastAPI(title="MADE Python Backend")
 app.add_middleware(
@@ -33,7 +41,11 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "workspace": str(get_workspace_home()), "made": str(get_made_directory())}
+    return {
+        "status": "ok",
+        "workspace": str(get_workspace_home()),
+        "made": str(get_made_directory()),
+    }
 
 
 @app.get("/api/dashboard")
@@ -41,7 +53,9 @@ def dashboard():
     try:
         return get_dashboard_summary()
     except Exception as exc:  # pragma: no cover - passthrough errors
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
 
 
 @app.get("/api/repositories")
@@ -49,14 +63,19 @@ def repositories():
     try:
         return {"repositories": list_repositories()}
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
 
 
 @app.post("/api/repositories", status_code=status.HTTP_201_CREATED)
 def create_repo(payload: dict = Body(...)):
     name = payload.get("name")
     if not name:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Repository name is required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Repository name is required",
+        )
     try:
         return create_repository(name)
     except ValueError as exc:
@@ -82,7 +101,9 @@ def repository_files(name: str):
 @app.get("/api/repositories/{name}/file")
 def read_repository_file_endpoint(name: str, path: str = Query(...)):
     if not path:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File path is required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File path is required"
+        )
     try:
         content = read_repository_file(name, path)
         return {"content": content}
@@ -94,7 +115,9 @@ def read_repository_file_endpoint(name: str, path: str = Query(...)):
 def write_repository_file_endpoint(name: str, payload: dict = Body(...)):
     file_path = payload.get("path")
     if not file_path:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File path is required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File path is required"
+        )
     try:
         write_repository_file(name, file_path, payload.get("content", ""))
         return {"success": True}
@@ -106,7 +129,9 @@ def write_repository_file_endpoint(name: str, payload: dict = Body(...)):
 def create_repository_file_endpoint(name: str, payload: dict = Body(...)):
     file_path = payload.get("path")
     if not file_path:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File path is required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File path is required"
+        )
     try:
         create_repository_file(name, file_path, payload.get("content", ""))
         return {"success": True}
@@ -119,7 +144,10 @@ def rename_repository_file_endpoint(name: str, payload: dict = Body(...)):
     old = payload.get("from")
     new = payload.get("to")
     if not old or not new:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Both from and to paths are required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Both from and to paths are required",
+        )
     try:
         rename_repository_file(name, old, new)
         return {"success": True}
@@ -131,7 +159,9 @@ def rename_repository_file_endpoint(name: str, payload: dict = Body(...)):
 def delete_repository_file_endpoint(name: str, payload: dict = Body(...)):
     file_path = payload.get("path")
     if not file_path:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File path is required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File path is required"
+        )
     try:
         delete_repository_file(name, file_path)
         return {"success": True}
@@ -143,7 +173,9 @@ def delete_repository_file_endpoint(name: str, payload: dict = Body(...)):
 def repository_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
     if not message:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
+        )
     return send_agent_message(name, message)
 
 
@@ -152,7 +184,9 @@ def knowledge_list():
     try:
         return {"artefacts": list_knowledge_artefacts()}
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
 
 
 @app.get("/api/knowledge/{name}")
@@ -166,7 +200,9 @@ def knowledge_item(name: str):
 @app.put("/api/knowledge/{name}")
 def knowledge_write(name: str, payload: dict = Body(...)):
     try:
-        write_knowledge_artefact(name, payload.get("frontmatter", {}), payload.get("content", ""))
+        write_knowledge_artefact(
+            name, payload.get("frontmatter", {}), payload.get("content", "")
+        )
         return {"success": True}
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
@@ -176,7 +212,9 @@ def knowledge_write(name: str, payload: dict = Body(...)):
 def knowledge_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
     if not message:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
+        )
     return send_agent_message(f"knowledge:{name}", message)
 
 
@@ -185,7 +223,9 @@ def constitutions():
     try:
         return {"constitutions": list_constitutions()}
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
 
 
 @app.get("/api/constitutions/{name}")
@@ -199,7 +239,9 @@ def constitution_item(name: str):
 @app.put("/api/constitutions/{name}")
 def constitution_write(name: str, payload: dict = Body(...)):
     try:
-        write_constitution(name, payload.get("frontmatter", {}), payload.get("content", ""))
+        write_constitution(
+            name, payload.get("frontmatter", {}), payload.get("content", "")
+        )
         return {"success": True}
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
@@ -209,7 +251,9 @@ def constitution_write(name: str, payload: dict = Body(...)):
 def constitution_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
     if not message:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
+        )
     return send_agent_message(f"constitution:{name}", message)
 
 
@@ -218,7 +262,9 @@ def settings_read():
     try:
         return read_settings()
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
 
 
 @app.put("/api/settings")
@@ -235,13 +281,19 @@ def bootstrap():
         ensure_made_structure()
         return {"success": True}
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
 
 
 def start():
     import uvicorn
 
-    uvicorn.run("packages.pybackend.app:app", host="0.0.0.0", port=int(os.environ.get("PORT", 3000)))
+    uvicorn.run(
+        "packages.pybackend.app:app",
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 3000)),
+    )
 
 
 if __name__ == "__main__":

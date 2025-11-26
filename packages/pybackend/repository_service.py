@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List, Union
 
-from .config import get_workspace_home
+from config import get_workspace_home
 
 
 FileNode = Dict[str, Union[str, int, List["FileNode"]]]
@@ -30,7 +30,9 @@ def list_directories(base_path: Path) -> List[str]:
     return [entry.name for entry in base_path.iterdir() if entry.is_dir()]
 
 
-def walk_for_extension(dir_path: Path, ext: str, depth: int = 0, max_depth: int = 3) -> bool:
+def walk_for_extension(
+    dir_path: Path, ext: str, depth: int = 0, max_depth: int = 3
+) -> bool:
     if depth > max_depth:
         return False
     for entry in dir_path.iterdir():
@@ -75,7 +77,11 @@ def get_license(repo_path: Path) -> str:
     for candidate in ["LICENSE", "LICENSE.md", "LICENSE.txt"]:
         license_path = repo_path / candidate
         if license_path.exists() and license_path.is_file():
-            first_line = license_path.read_text(encoding="utf-8", errors="ignore").split("\n")[0].strip()
+            first_line = (
+                license_path.read_text(encoding="utf-8", errors="ignore")
+                .split("\n")[0]
+                .strip()
+            )
             return first_line or license_path.name
     return "Unknown"
 
@@ -110,7 +116,12 @@ def create_repository(name: str) -> Dict[str, Union[str, bool, None]]:
         raise ValueError("Repository already exists")
     repo_path.mkdir(parents=True, exist_ok=False)
     try:
-        subprocess.check_call(["git", "init"], cwd=str(repo_path), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.check_call(
+            ["git", "init"],
+            cwd=str(repo_path),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     except (subprocess.CalledProcessError, FileNotFoundError):
         try:
             os.rmdir(repo_path)

@@ -1,15 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { api, RepositorySummary } from '../hooks/useApi';
-import { Panel } from '../components/Panel';
-import { TabView } from '../components/TabView';
-import { Modal } from '../components/Modal';
-import '../styles/page.css';
+import React, { useEffect, useState } from "react";
+import { api, RepositorySummary } from "../hooks/useApi";
+import { Panel } from "../components/Panel";
+import { TabView } from "../components/TabView";
+import { Modal } from "../components/Modal";
+import "../styles/page.css";
 
 export const RepositoriesPage: React.FC = () => {
   const [repositories, setRepositories] = useState<RepositorySummary[]>([]);
-  const [activeTab, setActiveTab] = useState('repositories');
+  const [activeTab, setActiveTab] = useState("repositories");
   const [createOpen, setCreateOpen] = useState(false);
-  const [newRepoName, setNewRepoName] = useState('');
+  const [newRepoName, setNewRepoName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const loadRepositories = () => {
@@ -17,8 +17,8 @@ export const RepositoriesPage: React.FC = () => {
       .listRepositories()
       .then((res) => setRepositories(res.repositories))
       .catch((err) => {
-        console.error('Failed to load repositories', err);
-        setError('Unable to load repositories');
+        console.error("Failed to load repositories", err);
+        setError("Unable to load repositories");
       });
   };
 
@@ -28,17 +28,17 @@ export const RepositoriesPage: React.FC = () => {
 
   const handleCreate = async () => {
     if (!newRepoName.trim()) {
-      setError('Repository name cannot be empty');
+      setError("Repository name cannot be empty");
       return;
     }
     try {
       await api.createRepository(newRepoName.trim());
       setCreateOpen(false);
-      setNewRepoName('');
+      setNewRepoName("");
       setError(null);
       loadRepositories();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create repository');
+      setError(e instanceof Error ? e.message : "Failed to create repository");
     }
   };
 
@@ -48,41 +48,59 @@ export const RepositoriesPage: React.FC = () => {
       <TabView
         tabs={[
           {
-            id: 'repositories',
-            label: 'Repositories',
+            id: "repositories",
+            label: "Repositories",
             content: (
               <>
                 <div className="button-bar">
-                  <button className="primary" onClick={() => setCreateOpen(true)}>
+                  <button
+                    className="primary"
+                    onClick={() => setCreateOpen(true)}
+                  >
                     Create Repository
                   </button>
                 </div>
                 {error && <div className="alert">{error}</div>}
                 <div className="panel-column">
                   {repositories.map((repo) => (
-                    <Panel key={repo.name} title={repo.name} to={`/repositories/${repo.name}`}>
+                    <Panel
+                      key={repo.name}
+                      title={repo.name}
+                      to={`/repositories/${repo.name}`}
+                    >
                       <div className="metadata">
-                        <span className={`badge ${repo.hasGit ? 'success' : 'warning'}`}>
-                          {repo.hasGit ? 'Git' : 'No Git'}
+                        <span
+                          className={`badge ${repo.hasGit ? "success" : "warning"}`}
+                        >
+                          {repo.hasGit ? "Git" : "No Git"}
                         </span>
                         <span className="badge">{repo.technology}</span>
                         <span className="badge">{repo.license}</span>
                       </div>
                       <div className="meta-secondary">
-                        Last commit: {repo.lastCommit ? new Date(repo.lastCommit).toLocaleString() : '—'}
+                        Last commit:{" "}
+                        {repo.lastCommit
+                          ? new Date(repo.lastCommit).toLocaleString()
+                          : "—"}
                       </div>
                     </Panel>
                   ))}
-                  {repositories.length === 0 && <div className="empty">No repositories yet.</div>}
+                  {repositories.length === 0 && (
+                    <div className="empty">No repositories yet.</div>
+                  )}
                 </div>
               </>
-            )
-          }
+            ),
+          },
         ]}
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />
-      <Modal open={createOpen} title="Create Repository" onClose={() => setCreateOpen(false)}>
+      <Modal
+        open={createOpen}
+        title="Create Repository"
+        onClose={() => setCreateOpen(false)}
+      >
         <div className="form-group">
           <label htmlFor="repository-name">Repository Name</label>
           <input

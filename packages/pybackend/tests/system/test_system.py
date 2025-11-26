@@ -1,0 +1,116 @@
+"""
+System tests for the MADE Python Backend.
+These tests verify the application starts correctly and core integrations work.
+"""
+
+import pytest
+import httpx
+from unittest.mock import patch
+from fastapi.testclient import TestClient
+
+from app import app
+
+client = TestClient(app)
+
+
+class TestSystemHealth:
+    """System-level health checks."""
+
+    def test_app_starts_successfully(self):
+        """Test that the FastAPI app can be instantiated and started."""
+        assert app is not None
+        assert app.title == "MADE Python Backend"
+
+    def test_cors_middleware_configured(self):
+        """Test that CORS middleware is properly configured."""
+        # Check that the app has CORS configured by testing a typical scenario
+        response = client.get("/api/health")
+        # CORS should allow the request to proceed
+        assert response.status_code == 200
+
+    @patch('app.get_workspace_home')
+    @patch('app.get_made_directory')
+    def test_health_endpoint_integration(self, mock_made_dir, mock_workspace_home):
+        """Test health endpoint works end-to-end."""
+        mock_workspace_home.return_value = "/test/workspace"
+        mock_made_dir.return_value = "/test/made"
+        
+        response = client.get("/api/health")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "status" in data
+        assert "workspace" in data
+        assert "made" in data
+
+
+class TestAPIErrorHandling:
+    """Test system-wide error handling patterns."""
+
+    def test_404_for_nonexistent_endpoints(self):
+        """Test that non-existent endpoints return 404."""
+        response = client.get("/api/nonexistent")
+        assert response.status_code == 404
+
+    def test_405_for_wrong_method(self):
+        """Test that wrong HTTP methods return 405."""
+        response = client.post("/api/health")
+        assert response.status_code == 405
+
+    def test_422_for_invalid_json(self):
+        """Test that invalid JSON in request body returns 422."""
+        response = client.post("/api/repositories", data="invalid json")
+        assert response.status_code == 422
+
+
+class TestAPIDocumentation:
+    """Test that API documentation is available."""
+
+    def test_openapi_schema_available(self):
+        """Test that OpenAPI schema is available."""
+        response = client.get("/openapi.json")
+        assert response.status_code == 200
+        schema = response.json()
+        assert "openapi" in schema
+        assert "info" in schema
+        assert schema["info"]["title"] == "MADE Python Backend"
+
+    def test_docs_available(self):
+        """Test that API docs are available."""
+        response = client.get("/docs")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+
+
+class TestServiceIntegration:
+    """Test integration between different services."""
+
+    @patch('app.list_repositories')
+    @patch('app.list_knowledge_artefacts')
+    @patch('app.list_constitutions')
+    @patch('app.get_dashboard_summary')
+    def test_multiple_endpoints_integration(self, mock_dashboard, mock_constitutions, 
+                                          mock_knowledge, mock_repositories):
+        """Test that multiple endpoints can be called in sequence."""
+        # Mock all services
+        mock_repositories.return_value = ["repo1", "repo2"]
+        mock_knowledge.return_value = ["guide1.md"]
+        mock_constitutions.return_value = ["rules.md"]
+        mock_dashboard.return_value = {"status": "ok"}
+        
+        # Test multiple endpoint calls
+        responses = [
+            client.get("/api/repositories"),
+            client.get("/api/knowledge"), 
+            client.get("/api/constitutions"),
+            client.get("/api/dashboard")
+        ]
+        
+        for response in responses:
+            assert response.status_code == 200
+            
+        # Verify all services were called
+        mock_repositories.assert_called_once()
+        mock_knowledge.assert_called_once()
+        mock_constitutions.assert_called_once()
+        mock_dashboard.assert_called_once()

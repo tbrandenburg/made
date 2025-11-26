@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { marked } from 'marked';
-import { Panel } from '../components/Panel';
-import { TabView } from '../components/TabView';
-import { api } from '../hooks/useApi';
-import '../styles/page.css';
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { marked } from "marked";
+import { Panel } from "../components/Panel";
+import { TabView } from "../components/TabView";
+import { api } from "../hooks/useApi";
+import "../styles/page.css";
 
 interface ChatMessage {
   id: string;
-  role: 'user' | 'agent';
+  role: "user" | "agent";
   text: string;
   timestamp: string;
 }
@@ -16,27 +16,27 @@ interface ChatMessage {
 export const KnowledgeArtefactPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('content');
+  const [activeTab, setActiveTab] = useState("content");
   const [frontmatter, setFrontmatter] = useState<Record<string, unknown>>({});
-  const [content, setContent] = useState('');
+  const [content, setContent] = useState("");
   const [chat, setChat] = useState<ChatMessage[]>([]);
-  const [prompt, setPrompt] = useState('');
+  const [prompt, setPrompt] = useState("");
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (!name) {
-      navigate('/knowledge');
+      navigate("/knowledge");
       return;
     }
     api
       .getKnowledge(name)
       .then((data) => {
         setFrontmatter(data.frontmatter ?? data.data ?? {});
-        setContent(data.content ?? '');
+        setContent(data.content ?? "");
       })
       .catch((error) => {
-        console.error('Failed to load artefact', error);
-        setStatus('Failed to load artefact');
+        console.error("Failed to load artefact", error);
+        setStatus("Failed to load artefact");
       });
   }, [name, navigate]);
 
@@ -44,38 +44,45 @@ export const KnowledgeArtefactPage: React.FC = () => {
     if (!name) return;
     try {
       await api.saveKnowledge(name, { content, frontmatter });
-      setStatus('Saved successfully');
+      setStatus("Saved successfully");
     } catch (error) {
-      console.error('Failed to save artefact', error);
-      setStatus('Save failed');
+      console.error("Failed to save artefact", error);
+      setStatus("Save failed");
     }
   };
 
   const handleSend = async () => {
     if (!name || !prompt.trim()) return;
     const timestamp = new Date().toISOString();
-    const userMessage: ChatMessage = { id: `${timestamp}-user`, role: 'user', text: prompt.trim(), timestamp };
+    const userMessage: ChatMessage = {
+      id: `${timestamp}-user`,
+      role: "user",
+      text: prompt.trim(),
+      timestamp,
+    };
     setChat((prev) => [...prev, userMessage]);
-    setPrompt('');
+    setPrompt("");
     try {
       const reply = await api.sendKnowledgeAgent(name, userMessage.text);
       setChat((prev) => [
         ...prev,
         {
           id: reply.messageId,
-          role: 'agent',
+          role: "agent",
           text: reply.response,
-          timestamp: reply.sent
-        }
+          timestamp: reply.sent,
+        },
       ]);
-      setActiveTab('agent');
+      setActiveTab("agent");
     } catch (error) {
-      console.error('Failed to contact agent', error);
-      setStatus('Agent unavailable');
+      console.error("Failed to contact agent", error);
+      setStatus("Agent unavailable");
     }
   };
 
-  const tags = Array.isArray(frontmatter.tags) ? (frontmatter.tags as string[]).join(', ') : '';
+  const tags = Array.isArray(frontmatter.tags)
+    ? (frontmatter.tags as string[]).join(", ")
+    : "";
 
   return (
     <div className="page">
@@ -84,8 +91,8 @@ export const KnowledgeArtefactPage: React.FC = () => {
       <TabView
         tabs={[
           {
-            id: 'content',
-            label: 'Content',
+            id: "content",
+            label: "Content",
             content: (
               <div className="artefact-grid">
                 <Panel
@@ -105,9 +112,9 @@ export const KnowledgeArtefactPage: React.FC = () => {
                         setFrontmatter({
                           ...frontmatter,
                           tags: event.target.value
-                            .split(',')
+                            .split(",")
                             .map((tag) => tag.trim())
-                            .filter(Boolean)
+                            .filter(Boolean),
                         })
                       }
                     />
@@ -116,8 +123,13 @@ export const KnowledgeArtefactPage: React.FC = () => {
                     <label htmlFor="artefact-type">Type</label>
                     <select
                       id="artefact-type"
-                      value={(frontmatter.type as string) || 'internal'}
-                      onChange={(event) => setFrontmatter({ ...frontmatter, type: event.target.value })}
+                      value={(frontmatter.type as string) || "internal"}
+                      onChange={(event) =>
+                        setFrontmatter({
+                          ...frontmatter,
+                          type: event.target.value,
+                        })
+                      }
                     >
                       <option value="internal">Internal</option>
                       <option value="external">External</option>
@@ -132,24 +144,36 @@ export const KnowledgeArtefactPage: React.FC = () => {
                   />
                 </Panel>
                 <Panel title="Preview">
-                  <div className="markdown" dangerouslySetInnerHTML={{ __html: marked(content || '') }} />
+                  <div
+                    className="markdown"
+                    dangerouslySetInnerHTML={{ __html: marked(content || "") }}
+                  />
                 </Panel>
               </div>
-            )
+            ),
           },
           {
-            id: 'agent',
-            label: 'Agent',
+            id: "agent",
+            label: "Agent",
             content: (
               <Panel title="Agent Conversation">
                 <div className="chat-window">
                   {chat.map((message) => (
-                    <div key={message.id} className={`chat-message ${message.role}`}>
-                      <div className="chat-meta">{new Date(message.timestamp).toLocaleString()}</div>
+                    <div
+                      key={message.id}
+                      className={`chat-message ${message.role}`}
+                    >
+                      <div className="chat-meta">
+                        {new Date(message.timestamp).toLocaleString()}
+                      </div>
                       <pre>{message.text}</pre>
                     </div>
                   ))}
-                  {chat.length === 0 && <div className="empty">Start a conversation to collaborate with agents.</div>}
+                  {chat.length === 0 && (
+                    <div className="empty">
+                      Start a conversation to collaborate with agents.
+                    </div>
+                  )}
                 </div>
                 <textarea
                   value={prompt}
@@ -162,8 +186,8 @@ export const KnowledgeArtefactPage: React.FC = () => {
                   </button>
                 </div>
               </Panel>
-            )
-          }
+            ),
+          },
         ]}
         activeTab={activeTab}
         onTabChange={setActiveTab}

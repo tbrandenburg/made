@@ -1,0 +1,29 @@
+# Docker Compose override for development
+# This file is automatically used when running docker-compose in development
+# Usage: docker-compose up (automatically includes this override)
+
+version: '3.9'
+
+services:
+  pybackend:
+    # Mount source code for development
+    volumes:
+      - ./packages/pybackend:/app
+      - made-data:/app/.made
+    # Enable hot reloading
+    command: ["uv", "run", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "3000", "--reload"]
+    environment:
+      - PORT=3000
+      - PYTHONPATH=/app
+      
+  backend:
+    # Mount source code for development  
+    volumes:
+      - ./packages/backend:/app/packages/backend
+      - made-data:/app/.made
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+
+volumes:
+  made-data:

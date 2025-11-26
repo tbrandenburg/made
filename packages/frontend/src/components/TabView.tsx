@@ -1,5 +1,5 @@
-import React from 'react';
-import '../styles/tabview.css';
+import React from "react";
+import "../styles/tabview.css";
 
 export interface TabItem {
   id: string;
@@ -13,7 +13,11 @@ interface TabViewProps {
   onTabChange: (id: string) => void;
 }
 
-export const TabView: React.FC<TabViewProps> = ({ tabs, activeTab, onTabChange }) => {
+export const TabView: React.FC<TabViewProps> = ({
+  tabs,
+  activeTab,
+  onTabChange,
+}) => {
   const singleTab = tabs.length === 1;
   return (
     <div className="tabview">
@@ -22,7 +26,7 @@ export const TabView: React.FC<TabViewProps> = ({ tabs, activeTab, onTabChange }
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              className={`tabview-tab ${tab.id === activeTab ? 'active' : ''}`}
+              className={`tabview-tab ${tab.id === activeTab ? "active" : ""}`}
               onClick={() => onTabChange(tab.id)}
             >
               {tab.label}
@@ -30,7 +34,9 @@ export const TabView: React.FC<TabViewProps> = ({ tabs, activeTab, onTabChange }
           ))}
         </div>
       )}
-      <div className="tabview-content">{tabs.find((tab) => tab.id === activeTab)?.content}</div>
+      <div className="tabview-content">
+        {tabs.find((tab) => tab.id === activeTab)?.content}
+      </div>
     </div>
   );
 };

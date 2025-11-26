@@ -1,13 +1,26 @@
 version: '3.9'
 
 services:
+  # Node.js backend (legacy)
   backend:
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
     environment:
-      PORT: 3000
+      PORT: 3001
       NODE_ENV: production
+    volumes:
+      - made-data:/app/.made
+    ports:
+      - "3001:3001"
+
+  # Python backend (primary)
+  pybackend:
+    build:
+      context: .
+      dockerfile: docker/pybackend.Dockerfile
+    environment:
+      PORT: 3000
     volumes:
       - made-data:/app/.made
     ports:
@@ -18,7 +31,7 @@ services:
       context: .
       dockerfile: docker/frontend.Dockerfile
     depends_on:
-      - backend
+      - pybackend
     ports:
       - "8080:80"
 

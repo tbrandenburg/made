@@ -1,64 +1,97 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Panel } from '../components/Panel';
-import { TabView } from '../components/TabView';
-import { Modal } from '../components/Modal';
-import { api, FileNode, RepositorySummary } from '../hooks/useApi';
-import '../styles/page.css';
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Panel } from "../components/Panel";
+import { TabView } from "../components/TabView";
+import { Modal } from "../components/Modal";
+import { api, FileNode, RepositorySummary } from "../hooks/useApi";
+import "../styles/page.css";
 
 interface ChatMessage {
   id: string;
-  role: 'user' | 'agent';
+  role: "user" | "agent";
   text: string;
   timestamp: string;
 }
 
 const PUBLISHMENT_ACTIONS = [
-  { id: 'init', label: 'Initialize Repository', prompt: 'Please initialise this repository with sensible defaults.' },
-  { id: 'remote', label: 'Create Remote Repository', prompt: 'Create a remote repository and connect it to this project.' },
-  { id: 'pr', label: 'Create Pull Request', prompt: 'Draft a pull request with the latest repository changes.' },
-  { id: 'deploy', label: 'Deploy', prompt: 'Prepare deployment steps for this project.' },
-  { id: 'preview', label: 'Preview', prompt: 'Create a preview build for review.' },
-  { id: 'publish', label: 'Publish', prompt: 'Publish the project to the designated target.' }
+  {
+    id: "init",
+    label: "Initialize Repository",
+    prompt: "Please initialise this repository with sensible defaults.",
+  },
+  {
+    id: "remote",
+    label: "Create Remote Repository",
+    prompt: "Create a remote repository and connect it to this project.",
+  },
+  {
+    id: "pr",
+    label: "Create Pull Request",
+    prompt: "Draft a pull request with the latest repository changes.",
+  },
+  {
+    id: "deploy",
+    label: "Deploy",
+    prompt: "Prepare deployment steps for this project.",
+  },
+  {
+    id: "preview",
+    label: "Preview",
+    prompt: "Create a preview build for review.",
+  },
+  {
+    id: "publish",
+    label: "Publish",
+    prompt: "Publish the project to the designated target.",
+  },
 ];
 
 export const RepositoryPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('agent');
+  const [activeTab, setActiveTab] = useState("agent");
   const [repository, setRepository] = useState<RepositorySummary | null>(null);
   const [fileTree, setFileTree] = useState<FileNode | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['.']));
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(["."]));
   const [chat, setChat] = useState<ChatMessage[]>([]);
-  const [pendingPrompt, setPendingPrompt] = useState('');
+  const [pendingPrompt, setPendingPrompt] = useState("");
   const [chatError, setChatError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [editorContent, setEditorContent] = useState('');
+  const [editorContent, setEditorContent] = useState("");
   const [editorStatus, setEditorStatus] = useState<string | null>(null);
   const [createModal, setCreateModal] = useState(false);
-  const [renameModal, setRenameModal] = useState<{ open: boolean; from: string | null }>({ open: false, from: null });
-  const [moveModal, setMoveModal] = useState<{ open: boolean; from: string | null }>({ open: false, from: null });
-  const [deleteModal, setDeleteModal] = useState<{ open: boolean; target: string | null }>({ open: false, target: null });
-  const [newFilePath, setNewFilePath] = useState('');
-  const [renamePath, setRenamePath] = useState('');
-  const [movePath, setMovePath] = useState('');
+  const [renameModal, setRenameModal] = useState<{
+    open: boolean;
+    from: string | null;
+  }>({ open: false, from: null });
+  const [moveModal, setMoveModal] = useState<{
+    open: boolean;
+    from: string | null;
+  }>({ open: false, from: null });
+  const [deleteModal, setDeleteModal] = useState<{
+    open: boolean;
+    target: string | null;
+  }>({ open: false, target: null });
+  const [newFilePath, setNewFilePath] = useState("");
+  const [renamePath, setRenamePath] = useState("");
+  const [movePath, setMovePath] = useState("");
   const [loadingFile, setLoadingFile] = useState(false);
 
   useEffect(() => {
     if (!name) {
-      navigate('/repositories');
+      navigate("/repositories");
       return;
     }
     api
       .getRepository(name)
       .then(setRepository)
       .catch((error) => {
-        console.error('Failed to load repository', error);
+        console.error("Failed to load repository", error);
       });
     api
       .getRepositoryFiles(name)
       .then((tree) => setFileTree(tree))
-      .catch((error) => console.error('Failed to load file tree', error));
+      .catch((error) => console.error("Failed to load file tree", error));
   }, [name, navigate]);
 
   const toggleFolder = (pathId: string) => {
@@ -81,10 +114,10 @@ export const RepositoryPage: React.FC = () => {
       setSelectedFile(filePath);
       setEditorContent(response.content);
       setEditorStatus(null);
-      setActiveTab('editor');
+      setActiveTab("editor");
     } catch (error) {
-      console.error('Failed to open file', error);
-      setEditorStatus('Unable to open file');
+      console.error("Failed to open file", error);
+      setEditorStatus("Unable to open file");
     } finally {
       setLoadingFile(false);
     }
@@ -95,7 +128,7 @@ export const RepositoryPage: React.FC = () => {
     api
       .getRepositoryFiles(name)
       .then((tree) => setFileTree(tree))
-      .catch((error) => console.error('Failed to load file tree', error));
+      .catch((error) => console.error("Failed to load file tree", error));
   };
 
   const handleSendMessage = async (prompt?: string) => {
@@ -105,28 +138,28 @@ export const RepositoryPage: React.FC = () => {
     const timestamp = new Date().toISOString();
     const userMessage: ChatMessage = {
       id: `${timestamp}-user`,
-      role: 'user',
+      role: "user",
       text: message,
-      timestamp
+      timestamp,
     };
     setChat((prev) => [...prev, userMessage]);
-    setPendingPrompt('');
+    setPendingPrompt("");
     try {
       const reply = await api.sendAgentMessage(name, message);
       setChat((prev) => [
         ...prev,
         {
           id: reply.messageId,
-          role: 'agent',
+          role: "agent",
           text: reply.response,
-          timestamp: reply.sent
-        }
+          timestamp: reply.sent,
+        },
       ]);
       setChatError(null);
-      setActiveTab('agent');
+      setActiveTab("agent");
     } catch (error) {
-      setChatError('Failed to reach agent');
-      console.error('Failed to send agent message', error);
+      setChatError("Failed to reach agent");
+      console.error("Failed to send agent message", error);
     }
   };
 
@@ -134,23 +167,23 @@ export const RepositoryPage: React.FC = () => {
     if (!name || !selectedFile) return;
     try {
       await api.saveRepositoryFile(name, selectedFile, editorContent);
-      setEditorStatus('Saved successfully');
+      setEditorStatus("Saved successfully");
       refreshFiles();
     } catch (error) {
-      setEditorStatus('Failed to save file');
-      console.error('Failed to save file', error);
+      setEditorStatus("Failed to save file");
+      console.error("Failed to save file", error);
     }
   };
 
   const handleCreateFile = async () => {
     if (!name || !newFilePath.trim()) return;
     try {
-      await api.createRepositoryFile(name, newFilePath.trim(), '');
+      await api.createRepositoryFile(name, newFilePath.trim(), "");
       setCreateModal(false);
-      setNewFilePath('');
+      setNewFilePath("");
       refreshFiles();
     } catch (error) {
-      console.error('Failed to create file', error);
+      console.error("Failed to create file", error);
     }
   };
 
@@ -159,10 +192,10 @@ export const RepositoryPage: React.FC = () => {
     try {
       await api.renameRepositoryFile(name, renameModal.from, renamePath.trim());
       setRenameModal({ open: false, from: null });
-      setRenamePath('');
+      setRenamePath("");
       refreshFiles();
     } catch (error) {
-      console.error('Failed to rename file', error);
+      console.error("Failed to rename file", error);
     }
   };
 
@@ -171,10 +204,10 @@ export const RepositoryPage: React.FC = () => {
     try {
       await api.renameRepositoryFile(name, moveModal.from, movePath.trim());
       setMoveModal({ open: false, from: null });
-      setMovePath('');
+      setMovePath("");
       refreshFiles();
     } catch (error) {
-      console.error('Failed to move file', error);
+      console.error("Failed to move file", error);
     }
   };
 
@@ -184,38 +217,47 @@ export const RepositoryPage: React.FC = () => {
       await api.deleteRepositoryFile(name, deleteModal.target);
       if (selectedFile === deleteModal.target) {
         setSelectedFile(null);
-        setEditorContent('');
+        setEditorContent("");
       }
       setDeleteModal({ open: false, target: null });
       refreshFiles();
     } catch (error) {
-      console.error('Failed to delete file', error);
+      console.error("Failed to delete file", error);
     }
   };
 
   const renderNode = (node: FileNode, depth = 0): React.ReactNode => {
-    if (node.path === '.') {
+    if (node.path === ".") {
       return node.children?.map((child) => renderNode(child, depth));
     }
     const indent = { marginLeft: depth * 16 };
-    const isFolder = node.type === 'folder';
+    const isFolder = node.type === "folder";
     const isExpanded = expanded.has(node.path);
     return (
       <div key={node.path} className="file-node" style={indent}>
         <div className="file-row">
           {isFolder ? (
-            <button className="icon-button" onClick={() => toggleFolder(node.path)}>
-              {isExpanded ? '▾' : '▸'}
+            <button
+              className="icon-button"
+              onClick={() => toggleFolder(node.path)}
+            >
+              {isExpanded ? "▾" : "▸"}
             </button>
           ) : (
             <span className="file-spacer" />
           )}
-          <span className="file-name" onClick={() => !isFolder && openFile(node.path)}>
+          <span
+            className="file-name"
+            onClick={() => !isFolder && openFile(node.path)}
+          >
             {node.name}
           </span>
           <div className="file-actions">
             {!isFolder && (
-              <button className="link-button" onClick={() => openFile(node.path)}>
+              <button
+                className="link-button"
+                onClick={() => openFile(node.path)}
+              >
                 Edit
               </button>
             )}
@@ -245,25 +287,31 @@ export const RepositoryPage: React.FC = () => {
             </button>
           </div>
         </div>
-        {isFolder && isExpanded && node.children?.map((child) => renderNode(child, depth + 1))}
+        {isFolder &&
+          isExpanded &&
+          node.children?.map((child) => renderNode(child, depth + 1))}
       </div>
     );
   };
 
   const tabs = [
     {
-      id: 'agent',
-      label: 'Agent',
+      id: "agent",
+      label: "Agent",
       content: (
         <Panel title="Agent Collaboration">
           <div className="chat-window">
             {chat.map((message) => (
               <div key={message.id} className={`chat-message ${message.role}`}>
-                <div className="chat-meta">{new Date(message.timestamp).toLocaleString()}</div>
+                <div className="chat-meta">
+                  {new Date(message.timestamp).toLocaleString()}
+                </div>
                 <pre>{message.text}</pre>
               </div>
             ))}
-            {chat.length === 0 && <div className="empty">No conversation yet.</div>}
+            {chat.length === 0 && (
+              <div className="empty">No conversation yet.</div>
+            )}
           </div>
           {chatError && <div className="alert">{chatError}</div>}
           <textarea
@@ -277,11 +325,11 @@ export const RepositoryPage: React.FC = () => {
             </button>
           </div>
         </Panel>
-      )
+      ),
     },
     {
-      id: 'files',
-      label: 'File Browser',
+      id: "files",
+      label: "File Browser",
       content: (
         <>
           <div className="button-bar">
@@ -293,21 +341,33 @@ export const RepositoryPage: React.FC = () => {
             </button>
           </div>
           <Panel title={`Files in ${name}`}>
-            <div className="file-browser">{fileTree ? renderNode(fileTree) : <div className="empty">No files found.</div>}</div>
+            <div className="file-browser">
+              {fileTree ? (
+                renderNode(fileTree)
+              ) : (
+                <div className="empty">No files found.</div>
+              )}
+            </div>
           </Panel>
         </>
-      )
+      ),
     },
     {
-      id: 'editor',
-      label: 'File Editor',
+      id: "editor",
+      label: "File Editor",
       content: (
         <div className="editor-grid">
           <Panel
-            title={selectedFile ? `Editing ${selectedFile}` : 'Select a file to edit'}
+            title={
+              selectedFile ? `Editing ${selectedFile}` : "Select a file to edit"
+            }
             actions={
               selectedFile && (
-                <button className="primary" onClick={handleSaveFile} disabled={loadingFile}>
+                <button
+                  className="primary"
+                  onClick={handleSaveFile}
+                  disabled={loadingFile}
+                >
                   Save File
                 </button>
               )
@@ -326,11 +386,11 @@ export const RepositoryPage: React.FC = () => {
             <pre className="preview">{editorContent}</pre>
           </Panel>
         </div>
-      )
+      ),
     },
     {
-      id: 'publishment',
-      label: 'Publishment',
+      id: "publishment",
+      label: "Publishment",
       content: (
         <Panel title="Publishment Actions">
           <div className="publishment-grid">
@@ -340,7 +400,7 @@ export const RepositoryPage: React.FC = () => {
                 className="primary"
                 onClick={() => {
                   handleSendMessage(action.prompt);
-                  setActiveTab('agent');
+                  setActiveTab("agent");
                 }}
               >
                 {action.label}
@@ -348,8 +408,8 @@ export const RepositoryPage: React.FC = () => {
             ))}
           </div>
         </Panel>
-      )
-    }
+      ),
+    },
   ];
 
   return (
@@ -359,14 +419,20 @@ export const RepositoryPage: React.FC = () => {
         <div className="repository-meta">
           <span className="badge">{repository.technology}</span>
           <span className="badge">{repository.license}</span>
-          <span className={`badge ${repository.hasGit ? 'success' : 'warning'}`}>
-            {repository.hasGit ? 'Git' : 'No Git'}
+          <span
+            className={`badge ${repository.hasGit ? "success" : "warning"}`}
+          >
+            {repository.hasGit ? "Git" : "No Git"}
           </span>
         </div>
       )}
       <TabView tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <Modal open={createModal} title="Create File" onClose={() => setCreateModal(false)}>
+      <Modal
+        open={createModal}
+        title="Create File"
+        onClose={() => setCreateModal(false)}
+      >
         <div className="form-group">
           <label htmlFor="new-file">File path</label>
           <input
@@ -401,7 +467,10 @@ export const RepositoryPage: React.FC = () => {
           />
         </div>
         <div className="modal-actions">
-          <button className="secondary" onClick={() => setRenameModal({ open: false, from: null })}>
+          <button
+            className="secondary"
+            onClick={() => setRenameModal({ open: false, from: null })}
+          >
             Cancel
           </button>
           <button className="primary" onClick={handleRenameFile}>
@@ -410,7 +479,11 @@ export const RepositoryPage: React.FC = () => {
         </div>
       </Modal>
 
-      <Modal open={moveModal.open} title="Move File" onClose={() => setMoveModal({ open: false, from: null })}>
+      <Modal
+        open={moveModal.open}
+        title="Move File"
+        onClose={() => setMoveModal({ open: false, from: null })}
+      >
         <div className="form-group">
           <label htmlFor="move-file">Target path</label>
           <input
@@ -421,7 +494,10 @@ export const RepositoryPage: React.FC = () => {
           />
         </div>
         <div className="modal-actions">
-          <button className="secondary" onClick={() => setMoveModal({ open: false, from: null })}>
+          <button
+            className="secondary"
+            onClick={() => setMoveModal({ open: false, from: null })}
+          >
             Cancel
           </button>
           <button className="primary" onClick={handleMoveFile}>
@@ -437,7 +513,10 @@ export const RepositoryPage: React.FC = () => {
       >
         <p>Are you sure you want to delete {deleteModal.target}?</p>
         <div className="modal-actions">
-          <button className="secondary" onClick={() => setDeleteModal({ open: false, target: null })}>
+          <button
+            className="secondary"
+            onClick={() => setDeleteModal({ open: false, target: null })}
+          >
             Cancel
           </button>
           <button className="danger" onClick={handleDeleteFile}>

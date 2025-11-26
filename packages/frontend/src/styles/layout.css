@@ -3,8 +3,8 @@
   grid-template-columns: auto 1fr;
   grid-template-rows: 72px 1fr;
   grid-template-areas:
-    'topbar topbar'
-    'sidebar content';
+    "topbar topbar"
+    "sidebar content";
   height: 100vh;
   overflow: hidden;
 }
@@ -29,7 +29,7 @@
     grid-template-columns: 1fr;
     grid-template-rows: 72px auto;
     grid-template-areas:
-      'topbar'
-      'content';
+      "topbar"
+      "content";
   }
 }
