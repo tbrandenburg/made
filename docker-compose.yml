@@ -7,7 +7,7 @@ services:
       context: .
       dockerfile: docker/pybackend.Dockerfile
     environment:
-      PORT: 3000
+      MADE_BACKEND_PORT: 3000
     volumes:
       - made-data:/app/.made
     ports:

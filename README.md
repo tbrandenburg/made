@@ -94,17 +94,16 @@ docker compose up --build
 # Frontend (Nginx): http://localhost:8080
 ```
 
-The backend persists its `.made` workspace inside the named `made-data` volume defined in the compose file. Environment variables such as `MADE_HOME`, `MADE_WORKSPACE_HOME`, or `PORT` can be overridden by editing the `backend` service configuration.
+The backend persists its `.made` workspace inside the named `made-data` volume defined in the compose file. Environment variables such as `MADE_HOME`, `MADE_WORKSPACE_HOME`, `MADE_BACKEND_HOST`, or `MADE_BACKEND_PORT` can be overridden by editing the `pybackend` service configuration.
 
 ## Configuration
 
-Required environment variables / config:
+Environment variables / config:
 
 - `MADE_HOME` — string — default: `process.cwd()` — Base directory for MADE configuration and data storage
 - `MADE_WORKSPACE_HOME` — string — default: `process.cwd()` — Root directory where repositories are stored
-- `PORT` — number — default: `3000` — Port for the backend API server
-- `NODE_ENV` — string — default: `development` — Environment mode (development/production)
-- `VITE_API_BASE` — string — default: `/api` — Frontend build-time override for the backend API base URL (used for containerized deployments)
+- `MADE_BACKEND_HOST` — string — default: `0.0.0.0` — Host address for the backend API server
+- `MADE_BACKEND_PORT` — number — default: `3000` — Port for the backend API server
 
 The application automatically creates a `.made` directory structure:
 ```
