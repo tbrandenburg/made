@@ -105,12 +105,19 @@ build:
 	cd $(PYBACKEND_DIR) && uv build
 
 run:
-	@echo "🚀 Starting MADE frontend on $(HOST):$(FRONTEND_PORT) and Python backend on $(HOST):$(PORT)..."
-	@echo "Press Ctrl+C to stop both services."
-	npm --workspace packages/frontend run dev -- --host $(HOST) --port $(FRONTEND_PORT) & \
-	FRONTEND_PID=$$!; \
-	trap 'echo "⏹️  Stopping frontend (PID $$FRONTEND_PID)..."; kill $$FRONTEND_PID 2>/dev/null || true' EXIT INT TERM; \
-	cd $(PYBACKEND_DIR) && uv run uvicorn app:app --host $(HOST) --port $(PORT)
+	@echo "🚀 Starting MADE services..."
+	@echo "  📡 Python backend will start on $(HOST):$(PORT)"
+	@echo "  🖥️  Frontend will start on $(HOST):$(FRONTEND_PORT)"
+	@echo "  📋 Press Ctrl+C to stop both services."
+	@echo ""
+	@echo "🔧 Starting Python backend..."
+	@cd $(PYBACKEND_DIR) && uv run uvicorn app:app --host $(HOST) --port $(PORT) & \
+	BACKEND_PID=$$!; \
+	sleep 2; \
+	echo "✅ Backend started (PID $$BACKEND_PID)"; \
+	echo "🔧 Starting frontend..."; \
+	trap 'echo ""; echo "⏹️  Stopping services..."; echo "  🛑 Stopping backend (PID $$BACKEND_PID)..."; kill $$BACKEND_PID 2>/dev/null || true; echo "  🛑 Stopping frontend..."; sleep 1; echo "✅ All services stopped"; exit 0' EXIT INT TERM; \
+	npm --workspace packages/frontend run dev -- --host $(HOST) --port $(FRONTEND_PORT)
 
 # Maintenance Tasks
 install: install-node install-pybackend
