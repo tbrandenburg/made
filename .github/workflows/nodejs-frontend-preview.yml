@@ -74,6 +74,26 @@ jobs:
       - name: Install UV
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      # ------------------------------------------------------
+      # Install OpenCode (binary install)
+      # ------------------------------------------------------
+      - name: Install sst/opencode
+        if: ${{ steps.detect.outputs.frontend_found == 'true' }}
+        run: |
+          set -euo pipefail
+          INSTALL_DIR="$HOME/.opencode/bin"
+          mkdir -p "$INSTALL_DIR"
+
+          TMPDIR="$(mktemp -d)"
+          trap 'rm -rf "$TMPDIR"' EXIT
+          ARCHIVE_PATH="$TMPDIR/opencode.tar.gz"
+
+          curl -fsSL "https://github.com/sst/opencode/releases/latest/download/opencode-linux-x64.tar.gz" -o "$ARCHIVE_PATH"
+          tar -xzf "$ARCHIVE_PATH" -C "$TMPDIR"
+          install "$TMPDIR/opencode" "$INSTALL_DIR/opencode"
+
+          echo "$INSTALL_DIR" >> "$GITHUB_PATH"
       
       - name: Install dependencies
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}

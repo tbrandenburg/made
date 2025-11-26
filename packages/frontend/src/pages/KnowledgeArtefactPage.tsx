@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { marked } from "marked";
 import { Panel } from "../components/Panel";
@@ -22,6 +22,18 @@ export const KnowledgeArtefactPage: React.FC = () => {
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [prompt, setPrompt] = useState("");
   const [status, setStatus] = useState<string | null>(null);
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatWindowRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    if (chatWindowRef.current) {
+      chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [chat]);
 
   useEffect(() => {
     if (!name) {
@@ -62,6 +74,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
     };
     setChat((prev) => [...prev, userMessage]);
     setPrompt("");
+    setChatLoading(true);
     try {
       const reply = await api.sendKnowledgeAgent(name, userMessage.text);
       setChat((prev) => [
@@ -77,6 +90,8 @@ export const KnowledgeArtefactPage: React.FC = () => {
     } catch (error) {
       console.error("Failed to contact agent", error);
       setStatus("Agent unavailable");
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -169,7 +184,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
             label: "Agent",
             content: (
               <Panel title="Agent Conversation">
-                <div className="chat-window">
+                <div className="chat-window" ref={chatWindowRef}>
                   {chat.map((message) => (
                     <div
                       key={message.id}
@@ -178,10 +193,21 @@ export const KnowledgeArtefactPage: React.FC = () => {
                       <div className="chat-meta">
                         {new Date(message.timestamp).toLocaleString()}
                       </div>
-                      <pre>{message.text}</pre>
+                      <div
+                        className="markdown"
+                        dangerouslySetInnerHTML={{
+                          __html: marked(message.text || ""),
+                        }}
+                      />
                     </div>
                   ))}
-                  {chat.length === 0 && (
+                  {chatLoading && (
+                    <div className="loading-indicator">
+                      <div className="loading-spinner"></div>
+                      <span>Agent is thinking...</span>
+                    </div>
+                  )}
+                  {chat.length === 0 && !chatLoading && (
                     <div className="empty">
                       Start a conversation to collaborate with agents.
                     </div>
@@ -190,11 +216,23 @@ export const KnowledgeArtefactPage: React.FC = () => {
                 <textarea
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      if (!chatLoading && prompt.trim()) {
+                        handleSend();
+                      }
+                    }
+                  }}
                   placeholder="Ask the agent about this artefact..."
                 />
                 <div className="button-bar">
-                  <button className="primary" onClick={handleSend}>
-                    Send
+                  <button
+                    className="primary"
+                    onClick={handleSend}
+                    disabled={chatLoading || !prompt.trim()}
+                  >
+                    {chatLoading ? "Sending..." : "Send"}
                   </button>
                 </div>
               </Panel>

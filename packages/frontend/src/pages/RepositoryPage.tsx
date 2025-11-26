@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { marked } from "marked";
 import { Panel } from "../components/Panel";
@@ -57,6 +57,18 @@ export const RepositoryPage: React.FC = () => {
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [pendingPrompt, setPendingPrompt] = useState("");
   const [chatError, setChatError] = useState<string | null>(null);
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatWindowRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    if (chatWindowRef.current) {
+      chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [chat]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [editorContent, setEditorContent] = useState("");
   const [editorStatus, setEditorStatus] = useState<string | null>(null);
@@ -124,6 +136,13 @@ export const RepositoryPage: React.FC = () => {
     }
   };
 
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+    if (newTab === "files") {
+      refreshFiles();
+    }
+  };
+
   const refreshFiles = () => {
     if (!name) return;
     api
@@ -145,6 +164,7 @@ export const RepositoryPage: React.FC = () => {
     };
     setChat((prev) => [...prev, userMessage]);
     setPendingPrompt("");
+    setChatLoading(true);
     try {
       const reply = await api.sendAgentMessage(name, message);
       setChat((prev) => [
@@ -161,6 +181,8 @@ export const RepositoryPage: React.FC = () => {
     } catch (error) {
       setChatError("Failed to reach agent");
       console.error("Failed to send agent message", error);
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -301,16 +323,27 @@ export const RepositoryPage: React.FC = () => {
       label: "Agent",
       content: (
         <Panel title="Agent Collaboration">
-          <div className="chat-window">
+          <div className="chat-window" ref={chatWindowRef}>
             {chat.map((message) => (
               <div key={message.id} className={`chat-message ${message.role}`}>
                 <div className="chat-meta">
                   {new Date(message.timestamp).toLocaleString()}
                 </div>
-                <pre>{message.text}</pre>
+                <div
+                  className="markdown"
+                  dangerouslySetInnerHTML={{
+                    __html: marked(message.text || ""),
+                  }}
+                />
               </div>
             ))}
-            {chat.length === 0 && (
+            {chatLoading && (
+              <div className="loading-indicator">
+                <div className="loading-spinner"></div>
+                <span>Agent is thinking...</span>
+              </div>
+            )}
+            {chat.length === 0 && !chatLoading && (
               <div className="empty">No conversation yet.</div>
             )}
           </div>
@@ -318,11 +351,23 @@ export const RepositoryPage: React.FC = () => {
           <textarea
             value={pendingPrompt}
             onChange={(event) => setPendingPrompt(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                if (!chatLoading && pendingPrompt.trim()) {
+                  handleSendMessage();
+                }
+              }
+            }}
             placeholder="Describe the change or ask the agent..."
           />
           <div className="button-bar">
-            <button className="primary" onClick={() => handleSendMessage()}>
-              Send
+            <button
+              className="primary"
+              onClick={() => handleSendMessage()}
+              disabled={chatLoading || !pendingPrompt.trim()}
+            >
+              {chatLoading ? "Sending..." : "Send"}
             </button>
           </div>
         </Panel>
@@ -449,7 +494,11 @@ export const RepositoryPage: React.FC = () => {
           </span>
         </div>
       )}
-      <TabView tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabView
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+      />
 
       <Modal
         open={createModal}
