@@ -4,6 +4,10 @@ These tests mock all external dependencies and focus on business logic.
 """
 
 import pytest
+import subprocess
+import time
+from datetime import datetime
+from pathlib import Path
 from unittest.mock import patch, Mock, MagicMock
 
 # These would be unit tests for individual service functions
@@ -70,3 +74,190 @@ class TestBusinessLogic:
         """Test frontmatter processing logic."""
         # Test YAML frontmatter parsing/serialization
         pass
+
+
+class TestAgentService:
+    """Test agent service functions in isolation."""
+
+    @patch('agent_service.get_workspace_home')
+    def test_get_working_directory_repository_chat(self, mock_get_workspace_home):
+        """Test working directory selection for repository chats."""
+        from agent_service import _get_working_directory
+        
+        # Setup mocks
+        mock_workspace = Mock()
+        mock_get_workspace_home.return_value = mock_workspace
+        
+        mock_repo_path = Mock()
+        mock_repo_path.exists.return_value = True
+        mock_repo_path.is_dir.return_value = True
+        mock_workspace.__truediv__ = Mock(return_value=mock_repo_path)
+        
+        # Test repository chat (not knowledge or constitution)
+        result = _get_working_directory("my-repo")
+        
+        mock_workspace.__truediv__.assert_called_once_with("my-repo")
+        mock_repo_path.exists.assert_called_once()
+        mock_repo_path.is_dir.assert_called_once()
+        assert result == mock_repo_path
+
+    @patch('agent_service.get_workspace_home')
+    @patch('agent_service.Path')
+    def test_get_working_directory_repository_not_exists(self, mock_path_class, mock_get_workspace_home):
+        """Test working directory fallback when repository doesn't exist."""
+        from agent_service import _get_working_directory
+        
+        # Setup mocks
+        mock_workspace = Mock()
+        mock_get_workspace_home.return_value = mock_workspace
+        
+        mock_repo_path = Mock()
+        mock_repo_path.exists.return_value = False  # Repository doesn't exist
+        mock_workspace.__truediv__ = Mock(return_value=mock_repo_path)
+        
+        mock_backend_path = Mock()
+        mock_path_class.return_value = mock_backend_path
+        
+        # Test repository chat with non-existent repo
+        result = _get_working_directory("non-existent-repo")
+        
+        # Should fall back to backend directory
+        assert result == mock_backend_path.parent
+
+    @patch('agent_service.Path')
+    def test_get_working_directory_knowledge_chat(self, mock_path_class):
+        """Test working directory selection for knowledge chats."""
+        from agent_service import _get_working_directory
+        
+        mock_backend_path = Mock()
+        mock_path_class.return_value = mock_backend_path
+        
+        # Test knowledge chat
+        result = _get_working_directory("knowledge:some-artefact")
+        
+        # Should use backend directory (don't check exact path, just that it's the parent)
+        assert result == mock_backend_path.parent
+
+    @patch('agent_service.Path')
+    def test_get_working_directory_constitution_chat(self, mock_path_class):
+        """Test working directory selection for constitution chats."""
+        from agent_service import _get_working_directory
+        
+        mock_backend_path = Mock()
+        mock_path_class.return_value = mock_backend_path
+        
+        # Test constitution chat
+        result = _get_working_directory("constitution:some-constitution")
+        
+        # Should use backend directory (don't check exact path, just that it's the parent)
+        assert result == mock_backend_path.parent
+
+    @patch('agent_service._get_working_directory')
+    @patch('agent_service.subprocess.run')
+    def test_send_agent_message_success(self, mock_subprocess_run, mock_get_working_dir):
+        """Test successful agent message sending."""
+        from agent_service import send_agent_message
+        
+        # Setup mocks
+        mock_working_dir = Path("/test/workspace/repo")
+        mock_get_working_dir.return_value = mock_working_dir
+        
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = "Agent response content"
+        mock_subprocess_run.return_value = mock_result
+        
+        # Test successful message
+        result = send_agent_message("test-repo", "Hello agent")
+        
+        # Verify subprocess call
+        mock_subprocess_run.assert_called_once_with(
+            ["opencode", "run", "Hello agent"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=mock_working_dir
+        )
+        
+        # Verify response structure
+        assert "messageId" in result
+        assert "sent" in result
+        assert result["prompt"] == "Hello agent"
+        assert result["response"] == "Agent response content"
+
+    @patch('agent_service._get_working_directory')
+    @patch('agent_service.subprocess.run')
+    def test_send_agent_message_command_failure(self, mock_subprocess_run, mock_get_working_dir):
+        """Test agent message sending with command failure."""
+        from agent_service import send_agent_message
+        
+        # Setup mocks
+        mock_working_dir = Path("/test/workspace/repo")
+        mock_get_working_dir.return_value = mock_working_dir
+        
+        mock_result = Mock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Command error"
+        mock_subprocess_run.return_value = mock_result
+        
+        # Test failed command
+        result = send_agent_message("test-repo", "Hello agent")
+        
+        # Verify error response
+        assert result["response"] == "Error: Command error"
+
+    @patch('agent_service._get_working_directory')
+    @patch('agent_service.subprocess.run')
+    def test_send_agent_message_timeout(self, mock_subprocess_run, mock_get_working_dir):
+        """Test agent message sending with timeout."""
+        from agent_service import send_agent_message
+        
+        # Setup mocks
+        mock_working_dir = Path("/test/workspace/repo")
+        mock_get_working_dir.return_value = mock_working_dir
+        
+        mock_subprocess_run.side_effect = subprocess.TimeoutExpired(
+            ["opencode", "run", "Hello agent"], 30
+        )
+        
+        # Test timeout
+        result = send_agent_message("test-repo", "Hello agent")
+        
+        # Verify timeout response
+        assert result["response"] == "Error: Command timed out after 30 seconds"
+
+    @patch('agent_service._get_working_directory')
+    @patch('agent_service.subprocess.run')
+    def test_send_agent_message_file_not_found(self, mock_subprocess_run, mock_get_working_dir):
+        """Test agent message sending when opencode is not found."""
+        from agent_service import send_agent_message
+        
+        # Setup mocks
+        mock_working_dir = Path("/test/workspace/repo")
+        mock_get_working_dir.return_value = mock_working_dir
+        
+        mock_subprocess_run.side_effect = FileNotFoundError()
+        
+        # Test file not found
+        result = send_agent_message("test-repo", "Hello agent")
+        
+        # Verify file not found response
+        assert result["response"] == "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
+
+    @patch('agent_service._get_working_directory')
+    @patch('agent_service.subprocess.run')
+    def test_send_agent_message_generic_exception(self, mock_subprocess_run, mock_get_working_dir):
+        """Test agent message sending with generic exception."""
+        from agent_service import send_agent_message
+        
+        # Setup mocks
+        mock_working_dir = Path("/test/workspace/repo")
+        mock_get_working_dir.return_value = mock_working_dir
+        
+        mock_subprocess_run.side_effect = Exception("Generic error")
+        
+        # Test generic exception
+        result = send_agent_message("test-repo", "Hello agent")
+        
+        # Verify generic error response
+        assert result["response"] == "Error: Generic error"
