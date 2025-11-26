@@ -20,10 +20,10 @@ MADE (Mobile Agentic Development Environment) is a full-stack Node.js applicatio
 
 ```bash
 # Install dependencies (preferred)
-npm install
+make install
 
 # Run development servers
-npm run dev
+make run
 ```
 
 ## Table of Contents
@@ -47,11 +47,10 @@ git clone https://github.com/tbrandenburg/made.git
 cd made
 
 # Install all dependencies (monorepo setup)
-npm install
+make install
 
-```bash
-# Run Python backend
-cd packages/pybackend && uv run uvicorn app:app --reload
+# Run both frontend and Python backend
+make run
 ```
 
 (Alternative: build from source: `npm run build && npm run start`)
@@ -62,7 +61,7 @@ Minimal example to get started:
 
 ```bash
 # Start the development servers
-npm run dev
+make run
 
 # Backend runs on: http://localhost:3000
 # Frontend runs on: http://localhost:5173
@@ -138,10 +137,10 @@ make unit-test
 make system-test
 
 # All tests with coverage
-make test
+make test-coverage
 
-# Lint code
-npm run lint
+# Lint and format code
+make qa
 ```
 
 ### Testing Execution Patterns
@@ -163,13 +162,10 @@ npx playwright install                    # Download browser binaries
 sudo npx playwright install-deps         # Install system dependencies (optional)
 
 # 2. Start application servers (keep running)
-# Terminal 1 - Backend:
-cd packages/backend && npm run dev
-# Wait for: "MADE backend listening on http://0.0.0.0:3000"
-
-# Terminal 2 - Frontend:  
-cd packages/frontend && npm run dev
-# Wait for: "VITE v5.4.21 ready" and "Local: http://localhost:5173/"
+# Use make run to start both services:
+make run
+# Wait for both:
+# "✅ Backend started" and "VITE v5.4.21 ready"
 
 # 3. Verify server connectivity (optional)
 curl http://localhost:3000 -I            # Backend health check
@@ -185,7 +181,7 @@ npx playwright test --headed             # Visual debugging
 **Alternative - Combined Server Start:**
 ```bash
 # Start both servers in background
-npm run dev &
+make run &
 sleep 5                                   # Wait for startup
 npx playwright test                       # Run tests
 ```
@@ -209,13 +205,13 @@ Please read [CONTRIBUTING.md](./CONTRIBUTING.md) (or follow the short flow below
 Development setup:
 ```bash
 # Install dependencies
-npm install
+make install
 
 # Start development servers with hot reload
-npm run dev
+make run
 
-# Run tests before committing
-npm test && npm run test:e2e
+# Run quality assurance checks before committing
+make qa
 ```
 
 ## License
