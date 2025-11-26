@@ -99,6 +99,20 @@ jobs:
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         run: make install
 
+      - name: Debug frontend dependencies 
+        if: ${{ steps.detect.outputs.frontend_found == 'true' }}
+        run: |
+          echo "🔍 Debugging frontend setup..."
+          echo "Node version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+          echo "Frontend package.json:"
+          cat packages/frontend/package.json
+          echo ""
+          echo "Checking if vite is available:"
+          cd packages/frontend && npx vite --version || echo "❌ Vite not found"
+          echo "Checking node_modules:"
+          ls -la packages/frontend/node_modules/.bin/ | grep vite || echo "❌ No vite binary found"
+
       - name: Start MADE services (frontend + backend)
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         run: |
@@ -110,11 +124,27 @@ jobs:
           echo "Services started with PID $SERVICES_PID"
           
           echo "⏳ Waiting for services to become available..."
+          
+          # Wait a bit and check if the process is still running
+          sleep 5
+          if ! kill -0 $SERVICES_PID 2>/dev/null; then
+            echo "❌ Services process died unexpectedly!"
+            echo "🔍 Full services.log output:"
+            cat services.log
+            exit 1
+          fi
+          
           # Wait for backend API
           for i in {1..30}; do
             if curl -f http://localhost:3000/api/repositories > /dev/null 2>&1; then
               echo "✅ Backend API is ready on port 3000"
               break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "❌ Backend API never became ready"
+              echo "🔍 Services log:"
+              tail -n 30 services.log || true
+              exit 1
             fi
             sleep 3
           done
@@ -124,6 +154,12 @@ jobs:
             if nc -z localhost 5173 2>/dev/null; then
               echo "✅ Frontend is ready on port 5173"
               break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "❌ Frontend never became ready on port 5173"
+              echo "🔍 Services log:"
+              tail -n 30 services.log || true
+              exit 1
             fi
             sleep 2
           done
