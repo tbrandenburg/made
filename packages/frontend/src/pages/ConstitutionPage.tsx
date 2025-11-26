@@ -84,11 +84,15 @@ export const ConstitutionPage: React.FC = () => {
     <div className="page">
       <h1>Constitution: {name}</h1>
       {status && (
-        <div 
+        <div
           className={`alert ${
-            status.includes("successfully") ? "success" : 
-            status.includes("failed") || status.includes("Failed") || status.includes("unavailable") ? "error" : 
-            ""
+            status.includes("successfully")
+              ? "success"
+              : status.includes("failed") ||
+                  status.includes("Failed") ||
+                  status.includes("unavailable")
+                ? "error"
+                : ""
           }`}
         >
           {status}

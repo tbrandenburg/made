@@ -376,11 +376,14 @@ export const RepositoryPage: React.FC = () => {
           >
             {loadingFile && <div className="alert">Loading file...</div>}
             {editorStatus && (
-              <div 
+              <div
                 className={`alert ${
-                  editorStatus.includes("successfully") ? "success" : 
-                  editorStatus.includes("Failed") || editorStatus.includes("failed") ? "error" : 
-                  ""
+                  editorStatus.includes("successfully")
+                    ? "success"
+                    : editorStatus.includes("Failed") ||
+                        editorStatus.includes("failed")
+                      ? "error"
+                      : ""
                 }`}
               >
                 {editorStatus}
@@ -394,10 +397,12 @@ export const RepositoryPage: React.FC = () => {
             />
           </Panel>
           <Panel title="Preview">
-            {selectedFile?.endsWith('.md') ? (
+            {selectedFile?.endsWith(".md") ? (
               <div
                 className="markdown"
-                dangerouslySetInnerHTML={{ __html: marked(editorContent || "") }}
+                dangerouslySetInnerHTML={{
+                  __html: marked(editorContent || ""),
+                }}
               />
             ) : (
               <pre className="preview">{editorContent}</pre>

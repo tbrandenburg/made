@@ -88,11 +88,13 @@ export const KnowledgeArtefactPage: React.FC = () => {
     <div className="page">
       <h1>Artefact: {name}</h1>
       {status && (
-        <div 
+        <div
           className={`alert ${
-            status.includes("successfully") ? "success" : 
-            status.includes("failed") || status.includes("Failed") ? "error" : 
-            ""
+            status.includes("successfully")
+              ? "success"
+              : status.includes("failed") || status.includes("Failed")
+                ? "error"
+                : ""
           }`}
         >
           {status}

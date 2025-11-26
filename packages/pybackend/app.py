@@ -1,4 +1,3 @@
-import os
 
 from fastapi import Body, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,7 +26,13 @@ from repository_service import (
     write_repository_file,
 )
 from settings_service import read_settings, write_settings
-from config import ensure_made_structure, get_made_directory, get_workspace_home, get_backend_host, get_backend_port
+from config import (
+    ensure_made_structure,
+    get_made_directory,
+    get_workspace_home,
+    get_backend_host,
+    get_backend_port,
+)
 
 app = FastAPI(title="MADE Python Backend")
 app.add_middleware(
@@ -288,10 +293,10 @@ def bootstrap():
 
 def start():
     import uvicorn
-    
+
     uvicorn.run(
         "app:app",
-        host=get_backend_host(), 
+        host=get_backend_host(),
         port=get_backend_port(),
     )
 
