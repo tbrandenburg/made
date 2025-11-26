@@ -6,7 +6,7 @@ FRONTEND_PORT ?= 5173
 HOST ?= 0.0.0.0
 PYBACKEND_DIR := packages/pybackend
 
-.PHONY: help lint format test unit-test system-test qa qa-quick build run clean install install-node install-pybackend test-coverage backend-coverage docker-build docker-up docker-down docker-dev docker-clean
+.PHONY: help lint format test unit-test system-test qa qa-quick build run clean install install-node install-pybackend test-coverage docker-build docker-up docker-down docker-dev docker-clean
 
 # Default target
 help:
@@ -21,8 +21,7 @@ help:
 	@echo "  system-test   Run system tests only (frontend + backend)"
 	@echo "  qa            Run all quality assurance tasks (lint + format + test)"
 	@echo "  qa-quick      Run all quick quality assurance tasks (lint + format + unit-test)"
-	@echo "  test-coverage Run full test suite with coverage reporting"
-	@echo "  backend-coverage  Run backend tests with detailed coverage (70% minimum)"
+	@echo "  test-coverage Run full test suite with coverage reporting (70% minimum)"
 	@echo ""
 	@echo "Docker:"
 	@echo "  docker-build   Build all Docker images"
@@ -41,7 +40,7 @@ help:
 	@echo ""
 	@echo "Example usage:"
 	@echo "  make qa                        # Run all quality checks"
-	@echo "  make backend-coverage          # Run backend tests with detailed coverage"
+	@echo "  make test-coverage             # Run backend tests with detailed coverage"
 	@echo "  make docker-build              # Build Docker images"
 	@echo "  make docker-dev                # Start development environment"
 	@echo "  make run PORT=3000 FRONTEND_PORT=5173  # Start frontend + Python backend"
@@ -107,10 +106,6 @@ test-coverage:
 	@echo "📊 Frontend tests..."
 	npm test
 	@echo "📊 Backend tests with detailed coverage..."
-	cd $(PYBACKEND_DIR) && uv sync && uv run pytest --cov=. --cov-report=term-missing --cov-report=html:htmlcov --cov-fail-under=70
-
-backend-coverage:
-	@echo "📊 Running backend tests with detailed coverage report..."
 	cd $(PYBACKEND_DIR) && uv sync && uv run pytest --cov=. --cov-report=term-missing --cov-report=html:htmlcov --cov-branch --cov-fail-under=70
 	@echo "📊 Coverage report generated in packages/pybackend/htmlcov/"
 
