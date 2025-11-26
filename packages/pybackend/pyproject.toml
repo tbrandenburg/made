@@ -1,0 +1,18 @@
+[project]
+name = "made-pybackend"
+version = "0.1.0"
+description = "FastAPI backend for MADE"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi==0.111.0",
+  "python-frontmatter==1.0.0",
+  "uvicorn==0.29.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = true
