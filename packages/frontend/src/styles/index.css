@@ -176,6 +176,16 @@ textarea {
   color: var(--danger);
 }
 
+.alert.success {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--success);
+}
+
+.alert.error {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
 .empty {
   padding: 2rem;
   text-align: center;

@@ -87,7 +87,17 @@ export const KnowledgeArtefactPage: React.FC = () => {
   return (
     <div className="page">
       <h1>Artefact: {name}</h1>
-      {status && <div className="alert">{status}</div>}
+      {status && (
+        <div 
+          className={`alert ${
+            status.includes("successfully") ? "success" : 
+            status.includes("failed") || status.includes("Failed") ? "error" : 
+            ""
+          }`}
+        >
+          {status}
+        </div>
+      )}
       <TabView
         tabs={[
           {

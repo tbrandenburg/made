@@ -374,7 +374,17 @@ export const RepositoryPage: React.FC = () => {
             }
           >
             {loadingFile && <div className="alert">Loading file...</div>}
-            {editorStatus && <div className="alert">{editorStatus}</div>}
+            {editorStatus && (
+              <div 
+                className={`alert ${
+                  editorStatus.includes("successfully") ? "success" : 
+                  editorStatus.includes("Failed") || editorStatus.includes("failed") ? "error" : 
+                  ""
+                }`}
+              >
+                {editorStatus}
+              </div>
+            )}
             <textarea
               value={editorContent}
               onChange={(event) => setEditorContent(event.target.value)}

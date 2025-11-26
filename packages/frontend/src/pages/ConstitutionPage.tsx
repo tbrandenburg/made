@@ -83,7 +83,17 @@ export const ConstitutionPage: React.FC = () => {
   return (
     <div className="page">
       <h1>Constitution: {name}</h1>
-      {status && <div className="alert">{status}</div>}
+      {status && (
+        <div 
+          className={`alert ${
+            status.includes("successfully") ? "success" : 
+            status.includes("failed") || status.includes("Failed") || status.includes("unavailable") ? "error" : 
+            ""
+          }`}
+        >
+          {status}
+        </div>
+      )}
       <TabView
         tabs={[
           {
