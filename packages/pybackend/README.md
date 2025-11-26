@@ -3,13 +3,14 @@
 A FastAPI implementation of the MADE backend that mirrors the Node.js API exposed under the `/api` prefix. It reuses the same filesystem layout and environment variables so it can run side by side with the existing service.
 
 ## Run locally
-1. Install dependencies:
+1. Install dependencies with [uv](https://docs.astral.sh/uv/):
    ```bash
-   pip install -r packages/pybackend/requirements.txt
+   cd packages/pybackend
+   uv sync
    ```
 2. Start the server (default port `3000`):
    ```bash
-   uvicorn packages.pybackend.app:app --host 0.0.0.0 --port 3000
+   uv run uvicorn app:app --host 0.0.0.0 --port 3000
    ```
 
 ## Configuration
