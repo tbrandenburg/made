@@ -2,6 +2,7 @@
 # Provides common development tasks for the MADE project
 
 PORT ?= 3000
+FRONTEND_PORT ?= 5173
 HOST ?= 0.0.0.0
 PYBACKEND_DIR := packages/pybackend
 
@@ -23,7 +24,7 @@ help:
 @echo ""
 @echo "Build & Run:"
 @echo "  build     Build the project"
-@echo "  run       Start the Python backend with uvicorn"
+@echo "  run       Start the frontend and Python backend together"
 @echo ""
 @echo "Maintenance:"
 @echo "  install   Install/sync dependencies"
@@ -31,7 +32,7 @@ help:
 @echo ""
 @echo "Example usage:"
 @echo "  make qa                        # Run all quality checks"
-@echo "  make run PORT=3000             # Start the Python backend"
+@echo "  make run PORT=3000 FRONTEND_PORT=5173  # Start frontend + Python backend"
 
 # Quality Assurance Tasks
 format:
@@ -66,7 +67,11 @@ build:
 npm run build
 
 run:
-@echo "🚀 Starting MADE Python backend on $(HOST):$(PORT)..."
+@echo "🚀 Starting MADE frontend on $(HOST):$(FRONTEND_PORT) and Python backend on $(HOST):$(PORT)..."
+@echo "Press Ctrl+C to stop both services."
+npm --workspace packages/frontend run dev -- --host $(HOST) --port $(FRONTEND_PORT) & \
+FRONTEND_PID=$$!; \
+trap 'echo "⏹️  Stopping frontend (PID $$FRONTEND_PID)..."; kill $$FRONTEND_PID 2>/dev/null || true' EXIT INT TERM; \
 cd $(PYBACKEND_DIR) && uv run uvicorn app:app --host $(HOST) --port $(PORT)
 
 # Maintenance Tasks
