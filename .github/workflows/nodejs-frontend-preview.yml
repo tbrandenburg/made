@@ -51,18 +51,25 @@ jobs:
         id: detect
         run: |
           echo "🔍 Searching for Node.js frontend in this PR branch..."
-          matches=$(find . -name "package.json" -exec jq -r 'select(.scripts.dev != null) | input_filename' {} + 2>/dev/null || true)
-
-          if [ -z "$matches" ]; then
-            echo "::warning::No Node.js frontend detected in this PR. This is expected for backend-only changes."
+          
+          # Look for frontend specifically (exclude root package.json)
+          frontend_package=""
+          if [ -f "packages/frontend/package.json" ]; then
+            # Check if it has vite or other frontend dev script
+            if jq -e '.scripts.dev and (.dependencies.react or .devDependencies.vite)' packages/frontend/package.json > /dev/null 2>&1; then
+              frontend_package="packages/frontend"
+            fi
+          fi
+          
+          if [ -z "$frontend_package" ]; then
+            echo "::warning::No frontend package detected in packages/frontend. This is expected for backend-only changes."
             echo "🪄 Skipping preview deployment — no frontend present."
             echo "frontend_found=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          dir=$(dirname "$(echo "$matches" | head -n 1)")
-          echo "✅ Found Node.js project at: $dir"
-          echo "frontend_dir=$dir" >> $GITHUB_OUTPUT
+          echo "✅ Found frontend package at: $frontend_package"
+          echo "frontend_dir=$frontend_package" >> $GITHUB_OUTPUT
           echo "frontend_found=true" >> $GITHUB_OUTPUT
 
       - name: Set up Python
@@ -97,7 +104,12 @@ jobs:
       
       - name: Install dependencies
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
-        run: make install
+        run: |
+          echo "⚙️ Installing dependencies..."
+          make install
+          echo "🔧 Fixing npm/rollup native dependency issue..."
+          rm -rf node_modules package-lock.json
+          npm install
 
       - name: Debug frontend dependencies 
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
