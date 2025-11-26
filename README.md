@@ -49,8 +49,9 @@ cd made
 # Install all dependencies (monorepo setup)
 npm install
 
-# Start both backend and frontend
-npm run dev
+```bash
+# Run Python backend
+cd packages/pybackend && uv run uvicorn app:app --reload
 ```
 
 (Alternative: build from source: `npm run build && npm run start`)
@@ -130,14 +131,14 @@ The backend provides a RESTful API with endpoints for:
 ### Quick Test Commands
 
 ```bash
-# Unit tests (Jest)
-npm test
+# Unit tests (Python backend)
+make unit-test
 
-# End-to-end tests (Playwright) 
-npm run test:e2e
+# System tests (Playwright)
+make system-test
 
-# Watch mode for development
-npm run test:watch
+# All tests with coverage
+make test
 
 # Lint code
 npm run lint
@@ -192,9 +193,9 @@ npx playwright test                       # Run tests
 ### Testing Architecture
 
 Testing follows the pyramid approach:
-- **Unit Tests** - Core business logic and services (Jest)
-- **Integration Tests** - API endpoints and database interactions (Jest)
-- **System Tests** - Complete user workflows with UI (Playwright)
+- **Unit Tests** - Core business logic and services (pytest)
+- **Integration Tests** - API endpoints and database interactions (pytest)
+- **System Tests** - Full user journeys and workflows (Playwright)
 
 ## Contributing
 

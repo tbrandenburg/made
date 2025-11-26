@@ -1,20 +1,7 @@
 version: '3.9'
 
 services:
-  # Node.js backend (legacy)
-  backend:
-    build:
-      context: .
-      dockerfile: docker/backend.Dockerfile
-    environment:
-      PORT: 3001
-      NODE_ENV: production
-    volumes:
-      - made-data:/app/.made
-    ports:
-      - "3001:3001"
-
-  # Python backend (primary)
+  # Python backend
   pybackend:
     build:
       context: .

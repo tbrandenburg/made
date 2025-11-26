@@ -10,7 +10,6 @@ LICENSE
 examples
 playwright-report
 packages/frontend/dist
-packages/backend/dist
 coverage
 .env
 .vscode

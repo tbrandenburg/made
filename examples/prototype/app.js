@@ -1541,8 +1541,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('%c MADE Demo Mode ', 'background: #32b8c6; color: #1f3b3b; font-weight: bold; padding: 8px;');
         console.log('%c This is a frontend demo running in standalone browser mode. ', 'color: #62767d;');
         console.log('%c For full production setup: ', 'color: #62767d;');
-        console.log('%c - Node.js backend with filesystem API ', 'color: #62767d;');
-        console.log('%c - Jest unit tests for core logic ', 'color: #62767d;');
+        console.log('%c - Python FastAPI backend with filesystem API ', 'color: #62767d;');
+        console.log('%c - pytest unit tests for core logic ', 'color: #62767d;');
         console.log('%c - Playwright E2E tests for user journeys ', 'color: #62767d;');
         console.log('%c See documentation at: https://github.com/your-org/made ', 'color: #32b8c6;');
     }

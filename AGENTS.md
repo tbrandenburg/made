@@ -1,12 +1,12 @@
 # AGENTS.md
 
 ## Purpose
-This file provides guidance for Codex Cloud (an agent in the cloud) on how to correctly build, run, and preview this Node.js application.
+This file provides guidance for Codex Cloud (an agent in the cloud) on how to correctly build, run, and preview this Python/React application.
 
 ## Project Information
 
-* packages/backend/: NodeJS backend
-* packages/frontend/: NodeJS frontend
+* packages/pybackend/: Python backend (FastAPI)
+* packages/frontend/: NodeJS frontend (React + Vite)
 
 ## Constitution and guidelines
 
@@ -28,17 +28,15 @@ These are rules which should guide you, but can be overwritten by experts or pro
 
 ### Testing guideline
 
-This guide outlines the minimal test levels absolutely required for **Node.js** and **Docker**.
+This guide outlines the minimal test levels absolutely required for **Python FastAPI** backend and **React** frontend.
 Follow this mandatory guideline even if not instructed.
 Focus on lightweight, fast feedback — only essential tests are included.
 
-### ⚙️ Node.js Testing Checklist
-- [ ] **Unit Tests** — Cover core business logic with `Jest`.  
-- [ ] **Integration Tests** — Check that essential routes and DB/API calls work.  
+### ⚙️ Frontend Testing Checklist
+- [ ] **Unit Tests** — Cover core React components and utilities.
+- [ ] **Integration Tests** — Check that essential API calls work.
 - [ ] **System Tests** — Test main user flows with Playwright
-- [ ] **Smoke Tests** — Confirm app starts
-
-### 🐳 Dockerized Testing Checklist
+- [ ] **Smoke Tests** — Confirm app starts### 🐳 Dockerized Testing Checklist
 *Note: Use these tests only if you plan to containerize the application with Docker.*
 - [ ] **Component Tests** — Ensure each container builds and starts without errors.  
 - [ ] **Smoke Tests** — Run full stack with `docker-compose up --build -d`.  
@@ -47,8 +45,10 @@ Focus on lightweight, fast feedback — only essential tests are included.
 - [ ] **Smoke Tests** — Stop stack cleanly with `docker-compose down`.
 
 ## Environment Setup
-- Use **Node.js 18 or newer**.
-- Run `npm install` to install all dependencies.
+- Use **Python 3.12 or newer** for the backend.
+- Use **Node.js 18 or newer** for the frontend.
+- Run `npm install` to install frontend dependencies.
+- Run `cd packages/pybackend && uv sync` to install backend dependencies.
 - Ensure the environment variable `PORT` is respected (default: `3000`).
 - The app must listen on `0.0.0.0` (not `localhost`) to enable public preview.
 - The vite configuration has to be set up for allowing following remote hosts for previews (allowedHosts): .ngrok-free.dev, .ngrok.io, .ngrok.app
@@ -56,23 +56,31 @@ Focus on lightweight, fast feedback — only essential tests are included.
 ## Build & Run Instructions
 1. **Install dependencies**
    ```bash
+   # Frontend dependencies
    npm install
+   
+   # Backend dependencies  
+   cd packages/pybackend && uv sync
    ```
 
-2. **Build the project** (if applicable)
+2. **Start the servers**
    ```bash
-   npm run build
+   # Start both services (recommended)
+   make run
+   
+   # Or start individually:
+   # Backend: cd packages/pybackend && uv run uvicorn app:app --host 0.0.0.0 --port 3000
+   # Frontend: npm run dev:frontend
    ```
 
-3. **Start the server**
-   ```bash
-   npm run dev
+3. **Confirm the servers are ready**
+   The backend should log:
    ```
-
-4. **Confirm the server is ready**
-   The server should log a message similar to:
+   INFO: Uvicorn running on http://0.0.0.0:3000
    ```
-   Server listening on port 3000
+   The frontend should log:
+   ```
+   Local: http://localhost:5173/
    ```
    This signals that the preview is ready to be exposed.
 
@@ -82,19 +90,14 @@ Focus on lightweight, fast feedback — only essential tests are included.
 - If preview generation fails, print logs to diagnose issues (e.g., build errors or port conflicts).
 
 ## Troubleshooting
-- Ensure all dependencies are properly declared in `package.json`.
-- Avoid interactive prompts during `npm run` commands.
-- For frameworks like **Next.js**, use production mode:
+- Ensure Python 3.12+ is installed for the backend.
+- Ensure Node.js dependencies are properly declared in `packages/frontend/package.json`.
+- Ensure Python dependencies are properly declared in `packages/pybackend/pyproject.toml`.
+- Avoid interactive prompts during startup commands.
+- For Python backend issues, check that `uv` is installed and `packages/pybackend/.venv` exists.
+- For frontend production mode:
   ```bash
-  npm run build && npm run start
-  ```
-- For **Express** or similar custom servers, ensure your `server.js` includes:
-  ```js
-  const express = require('express');
-  const app = express();
-  const PORT = process.env.PORT || 3000;
-  const HOST = '0.0.0.0';
-  app.listen(PORT, HOST, () => console.log(`Server listening on http://${HOST}:${PORT}`));
+  npm run build:frontend && npm run preview:frontend
   ```
 
 ## Notes

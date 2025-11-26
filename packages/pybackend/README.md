@@ -1,6 +1,6 @@
 # MADE Python Backend
 
-A FastAPI implementation of the MADE backend that mirrors the Node.js API exposed under the `/api` prefix. It reuses the same filesystem layout and environment variables so it can run side by side with the existing service.
+A FastAPI implementation of the MADE backend, providing a modern Python-based API for the frontend. It uses the same filesystem layout and environment variables for seamless integration.
 
 ## Run locally
 1. Install dependencies with [uv](https://docs.astral.sh/uv/):
@@ -17,4 +17,4 @@ A FastAPI implementation of the MADE backend that mirrors the Node.js API expose
 - `MADE_HOME` – overrides the home directory where `.made` is stored (defaults to the current working directory).
 - `MADE_WORKSPACE_HOME` – overrides the workspace directory scanned for repositories (defaults to the current working directory).
 
-The endpoints, payloads, and responses are intentionally kept identical to the Node backend so the frontend can switch between them without changes.
+The endpoints, payloads, and responses provide a clean REST API for the frontend to interact with the backend services.

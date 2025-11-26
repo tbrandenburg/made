@@ -154,7 +154,7 @@ run:
 
 # Maintenance Tasks
 install: install-node install-pybackend
-	@echo "✅ Dependencies installed for Node.js workspaces and Python backend"
+	@echo "✅ Dependencies installed for frontend and Python backend"
 
 install-node:
 	@echo "⚙️ Installing Node.js dependencies..."

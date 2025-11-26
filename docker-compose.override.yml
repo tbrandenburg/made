@@ -15,15 +15,6 @@ services:
     environment:
       - PORT=3000
       - PYTHONPATH=/app
-      
-  backend:
-    # Mount source code for development  
-    volumes:
-      - ./packages/backend:/app/packages/backend
-      - made-data:/app/.made
-    environment:
-      - NODE_ENV=development
-      - PORT=3001
 
 volumes:
   made-data:
