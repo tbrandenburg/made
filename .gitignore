@@ -297,3 +297,6 @@ test-results/
 
 # Docker
 .docker/
+
+# Workspace
+workspace/

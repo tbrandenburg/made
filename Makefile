@@ -110,8 +110,12 @@ run:
 	@echo "  🖥️  Frontend will start on $(HOST):$(FRONTEND_PORT)"
 	@echo "  📋 Press Ctrl+C to stop both services."
 	@echo ""
+	@echo "🔧 Setting up workspace environment..."
+	@echo "  📁 MADE_HOME: $(PWD)/workspace"
+	@echo "  📁 MADE_WORKSPACE_HOME: $(PWD)/workspace"
+	@echo ""
 	@echo "🔧 Starting Python backend..."
-	@cd $(PYBACKEND_DIR) && uv run uvicorn app:app --host $(HOST) --port $(PORT) & \
+	@cd $(PYBACKEND_DIR) && MADE_HOME=$(PWD)/workspace MADE_WORKSPACE_HOME=$(PWD)/workspace uv run uvicorn app:app --host $(HOST) --port $(PORT) & \
 	BACKEND_PID=$$!; \
 	sleep 2; \
 	echo "✅ Backend started (PID $$BACKEND_PID)"; \
