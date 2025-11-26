@@ -11,7 +11,12 @@ RUN npm ci --workspace packages/frontend --include-workspace-root=false \
 
 # Copy frontend source and build the production bundle
 COPY packages/frontend packages/frontend
-RUN npm run build --workspace packages/frontend
+
+# Fix for npm/rollup issue with optional dependencies in Alpine
+# Remove lock file and node_modules, then reinstall to resolve rollup native module issue
+RUN rm -rf node_modules package-lock.json && \
+    npm install --workspace packages/frontend --include-workspace-root=false && \
+    npm run build --workspace packages/frontend
 
 FROM nginx:1.27-alpine
 
