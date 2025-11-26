@@ -104,12 +104,7 @@ jobs:
       
       - name: Install dependencies
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
-        run: |
-          echo "⚙️ Installing dependencies..."
-          make install
-          echo "🔧 Fixing npm/rollup native dependency issue..."
-          rm -rf node_modules package-lock.json
-          npm install
+        run: make install
 
       - name: Debug frontend dependencies 
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}

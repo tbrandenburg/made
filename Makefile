@@ -158,9 +158,8 @@ install: install-node install-pybackend
 
 install-node:
 	@echo "⚙️ Installing Node.js dependencies..."
-	npm install
-	@echo "⚙️ Installing frontend workspace dependencies..."
-	npm --workspace packages/frontend install
+	npm ci
+	@echo "✅ Node.js dependencies installed"
 
 install-pybackend:
 	@echo "⚙️ Syncing Python backend dependencies..."
