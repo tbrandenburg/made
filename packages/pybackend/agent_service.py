@@ -5,6 +5,17 @@ from pathlib import Path
 
 from config import get_workspace_home
 
+_active_conversations: set[str] = set()
+
+
+def _build_opencode_command(message: str, is_continuation: bool) -> list[str]:
+    """Build the opencode command based on conversation state."""
+    command = ["opencode", "run"]
+    if is_continuation:
+        command.append("-c")
+    command.append(message)
+    return command
+
 
 def _get_working_directory(channel: str) -> Path:
     """Determine the working directory based on the channel context."""
@@ -22,11 +33,13 @@ def _get_working_directory(channel: str) -> Path:
 
 def send_agent_message(channel: str, message: str):
     working_dir = _get_working_directory(channel)
+    continue_conversation = channel in _active_conversations
+    command = _build_opencode_command(message, continue_conversation)
 
     try:
         # Run the opencode command with the message in the appropriate directory
         result = subprocess.run(
-            ["opencode", "run", message],
+            command,
             capture_output=True,
             text=True,
             timeout=30,  # 30 second timeout
@@ -35,6 +48,7 @@ def send_agent_message(channel: str, message: str):
 
         if result.returncode == 0:
             response = result.stdout.strip()
+            _active_conversations.add(channel)
         else:
             response = (
                 f"Error: {result.stderr.strip()}"
