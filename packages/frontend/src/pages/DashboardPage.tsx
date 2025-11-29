@@ -57,11 +57,11 @@ export const DashboardPage: React.FC = () => {
                 <Panel title="MADE Home">
                   <div className="path-info">{data?.madeHome ?? "—"}</div>
                 </Panel>
-                <Panel title="Workspace Home">
-                  <div className="path-info">{data?.workspaceHome ?? "—"}</div>
-                </Panel>
                 <Panel title=".made Folder">
                   <div className="path-info">{data?.madeDirectory ?? "—"}</div>
+                </Panel>
+                <Panel title="Workspace Home">
+                  <div className="path-info">{data?.workspaceHome ?? "—"}</div>
                 </Panel>
               </div>
             ),

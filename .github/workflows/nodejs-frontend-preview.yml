@@ -21,7 +21,7 @@ jobs:
     env:
       PREVIEW_TIMEOUT_MINUTES: ${{ github.event.inputs.timeout_minutes || '5' }}
       NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
-      MADE_HOME: ${{ format('{0}/workspace/.made', github.workspace) }}
+      MADE_HOME: ${{ format('{0}/workspace/', github.workspace) }}
       MADE_WORKSPACE_HOME: ${{ format('{0}/workspace/', github.workspace) }}
 
     steps:
