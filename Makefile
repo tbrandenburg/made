@@ -77,14 +77,14 @@ unit-test:
 	cd $(PYBACKEND_DIR) && uv sync && uv run pytest tests/unit/ -v --cov=. --cov-report=term-missing
 
 system-test:
-        @echo "🏗️ Running system tests with service management..."
-        @echo "🚀 Starting services for system tests..."
-        @MADE_HOME=$(MADE_HOME) MADE_WORKSPACE_HOME=$(MADE_WORKSPACE_HOME) npm --workspace packages/frontend run dev -- --host 127.0.0.1 --port 5173 > frontend-test.log 2>&1 & \
-        FRONTEND_PID=$$!; \
-        cd $(PYBACKEND_DIR) && MADE_HOME=$(MADE_HOME) MADE_WORKSPACE_HOME=$(MADE_WORKSPACE_HOME) MADE_BACKEND_HOST=127.0.0.1 MADE_BACKEND_PORT=3000 uv run made-backend > ../backend-test.log 2>&1 & \
-        BACKEND_PID=$$!; \
-        trap 'echo "🛑 Stopping test services..."; kill $$FRONTEND_PID $$BACKEND_PID 2>/dev/null || true; wait' EXIT INT TERM; \
-        echo "⏳ Waiting for services to be ready..."; \
+	@echo "🏗️ Running system tests with service management..."
+	@echo "🚀 Starting services for system tests..."
+	@MADE_HOME=$(MADE_HOME) MADE_WORKSPACE_HOME=$(MADE_WORKSPACE_HOME) npm --workspace packages/frontend run dev -- --host 127.0.0.1 --port 5173 > frontend-test.log 2>&1 & \
+	FRONTEND_PID=$$!; \
+	cd $(PYBACKEND_DIR) && MADE_HOME=$(MADE_HOME) MADE_WORKSPACE_HOME=$(MADE_WORKSPACE_HOME) MADE_BACKEND_HOST=127.0.0.1 MADE_BACKEND_PORT=3000 uv run made-backend > ../backend-test.log 2>&1 & \
+	BACKEND_PID=$$!; \
+	trap 'echo "🛑 Stopping test services..."; kill $$FRONTEND_PID $$BACKEND_PID 2>/dev/null || true; wait' EXIT INT TERM; \
+	echo "⏳ Waiting for services to be ready..."; \
 	npx wait-on http://127.0.0.1:5173 http://127.0.0.1:3000/api/repositories --timeout 60000 --interval 2000; \
 	echo "✅ Services are ready"; \
 	echo "🔬 Running frontend system tests..."; \
@@ -94,8 +94,8 @@ system-test:
 	cd $(PYBACKEND_DIR) && uv sync && uv run pytest tests/system/ -v; \
 	BACKEND_TEST_EXIT_CODE=$$?; \
 	if [ $$TEST_EXIT_CODE -ne 0 ] || [ $$BACKEND_TEST_EXIT_CODE -ne 0 ]; then \
-		echo "❌ Some system tests failed"; \
-		exit 1; \
+	echo "❌ Some system tests failed"; \
+	exit 1; \
 	fi; \
 	echo "✅ All system tests passed"
 
@@ -122,21 +122,21 @@ build:
 	cd $(PYBACKEND_DIR) && uv build
 
 run:
-        @echo "🚀 Starting MADE services..."
-        @echo "  📡 Python backend will start on $(HOST):$(PORT)"
-        @echo "  🖥️  Frontend will start on $(HOST):$(FRONTEND_PORT)"
-        @echo "  📋 Press Ctrl+C to stop both services."
-        @echo ""
-        @echo "🔧 Setting up workspace environment..."
-        @echo "  📁 MADE_HOME: $(MADE_HOME)"
-        @echo "  📁 MADE_WORKSPACE_HOME: $(MADE_WORKSPACE_HOME)"
-        @echo ""
-        @echo "🔧 Starting Python backend..."
-        @cd $(PYBACKEND_DIR) && MADE_HOME=$(MADE_HOME) MADE_WORKSPACE_HOME=$(MADE_WORKSPACE_HOME) MADE_BACKEND_HOST=$(HOST) MADE_BACKEND_PORT=$(PORT) uv run made-backend & \
-        BACKEND_PID=$$!; \
-        sleep 2; \
-        echo "✅ Backend started (PID $$BACKEND_PID)"; \
-        echo "🔧 Starting frontend..."; \
+	        @echo "🚀 Starting MADE services..."
+	        @echo "  📡 Python backend will start on $(HOST):$(PORT)"
+	        @echo "  🖥️  Frontend will start on $(HOST):$(FRONTEND_PORT)"
+	        @echo "  📋 Press Ctrl+C to stop both services."
+	        @echo ""
+	        @echo "🔧 Setting up workspace environment..."
+	        @echo "  📁 MADE_HOME: $(MADE_HOME)"
+	        @echo "  📁 MADE_WORKSPACE_HOME: $(MADE_WORKSPACE_HOME)"
+	        @echo ""
+	        @echo "🔧 Starting Python backend..."
+	        @cd $(PYBACKEND_DIR) && MADE_HOME=$(MADE_HOME) MADE_WORKSPACE_HOME=$(MADE_WORKSPACE_HOME) MADE_BACKEND_HOST=$(HOST) MADE_BACKEND_PORT=$(PORT) uv run made-backend & \
+	        BACKEND_PID=$$!; \
+	        sleep 2; \
+	        echo "✅ Backend started (PID $$BACKEND_PID)"; \
+	        echo "🔧 Starting frontend..."; \
 	cleanup() { \
 		if [ "$$CLEANUP_DONE" != "1" ]; then \
 			export CLEANUP_DONE=1; \
