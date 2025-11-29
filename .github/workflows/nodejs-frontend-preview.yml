@@ -9,8 +9,7 @@ on:
     inputs:
       timeout_minutes:
         description: 'Preview timeout in minutes'
-        required: false
-        default: '5'
+        required: true
         type: string
 
 jobs:
@@ -19,7 +18,7 @@ jobs:
     timeout-minutes: 20  # small buffer above 10-minute tunnel lifetime
 
     env:
-      PREVIEW_TIMEOUT_MINUTES: ${{ github.event.inputs.timeout_minutes || '5' }}
+      PREVIEW_TIMEOUT_MINUTES: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.timeout_minutes || '5' }}
       NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
 
     steps:
