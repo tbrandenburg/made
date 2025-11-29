@@ -9,6 +9,7 @@ type DashboardData = {
   agentConnection: boolean;
   madeHome: string;
   workspaceHome: string;
+  madeDirectory: string;
 };
 
 export const DashboardPage: React.FC = () => {
@@ -18,14 +19,15 @@ export const DashboardPage: React.FC = () => {
   useEffect(() => {
     api
       .getDashboard()
-      .then((res) =>
-        setData({
-          projectCount: res.projectCount,
-          agentConnection: res.agentConnection,
-          madeHome: res.madeHome,
-          workspaceHome: res.workspaceHome,
-        }),
-      )
+          .then((res) =>
+            setData({
+              projectCount: res.projectCount,
+              agentConnection: res.agentConnection,
+              madeHome: res.madeHome,
+              workspaceHome: res.workspaceHome,
+              madeDirectory: res.madeDirectory,
+            }),
+          )
       .catch((error) => console.error("Failed to load dashboard", error));
   }, []);
 
@@ -57,6 +59,9 @@ export const DashboardPage: React.FC = () => {
                 </Panel>
                 <Panel title="Workspace Home">
                   <div className="path-info">{data?.workspaceHome ?? "—"}</div>
+                </Panel>
+                <Panel title=".made Folder">
+                  <div className="path-info">{data?.madeDirectory ?? "—"}</div>
                 </Panel>
               </div>
             ),

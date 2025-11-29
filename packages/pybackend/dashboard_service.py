@@ -1,5 +1,5 @@
 from repository_service import list_repositories
-from config import get_made_home, get_workspace_home
+from config import get_made_directory, get_made_home, get_workspace_home
 
 
 def get_dashboard_summary():
@@ -8,6 +8,7 @@ def get_dashboard_summary():
         "projectCount": len(repositories),
         "agentConnection": True,
         "repositories": repositories,
-        "madeHome": get_made_home(),
-        "workspaceHome": get_workspace_home(),
+        "madeHome": str(get_made_home()),
+        "workspaceHome": str(get_workspace_home()),
+        "madeDirectory": str(get_made_directory()),
     }

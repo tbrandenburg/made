@@ -39,6 +39,7 @@ export const api = {
       repositories: RepositorySummary[];
       madeHome: string;
       workspaceHome: string;
+      madeDirectory: string;
     }>("/dashboard"),
   listRepositories: () =>
     request<{ repositories: RepositorySummary[] }>("/repositories"),
