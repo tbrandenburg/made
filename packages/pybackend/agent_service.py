@@ -42,7 +42,6 @@ def send_agent_message(channel: str, message: str):
             command,
             capture_output=True,
             text=True,
-            timeout=30,  # 30 second timeout
             cwd=working_dir,  # Run in the correct directory
         )
 
@@ -56,8 +55,6 @@ def send_agent_message(channel: str, message: str):
                 else "Command failed with no output"
             )
 
-    except subprocess.TimeoutExpired:
-        response = "Error: Command timed out after 30 seconds"
     except FileNotFoundError:
         response = "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
     except Exception as e:

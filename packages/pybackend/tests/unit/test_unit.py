@@ -177,7 +177,6 @@ class TestAgentService:
             ["opencode", "run", "Hello agent"],
             capture_output=True,
             text=True,
-            timeout=30,
             cwd=mock_working_dir
         )
         
@@ -210,14 +209,12 @@ class TestAgentService:
             ["opencode", "run", "Hello agent"],
             capture_output=True,
             text=True,
-            timeout=30,
             cwd=mock_working_dir,
         )
         assert mock_subprocess_run.call_args_list[1] == call(
             ["opencode", "run", "-c", "Follow up"],
             capture_output=True,
             text=True,
-            timeout=30,
             cwd=mock_working_dir,
         )
 
@@ -240,31 +237,9 @@ class TestAgentService:
         
         # Test failed command
         result = send_agent_message("test-repo", "Hello agent")
-        
+
         # Verify error response
         assert result["response"] == "Error: Command error"
-
-    @patch('agent_service._get_working_directory')
-    @patch('agent_service.subprocess.run')
-    def test_send_agent_message_timeout(self, mock_subprocess_run, mock_get_working_dir):
-        """Test agent message sending with timeout."""
-        from agent_service import _active_conversations, send_agent_message
-        
-        # Setup mocks
-        mock_working_dir = Path("/test/workspace/repo")
-        mock_get_working_dir.return_value = mock_working_dir
-
-        mock_subprocess_run.side_effect = subprocess.TimeoutExpired(
-            ["opencode", "run", "Hello agent"], 30
-        )
-
-        _active_conversations.clear()
-        
-        # Test timeout
-        result = send_agent_message("test-repo", "Hello agent")
-        
-        # Verify timeout response
-        assert result["response"] == "Error: Command timed out after 30 seconds"
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')
