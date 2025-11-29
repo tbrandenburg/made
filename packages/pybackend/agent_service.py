@@ -3,7 +3,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from config import get_made_home, get_workspace_home
+from config import ensure_directory, get_made_directory, get_workspace_home
 
 _active_conversations: set[str] = set()
 
@@ -28,8 +28,13 @@ def _get_working_directory(channel: str) -> Path:
 
         return Path(__file__).parent
 
-    # For knowledge/constitution chats, run in the MADE_HOME directory to provide the correct context
-    return get_made_home()
+    made_dir = get_made_directory()
+
+    if channel.startswith("knowledge:"):
+        return ensure_directory(made_dir / "knowledge")
+
+    # For constitution chats, default to the constitutions directory inside .made
+    return ensure_directory(made_dir / "constitutions")
 
 
 def send_agent_message(channel: str, message: str):
