@@ -124,33 +124,41 @@ class TestAgentService:
         # Should fall back to backend directory
         assert result == mock_backend_path.parent
 
-    @patch('agent_service.get_made_home')
-    def test_get_working_directory_knowledge_chat(self, mock_get_made_home):
+    @patch('agent_service.ensure_directory')
+    @patch('agent_service.get_made_directory')
+    def test_get_working_directory_knowledge_chat(self, mock_get_made_directory, mock_ensure_directory):
         """Test working directory selection for knowledge chats."""
         from agent_service import _get_working_directory
 
-        made_home = Path("/test/made/home")
-        mock_get_made_home.return_value = made_home
+        made_dir = Path("/test/made/home/.made")
+        knowledge_dir = made_dir / "knowledge"
+        mock_get_made_directory.return_value = made_dir
+        mock_ensure_directory.return_value = knowledge_dir
 
         # Test knowledge chat
         result = _get_working_directory("knowledge:some-artefact")
 
-        mock_get_made_home.assert_called_once()
-        assert result == made_home
+        mock_get_made_directory.assert_called_once()
+        mock_ensure_directory.assert_called_once_with(knowledge_dir)
+        assert result == knowledge_dir
 
-    @patch('agent_service.get_made_home')
-    def test_get_working_directory_constitution_chat(self, mock_get_made_home):
+    @patch('agent_service.ensure_directory')
+    @patch('agent_service.get_made_directory')
+    def test_get_working_directory_constitution_chat(self, mock_get_made_directory, mock_ensure_directory):
         """Test working directory selection for constitution chats."""
         from agent_service import _get_working_directory
 
-        made_home = Path("/test/made/home")
-        mock_get_made_home.return_value = made_home
+        made_dir = Path("/test/made/home/.made")
+        const_dir = made_dir / "constitutions"
+        mock_get_made_directory.return_value = made_dir
+        mock_ensure_directory.return_value = const_dir
 
         # Test constitution chat
         result = _get_working_directory("constitution:some-constitution")
 
-        mock_get_made_home.assert_called_once()
-        assert result == made_home
+        mock_get_made_directory.assert_called_once()
+        mock_ensure_directory.assert_called_once_with(const_dir)
+        assert result == const_dir
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')
