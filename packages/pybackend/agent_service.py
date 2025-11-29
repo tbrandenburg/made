@@ -3,7 +3,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from config import get_workspace_home
+from config import get_made_home, get_workspace_home
 
 _active_conversations: set[str] = set()
 
@@ -26,9 +26,10 @@ def _get_working_directory(channel: str) -> Path:
         if repo_path.exists() and repo_path.is_dir():
             return repo_path
 
-    # For knowledge/constitution chats or if repository doesn't exist,
-    # run in the backend directory (current behavior)
-    return Path(__file__).parent
+        return Path(__file__).parent
+
+    # For knowledge/constitution chats, run in the MADE_HOME directory to provide the correct context
+    return get_made_home()
 
 
 def send_agent_message(channel: str, message: str):
