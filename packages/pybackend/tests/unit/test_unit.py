@@ -124,33 +124,33 @@ class TestAgentService:
         # Should fall back to backend directory
         assert result == mock_backend_path.parent
 
-    @patch('agent_service.Path')
-    def test_get_working_directory_knowledge_chat(self, mock_path_class):
+    @patch('agent_service.get_made_home')
+    def test_get_working_directory_knowledge_chat(self, mock_get_made_home):
         """Test working directory selection for knowledge chats."""
         from agent_service import _get_working_directory
-        
-        mock_backend_path = Mock()
-        mock_path_class.return_value = mock_backend_path
-        
+
+        made_home = Path("/test/made/home")
+        mock_get_made_home.return_value = made_home
+
         # Test knowledge chat
         result = _get_working_directory("knowledge:some-artefact")
-        
-        # Should use backend directory (don't check exact path, just that it's the parent)
-        assert result == mock_backend_path.parent
 
-    @patch('agent_service.Path')
-    def test_get_working_directory_constitution_chat(self, mock_path_class):
+        mock_get_made_home.assert_called_once()
+        assert result == made_home
+
+    @patch('agent_service.get_made_home')
+    def test_get_working_directory_constitution_chat(self, mock_get_made_home):
         """Test working directory selection for constitution chats."""
         from agent_service import _get_working_directory
-        
-        mock_backend_path = Mock()
-        mock_path_class.return_value = mock_backend_path
-        
+
+        made_home = Path("/test/made/home")
+        mock_get_made_home.return_value = made_home
+
         # Test constitution chat
         result = _get_working_directory("constitution:some-constitution")
-        
-        # Should use backend directory (don't check exact path, just that it's the parent)
-        assert result == mock_backend_path.parent
+
+        mock_get_made_home.assert_called_once()
+        assert result == made_home
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')
