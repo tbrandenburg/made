@@ -5,8 +5,8 @@ PORT ?= 3000
 FRONTEND_PORT ?= 5173
 HOST ?= 0.0.0.0
 PYBACKEND_DIR := packages/pybackend
-MADE_HOME ?= workspace/.made
-MADE_WORKSPACE_HOME ?= workspace/
+MADE_HOME ?= $(abspath $(CURDIR)/workspace/.made)
+MADE_WORKSPACE_HOME ?= $(abspath $(CURDIR)/workspace/)
 
 export MADE_HOME
 export MADE_WORKSPACE_HOME
