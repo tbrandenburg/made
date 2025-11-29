@@ -108,6 +108,19 @@ jobs:
           install "$TMPDIR/opencode" "$INSTALL_DIR/opencode"
 
           echo "$INSTALL_DIR" >> "$GITHUB_PATH"
+
+      # ------------------------------------------------------
+      # Configure OpenCode
+      # ------------------------------------------------------
+      - name: Configure opencode
+        env:
+          OPENCODE_AUTH_JSON: ${{ secrets.OPENCODE_AUTH_JSON }}
+        run: |
+          mkdir -p "$HOME/.config/opencode"
+          cp .github/opencode/config.json "$HOME/.config/opencode/config.json"
+          
+          mkdir -p "$HOME/.local/share/opencode"
+          echo "$OPENCODE_AUTH_JSON" > "$HOME/.local/share/opencode/auth.json"
       
       - name: Install dependencies
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
