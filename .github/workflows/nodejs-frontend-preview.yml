@@ -35,6 +35,30 @@ jobs:
           echo "$GH_AUTH_TOKEN" | gh auth login --with-token
           gh auth status
 
+      - name: Verify triggering actor is repo admin
+        id: admin
+        env:
+          REPOSITORY: ${{ github.repository }}
+          TRIGGER_ACTOR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login || github.triggering_actor }}
+        run: |
+          permission=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/$REPOSITORY/collaborators/$TRIGGER_ACTOR/permission" \
+            --jq '.permission // ""' 2>/dev/null || echo '')
+          if [[ "$permission" == "admin" ]]; then
+            echo "is_admin=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_admin=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Require admin privileges for preview
+        if: ${{ steps.admin.outputs.is_admin != 'true' }}
+        env:
+          TRIGGER_ACTOR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login || github.triggering_actor }}
+        run: |
+          echo "::error::Preview deployment requires repository admin privileges. Triggering actor: $TRIGGER_ACTOR"
+          exit 1
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
