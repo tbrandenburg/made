@@ -163,7 +163,7 @@ jobs:
 
       - name: Run opencode success check
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
-        run: opencode run 'Say: ✅ SUCCESS!'
+        run: "opencode run 'Say: ✅ SUCCESS!'"
       
       - name: Install dependencies
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
