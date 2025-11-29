@@ -142,9 +142,28 @@ jobs:
         run: |
           mkdir -p "$HOME/.config/opencode"
           cp .github/opencode/config.json "$HOME/.config/opencode/config.json"
-          
+
           mkdir -p "$HOME/.local/share/opencode"
           echo "$OPENCODE_AUTH_JSON" > "$HOME/.local/share/opencode/auth.json"
+
+          check_file() {
+            local path="$1"
+            local label="$2"
+
+            if [ -s "$path" ]; then
+              echo "✅ $label is present and non-empty ($path)"
+            else
+              echo "❌ $label is missing or empty ($path)"
+              exit 1
+            fi
+          }
+
+          check_file "$HOME/.config/opencode/config.json" "config.json"
+          check_file "$HOME/.local/share/opencode/auth.json" "auth.json"
+
+      - name: Run opencode success check
+        if: ${{ steps.detect.outputs.frontend_found == 'true' }}
+        run: "opencode run 'Say: ✅ SUCCESS!'"
       
       - name: Install dependencies
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
