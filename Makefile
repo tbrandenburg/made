@@ -160,14 +160,10 @@ run: install stop
 # Stop running services
 stop:
 	@echo "🛑 Stopping any running MADE services..."
-	@echo "🔍 Looking for backend processes on port $(PORT)..."
-	@lsof -ti:$(PORT) | xargs kill -9 2>/dev/null || echo "  ℹ️  No backend process found on port $(PORT)"
-	@echo "🔍 Looking for frontend processes on port $(FRONTEND_PORT)..."
-	@lsof -ti:$(FRONTEND_PORT) | xargs kill -9 2>/dev/null || echo "  ℹ️  No frontend process found on port $(FRONTEND_PORT)"
-	@echo "🔍 Looking for any remaining uvicorn processes..."
-	@pkill -f "uvicorn.*made-backend" 2>/dev/null || echo "  ℹ️  No uvicorn processes found"
-	@echo "🔍 Looking for any remaining vite dev processes..."
-	@pkill -f "vite.*dev" 2>/dev/null || echo "  ℹ️  No vite dev processes found"
+	@echo "🔍 Looking for processes on port $(PORT)..."
+	-@lsof -ti:$(PORT) | xargs -r kill -9 2>/dev/null || true
+	@echo "🔍 Looking for processes on port $(FRONTEND_PORT)..."
+	-@lsof -ti:$(FRONTEND_PORT) | xargs -r kill -9 2>/dev/null || true
 	@echo "✅ Service cleanup completed"
 
 # Restart services (stop then start)
