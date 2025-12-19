@@ -1,8 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "plugin": [
-    "opencode-openai-codex-auth"
+    "opencode-openai-codex-auth@4.1.1",
+    "opencode-skills"
   ],
+  "model": "github-copilot/claude-sonnet-4",
   "mcp": {
     "context7": {
       "type": "local",
