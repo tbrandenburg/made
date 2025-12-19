@@ -102,11 +102,44 @@ class TestRepositoryEndpoints:
     def test_create_repository_invalid_name(self, mock_create):
         """Test repository creation with invalid name."""
         mock_create.side_effect = ValueError("Invalid repository name")
-        
+
         response = client.post("/api/repositories", json={"name": "invalid name"})
-        
+
         assert response.status_code == 400
         assert "Invalid repository name" in response.json()["detail"]
+
+    @patch('app.clone_repository')
+    def test_clone_repository_success(self, mock_clone):
+        """Test successful repository cloning."""
+        mock_clone.return_value = {"name": "cloned-repo"}
+
+        response = client.post(
+            "/api/repositories/clone",
+            json={"url": "https://example.com/cloned.git"},
+        )
+
+        assert response.status_code == 201
+        mock_clone.assert_called_once_with("https://example.com/cloned.git")
+
+    def test_clone_repository_missing_url(self):
+        """Test cloning without providing URL."""
+        response = client.post("/api/repositories/clone", json={})
+
+        assert response.status_code == 400
+        assert "Repository URL is required" in response.json()["detail"]
+
+    @patch('app.clone_repository')
+    def test_clone_repository_failure(self, mock_clone):
+        """Test cloning failure handling."""
+        mock_clone.side_effect = ValueError("Failed to clone repository")
+
+        response = client.post(
+            "/api/repositories/clone",
+            json={"url": "https://example.com/sample.git"},
+        )
+
+        assert response.status_code == 400
+        assert "Failed to clone repository" in response.json()["detail"]
 
     @patch('app.get_repository_info')
     def test_get_repository_info_success(self, mock_get_info):

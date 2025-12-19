@@ -9,8 +9,14 @@ export const RepositoriesPage: React.FC = () => {
   const [repositories, setRepositories] = useState<RepositorySummary[]>([]);
   const [activeTab, setActiveTab] = useState("repositories");
   const [createOpen, setCreateOpen] = useState(false);
+  const [cloneOpen, setCloneOpen] = useState(false);
   const [newRepoName, setNewRepoName] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [cloneUrl, setCloneUrl] = useState("");
+  const [isCloning, setIsCloning] = useState(false);
+  const [alert, setAlert] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   const loadRepositories = () => {
     api
@@ -18,7 +24,7 @@ export const RepositoriesPage: React.FC = () => {
       .then((res) => setRepositories(res.repositories))
       .catch((err) => {
         console.error("Failed to load repositories", err);
-        setError("Unable to load repositories");
+        setAlert({ type: "error", message: "Unable to load repositories" });
       });
   };
 
@@ -28,17 +34,46 @@ export const RepositoriesPage: React.FC = () => {
 
   const handleCreate = async () => {
     if (!newRepoName.trim()) {
-      setError("Repository name cannot be empty");
+      setAlert({ type: "error", message: "Repository name cannot be empty" });
       return;
     }
     try {
       await api.createRepository(newRepoName.trim());
       setCreateOpen(false);
       setNewRepoName("");
-      setError(null);
+      setAlert({ type: "success", message: "Repository created successfully" });
       loadRepositories();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create repository");
+      setAlert({
+        type: "error",
+        message:
+          e instanceof Error ? e.message : "Failed to create repository",
+      });
+    }
+  };
+
+  const handleClone = async () => {
+    const trimmedUrl = cloneUrl.trim();
+    if (!trimmedUrl) {
+      setAlert({ type: "error", message: "Repository URL cannot be empty" });
+      setCloneOpen(false);
+      return;
+    }
+    setIsCloning(true);
+    try {
+      await api.cloneRepository(trimmedUrl);
+      setAlert({ type: "success", message: "Repository cloned successfully" });
+      setCloneOpen(false);
+      setCloneUrl("");
+      loadRepositories();
+    } catch (e) {
+      setCloneOpen(false);
+      setAlert({
+        type: "error",
+        message: e instanceof Error ? e.message : "Failed to clone repository",
+      });
+    } finally {
+      setIsCloning(false);
     }
   };
 
@@ -59,8 +94,18 @@ export const RepositoriesPage: React.FC = () => {
                   >
                     Create Repository
                   </button>
+                  <button
+                    className="secondary"
+                    onClick={() => setCloneOpen(true)}
+                  >
+                    Clone Repository
+                  </button>
                 </div>
-                {error && <div className="alert">{error}</div>}
+                {alert && (
+                  <div className={`alert ${alert.type}`}>
+                    {alert.message}
+                  </div>
+                )}
                 <div className="panel-column">
                   {repositories.map((repo) => (
                     <Panel
@@ -116,6 +161,39 @@ export const RepositoriesPage: React.FC = () => {
           </button>
           <button className="primary" onClick={handleCreate}>
             Create &amp; Init Git
+          </button>
+        </div>
+      </Modal>
+      <Modal
+        open={cloneOpen}
+        title="Clone Repository"
+        onClose={() => {
+          if (!isCloning) setCloneOpen(false);
+        }}
+      >
+        <div className="form-group">
+          <label htmlFor="repository-url">Repository URL</label>
+          <input
+            id="repository-url"
+            value={cloneUrl}
+            onChange={(event) => setCloneUrl(event.target.value)}
+            placeholder="https://github.com/owner/repo.git"
+          />
+        </div>
+        <div className="modal-actions">
+          <button
+            className="secondary"
+            onClick={() => setCloneOpen(false)}
+            disabled={isCloning}
+          >
+            Cancel
+          </button>
+          <button
+            className="primary"
+            onClick={handleClone}
+            disabled={isCloning}
+          >
+            {isCloning ? "Cloning..." : "Clone"}
           </button>
         </div>
       </Modal>
