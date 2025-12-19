@@ -48,6 +48,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ name }),
     }),
+  cloneRepository: (url: string) =>
+    request<RepositorySummary>("/repositories/clone", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    }),
   getRepository: (name: string) =>
     request<RepositorySummary>(`/repositories/${name}`),
   getRepositoryFiles: (name: string) =>

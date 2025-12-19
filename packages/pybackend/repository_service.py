@@ -86,6 +86,20 @@ def get_license(repo_path: Path) -> str:
     return "Unknown"
 
 
+def _extract_repo_name(repo_url: str) -> str:
+    if not repo_url:
+        raise ValueError("Repository URL is required")
+
+    name = repo_url.rstrip("/").split("/")[-1]
+    if name.endswith(".git"):
+        name = name[:-4]
+
+    if not name:
+        raise ValueError("Invalid repository URL")
+
+    return name
+
+
 def get_repository_info(repo_name: str) -> Dict[str, Union[str, bool, None]]:
     workspace = get_workspace_home()
     repo_path = workspace / repo_name
@@ -129,6 +143,28 @@ def create_repository(name: str) -> Dict[str, Union[str, bool, None]]:
             pass
         raise ValueError("Failed to initialize git repository")
     return get_repository_info(name)
+
+
+def clone_repository(repo_url: str) -> Dict[str, Union[str, bool, None]]:
+    repo_name = _extract_repo_name(repo_url)
+    workspace = get_workspace_home()
+    workspace.mkdir(parents=True, exist_ok=True)
+    target_path = workspace / repo_name
+
+    if target_path.exists():
+        raise ValueError("Repository already exists")
+
+    try:
+        subprocess.check_call(
+            ["git", "clone", repo_url],
+            cwd=str(workspace),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        raise ValueError("Failed to clone repository")
+
+    return get_repository_info(repo_name)
 
 
 def build_file_tree(current_path: Path, base_path: Path) -> FileNode:

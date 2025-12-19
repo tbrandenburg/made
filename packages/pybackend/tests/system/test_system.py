@@ -108,9 +108,23 @@ class TestServiceIntegration:
         
         for response in responses:
             assert response.status_code == 200
-            
+
         # Verify all services were called
         mock_repositories.assert_called_once()
         mock_knowledge.assert_called_once()
         mock_constitutions.assert_called_once()
         mock_dashboard.assert_called_once()
+
+    @patch('app.clone_repository')
+    def test_clone_repository_endpoint(self, mock_clone_repository):
+        """Test the clone repository endpoint wiring."""
+        mock_clone_repository.return_value = {"name": "cloned"}
+
+        response = client.post(
+            "/api/repositories/clone",
+            json={"url": "https://example.com/repo.git"},
+        )
+
+        assert response.status_code == 201
+        assert response.json()["name"] == "cloned"
+        mock_clone_repository.assert_called_once_with("https://example.com/repo.git")
