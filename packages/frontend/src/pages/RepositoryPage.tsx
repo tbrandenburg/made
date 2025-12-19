@@ -1,18 +1,13 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { marked } from "marked";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
+import { usePersistentChat } from "../hooks/usePersistentChat";
 import { api, FileNode, RepositorySummary } from "../hooks/useApi";
+import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "agent";
-  text: string;
-  timestamp: string;
-}
 
 const PUBLISHMENT_ACTIONS = [
   {
@@ -54,7 +49,11 @@ export const RepositoryPage: React.FC = () => {
   const [repository, setRepository] = useState<RepositorySummary | null>(null);
   const [fileTree, setFileTree] = useState<FileNode | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(["."]));
-  const [chat, setChat] = useState<ChatMessage[]>([]);
+  const chatStorageKey = useMemo(
+    () => (name ? `repository-chat-${name}` : "repository-chat"),
+    [name]
+  );
+  const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [pendingPrompt, setPendingPrompt] = useState("");
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
