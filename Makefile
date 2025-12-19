@@ -11,7 +11,7 @@ MADE_WORKSPACE_HOME ?= $(abspath $(CURDIR)/workspace/)
 export MADE_HOME
 export MADE_WORKSPACE_HOME
 
-.PHONY: help lint format test unit-test system-test qa qa-quick build run clean install install-node install-pybackend test-coverage docker-build docker-up docker-down docker-dev docker-clean
+.PHONY: help lint format test unit-test system-test qa qa-quick build run stop restart clean install install-node install-pybackend test-coverage docker-build docker-up docker-down docker-dev docker-clean
 
 # Default target
 help:
@@ -38,6 +38,8 @@ help:
 	@echo "Build & Run:"
 	@echo "  build     Build the project"
 	@echo "  run       Start the frontend and Python backend together"
+	@echo "  stop      Stop any running MADE services"
+	@echo "  restart   Stop and then start all services"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  install   Install/sync dependencies"
@@ -46,6 +48,9 @@ help:
 	@echo "Example usage:"
 	@echo "  make qa                        # Run all quality checks"
 	@echo "  make test-coverage             # Run backend tests with detailed coverage"
+	@echo "  make stop                      # Stop running services before starting new ones"
+	@echo "  make run                       # Start services (auto-stops conflicting processes)"
+	@echo "  make restart                   # Stop and restart all services"
 	@echo "  make docker-build              # Build Docker images"
 	@echo "  make docker-dev                # Start development environment"
 	@echo "  make run PORT=3000 FRONTEND_PORT=5173  # Start frontend + Python backend"
@@ -121,7 +126,7 @@ build:
 	@echo "📦 Building backend package..."
 	cd $(PYBACKEND_DIR) && uv build
 
-run: install
+run: install stop
 	        @echo "🚀 Starting MADE services..."
 	        @echo "  📡 Python backend will start on $(HOST):$(PORT)"
 	        @echo "  🖥️  Frontend will start on $(HOST):$(FRONTEND_PORT)"
@@ -151,6 +156,22 @@ run: install
 	}; \
 	trap cleanup EXIT INT TERM; \
 	npm --workspace packages/frontend run dev -- --host $(HOST) --port $(FRONTEND_PORT)
+
+# Stop running services
+stop:
+	@echo "🛑 Stopping any running MADE services..."
+	@echo "🔍 Looking for backend processes on port $(PORT)..."
+	@lsof -ti:$(PORT) | xargs kill -9 2>/dev/null || echo "  ℹ️  No backend process found on port $(PORT)"
+	@echo "🔍 Looking for frontend processes on port $(FRONTEND_PORT)..."
+	@lsof -ti:$(FRONTEND_PORT) | xargs kill -9 2>/dev/null || echo "  ℹ️  No frontend process found on port $(FRONTEND_PORT)"
+	@echo "🔍 Looking for any remaining uvicorn processes..."
+	@pkill -f "uvicorn.*made-backend" 2>/dev/null || echo "  ℹ️  No uvicorn processes found"
+	@echo "🔍 Looking for any remaining vite dev processes..."
+	@pkill -f "vite.*dev" 2>/dev/null || echo "  ℹ️  No vite dev processes found"
+	@echo "✅ Service cleanup completed"
+
+# Restart services (stop then start)
+restart: stop run
 
 # Maintenance Tasks
 install: install-node install-pybackend
