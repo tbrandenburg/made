@@ -1,17 +1,12 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { marked } from "marked";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
+import { usePersistentChat } from "../hooks/usePersistentChat";
 import { api } from "../hooks/useApi";
+import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "agent";
-  text: string;
-  timestamp: string;
-}
 
 export const ConstitutionPage: React.FC = () => {
   const { name } = useParams();
@@ -19,7 +14,11 @@ export const ConstitutionPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("content");
   const [frontmatter, setFrontmatter] = useState<Record<string, unknown>>({});
   const [content, setContent] = useState("");
-  const [chat, setChat] = useState<ChatMessage[]>([]);
+  const chatStorageKey = useMemo(
+    () => (name ? `constitution-chat-${name}` : "constitution-chat"),
+    [name]
+  );
+  const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [prompt, setPrompt] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
