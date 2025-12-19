@@ -11,6 +11,7 @@ export default defineConfig({
       ".ngrok-free.dev", // current default ngrok domain
       ".ngrok.io", // legacy domain
       ".ngrok.app", // alternate domain
+      ".org", // org domains
     ],
     proxy: {
       "/api": {

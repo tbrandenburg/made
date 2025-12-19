@@ -121,7 +121,7 @@ build:
 	@echo "📦 Building backend package..."
 	cd $(PYBACKEND_DIR) && uv build
 
-run:
+run: install
 	        @echo "🚀 Starting MADE services..."
 	        @echo "  📡 Python backend will start on $(HOST):$(PORT)"
 	        @echo "  🖥️  Frontend will start on $(HOST):$(FRONTEND_PORT)"
