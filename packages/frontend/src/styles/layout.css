@@ -33,3 +33,9 @@
       "content";
   }
 }
+
+@media (max-width: 640px) {
+  .app-content {
+    padding: 1.25rem;
+  }
+}
