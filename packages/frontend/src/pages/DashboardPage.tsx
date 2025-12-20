@@ -19,15 +19,15 @@ export const DashboardPage: React.FC = () => {
   useEffect(() => {
     api
       .getDashboard()
-          .then((res) =>
-            setData({
-              projectCount: res.projectCount,
-              agentConnection: res.agentConnection,
-              madeHome: res.madeHome,
-              workspaceHome: res.workspaceHome,
-              madeDirectory: res.madeDirectory,
-            }),
-          )
+      .then((res) =>
+        setData({
+          projectCount: res.projectCount,
+          agentConnection: res.agentConnection,
+          madeHome: res.madeHome,
+          workspaceHome: res.workspaceHome,
+          madeDirectory: res.madeDirectory,
+        }),
+      )
       .catch((error) => console.error("Failed to load dashboard", error));
   }, []);
 

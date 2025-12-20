@@ -46,8 +46,7 @@ export const RepositoriesPage: React.FC = () => {
     } catch (e) {
       setAlert({
         type: "error",
-        message:
-          e instanceof Error ? e.message : "Failed to create repository",
+        message: e instanceof Error ? e.message : "Failed to create repository",
       });
     }
   };
@@ -102,9 +101,7 @@ export const RepositoriesPage: React.FC = () => {
                   </button>
                 </div>
                 {alert && (
-                  <div className={`alert ${alert.type}`}>
-                    {alert.message}
-                  </div>
+                  <div className={`alert ${alert.type}`}>{alert.message}</div>
                 )}
                 <div className="panel-column">
                   {repositories.map((repo) => (

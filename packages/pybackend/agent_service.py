@@ -1,6 +1,6 @@
 import subprocess
 import time
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 
 from config import ensure_directory, get_made_directory, get_workspace_home
@@ -68,7 +68,7 @@ def send_agent_message(channel: str, message: str):
 
     return {
         "messageId": str(int(time.time() * 1000)),
-        "sent": datetime.utcnow().isoformat() + "Z",
+        "sent": datetime.now(UTC).isoformat() + "Z",
         "prompt": message,
         "response": response,
     }

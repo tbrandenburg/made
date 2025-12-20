@@ -16,7 +16,7 @@ export const ConstitutionPage: React.FC = () => {
   const [content, setContent] = useState("");
   const chatStorageKey = useMemo(
     () => (name ? `constitution-chat-${name}` : "constitution-chat"),
-    [name]
+    [name],
   );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [prompt, setPrompt] = useState("");

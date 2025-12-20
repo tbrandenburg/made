@@ -5,7 +5,7 @@ const EMPTY_CHAT: ChatMessage[] = [];
 
 const parseChat = (
   storageKey: string | undefined,
-  fallback: ChatMessage[]
+  fallback: ChatMessage[],
 ): ChatMessage[] => {
   if (!storageKey) return fallback;
   try {
@@ -24,10 +24,10 @@ const parseChat = (
 
 export const usePersistentChat = (
   storageKey: string | undefined,
-  fallback: ChatMessage[] = EMPTY_CHAT
+  fallback: ChatMessage[] = EMPTY_CHAT,
 ) => {
   const [chat, setChat] = useState<ChatMessage[]>(() =>
-    parseChat(storageKey, fallback)
+    parseChat(storageKey, fallback),
   );
 
   useEffect(() => {

@@ -16,7 +16,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
   const [content, setContent] = useState("");
   const chatStorageKey = useMemo(
     () => (name ? `knowledge-chat-${name}` : "knowledge-chat"),
-    [name]
+    [name],
   );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [prompt, setPrompt] = useState("");

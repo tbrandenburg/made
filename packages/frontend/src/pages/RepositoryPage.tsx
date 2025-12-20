@@ -51,7 +51,7 @@ export const RepositoryPage: React.FC = () => {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(["."]));
   const chatStorageKey = useMemo(
     () => (name ? `repository-chat-${name}` : "repository-chat"),
-    [name]
+    [name],
   );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [pendingPrompt, setPendingPrompt] = useState("");
