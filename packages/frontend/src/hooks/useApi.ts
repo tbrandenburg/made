@@ -1,27 +1,61 @@
 const API_BASE =
   (import.meta.env?.VITE_API_BASE as string | undefined) || "/api";
 
+const DEFAULT_MAX_RETRIES = 3;
+const DEFAULT_RETRY_DELAY = 1000;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
+  maxRetries = DEFAULT_MAX_RETRIES,
+  retryDelay = DEFAULT_RETRY_DELAY,
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    headers: {
-      "Content-Type": "application/json",
-    },
-    ...options,
-  });
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        ...options,
+      });
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || "Request failed");
+      if (!response.ok) {
+        const message = await response.text();
+
+        if (response.status >= 500 && attempt < maxRetries) {
+          await sleep(retryDelay);
+          continue;
+        }
+
+        throw new Error(message || "Request failed");
+      }
+
+      if (response.status === 204) {
+        return {} as T;
+      }
+
+      return (await response.json()) as T;
+    } catch (error) {
+      if (
+        attempt < maxRetries &&
+        (error instanceof TypeError ||
+          (error instanceof Error &&
+            (error.message.includes("fetch") ||
+              error.message.includes("Failed to fetch"))))
+      ) {
+        await sleep(retryDelay);
+        continue;
+      }
+
+      throw error;
+    }
   }
 
-  if (response.status === 204) {
-    return {} as T;
-  }
-
-  return (await response.json()) as T;
+  throw new Error("Maximum retry attempts exceeded");
 }
 
 type AgentReply = {
