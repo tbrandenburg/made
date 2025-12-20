@@ -68,6 +68,14 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  background: #2f3447;
+  color: #c3c8d4;
+  cursor: not-allowed;
+  box-shadow: none;
+  border: 1px solid transparent;
+}
+
 input,
 textarea,
 select {
