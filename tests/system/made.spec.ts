@@ -78,4 +78,25 @@ test.describe('MADE journeys', () => {
     await page.getByRole('button', { name: 'Agent' }).click();
     await expect(page.getByPlaceholder('Describe the change or ask the agent...')).toBeVisible();
   });
+
+  test('recovers when dashboard API is temporarily unavailable', async ({ page }) => {
+    await page.unroute('**/api/dashboard');
+    let attempts = 0;
+
+    await page.route('**/api/dashboard', (route) => {
+      attempts += 1;
+      if (attempts === 1) {
+        route.fulfill({ status: 503, body: 'Service unavailable' });
+        return;
+      }
+
+      route.fulfill({ json: dashboardResponse });
+    });
+
+    await page.goto('/dashboard');
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByText('Project Count')).toBeVisible();
+    await expect(page.getByText('1')).toBeVisible();
+    expect(attempts).toBe(2);
+  });
 });

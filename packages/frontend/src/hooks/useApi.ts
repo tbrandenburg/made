@@ -5,23 +5,57 @@ async function request<T>(
   endpoint: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    headers: {
-      "Content-Type": "application/json",
-    },
-    ...options,
-  });
+  const maxRetries = 3;
+  const retryDelay = 1000;
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || "Request failed");
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        ...options,
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+
+        if (response.status >= 500 && attempt < maxRetries) {
+          console.log(
+            `API attempt ${attempt} failed with status ${response.status}, retrying in ${retryDelay}ms...`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
+          continue;
+        }
+
+        throw new Error(message || "Request failed");
+      }
+
+      if (response.status === 204) {
+        return {} as T;
+      }
+
+      return (await response.json()) as T;
+    } catch (error) {
+      const isNetworkError =
+        error instanceof TypeError ||
+        (error instanceof Error &&
+          (error.message.includes("fetch") ||
+            error.message.includes("Failed to fetch")));
+
+      if (attempt < maxRetries && isNetworkError) {
+        console.log(
+          `API attempt ${attempt} failed due to network error, retrying in ${retryDelay}ms...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        continue;
+      }
+
+      throw error;
+    }
   }
 
-  if (response.status === 204) {
-    return {} as T;
-  }
-
-  return (await response.json()) as T;
+  throw new Error("Maximum retry attempts exceeded");
 }
 
 type AgentReply = {
