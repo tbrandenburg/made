@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { marked } from "marked";
 import { Panel } from "../components/Panel";
@@ -150,6 +156,25 @@ export const RepositoryPage: React.FC = () => {
       .catch((error) => console.error("Failed to load file tree", error));
   };
 
+  const refreshAgentStatus = useCallback(async () => {
+    if (!name) return false;
+    try {
+      const status = await api.getRepositoryAgentStatus(name);
+      setChatLoading(status.processing);
+      setChatError(
+        status.processing ? "Agent is still processing the previous message." : null,
+      );
+      return status.processing;
+    } catch (error) {
+      console.error("Failed to load agent status", error);
+      return false;
+    }
+  }, [name]);
+
+  useEffect(() => {
+    refreshAgentStatus();
+  }, [refreshAgentStatus]);
+
   const handleSendMessage = async (prompt?: string) => {
     if (!name) return;
     const message = (prompt ?? pendingPrompt).trim();
@@ -177,11 +202,18 @@ export const RepositoryPage: React.FC = () => {
       ]);
       setChatError(null);
       setActiveTab("agent");
-    } catch (error) {
-      setChatError("Failed to reach agent");
-      console.error("Failed to send agent message", error);
-    } finally {
       setChatLoading(false);
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : "";
+      const agentBusy = messageText.toLowerCase().includes("processing");
+      setChatError(
+        agentBusy ? "Agent is still processing the previous message." : "Failed to reach agent",
+      );
+      console.error("Failed to send agent message", error);
+      const processing = await refreshAgentStatus();
+      if (!processing) {
+        setChatLoading(false);
+      }
     }
   };
 

@@ -18,7 +18,17 @@ async function request<T>(
       });
 
       if (!response.ok) {
-        const message = await response.text();
+        let message = await response.text();
+        try {
+          const parsed = JSON.parse(message);
+          if (parsed?.detail) {
+            message = typeof parsed.detail === "string"
+              ? parsed.detail
+              : JSON.stringify(parsed.detail);
+          }
+        } catch {
+          // Ignore JSON parse errors and keep the raw message
+        }
 
         if (response.status >= 500 && attempt < maxRetries) {
           console.log(
@@ -63,6 +73,11 @@ type AgentReply = {
   sent: string;
   response: string;
   prompt?: string;
+};
+
+type AgentStatus = {
+  processing: boolean;
+  startedAt?: string | null;
 };
 
 export const api = {
@@ -120,6 +135,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message }),
     }),
+  getRepositoryAgentStatus: (name: string) =>
+    request<AgentStatus>(`/repositories/${name}/agent/status`),
   listKnowledge: () => request<{ artefacts: ArtefactSummary[] }>("/knowledge"),
   getKnowledge: (name: string) => request<MatterFile>(`/knowledge/${name}`),
   saveKnowledge: (name: string, payload: MatterFile) =>
@@ -132,6 +149,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message }),
     }),
+  getKnowledgeAgentStatus: (name: string) =>
+    request<AgentStatus>(`/knowledge/${name}/agent/status`),
   listConstitutions: () =>
     request<{ constitutions: ArtefactSummary[] }>("/constitutions"),
   getConstitution: (name: string) =>
@@ -146,6 +165,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message }),
     }),
+  getConstitutionAgentStatus: (name: string) =>
+    request<AgentStatus>(`/constitutions/${name}/agent/status`),
   getSettings: () => request<Record<string, unknown>>("/settings"),
   saveSettings: (settings: Record<string, unknown>) =>
     request("/settings", {

@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { marked } from "marked";
 import { Panel } from "../components/Panel";
@@ -21,6 +27,7 @@ export const ConstitutionPage: React.FC = () => {
   const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [prompt, setPrompt] = useState("");
   const [status, setStatus] = useState<string | null>(null);
+  const [agentStatus, setAgentStatus] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const chatWindowRef = useRef<HTMLDivElement>(null);
 
@@ -50,6 +57,25 @@ export const ConstitutionPage: React.FC = () => {
         setStatus("Failed to load constitution");
       });
   }, [name, navigate]);
+
+  const refreshAgentStatus = useCallback(async () => {
+    if (!name) return false;
+    try {
+      const status = await api.getConstitutionAgentStatus(name);
+      setChatLoading(status.processing);
+      setAgentStatus(
+        status.processing ? "Agent is still processing the previous message." : null,
+      );
+      return status.processing;
+    } catch (error) {
+      console.error("Failed to load agent status", error);
+      return false;
+    }
+  }, [name]);
+
+  useEffect(() => {
+    refreshAgentStatus();
+  }, [refreshAgentStatus]);
 
   const handleSave = async () => {
     if (!name) return;
@@ -86,11 +112,19 @@ export const ConstitutionPage: React.FC = () => {
         },
       ]);
       setActiveTab("agent");
+      setAgentStatus(null);
+      setChatLoading(false);
     } catch (error) {
       console.error("Failed to contact agent", error);
-      setStatus("Agent unavailable");
-    } finally {
-      setChatLoading(false);
+      const message = error instanceof Error ? error.message : "";
+      const busy = message.toLowerCase().includes("processing");
+      setAgentStatus(
+        busy ? "Agent is still processing the previous message." : "Agent unavailable",
+      );
+      const processing = await refreshAgentStatus();
+      if (!processing) {
+        setChatLoading(false);
+      }
     }
   };
 
@@ -194,6 +228,7 @@ export const ConstitutionPage: React.FC = () => {
                     </div>
                   )}
                 </div>
+                {agentStatus && <div className="alert">{agentStatus}</div>}
                 <textarea
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
