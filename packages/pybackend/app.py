@@ -1,7 +1,7 @@
 from fastapi import Body, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from agent_service import send_agent_message
+from agent_service import ChannelBusyError, get_channel_status, send_agent_message
 from constitution_service import (
     list_constitutions,
     read_constitution,
@@ -195,7 +195,15 @@ def repository_agent(name: str, payload: dict = Body(...)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
         )
-    return send_agent_message(name, message)
+    try:
+        return send_agent_message(name, message)
+    except ChannelBusyError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+@app.get("/api/repositories/{name}/agent/status")
+def repository_agent_status(name: str):
+    return get_channel_status(name)
 
 
 @app.get("/api/knowledge")
@@ -234,7 +242,15 @@ def knowledge_agent(name: str, payload: dict = Body(...)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
         )
-    return send_agent_message(f"knowledge:{name}", message)
+    try:
+        return send_agent_message(f"knowledge:{name}", message)
+    except ChannelBusyError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+@app.get("/api/knowledge/{name}/agent/status")
+def knowledge_agent_status(name: str):
+    return get_channel_status(f"knowledge:{name}")
 
 
 @app.get("/api/constitutions")
@@ -273,7 +289,15 @@ def constitution_agent(name: str, payload: dict = Body(...)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
         )
-    return send_agent_message(f"constitution:{name}", message)
+    try:
+        return send_agent_message(f"constitution:{name}", message)
+    except ChannelBusyError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+@app.get("/api/constitutions/{name}/agent/status")
+def constitution_agent_status(name: str):
+    return get_channel_status(f"constitution:{name}")
 
 
 @app.get("/api/settings")

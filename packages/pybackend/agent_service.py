@@ -1,11 +1,42 @@
 import subprocess
 import time
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
+from threading import Lock
 
 from config import ensure_directory, get_made_directory, get_workspace_home
 
 _active_conversations: set[str] = set()
+_processing_lock = Lock()
+_processing_channels: dict[str, datetime] = {}
+
+
+class ChannelBusyError(RuntimeError):
+    """Raised when a chat channel already has a pending request."""
+
+
+def _mark_channel_processing(channel: str) -> bool:
+    with _processing_lock:
+        if channel in _processing_channels:
+            return False
+
+        _processing_channels[channel] = datetime.now(UTC)
+        return True
+
+
+def _clear_channel_processing(channel: str) -> None:
+    with _processing_lock:
+        _processing_channels.pop(channel, None)
+
+
+def get_channel_status(channel: str) -> dict[str, object]:
+    with _processing_lock:
+        started_at = _processing_channels.get(channel)
+
+    return {
+        "processing": started_at is not None,
+        "startedAt": started_at.isoformat() if started_at else None,
+    }
 
 
 def _build_opencode_command(message: str, is_continuation: bool) -> list[str]:
@@ -38,6 +69,9 @@ def _get_working_directory(channel: str) -> Path:
 
 
 def send_agent_message(channel: str, message: str):
+    if not _mark_channel_processing(channel):
+        raise ChannelBusyError("Agent is still processing a previous message for this chat.")
+
     working_dir = _get_working_directory(channel)
     continue_conversation = channel in _active_conversations
     command = _build_opencode_command(message, continue_conversation)
@@ -65,6 +99,8 @@ def send_agent_message(channel: str, message: str):
         response = "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
     except Exception as e:
         response = f"Error: {str(e)}"
+    finally:
+        _clear_channel_processing(channel)
 
     return {
         "messageId": str(int(time.time() * 1000)),

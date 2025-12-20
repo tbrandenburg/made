@@ -8,6 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, Mock
 
+from agent_service import ChannelBusyError
+
 from app import app
 
 client = TestClient(app)
@@ -140,6 +142,27 @@ class TestRepositoryEndpoints:
 
         assert response.status_code == 400
         assert "Failed to clone repository" in response.json()["detail"]
+
+    @patch('app.send_agent_message')
+    def test_repository_agent_busy(self, mock_send):
+        mock_send.side_effect = ChannelBusyError("busy")
+
+        response = client.post(
+            "/api/repositories/sample/agent", json={"message": "hello"}
+        )
+
+        assert response.status_code == 409
+        assert "busy" in response.json()["detail"]
+
+    @patch('app.get_channel_status')
+    def test_repository_agent_status(self, mock_status):
+        payload = {"processing": True, "startedAt": "2024-01-01T00:00:00Z"}
+        mock_status.return_value = payload
+
+        response = client.get("/api/repositories/sample/agent/status")
+
+        assert response.status_code == 200
+        assert response.json() == payload
 
     @patch('app.get_repository_info')
     def test_get_repository_info_success(self, mock_get_info):
