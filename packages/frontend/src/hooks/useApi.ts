@@ -80,6 +80,17 @@ type AgentStatus = {
   startedAt?: string | null;
 };
 
+export type CommandDefinition = {
+  id: string;
+  name: string;
+  description: string;
+  path: string;
+  source: string;
+  content: string;
+  metadata?: Record<string, unknown>;
+  argumentHint?: string;
+};
+
 export const api = {
   getDashboard: () =>
     request<{
@@ -137,6 +148,8 @@ export const api = {
     }),
   getRepositoryAgentStatus: (name: string) =>
     request<AgentStatus>(`/repositories/${name}/agent/status`),
+  getRepositoryCommands: (name: string) =>
+    request<{ commands: CommandDefinition[] }>(`/repositories/${name}/commands`),
   listKnowledge: () => request<{ artefacts: ArtefactSummary[] }>("/knowledge"),
   getKnowledge: (name: string) => request<MatterFile>(`/knowledge/${name}`),
   saveKnowledge: (name: string, payload: MatterFile) =>
