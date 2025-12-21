@@ -48,6 +48,31 @@ const PUBLISHMENT_ACTIONS = [
   },
 ];
 
+const FolderIcon: React.FC = () => (
+  <svg
+    aria-hidden="true"
+    className="file-icon-svg"
+    viewBox="0 0 24 24"
+    role="img"
+    focusable="false"
+  >
+    <path d="M3 4.5a1.5 1.5 0 0 1 1.5-1.5h5.379a1.5 1.5 0 0 1 1.06.44l1.122 1.12a1.5 1.5 0 0 0 1.06.44H19.5A1.5 1.5 0 0 1 21 6.5v11A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5v-13Z" />
+  </svg>
+);
+
+const FileIcon: React.FC = () => (
+  <svg
+    aria-hidden="true"
+    className="file-icon-svg"
+    viewBox="0 0 24 24"
+    role="img"
+    focusable="false"
+  >
+    <path d="M14.25 3v4.5h4.5L14.25 3Z" />
+    <path d="M5.25 4.5A1.5 1.5 0 0 1 6.75 3h7.5l4.5 4.5V19.5a1.5 1.5 0 0 1-1.5 1.5H6.75a1.5 1.5 0 0 1-1.5-1.5v-15Z" />
+  </svg>
+);
+
 export const RepositoryPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
@@ -300,6 +325,9 @@ export const RepositoryPage: React.FC = () => {
           ) : (
             <span className="file-spacer" />
           )}
+          <span className="file-icon" aria-hidden="true">
+            {isFolder ? <FolderIcon /> : <FileIcon />}
+          </span>
           <span
             className="file-name"
             onClick={() => !isFolder && openFile(node.path)}
