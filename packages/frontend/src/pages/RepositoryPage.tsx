@@ -11,9 +11,21 @@ import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
 import { usePersistentChat } from "../hooks/usePersistentChat";
-import { api, FileNode, RepositorySummary } from "../hooks/useApi";
+import {
+  api,
+  CommandDefinition,
+  FileNode,
+  RepositorySummary,
+} from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
+
+const stripCommandFrontmatter = (content: string) => {
+  const delimiterPattern = /^\s*---(?:[\r\n]+[\s\S]*?[\r\n]+---|[\s\S]*?---)\s*/;
+  return delimiterPattern.test(content)
+    ? content.replace(delimiterPattern, "").trim()
+    : content.trim();
+};
 
 const COMMAND_ACTIONS = [
   {
@@ -88,6 +100,24 @@ export const RepositoryPage: React.FC = () => {
   const [pendingPrompt, setPendingPrompt] = useState("");
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
+  const [availableCommands, setAvailableCommands] = useState<
+    CommandDefinition[]
+  >([]);
+  const [commandsError, setCommandsError] = useState<string | null>(null);
+  const [commandsLoading, setCommandsLoading] = useState(false);
+  const [commandModal, setCommandModal] = useState<{
+    open: boolean;
+    command: CommandDefinition | null;
+    labels: string[];
+    placeholders: string[];
+    values: string[];
+  }>({
+    open: false,
+    command: null,
+    labels: [],
+    placeholders: [],
+    values: [],
+  });
   const chatWindowRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -136,6 +166,28 @@ export const RepositoryPage: React.FC = () => {
       .then((tree) => setFileTree(tree))
       .catch((error) => console.error("Failed to load file tree", error));
   }, [name, navigate]);
+
+  const loadCommands = useCallback(() => {
+    if (!name) return;
+    setCommandsLoading(true);
+    api
+      .getRepositoryCommands(name)
+      .then((response) => {
+        setAvailableCommands(response.commands);
+        setCommandsError(null);
+      })
+      .catch((error) => {
+        console.error("Failed to load commands", error);
+        const message =
+          error instanceof Error ? error.message : "Failed to load commands";
+        setCommandsError(message);
+      })
+      .finally(() => setCommandsLoading(false));
+  }, [name]);
+
+  useEffect(() => {
+    loadCommands();
+  }, [loadCommands]);
 
   const toggleFolder = (pathId: string) => {
     setExpanded((prev) => {
@@ -240,6 +292,96 @@ export const RepositoryPage: React.FC = () => {
         setChatLoading(false);
       }
     }
+  };
+
+  const getCommandArgumentPlan = (command: CommandDefinition) => {
+    const labelsFromHint = command.argumentHint
+      ? Array.from(command.argumentHint.matchAll(/\[([^\]]+)\]/g)).map(
+          (match) => match[1],
+        )
+      : [];
+
+    if (labelsFromHint.length) {
+      return {
+        labels: labelsFromHint,
+        placeholders: labelsFromHint.map((_, index) => `$${index + 1}`),
+      };
+    }
+
+    const numericPlaceholders = Array.from(
+      new Set(
+        Array.from(command.content.matchAll(/\$([1-9]\d*)/g)).map(
+          (match) => match[1],
+        ),
+      ),
+    ).sort((a, b) => Number(a) - Number(b));
+
+    if (numericPlaceholders.length) {
+      return {
+        labels: numericPlaceholders.map((value) => `Arg ${value}`),
+        placeholders: numericPlaceholders.map((value) => `$${value}`),
+      };
+    }
+
+    if (command.content.includes("$ARGUMENTS")) {
+      return { labels: ["Arguments"], placeholders: ["$ARGUMENTS"] };
+    }
+
+    return { labels: [], placeholders: [] };
+  };
+
+  const handleCommandSelection = (command: CommandDefinition) => {
+    const plan = getCommandArgumentPlan(command);
+    if (plan.labels.length === 0) {
+      handleSendMessage(stripCommandFrontmatter(command.content));
+      setActiveTab("agent");
+      return;
+    }
+
+    setCommandModal({
+      open: true,
+      command,
+      labels: plan.labels,
+      placeholders: plan.placeholders,
+      values: Array(plan.labels.length).fill(""),
+    });
+  };
+
+  const handleCommandValueChange = (index: number, value: string) => {
+    setCommandModal((prev) => ({
+      ...prev,
+      values: prev.values.map((existing, idx) =>
+        idx === index ? value : existing
+      ),
+    }));
+  };
+
+  const closeCommandModal = () =>
+    setCommandModal({
+      open: false,
+      command: null,
+      labels: [],
+      placeholders: [],
+      values: [],
+    });
+
+  const handleCommandConfirm = () => {
+    if (!commandModal.command) return;
+    let text = stripCommandFrontmatter(commandModal.command.content);
+    commandModal.placeholders.forEach((placeholder, index) => {
+      const value = commandModal.values[index] ?? "";
+      text = text.split(placeholder).join(value);
+    });
+
+    if (text.includes("$ARGUMENTS")) {
+      text = text
+        .split("$ARGUMENTS")
+        .join(commandModal.values.join(" ").trim());
+    }
+
+    handleSendMessage(text.trim());
+    setActiveTab("agent");
+    closeCommandModal();
   };
 
   const handleSaveFile = async () => {
@@ -519,22 +661,70 @@ export const RepositoryPage: React.FC = () => {
       id: "commands",
       label: "Commands",
       content: (
-        <Panel title="Commands">
-          <div className="commands-grid">
-            {COMMAND_ACTIONS.map((action) => (
+        <div className="command-center">
+          <Panel
+            title="User Commands"
+            actions={
               <button
-                key={action.id}
-                className="primary"
-                onClick={() => {
-                  handleSendMessage(action.prompt);
-                  setActiveTab("agent");
-                }}
+                className="secondary"
+                onClick={loadCommands}
+                disabled={commandsLoading}
               >
-                {action.label}
+                Refresh
               </button>
-            ))}
-          </div>
-        </Panel>
+            }
+          >
+            {commandsLoading && <div className="alert">Loading commands...</div>}
+            {commandsError && <div className="alert error">{commandsError}</div>}
+            {!commandsLoading && !commandsError && (
+              <>
+                {availableCommands.length === 0 ? (
+                  <div className="empty">
+                    No commands found in configured directories.
+                  </div>
+                ) : (
+                  <div className="commands-grid">
+                    {availableCommands.map((command) => (
+                      <button
+                        key={command.id}
+                        className="primary command-button"
+                        title={`${command.source} • ${command.name}${
+                          command.argumentHint ? ` • ${command.argumentHint}` : ""
+                        }`}
+                        onClick={() => handleCommandSelection(command)}
+                      >
+                        <span className="command-button__title">
+                          {command.description || command.name}
+                        </span>
+                        {command.argumentHint && (
+                          <span className="command-hint">
+                            {command.argumentHint}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </Panel>
+          <Panel title="Pre-installed Commands">
+            <div className="commands-grid">
+              {COMMAND_ACTIONS.map((action) => (
+                <button
+                  key={action.id}
+                  className="primary"
+                  onClick={() => {
+                    handleSendMessage(action.prompt);
+                    setActiveTab("agent");
+                  }}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          </Panel>
+        </div>
       ),
     },
   ];
@@ -558,6 +748,37 @@ export const RepositoryPage: React.FC = () => {
         activeTab={activeTab}
         onTabChange={handleTabChange}
       />
+
+      <Modal
+        open={commandModal.open}
+        title={commandModal.command?.description || "Run Command"}
+        onClose={closeCommandModal}
+      >
+        {commandModal.labels.length > 0 ? (
+          commandModal.labels.map((label, index) => (
+            <div className="form-group" key={`${label}-${index}`}>
+              <label>{label}</label>
+              <input
+                value={commandModal.values[index] || ""}
+                onChange={(event) =>
+                  handleCommandValueChange(index, event.target.value)
+                }
+                placeholder={`Value for ${label}`}
+              />
+            </div>
+          ))
+        ) : (
+          <p>This command does not require any arguments.</p>
+        )}
+        <div className="modal-actions">
+          <button className="secondary" onClick={closeCommandModal}>
+            Cancel
+          </button>
+          <button className="primary" onClick={handleCommandConfirm}>
+            Insert into chat
+          </button>
+        </div>
+      </Modal>
 
       <Modal
         open={createModal}

@@ -128,3 +128,25 @@ class TestServiceIntegration:
         assert response.status_code == 201
         assert response.json()["name"] == "cloned"
         mock_clone_repository.assert_called_once_with("https://example.com/repo.git")
+
+
+@patch('app.list_commands')
+def test_repository_commands_endpoint(mock_list_commands):
+    """Verify repository commands endpoint delegates to service and returns payload."""
+    mock_list_commands.return_value = [
+        {
+            "id": "test:cmd",
+            "name": "cmd",
+            "description": "Test command",
+            "content": "echo hi",
+            "metadata": {"argument-hint": "[name]"},
+        }
+    ]
+
+    response = client.get("/api/repositories/sample/commands")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "commands" in body
+    assert body["commands"][0]["description"] == "Test command"
+    mock_list_commands.assert_called_once_with("sample")

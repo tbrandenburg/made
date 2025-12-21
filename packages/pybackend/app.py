@@ -13,6 +13,7 @@ from knowledge_service import (
     read_knowledge_artefact,
     write_knowledge_artefact,
 )
+from command_service import list_commands
 from repository_service import (
     create_repository,
     create_repository_file,
@@ -204,6 +205,16 @@ def repository_agent(name: str, payload: dict = Body(...)):
 @app.get("/api/repositories/{name}/agent/status")
 def repository_agent_status(name: str):
     return get_channel_status(name)
+
+
+@app.get("/api/repositories/{name}/commands")
+def repository_commands(name: str):
+    try:
+        return {"commands": list_commands(name)}
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
 
 
 @app.get("/api/knowledge")
