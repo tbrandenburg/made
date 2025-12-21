@@ -20,6 +20,13 @@ import {
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
 
+const stripCommandFrontmatter = (content: string) => {
+  const delimiterPattern = /^\s*---(?:[\r\n]+[\s\S]*?[\r\n]+---|[\s\S]*?---)\s*/;
+  return delimiterPattern.test(content)
+    ? content.replace(delimiterPattern, "").trim()
+    : content.trim();
+};
+
 const COMMAND_ACTIONS = [
   {
     id: "init",
@@ -326,7 +333,7 @@ export const RepositoryPage: React.FC = () => {
   const handleCommandSelection = (command: CommandDefinition) => {
     const plan = getCommandArgumentPlan(command);
     if (plan.labels.length === 0) {
-      handleSendMessage(command.content);
+      handleSendMessage(stripCommandFrontmatter(command.content));
       setActiveTab("agent");
       return;
     }
@@ -360,7 +367,7 @@ export const RepositoryPage: React.FC = () => {
 
   const handleCommandConfirm = () => {
     if (!commandModal.command) return;
-    let text = commandModal.command.content;
+    let text = stripCommandFrontmatter(commandModal.command.content);
     commandModal.placeholders.forEach((placeholder, index) => {
       const value = commandModal.values[index] ?? "";
       text = text.split(placeholder).join(value);
