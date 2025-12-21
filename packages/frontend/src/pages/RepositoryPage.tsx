@@ -312,7 +312,7 @@ export const RepositoryPage: React.FC = () => {
                 className="link-button"
                 onClick={() => openFile(node.path)}
               >
-                Edit
+                📝
               </button>
             )}
             <button
@@ -322,7 +322,7 @@ export const RepositoryPage: React.FC = () => {
                 setRenameModal({ open: true, from: node.path });
               }}
             >
-              Rename
+              🏷️
             </button>
             <button
               className="link-button"
@@ -331,13 +331,13 @@ export const RepositoryPage: React.FC = () => {
                 setMoveModal({ open: true, from: node.path });
               }}
             >
-              Move
+              ↔️
             </button>
             <button
               className="link-button"
               onClick={() => setDeleteModal({ open: true, target: node.path })}
             >
-              Delete
+              🗑
             </button>
           </div>
         </div>
