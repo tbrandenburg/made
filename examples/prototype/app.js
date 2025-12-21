@@ -735,8 +735,8 @@ function switchRepoTab(tab) {
         renderFileTree();
     } else if (tab === 'editor') {
         document.getElementById('editorTab').classList.add('active');
-    } else if (tab === 'publishment') {
-        document.getElementById('publishmentTab').classList.add('active');
+    } else if (tab === 'commands') {
+        document.getElementById('commandsTab').classList.add('active');
     }
 }
 

@@ -15,7 +15,7 @@ import { api, FileNode, RepositorySummary } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
 
-const PUBLISHMENT_ACTIONS = [
+const COMMAND_ACTIONS = [
   {
     id: "init",
     label: "Initialize Repository",
@@ -516,12 +516,12 @@ export const RepositoryPage: React.FC = () => {
       ),
     },
     {
-      id: "publishment",
-      label: "Publishment",
+      id: "commands",
+      label: "Commands",
       content: (
-        <Panel title="Publishment Actions">
-          <div className="publishment-grid">
-            {PUBLISHMENT_ACTIONS.map((action) => (
+        <Panel title="Commands">
+          <div className="commands-grid">
+            {COMMAND_ACTIONS.map((action) => (
               <button
                 key={action.id}
                 className="primary"

@@ -73,7 +73,7 @@ test.describe('MADE journeys', () => {
     await expect(page.getByRole('heading', { name: 'Repository: demo-project' })).toBeVisible();
     await page.getByRole('button', { name: 'File Browser' }).click();
     await expect(page.getByRole('button', { name: 'Create File' })).toBeVisible();
-    await page.getByRole('button', { name: 'Publishment' }).click();
+    await page.getByRole('button', { name: 'Commands' }).click();
     await page.getByRole('button', { name: 'Create Pull Request' }).click();
     await page.getByRole('button', { name: 'Agent' }).click();
     await expect(page.getByPlaceholder('Describe the change or ask the agent...')).toBeVisible();
