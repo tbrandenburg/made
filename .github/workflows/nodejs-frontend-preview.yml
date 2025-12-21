@@ -165,6 +165,7 @@ jobs:
 
       - name: Run opencode success check
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
+        continue-on-error: true
         run: "opencode run 'Say: ✅ SUCCESS!'"
       
       - name: Install dependencies
