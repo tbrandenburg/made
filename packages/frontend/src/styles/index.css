@@ -149,10 +149,12 @@ textarea {
 }
 
 .link-button {
-  padding: 0.4rem 0.9rem;
+  padding: 0.3rem 0.65rem;
   border-radius: 999px;
-  background: rgba(63, 116, 255, 0.12);
+  background: rgba(63, 116, 255, 0.08);
   color: var(--accent);
+  font-size: 0.9rem;
+  border: 1px solid rgba(63, 116, 255, 0.25);
 }
 
 .badge {
