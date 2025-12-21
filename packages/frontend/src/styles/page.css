@@ -107,6 +107,7 @@
   width: 20px;
   height: 20px;
   display: block;
+  fill: currentColor;
 }
 
 .file-name {
