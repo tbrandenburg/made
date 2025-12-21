@@ -82,7 +82,8 @@
 }
 
 .file-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
   align-items: center;
   gap: 0.5rem;
   padding: 0.35rem 0.5rem;
@@ -95,8 +96,10 @@
   background: rgba(148, 163, 184, 0.12);
 }
 
+.file-toggle,
 .file-spacer {
-  width: 24px;
+  width: 28px;
+  height: 28px;
 }
 
 .file-icon {
@@ -114,7 +117,7 @@
 }
 
 .file-name {
-  flex: 1;
+  min-width: 0;
   cursor: pointer;
 }
 
@@ -123,6 +126,7 @@
   gap: 0.4rem;
   margin-left: auto;
   align-items: center;
+  justify-self: end;
 }
 
 .editor-grid,
