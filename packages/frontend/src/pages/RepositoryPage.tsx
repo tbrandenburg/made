@@ -517,9 +517,9 @@ export const RepositoryPage: React.FC = () => {
     },
     {
       id: "publishment",
-      label: "Publishment",
+      label: "Commands",
       content: (
-        <Panel title="Publishment Actions">
+        <Panel title="Commands">
           <div className="publishment-grid">
             {PUBLISHMENT_ACTIONS.map((action) => (
               <button
