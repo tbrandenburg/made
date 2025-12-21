@@ -763,7 +763,9 @@ export const RepositoryPage: React.FC = () => {
                 onChange={(event) =>
                   handleCommandValueChange(index, event.target.value)
                 }
-                placeholder={`Value for ${label}`}
+                placeholder={
+                  commandModal.command?.argumentHint || `Value for ${label}`
+                }
               />
             </div>
           ))
