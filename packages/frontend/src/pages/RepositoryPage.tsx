@@ -676,34 +676,25 @@ export const RepositoryPage: React.FC = () => {
                     No commands found in configured directories.
                   </div>
                 ) : (
-                  <div className="command-list">
+                  <div className="commands-grid">
                     {availableCommands.map((command) => (
-                      <div className="command-card" key={command.id}>
-                        <div className="command-card__header">
-                          <div>
-                            <div className="command-card__title">
-                              {command.description || command.name}
-                            </div>
-                            <div className="command-card__meta">
-                              {command.source} • {command.name}
-                            </div>
-                            {command.argumentHint && (
-                              <div className="command-hint">
-                                {command.argumentHint}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <pre className="command-card__preview">{command.content}</pre>
-                        <div className="command-card__actions">
-                          <button
-                            className="primary"
-                            onClick={() => handleCommandSelection(command)}
-                          >
-                            Use command
-                          </button>
-                        </div>
-                      </div>
+                      <button
+                        key={command.id}
+                        className="primary command-button"
+                        title={`${command.source} • ${command.name}${
+                          command.argumentHint ? ` • ${command.argumentHint}` : ""
+                        }`}
+                        onClick={() => handleCommandSelection(command)}
+                      >
+                        <span className="command-button__title">
+                          {command.description || command.name}
+                        </span>
+                        {command.argumentHint && (
+                          <span className="command-hint">
+                            {command.argumentHint}
+                          </span>
+                        )}
+                      </button>
                     ))}
                   </div>
                 )}
