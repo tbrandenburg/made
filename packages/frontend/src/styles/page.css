@@ -96,6 +96,19 @@
   width: 24px;
 }
 
+.file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.file-icon-svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
 .file-name {
   flex: 1;
   cursor: pointer;
