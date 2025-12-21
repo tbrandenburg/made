@@ -317,7 +317,7 @@ export const RepositoryPage: React.FC = () => {
         <div className="file-row">
           {isFolder ? (
             <button
-              className="icon-button"
+              className="icon-button file-toggle"
               onClick={() => toggleFolder(node.path)}
             >
               {isExpanded ? "▾" : "▸"}
