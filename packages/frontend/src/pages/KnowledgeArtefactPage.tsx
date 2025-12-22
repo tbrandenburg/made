@@ -250,14 +250,6 @@ export const KnowledgeArtefactPage: React.FC = () => {
                 <textarea
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      if (!chatLoading && prompt.trim()) {
-                        handleSend();
-                      }
-                    }
-                  }}
                   placeholder="Ask the agent about this artefact..."
                 />
                 <div className="button-bar">
