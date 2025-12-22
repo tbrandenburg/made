@@ -145,8 +145,12 @@ def create_repository(name: str) -> Dict[str, Union[str, bool, None]]:
     return get_repository_info(name)
 
 
-def clone_repository(repo_url: str) -> Dict[str, Union[str, bool, None]]:
-    repo_name = _extract_repo_name(repo_url)
+def clone_repository(
+    repo_url: str, target_name: str | None = None
+) -> Dict[str, Union[str, bool, None]]:
+    repo_name = target_name.strip() if target_name else None
+    if not repo_name:
+        repo_name = _extract_repo_name(repo_url)
     workspace = get_workspace_home()
     workspace.mkdir(parents=True, exist_ok=True)
     target_path = workspace / repo_name
@@ -156,7 +160,7 @@ def clone_repository(repo_url: str) -> Dict[str, Union[str, bool, None]]:
 
     try:
         subprocess.check_call(
-            ["git", "clone", repo_url],
+            ["git", "clone", repo_url, repo_name],
             cwd=str(workspace),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

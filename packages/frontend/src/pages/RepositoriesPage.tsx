@@ -12,6 +12,7 @@ export const RepositoriesPage: React.FC = () => {
   const [cloneOpen, setCloneOpen] = useState(false);
   const [newRepoName, setNewRepoName] = useState("");
   const [cloneUrl, setCloneUrl] = useState("");
+  const [cloneName, setCloneName] = useState("");
   const [isCloning, setIsCloning] = useState(false);
   const [alert, setAlert] = useState<{
     type: "success" | "error";
@@ -53,6 +54,7 @@ export const RepositoriesPage: React.FC = () => {
 
   const handleClone = async () => {
     const trimmedUrl = cloneUrl.trim();
+    const trimmedName = cloneName.trim();
     if (!trimmedUrl) {
       setAlert({ type: "error", message: "Repository URL cannot be empty" });
       setCloneOpen(false);
@@ -60,10 +62,11 @@ export const RepositoriesPage: React.FC = () => {
     }
     setIsCloning(true);
     try {
-      await api.cloneRepository(trimmedUrl);
+      await api.cloneRepository(trimmedUrl, trimmedName || undefined);
       setAlert({ type: "success", message: "Repository cloned successfully" });
       setCloneOpen(false);
       setCloneUrl("");
+      setCloneName("");
       loadRepositories();
     } catch (e) {
       setCloneOpen(false);
@@ -175,6 +178,15 @@ export const RepositoriesPage: React.FC = () => {
             value={cloneUrl}
             onChange={(event) => setCloneUrl(event.target.value)}
             placeholder="https://github.com/owner/repo.git"
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor="repository-name-clone">Folder Name (optional)</label>
+          <input
+            id="repository-name-clone"
+            value={cloneName}
+            onChange={(event) => setCloneName(event.target.value)}
+            placeholder="custom-folder-name"
           />
         </div>
         <div className="modal-actions">

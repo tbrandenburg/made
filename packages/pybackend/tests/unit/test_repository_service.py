@@ -49,12 +49,27 @@ def test_clone_repository_from_local_source(monkeypatch, tmp_path):
 
     monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
 
-    result = clone_repository(str(source_repo))
+    result = clone_repository(str(source_repo), "custom-name")
+
+    cloned_repo = workspace / "custom-name"
+    assert cloned_repo.exists()
+    assert result["name"] == "custom-name"
+    assert result["hasGit"] is True
+
+
+def test_clone_repository_ignores_empty_target(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    source_repo = tmp_path / "source_repo"
+    _init_local_repo(source_repo)
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+
+    result = clone_repository(str(source_repo), " ")
 
     cloned_repo = workspace / "source_repo"
     assert cloned_repo.exists()
     assert result["name"] == "source_repo"
-    assert result["hasGit"] is True
 
 
 def test_clone_repository_existing_target(monkeypatch, tmp_path):
