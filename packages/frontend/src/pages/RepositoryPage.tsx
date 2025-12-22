@@ -552,14 +552,6 @@ export const RepositoryPage: React.FC = () => {
           <textarea
             value={pendingPrompt}
             onChange={(event) => setPendingPrompt(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                if (!chatLoading && pendingPrompt.trim()) {
-                  handleSendMessage();
-                }
-              }
-            }}
             placeholder="Describe the change or ask the agent..."
           />
           <div className="button-bar">

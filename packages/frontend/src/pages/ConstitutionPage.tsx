@@ -232,14 +232,6 @@ export const ConstitutionPage: React.FC = () => {
                 <textarea
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      if (!chatLoading && prompt.trim()) {
-                        handleSend();
-                      }
-                    }
-                  }}
                   placeholder="Ask the agent to update governance rules..."
                 />
                 <div className="button-bar">
