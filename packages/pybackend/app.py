@@ -91,13 +91,14 @@ def create_repo(payload: dict = Body(...)):
 @app.post("/api/repositories/clone", status_code=status.HTTP_201_CREATED)
 def clone_repo(payload: dict = Body(...)):
     repo_url = payload.get("url")
+    target_name = payload.get("name")
     if not repo_url:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Repository URL is required",
         )
     try:
-        return clone_repository(repo_url)
+        return clone_repository(repo_url, target_name)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 

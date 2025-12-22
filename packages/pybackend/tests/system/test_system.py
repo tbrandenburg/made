@@ -122,12 +122,14 @@ class TestServiceIntegration:
 
         response = client.post(
             "/api/repositories/clone",
-            json={"url": "https://example.com/repo.git"},
+            json={"url": "https://example.com/repo.git", "name": "custom"},
         )
 
         assert response.status_code == 201
         assert response.json()["name"] == "cloned"
-        mock_clone_repository.assert_called_once_with("https://example.com/repo.git")
+        mock_clone_repository.assert_called_once_with(
+            "https://example.com/repo.git", "custom"
+        )
 
 
 @patch('app.list_commands')
