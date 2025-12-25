@@ -454,25 +454,50 @@ export const RepositoryPage: React.FC = () => {
     const indent = { marginLeft: depth * 16 };
     const isFolder = node.type === "folder";
     const isExpanded = expanded.has(node.path);
+
+    const handleFolderToggle = () => toggleFolder(node.path);
+    const handleToggleKeyDown = (event: React.KeyboardEvent) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        handleFolderToggle();
+      }
+    };
+    const handleNameKeyDown = (event: React.KeyboardEvent) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        if (isFolder) {
+          handleFolderToggle();
+        } else {
+          openFile(node.path);
+        }
+      }
+    };
     return (
       <div key={node.path} className="file-node" style={indent}>
         <div className="file-row">
-          {isFolder ? (
-            <button
-              className="icon-button file-toggle"
-              onClick={() => toggleFolder(node.path)}
-            >
-              {isExpanded ? "▾" : "▸"}
-            </button>
-          ) : (
-            <span className="file-spacer" />
-          )}
-          <span className="file-icon" aria-hidden="true">
+          <span
+            className={`file-icon ${isFolder ? "folder-toggle" : ""}`}
+            role={isFolder ? "button" : undefined}
+            tabIndex={isFolder ? 0 : undefined}
+            aria-expanded={isFolder ? isExpanded : undefined}
+            aria-label={
+              isFolder
+                ? `${isExpanded ? "Collapse" : "Expand"} ${node.name}`
+                : undefined
+            }
+            onClick={isFolder ? handleFolderToggle : undefined}
+            onKeyDown={isFolder ? handleToggleKeyDown : undefined}
+          >
             {isFolder ? <FolderIcon /> : <FileIcon />}
           </span>
           <span
             className="file-name"
-            onClick={() => !isFolder && openFile(node.path)}
+            role="button"
+            tabIndex={0}
+            onClick={() =>
+              isFolder ? handleFolderToggle() : openFile(node.path)
+            }
+            onKeyDown={handleNameKeyDown}
           >
             {node.name}
           </span>
