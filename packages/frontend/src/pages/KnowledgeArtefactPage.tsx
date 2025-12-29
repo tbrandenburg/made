@@ -214,18 +214,26 @@ export const KnowledgeArtefactPage: React.FC = () => {
             content: (
               <Panel title="Agent Conversation">
                 <div className="chat-window" ref={chatWindowRef}>
-                  {chat.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`chat-message ${message.role}`}
-                    >
-                      <div className="chat-meta">
-                        {new Date(message.timestamp).toLocaleString()}
-                      </div>
+                    {chat.map((message) => (
                       <div
-                        className="markdown"
-                        dangerouslySetInnerHTML={{
-                          __html: marked(message.text || ""),
+                        key={message.id}
+                        className={`chat-message ${message.role} ${message.messageType || ""}`}
+                      >
+                        <div className="chat-meta">
+                          {`${message.role === "agent"
+                            ? message.messageType === "thinking"
+                              ? "🧠 "
+                              : message.messageType === "tool"
+                                ? "🛠️ "
+                                : message.messageType === "final"
+                                  ? "🎯 "
+                                  : ""
+                            : ""}${new Date(message.timestamp).toLocaleString()}`}
+                        </div>
+                        <div
+                          className="markdown"
+                          dangerouslySetInnerHTML={{
+                            __html: marked(message.text || ""),
                         }}
                       />
                     </div>

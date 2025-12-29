@@ -3,4 +3,5 @@ export interface ChatMessage {
   role: "user" | "agent";
   text: string;
   timestamp: string;
+  messageType?: "thinking" | "tool" | "final";
 }

@@ -86,7 +86,7 @@ def _format_timestamp(raw_timestamp: int | float | str | None) -> str:
 
 def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]]]:
     session_id = None
-    parts: list[tuple[str, str, int | float | str | None]] = []
+    parts: list[dict[str, object]] = []
 
     for line in stdout.splitlines():
         if not line.strip():
@@ -106,31 +106,35 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]
         if payload_type == "text":
             text = part.get("text")
             if text:
-                parts.append(("text", text, payload_timestamp))
+                parts.append({"kind": "text", "content": text, "timestamp": payload_timestamp})
         elif payload_type == "tool_use":
             tool_name = part.get("tool")
             if tool_name:
-                parts.append(("tool", f"🛠️ {tool_name}", payload_timestamp))
+                parts.append({"kind": "tool", "content": tool_name, "timestamp": payload_timestamp})
 
     if not parts:
         return session_id, []
 
     responses: list[dict[str, str]] = []
-    text_indices = [
-        index for index, (kind, _, _) in enumerate(parts) if kind == "text"
-    ]
+    text_indices = [index for index, part in enumerate(parts) if part.get("kind") == "text"]
 
-    for index, (kind, content, raw_timestamp) in enumerate(parts):
+    for index, part in enumerate(parts):
+        kind = part.get("kind")
+        content = str(part.get("content", ""))
+        raw_timestamp = part.get("timestamp")
+
         if kind == "text":
-            prefix = "🎯 " if text_indices and index == text_indices[-1] else "🧠 "
-            text_content = f"{prefix}{content}"
+            message_type = "final" if text_indices and index == text_indices[-1] else "thinking"
+            text_content = content
         else:
+            message_type = "tool"
             text_content = content
 
         responses.append(
             {
                 "text": text_content,
                 "timestamp": _format_timestamp(raw_timestamp),
+                "type": message_type,
             }
         )
 

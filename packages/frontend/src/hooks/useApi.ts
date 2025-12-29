@@ -71,6 +71,7 @@ async function request<T>(
 export type AgentResponsePart = {
   text: string;
   timestamp?: string;
+  type?: "thinking" | "tool" | "final";
 };
 
 export type AgentReply = {

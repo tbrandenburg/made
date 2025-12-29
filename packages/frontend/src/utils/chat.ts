@@ -6,7 +6,7 @@ export const mapAgentReplyToMessages = (reply: AgentReply): ChatMessage[] => {
     reply.responses && reply.responses.length
       ? reply.responses
       : reply.response
-        ? [{ text: reply.response, timestamp: reply.sent }]
+        ? [{ text: reply.response, timestamp: reply.sent, type: "final" }]
         : [];
 
   return parts.map((part, index) => ({
@@ -14,5 +14,6 @@ export const mapAgentReplyToMessages = (reply: AgentReply): ChatMessage[] => {
     role: "agent",
     text: part.text,
     timestamp: part.timestamp || reply.sent,
+    messageType: part.type,
   }));
 };
