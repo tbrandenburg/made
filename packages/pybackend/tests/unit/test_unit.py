@@ -254,10 +254,10 @@ class TestAgentService:
 
         result = send_agent_message("test-repo", "Hello agent")
 
-        assert result["response"] == "🧠 First line\n\n🎯 Second line"
+        assert result["response"] == "First line\n\nSecond line"
         assert result["responses"] == [
-            {"text": "🧠 First line", "timestamp": "2025-12-28T21:09:59.330Z"},
-            {"text": "🎯 Second line", "timestamp": "2025-12-28T21:09:59.331Z"},
+            {"text": "First line", "timestamp": "2025-12-28T21:09:59.330Z", "type": "thinking"},
+            {"text": "Second line", "timestamp": "2025-12-28T21:09:59.331Z", "type": "final"},
         ]
         assert result["sessionId"] == "ses_123"
         assert _conversation_sessions["test-repo"] == "ses_123"
@@ -265,7 +265,7 @@ class TestAgentService:
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')
     def test_send_agent_message_includes_tool_use(self, mock_subprocess_run, mock_get_working_dir):
-        """Ensure tool_use entries are included with emoji and tool name."""
+        """Ensure tool_use entries are included with type metadata."""
         from agent_service import _active_conversations, send_agent_message
 
         mock_working_dir = Path("/test/workspace/repo")
@@ -285,12 +285,12 @@ class TestAgentService:
         result = send_agent_message("test-repo", "Hello agent")
 
         assert result["response"] == (
-            "🧠 Before tool\n\n🛠️ firecrawl_firecrawl_search\n\n🎯 After tool"
+            "Before tool\n\nfirecrawl_firecrawl_search\n\nAfter tool"
         )
         assert result["responses"] == [
-            {"text": "🧠 Before tool", "timestamp": "2025-12-28T21:09:58.000Z"},
-            {"text": "🛠️ firecrawl_firecrawl_search", "timestamp": "2025-12-28T21:09:59.000Z"},
-            {"text": "🎯 After tool", "timestamp": "2025-12-28T21:10:00.000Z"},
+            {"text": "Before tool", "timestamp": "2025-12-28T21:09:58.000Z", "type": "thinking"},
+            {"text": "firecrawl_firecrawl_search", "timestamp": "2025-12-28T21:09:59.000Z", "type": "tool"},
+            {"text": "After tool", "timestamp": "2025-12-28T21:10:00.000Z", "type": "final"},
         ]
 
     def test_parse_opencode_output_single_text_is_final(self):
@@ -304,7 +304,7 @@ class TestAgentService:
         session_id, parsed = _parse_opencode_output(stdout)
 
         assert session_id == "ses_final"
-        assert parsed == [{"text": "🎯 Final answer", "timestamp": "2025-12-28T21:09:59.331Z"}]
+        assert parsed == [{"text": "Final answer", "timestamp": "2025-12-28T21:09:59.331Z", "type": "final"}]
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')

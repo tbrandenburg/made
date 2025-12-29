@@ -199,10 +199,18 @@ export const ConstitutionPage: React.FC = () => {
                   {chat.map((message) => (
                     <div
                       key={message.id}
-                      className={`chat-message ${message.role}`}
+                      className={`chat-message ${message.role} ${message.messageType || ""}`}
                     >
                       <div className="chat-meta">
-                        {new Date(message.timestamp).toLocaleString()}
+                        {`${message.role === "agent"
+                          ? message.messageType === "thinking"
+                            ? "🧠 "
+                            : message.messageType === "tool"
+                              ? "🛠️ "
+                              : message.messageType === "final"
+                                ? "🎯 "
+                                : ""
+                          : ""}${new Date(message.timestamp).toLocaleString()}`}
                       </div>
                       <div
                         className="markdown"

@@ -1,12 +1,21 @@
 import { AgentReply } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 
+const normalizeMessageType = (
+  value: string | undefined,
+): ChatMessage["messageType"] => {
+  if (value === "thinking" || value === "tool" || value === "final") {
+    return value;
+  }
+  return undefined;
+};
+
 export const mapAgentReplyToMessages = (reply: AgentReply): ChatMessage[] => {
   const parts =
     reply.responses && reply.responses.length
       ? reply.responses
       : reply.response
-        ? [{ text: reply.response, timestamp: reply.sent }]
+        ? [{ text: reply.response, timestamp: reply.sent, type: "final" }]
         : [];
 
   return parts.map((part, index) => ({
@@ -14,5 +23,6 @@ export const mapAgentReplyToMessages = (reply: AgentReply): ChatMessage[] => {
     role: "agent",
     text: part.text,
     timestamp: part.timestamp || reply.sent,
+    messageType: normalizeMessageType(part.type),
   }));
 };

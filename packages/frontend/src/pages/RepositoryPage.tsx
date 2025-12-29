@@ -585,9 +585,20 @@ export const RepositoryPage: React.FC = () => {
         <Panel title="Agent Collaboration">
           <div className="chat-window" ref={chatWindowRef}>
             {chat.map((message) => (
-              <div key={message.id} className={`chat-message ${message.role}`}>
+              <div
+                key={message.id}
+                className={`chat-message ${message.role} ${message.messageType || ""}`}
+              >
                 <div className="chat-meta">
-                  {new Date(message.timestamp).toLocaleString()}
+                  {`${message.role === "agent"
+                    ? message.messageType === "thinking"
+                      ? "🧠 "
+                      : message.messageType === "tool"
+                        ? "🛠️ "
+                        : message.messageType === "final"
+                          ? "🎯 "
+                          : ""
+                    : ""}${new Date(message.timestamp).toLocaleString()}`}
                 </div>
                 <div
                   className="markdown"
