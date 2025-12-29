@@ -102,6 +102,7 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, str | None]:
 
     display_parts: list[str] = []
     text_indices = [index for index, (kind, _) in enumerate(parts) if kind == "text"]
+    joiner = "\n\n"
 
     for index, (kind, content) in enumerate(parts):
         if kind == "text":
@@ -110,7 +111,7 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, str | None]:
         else:
             display_parts.append(content)
 
-    return session_id, "\n".join(display_parts)
+    return session_id, joiner.join(display_parts)
 
 
 def send_agent_message(channel: str, message: str):
@@ -150,9 +151,11 @@ def send_agent_message(channel: str, message: str):
     finally:
         _clear_channel_processing(channel)
 
+    sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
     return {
         "messageId": str(int(time.time() * 1000)),
-        "sent": datetime.now(UTC).isoformat() + "Z",
+        "sent": sent_at,
         "prompt": message,
         "response": response,
         "sessionId": _conversation_sessions.get(channel),
