@@ -250,7 +250,7 @@ class TestAgentService:
 
         result = send_agent_message("test-repo", "Hello agent")
 
-        assert result["response"] == "First line\nSecond line"
+        assert result["response"] == "🧠 First line\n🎯 Second line"
         assert result["sessionId"] == "ses_123"
         assert _conversation_sessions["test-repo"] == "ses_123"
 
@@ -276,7 +276,20 @@ class TestAgentService:
 
         result = send_agent_message("test-repo", "Hello agent")
 
-        assert result["response"] == "Before tool\n🛠️ firecrawl_firecrawl_search\nAfter tool"
+        assert result["response"] == "🧠 Before tool\n🛠️ firecrawl_firecrawl_search\n🎯 After tool"
+
+    def test_parse_opencode_output_single_text_is_final(self):
+        """Ensure a single text response is treated as the final message."""
+        from agent_service import _parse_opencode_output
+
+        stdout = '\n'.join([
+            '{"type":"text","sessionID":"ses_final","part":{"type":"text","text":"Final answer"}}',
+        ])
+
+        session_id, parsed = _parse_opencode_output(stdout)
+
+        assert session_id == "ses_final"
+        assert parsed == "🎯 Final answer"
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')

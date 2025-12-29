@@ -72,7 +72,7 @@ def _get_working_directory(channel: str) -> Path:
 
 def _parse_opencode_output(stdout: str) -> tuple[str | None, str | None]:
     session_id = None
-    text_parts: list[str] = []
+    parts: list[tuple[str, str]] = []
 
     for line in stdout.splitlines():
         if not line.strip():
@@ -91,16 +91,26 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, str | None]:
         if payload_type == "text":
             text = part.get("text")
             if text:
-                text_parts.append(text)
+                parts.append(("text", text))
         elif payload_type == "tool_use":
             tool_name = part.get("tool")
             if tool_name:
-                text_parts.append(f"🛠️ {tool_name}")
+                parts.append(("tool", f"🛠️ {tool_name}"))
 
-    if not text_parts:
+    if not parts:
         return session_id, None
 
-    return session_id, "\n".join(text_parts)
+    display_parts: list[str] = []
+    text_indices = [index for index, (kind, _) in enumerate(parts) if kind == "text"]
+
+    for index, (kind, content) in enumerate(parts):
+        if kind == "text":
+            prefix = "🎯 " if text_indices and index == text_indices[-1] else "🧠 "
+            display_parts.append(f"{prefix}{content}")
+        else:
+            display_parts.append(content)
+
+    return session_id, "\n".join(display_parts)
 
 
 def send_agent_message(channel: str, message: str):
