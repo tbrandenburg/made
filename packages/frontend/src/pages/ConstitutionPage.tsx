@@ -13,6 +13,7 @@ import { usePersistentChat } from "../hooks/usePersistentChat";
 import { api } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
+import { mapAgentReplyToMessages } from "../utils/chat";
 
 export const ConstitutionPage: React.FC = () => {
   const { name } = useParams();
@@ -104,12 +105,7 @@ export const ConstitutionPage: React.FC = () => {
       const reply = await api.sendConstitutionAgent(name, userMessage.text);
       setChat((prev) => [
         ...prev,
-        {
-          id: reply.messageId,
-          role: "agent",
-          text: reply.response,
-          timestamp: reply.sent,
-        },
+        ...mapAgentReplyToMessages(reply),
       ]);
       setActiveTab("agent");
       setAgentStatus(null);

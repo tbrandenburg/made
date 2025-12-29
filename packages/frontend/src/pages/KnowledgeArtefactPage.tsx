@@ -13,6 +13,7 @@ import { usePersistentChat } from "../hooks/usePersistentChat";
 import { api } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
+import { mapAgentReplyToMessages } from "../utils/chat";
 
 export const KnowledgeArtefactPage: React.FC = () => {
   const { name } = useParams();
@@ -53,9 +54,9 @@ export const KnowledgeArtefactPage: React.FC = () => {
         setContent(data.content ?? "");
       })
       .catch((error) => {
-      console.error("Failed to load artefact", error);
-      setStatus("Failed to load artefact");
-    });
+        console.error("Failed to load artefact", error);
+        setStatus("Failed to load artefact");
+      });
   }, [name, navigate]);
 
   const refreshAgentStatus = useCallback(async () => {
@@ -104,12 +105,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
       const reply = await api.sendKnowledgeAgent(name, userMessage.text);
       setChat((prev) => [
         ...prev,
-        {
-          id: reply.messageId,
-          role: "agent",
-          text: reply.response,
-          timestamp: reply.sent,
-        },
+        ...mapAgentReplyToMessages(reply),
       ]);
       setActiveTab("agent");
       setAgentStatus(null);

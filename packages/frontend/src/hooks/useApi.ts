@@ -68,11 +68,18 @@ async function request<T>(
   throw new Error("Maximum retry attempts exceeded");
 }
 
-type AgentReply = {
+export type AgentResponsePart = {
+  text: string;
+  timestamp?: string;
+};
+
+export type AgentReply = {
   messageId: string;
   sent: string;
   response: string;
   prompt?: string;
+  responses?: AgentResponsePart[];
+  sessionId?: string;
 };
 
 type AgentStatus = {

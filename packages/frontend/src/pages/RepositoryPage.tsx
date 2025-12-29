@@ -19,6 +19,7 @@ import {
 } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
+import { mapAgentReplyToMessages } from "../utils/chat";
 
 const stripCommandFrontmatter = (content: string) => {
   const delimiterPattern = /^\s*---(?:[\r\n]+[\s\S]*?[\r\n]+---|[\s\S]*?---)\s*/;
@@ -312,12 +313,7 @@ export const RepositoryPage: React.FC = () => {
       const reply = await api.sendAgentMessage(name, message);
       setChat((prev) => [
         ...prev,
-        {
-          id: reply.messageId,
-          role: "agent",
-          text: reply.response,
-          timestamp: reply.sent,
-        },
+        ...mapAgentReplyToMessages(reply),
       ]);
       setChatError(null);
       setActiveTab("agent");
