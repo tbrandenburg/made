@@ -29,21 +29,34 @@ const stripCommandFrontmatter = (content: string) => {
 
 const ARGUMENT_SPECIFIER_PATTERN = /\[([^\]]+)\]|<([^>]+)>/g;
 
-const extractArgumentLabels = (argumentHint?: string | null) =>
-  argumentHint
-    ? Array.from(argumentHint.matchAll(ARGUMENT_SPECIFIER_PATTERN))
+type ArgumentHint = string | string[] | null | undefined;
+
+const normalizeArgumentHint = (argumentHint: ArgumentHint) => {
+  if (!argumentHint) return "";
+  if (Array.isArray(argumentHint)) {
+    return argumentHint.filter((value) => typeof value === "string").join(" ");
+  }
+  return typeof argumentHint === "string" ? argumentHint : "";
+};
+
+const extractArgumentLabels = (argumentHint?: ArgumentHint) => {
+  const normalizedHint = normalizeArgumentHint(argumentHint);
+  return normalizedHint
+    ? Array.from(normalizedHint.matchAll(ARGUMENT_SPECIFIER_PATTERN))
         .map((match) => (match[1] || match[2] || "").trim())
         .filter(Boolean)
     : [];
+};
 
-const formatArgumentHint = (argumentHint?: string | null) => {
-  if (!argumentHint) return "";
-  const labels = extractArgumentLabels(argumentHint);
+const formatArgumentHint = (argumentHint?: ArgumentHint) => {
+  const normalizedHint = normalizeArgumentHint(argumentHint);
+  if (!normalizedHint) return "";
+  const labels = extractArgumentLabels(normalizedHint);
   if (labels.length) {
     return labels.join(" ");
   }
 
-  return argumentHint.trim();
+  return normalizedHint.trim();
 };
 
 const COMMAND_ACTIONS = [

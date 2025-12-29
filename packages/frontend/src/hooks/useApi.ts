@@ -88,7 +88,7 @@ export type CommandDefinition = {
   source: string;
   content: string;
   metadata?: Record<string, unknown>;
-  argumentHint?: string;
+  argumentHint?: string | string[] | null;
 };
 
 export const api = {
