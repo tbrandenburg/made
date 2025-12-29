@@ -97,7 +97,9 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]
         except json.JSONDecodeError:
             continue
 
-        session_id = session_id or payload.get("sessionID")
+        payload_session_id = payload.get("sessionID")
+        if payload_session_id:
+            session_id = payload_session_id
 
         payload_type = payload.get("type")
         payload_timestamp = payload.get("timestamp")
