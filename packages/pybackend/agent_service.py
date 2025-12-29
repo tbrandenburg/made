@@ -70,9 +70,23 @@ def _get_working_directory(channel: str) -> Path:
     return ensure_directory(made_dir / "constitutions")
 
 
-def _parse_opencode_output(stdout: str) -> tuple[str | None, str | None]:
+def _format_timestamp(raw_timestamp: int | float | str | None) -> str:
+    try:
+        timestamp_value = float(raw_timestamp) / 1000 if raw_timestamp is not None else None
+    except (TypeError, ValueError):
+        timestamp_value = None
+
+    dt = (
+        datetime.fromtimestamp(timestamp_value, tz=UTC)
+        if timestamp_value is not None
+        else datetime.now(UTC)
+    )
+    return dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]]]:
     session_id = None
-    parts: list[tuple[str, str]] = []
+    parts: list[tuple[str, str, int | float | str | None]] = []
 
     for line in stdout.splitlines():
         if not line.strip():
@@ -86,32 +100,41 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, str | None]:
         session_id = session_id or payload.get("sessionID")
 
         payload_type = payload.get("type")
+        payload_timestamp = payload.get("timestamp")
         part = payload.get("part") or {}
 
         if payload_type == "text":
             text = part.get("text")
             if text:
-                parts.append(("text", text))
+                parts.append(("text", text, payload_timestamp))
         elif payload_type == "tool_use":
             tool_name = part.get("tool")
             if tool_name:
-                parts.append(("tool", f"🛠️ {tool_name}"))
+                parts.append(("tool", f"🛠️ {tool_name}", payload_timestamp))
 
     if not parts:
-        return session_id, None
+        return session_id, []
 
-    display_parts: list[str] = []
-    text_indices = [index for index, (kind, _) in enumerate(parts) if kind == "text"]
-    joiner = "\n\n"
+    responses: list[dict[str, str]] = []
+    text_indices = [
+        index for index, (kind, _, _) in enumerate(parts) if kind == "text"
+    ]
 
-    for index, (kind, content) in enumerate(parts):
+    for index, (kind, content, raw_timestamp) in enumerate(parts):
         if kind == "text":
             prefix = "🎯 " if text_indices and index == text_indices[-1] else "🧠 "
-            display_parts.append(f"{prefix}{content}")
+            text_content = f"{prefix}{content}"
         else:
-            display_parts.append(content)
+            text_content = content
 
-    return session_id, joiner.join(display_parts)
+        responses.append(
+            {
+                "text": text_content,
+                "timestamp": _format_timestamp(raw_timestamp),
+            }
+        )
+
+    return session_id, responses
 
 
 def send_agent_message(channel: str, message: str):
@@ -132,12 +155,17 @@ def send_agent_message(channel: str, message: str):
         )
 
         if result.returncode == 0:
-            session_id, parsed_text = _parse_opencode_output(result.stdout)
+            session_id, parsed_responses = _parse_opencode_output(result.stdout)
             if session_id:
                 _conversation_sessions[channel] = session_id
-            response = parsed_text or result.stdout.strip()
+            response = (
+                "\n\n".join(part["text"] for part in parsed_responses)
+                if parsed_responses
+                else result.stdout.strip()
+            )
             _active_conversations.add(channel)
         else:
+            parsed_responses = []
             response = (
                 f"Error: {result.stderr.strip()}"
                 if result.stderr.strip()
@@ -145,8 +173,10 @@ def send_agent_message(channel: str, message: str):
             )
 
     except FileNotFoundError:
+        parsed_responses = []
         response = "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
     except Exception as e:
+        parsed_responses = []
         response = f"Error: {str(e)}"
     finally:
         _clear_channel_processing(channel)
@@ -158,5 +188,6 @@ def send_agent_message(channel: str, message: str):
         "sent": sent_at,
         "prompt": message,
         "response": response,
+        "responses": parsed_responses,
         "sessionId": _conversation_sessions.get(channel),
     }

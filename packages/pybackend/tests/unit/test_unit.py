@@ -196,6 +196,7 @@ class TestAgentService:
         datetime.fromisoformat(result["sent"].replace("Z", "+00:00"))
         assert result["prompt"] == "Hello agent"
         assert result["response"] == "Agent response content"
+        assert result["responses"] == []
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')
@@ -254,6 +255,10 @@ class TestAgentService:
         result = send_agent_message("test-repo", "Hello agent")
 
         assert result["response"] == "🧠 First line\n\n🎯 Second line"
+        assert result["responses"] == [
+            {"text": "🧠 First line", "timestamp": "2025-12-28T21:09:59.330Z"},
+            {"text": "🎯 Second line", "timestamp": "2025-12-28T21:09:59.331Z"},
+        ]
         assert result["sessionId"] == "ses_123"
         assert _conversation_sessions["test-repo"] == "ses_123"
 
@@ -269,9 +274,9 @@ class TestAgentService:
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = '\n'.join([
-            '{"type":"text","sessionID":"ses_tool","part":{"type":"text","text":"Before tool"}}',
-            '{"type":"tool_use","sessionID":"ses_tool","part":{"tool":"firecrawl_firecrawl_search"}}',
-            '{"type":"text","sessionID":"ses_tool","part":{"type":"text","text":"After tool"}}',
+            '{"type":"text","timestamp":1766956198000,"sessionID":"ses_tool","part":{"type":"text","text":"Before tool"}}',
+            '{"type":"tool_use","timestamp":1766956199000,"sessionID":"ses_tool","part":{"tool":"firecrawl_firecrawl_search"}}',
+            '{"type":"text","timestamp":1766956200000,"sessionID":"ses_tool","part":{"type":"text","text":"After tool"}}',
         ])
         mock_subprocess_run.return_value = mock_result
 
@@ -282,19 +287,24 @@ class TestAgentService:
         assert result["response"] == (
             "🧠 Before tool\n\n🛠️ firecrawl_firecrawl_search\n\n🎯 After tool"
         )
+        assert result["responses"] == [
+            {"text": "🧠 Before tool", "timestamp": "2025-12-28T21:09:58.000Z"},
+            {"text": "🛠️ firecrawl_firecrawl_search", "timestamp": "2025-12-28T21:09:59.000Z"},
+            {"text": "🎯 After tool", "timestamp": "2025-12-28T21:10:00.000Z"},
+        ]
 
     def test_parse_opencode_output_single_text_is_final(self):
         """Ensure a single text response is treated as the final message."""
         from agent_service import _parse_opencode_output
 
         stdout = '\n'.join([
-            '{"type":"text","sessionID":"ses_final","part":{"type":"text","text":"Final answer"}}',
+            '{"type":"text","timestamp":1766956199331,"sessionID":"ses_final","part":{"type":"text","text":"Final answer"}}',
         ])
 
         session_id, parsed = _parse_opencode_output(stdout)
 
         assert session_id == "ses_final"
-        assert parsed == "🎯 Final answer"
+        assert parsed == [{"text": "🎯 Final answer", "timestamp": "2025-12-28T21:09:59.331Z"}]
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')
