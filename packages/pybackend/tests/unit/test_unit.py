@@ -182,7 +182,7 @@ class TestAgentService:
         
         # Verify subprocess call
         mock_subprocess_run.assert_called_once_with(
-            ["opencode", "run", "Hello agent"],
+            ["opencode", "run", "--format", "json", "Hello agent"],
             capture_output=True,
             text=True,
             cwd=mock_working_dir
@@ -214,17 +214,45 @@ class TestAgentService:
         send_agent_message("test-repo", "Follow up")
 
         assert mock_subprocess_run.call_args_list[0] == call(
-            ["opencode", "run", "Hello agent"],
+            ["opencode", "run", "--format", "json", "Hello agent"],
             capture_output=True,
             text=True,
             cwd=mock_working_dir,
         )
         assert mock_subprocess_run.call_args_list[1] == call(
-            ["opencode", "run", "-c", "Follow up"],
+            ["opencode", "run", "-c", "--format", "json", "Follow up"],
             capture_output=True,
             text=True,
             cwd=mock_working_dir,
         )
+
+    @patch('agent_service._get_working_directory')
+    @patch('agent_service.subprocess.run')
+    def test_send_agent_message_parses_json_output(self, mock_subprocess_run, mock_get_working_dir):
+        """Ensure opencode JSON output is parsed for text and session ID."""
+        from agent_service import _active_conversations, _conversation_sessions, send_agent_message
+
+        mock_working_dir = Path("/test/workspace/repo")
+        mock_get_working_dir.return_value = mock_working_dir
+
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = '\n'.join([
+            '{"type":"step_start","timestamp":1766956198081,"sessionID":"ses_123","part":{"type":"step-start"}}',
+            '{"type":"text","timestamp":1766956199330,"sessionID":"ses_123","part":{"type":"text","text":"First line"}}',
+            '{"type":"text","timestamp":1766956199331,"sessionID":"ses_123","part":{"type":"text","text":"Second line"}}',
+            '{"type":"step_finish","timestamp":1766956225161,"sessionID":"ses_123","part":{"type":"step-finish"}}',
+        ])
+        mock_subprocess_run.return_value = mock_result
+
+        _active_conversations.clear()
+        _conversation_sessions.clear()
+
+        result = send_agent_message("test-repo", "Hello agent")
+
+        assert result["response"] == "First line\nSecond line"
+        assert result["sessionId"] == "ses_123"
+        assert _conversation_sessions["test-repo"] == "ses_123"
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')

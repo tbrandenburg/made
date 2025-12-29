@@ -1,3 +1,4 @@
+import json
 import subprocess
 import time
 from datetime import UTC, datetime
@@ -9,6 +10,7 @@ from config import ensure_directory, get_made_directory, get_workspace_home
 _active_conversations: set[str] = set()
 _processing_lock = Lock()
 _processing_channels: dict[str, datetime] = {}
+_conversation_sessions: dict[str, str] = {}
 
 
 class ChannelBusyError(RuntimeError):
@@ -44,7 +46,7 @@ def _build_opencode_command(message: str, is_continuation: bool) -> list[str]:
     command = ["opencode", "run"]
     if is_continuation:
         command.append("-c")
-    command.append(message)
+    command.extend(["--format", "json", message])
     return command
 
 
@@ -68,6 +70,35 @@ def _get_working_directory(channel: str) -> Path:
     return ensure_directory(made_dir / "constitutions")
 
 
+def _parse_opencode_output(stdout: str) -> tuple[str | None, str | None]:
+    session_id = None
+    text_parts: list[str] = []
+
+    for line in stdout.splitlines():
+        if not line.strip():
+            continue
+
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+        session_id = session_id or payload.get("sessionID")
+
+        if payload.get("type") != "text":
+            continue
+
+        part = payload.get("part") or {}
+        text = part.get("text")
+        if text:
+            text_parts.append(text)
+
+    if not text_parts:
+        return session_id, None
+
+    return session_id, "\n".join(text_parts)
+
+
 def send_agent_message(channel: str, message: str):
     if not _mark_channel_processing(channel):
         raise ChannelBusyError("Agent is still processing a previous message for this chat.")
@@ -86,7 +117,10 @@ def send_agent_message(channel: str, message: str):
         )
 
         if result.returncode == 0:
-            response = result.stdout.strip()
+            session_id, parsed_text = _parse_opencode_output(result.stdout)
+            if session_id:
+                _conversation_sessions[channel] = session_id
+            response = parsed_text or result.stdout.strip()
             _active_conversations.add(channel)
         else:
             response = (
@@ -107,4 +141,5 @@ def send_agent_message(channel: str, message: str):
         "sent": datetime.now(UTC).isoformat() + "Z",
         "prompt": message,
         "response": response,
+        "sessionId": _conversation_sessions.get(channel),
     }
