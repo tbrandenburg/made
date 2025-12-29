@@ -739,30 +739,18 @@ export const RepositoryPage: React.FC = () => {
                   </div>
                 ) : (
                   <div className="commands-grid">
-                    {availableCommands.map((command) => {
-                      const displayArgumentHint = formatArgumentHint(
-                        command.argumentHint,
-                      );
-                      return (
-                        <button
-                          key={command.id}
-                          className="primary command-button"
-                          title={`${command.source} • ${command.name}${
-                            displayArgumentHint ? ` • ${displayArgumentHint}` : ""
-                          }`}
-                          onClick={() => handleCommandSelection(command)}
-                        >
-                          <span className="command-button__title">
-                            {command.description || command.name}
-                          </span>
-                          {displayArgumentHint && (
-                            <span className="command-hint">
-                              {displayArgumentHint}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
+                    {availableCommands.map((command) => (
+                      <button
+                        key={command.id}
+                        className="primary command-button"
+                        title={`${command.source} • ${command.name}`}
+                        onClick={() => handleCommandSelection(command)}
+                      >
+                        <span className="command-button__title">
+                          {command.description || command.name}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 )}
               </>
