@@ -1,6 +1,15 @@
 import { AgentReply } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 
+const normalizeMessageType = (
+  value: string | undefined,
+): ChatMessage["messageType"] => {
+  if (value === "thinking" || value === "tool" || value === "final") {
+    return value;
+  }
+  return undefined;
+};
+
 export const mapAgentReplyToMessages = (reply: AgentReply): ChatMessage[] => {
   const parts =
     reply.responses && reply.responses.length
@@ -14,6 +23,6 @@ export const mapAgentReplyToMessages = (reply: AgentReply): ChatMessage[] => {
     role: "agent",
     text: part.text,
     timestamp: part.timestamp || reply.sent,
-    messageType: part.type,
+    messageType: normalizeMessageType(part.type),
   }));
 };
