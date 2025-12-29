@@ -29,6 +29,11 @@ const stripCommandFrontmatter = (content: string) => {
 
 const COMMAND_ACTIONS = [
   {
+    id: "init-openspec",
+    label: "Initialize OpenSpec",
+    prompt: 'Execute "openspec init --tools opencode" to initialize OpenSpec.',
+  },
+  {
     id: "init-spec-kit",
     label: "Initialize Spec Kit",
     prompt: 'Execute "specify init . --ai opencode --script sh" to initialize the Spec Kit.',
