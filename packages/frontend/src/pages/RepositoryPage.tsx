@@ -27,6 +27,25 @@ const stripCommandFrontmatter = (content: string) => {
     : content.trim();
 };
 
+const ARGUMENT_SPECIFIER_PATTERN = /\[([^\]]+)\]|<([^>]+)>/g;
+
+const extractArgumentLabels = (argumentHint?: string | null) =>
+  argumentHint
+    ? Array.from(argumentHint.matchAll(ARGUMENT_SPECIFIER_PATTERN))
+        .map((match) => (match[1] || match[2] || "").trim())
+        .filter(Boolean)
+    : [];
+
+const formatArgumentHint = (argumentHint?: string | null) => {
+  if (!argumentHint) return "";
+  const labels = extractArgumentLabels(argumentHint);
+  if (labels.length) {
+    return labels.join(" ");
+  }
+
+  return argumentHint.trim();
+};
+
 const COMMAND_ACTIONS = [
   {
     id: "init-openspec",
@@ -305,11 +324,7 @@ export const RepositoryPage: React.FC = () => {
   };
 
   const getCommandArgumentPlan = (command: CommandDefinition) => {
-    const labelsFromHint = command.argumentHint
-      ? Array.from(command.argumentHint.matchAll(/\[([^\]]+)\]/g)).map(
-          (match) => match[1],
-        )
-      : [];
+    const labelsFromHint = extractArgumentLabels(command.argumentHint);
 
     if (labelsFromHint.length) {
       return {
@@ -711,25 +726,30 @@ export const RepositoryPage: React.FC = () => {
                   </div>
                 ) : (
                   <div className="commands-grid">
-                    {availableCommands.map((command) => (
-                      <button
-                        key={command.id}
-                        className="primary command-button"
-                        title={`${command.source} • ${command.name}${
-                          command.argumentHint ? ` • ${command.argumentHint}` : ""
-                        }`}
-                        onClick={() => handleCommandSelection(command)}
-                      >
-                        <span className="command-button__title">
-                          {command.description || command.name}
-                        </span>
-                        {command.argumentHint && (
-                          <span className="command-hint">
-                            {command.argumentHint}
+                    {availableCommands.map((command) => {
+                      const displayArgumentHint = formatArgumentHint(
+                        command.argumentHint,
+                      );
+                      return (
+                        <button
+                          key={command.id}
+                          className="primary command-button"
+                          title={`${command.source} • ${command.name}${
+                            displayArgumentHint ? ` • ${displayArgumentHint}` : ""
+                          }`}
+                          onClick={() => handleCommandSelection(command)}
+                        >
+                          <span className="command-button__title">
+                            {command.description || command.name}
                           </span>
-                        )}
-                      </button>
-                    ))}
+                          {displayArgumentHint && (
+                            <span className="command-hint">
+                              {displayArgumentHint}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </>
@@ -791,7 +811,8 @@ export const RepositoryPage: React.FC = () => {
                   handleCommandValueChange(index, event.target.value)
                 }
                 placeholder={
-                  commandModal.command?.argumentHint || `Value for ${label}`
+                  formatArgumentHint(commandModal.command?.argumentHint) ||
+                  `Value for ${label}`
                 }
               />
             </div>
