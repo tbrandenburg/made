@@ -85,13 +85,17 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, str | None]:
 
         session_id = session_id or payload.get("sessionID")
 
-        if payload.get("type") != "text":
-            continue
-
+        payload_type = payload.get("type")
         part = payload.get("part") or {}
-        text = part.get("text")
-        if text:
-            text_parts.append(text)
+
+        if payload_type == "text":
+            text = part.get("text")
+            if text:
+                text_parts.append(text)
+        elif payload_type == "tool_use":
+            tool_name = part.get("tool")
+            if tool_name:
+                text_parts.append(f"🛠️ {tool_name}")
 
     if not text_parts:
         return session_id, None
