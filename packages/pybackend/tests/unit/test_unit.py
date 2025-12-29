@@ -256,6 +256,30 @@ class TestAgentService:
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')
+    def test_send_agent_message_includes_tool_use(self, mock_subprocess_run, mock_get_working_dir):
+        """Ensure tool_use entries are included with emoji and tool name."""
+        from agent_service import _active_conversations, send_agent_message
+
+        mock_working_dir = Path("/test/workspace/repo")
+        mock_get_working_dir.return_value = mock_working_dir
+
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = '\n'.join([
+            '{"type":"text","sessionID":"ses_tool","part":{"type":"text","text":"Before tool"}}',
+            '{"type":"tool_use","sessionID":"ses_tool","part":{"tool":"firecrawl_firecrawl_search"}}',
+            '{"type":"text","sessionID":"ses_tool","part":{"type":"text","text":"After tool"}}',
+        ])
+        mock_subprocess_run.return_value = mock_result
+
+        _active_conversations.clear()
+
+        result = send_agent_message("test-repo", "Hello agent")
+
+        assert result["response"] == "Before tool\n🛠️ firecrawl_firecrawl_search\nAfter tool"
+
+    @patch('agent_service._get_working_directory')
+    @patch('agent_service.subprocess.run')
     def test_send_agent_message_command_failure(self, mock_subprocess_run, mock_get_working_dir):
         """Test agent message sending with command failure."""
         from agent_service import _active_conversations, send_agent_message
