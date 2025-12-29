@@ -191,6 +191,9 @@ class TestAgentService:
         # Verify response structure
         assert "messageId" in result
         assert "sent" in result
+        assert result["sent"].endswith("Z")
+        # Ensure the timestamp can be parsed when converted to ISO format with offset
+        datetime.fromisoformat(result["sent"].replace("Z", "+00:00"))
         assert result["prompt"] == "Hello agent"
         assert result["response"] == "Agent response content"
 
@@ -250,7 +253,7 @@ class TestAgentService:
 
         result = send_agent_message("test-repo", "Hello agent")
 
-        assert result["response"] == "🧠 First line\n🎯 Second line"
+        assert result["response"] == "🧠 First line\n\n🎯 Second line"
         assert result["sessionId"] == "ses_123"
         assert _conversation_sessions["test-repo"] == "ses_123"
 
@@ -276,7 +279,9 @@ class TestAgentService:
 
         result = send_agent_message("test-repo", "Hello agent")
 
-        assert result["response"] == "🧠 Before tool\n🛠️ firecrawl_firecrawl_search\n🎯 After tool"
+        assert result["response"] == (
+            "🧠 Before tool\n\n🛠️ firecrawl_firecrawl_search\n\n🎯 After tool"
+        )
 
     def test_parse_opencode_output_single_text_is_final(self):
         """Ensure a single text response is treated as the final message."""
