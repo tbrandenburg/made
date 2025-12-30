@@ -20,7 +20,7 @@ import {
 } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
-import { mapAgentReplyToMessages } from "../utils/chat";
+import { mapAgentReplyToMessages, mapHistoryToMessages } from "../utils/chat";
 
 const stripCommandFrontmatter = (content: string) => {
   const delimiterPattern = /^\s*---(?:[\r\n]+[\s\S]*?[\r\n]+---|[\s\S]*?---)\s*/;
@@ -178,6 +178,11 @@ export const RepositoryPage: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [chat]);
+  const lastKnownTimestamp = useMemo(() => {
+    if (!chat.length) return undefined;
+    const parsed = Date.parse(chat[chat.length - 1].timestamp);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, [chat]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [editorContent, setEditorContent] = useState("");
   const [editorStatus, setEditorStatus] = useState<string | null>(null);
@@ -300,6 +305,53 @@ export const RepositoryPage: React.FC = () => {
   useEffect(() => {
     refreshAgentStatus();
   }, [refreshAgentStatus]);
+
+  useEffect(() => {
+    if (!name || !sessionId) return;
+    const controller = new AbortController();
+
+    const syncChatHistory = async () => {
+      try {
+        const startTimestamp = lastKnownTimestamp ? lastKnownTimestamp + 1 : undefined;
+        const history = await api.getRepositoryAgentHistory(
+          name,
+          sessionId,
+          startTimestamp,
+          controller.signal,
+        );
+
+        if (!history.messages?.length) return;
+
+        setChat((previousChat) => {
+          const existingKeys = new Set(
+            previousChat.map(
+              (message) => `${message.role}-${message.timestamp}-${message.text}`,
+            ),
+          );
+          const mapped = mapHistoryToMessages(history.messages);
+          const deduped = mapped.filter((message) => {
+            const key = `${message.role}-${message.timestamp}-${message.text}`;
+            if (existingKeys.has(key)) {
+              return false;
+            }
+            existingKeys.add(key);
+            return true;
+          });
+
+          if (!deduped.length) return previousChat;
+          return [...previousChat, ...deduped];
+        });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        console.error("Failed to load chat history", error);
+      }
+    };
+
+    syncChatHistory();
+    return () => controller.abort();
+  }, [name, sessionId, lastKnownTimestamp, setChat]);
 
   const handleSendMessage = async (prompt?: string) => {
     if (!name) return;
