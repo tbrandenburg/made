@@ -293,11 +293,12 @@ textarea {
   padding: 0.1rem 0.3rem;
   border-radius: 0.5rem;
   line-height: 1;
+  font-style: normal;
 }
 
 .chat-session-id button:hover,
 .chat-session-id button:focus-visible {
-  background: var(--neutral);
+  background: transparent;
   color: var(--text);
   outline: none;
 }
