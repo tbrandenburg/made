@@ -88,6 +88,19 @@ type AgentStatus = {
   startedAt?: string | null;
 };
 
+export type ChatHistoryMessage = {
+  messageId?: string;
+  role: "user" | "assistant";
+  type: "text" | "tool" | "tool_use";
+  content: string;
+  timestamp?: string | null;
+};
+
+export type ChatHistoryResponse = {
+  sessionId: string;
+  messages: ChatHistoryMessage[];
+};
+
 export type CommandDefinition = {
   id: string;
   name: string;
@@ -156,6 +169,22 @@ export const api = {
     }),
   getRepositoryAgentStatus: (name: string) =>
     request<AgentStatus>(`/repositories/${name}/agent/status`),
+  getRepositoryAgentHistory: (
+    name: string,
+    sessionId: string,
+    startTimestamp?: number,
+    signal?: AbortSignal,
+  ) => {
+    const params = new URLSearchParams({ session_id: sessionId });
+    if (typeof startTimestamp === "number" && Number.isFinite(startTimestamp)) {
+      params.append("start", Math.floor(startTimestamp).toString());
+    }
+
+    return request<ChatHistoryResponse>(
+      `/repositories/${name}/agent/history?${params.toString()}`,
+      { signal },
+    );
+  },
   getRepositoryCommands: (name: string) =>
     request<{ commands: CommandDefinition[] }>(`/repositories/${name}/commands`),
   listKnowledge: () => request<{ artefacts: ArtefactSummary[] }>("/knowledge"),
