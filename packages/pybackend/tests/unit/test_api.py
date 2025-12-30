@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, Mock
 
-from agent_service import ChannelBusyError
+from agent_service import ChannelBusyError, export_chat_history
 
 from app import app
 
@@ -57,6 +57,53 @@ class TestDashboardEndpoint:
         
         assert response.status_code == 500
         assert "Dashboard error" in response.json()["detail"]
+
+
+class TestChatHistoryEndpoint:
+    @patch('app.export_chat_history')
+    def test_repository_history_success(self, mock_export):
+        mock_export.return_value = {"sessionId": "ses_1", "messages": []}
+
+        response = client.get(
+            "/api/repositories/sample/agent/history",
+            params={"session_id": "ses_1", "start": 123},
+        )
+
+        assert response.status_code == 200
+        mock_export.assert_called_once_with("ses_1", 123)
+
+    @patch('app.export_chat_history')
+    def test_repository_history_bad_request(self, mock_export):
+        mock_export.side_effect = ValueError("bad")
+
+        response = client.get(
+            "/api/repositories/sample/agent/history",
+            params={"session_id": "", "start": None},
+        )
+
+        assert response.status_code == 400
+
+    @patch('app.export_chat_history')
+    def test_repository_history_not_found(self, mock_export):
+        mock_export.side_effect = FileNotFoundError("missing")
+
+        response = client.get(
+            "/api/repositories/sample/agent/history",
+            params={"session_id": "ses_1"},
+        )
+
+        assert response.status_code == 404
+
+    @patch('app.export_chat_history')
+    def test_repository_history_server_error(self, mock_export):
+        mock_export.side_effect = RuntimeError("boom")
+
+        response = client.get(
+            "/api/repositories/sample/agent/history",
+            params={"session_id": "ses_1"},
+        )
+
+        assert response.status_code == 500
 
 
 class TestRepositoryEndpoints:

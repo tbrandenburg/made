@@ -1,7 +1,12 @@
 from fastapi import Body, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from agent_service import ChannelBusyError, get_channel_status, send_agent_message
+from agent_service import (
+    ChannelBusyError,
+    export_chat_history,
+    get_channel_status,
+    send_agent_message,
+)
 from constitution_service import (
     list_constitutions,
     read_constitution,
@@ -310,6 +315,25 @@ def constitution_agent(name: str, payload: dict = Body(...)):
 @app.get("/api/constitutions/{name}/agent/status")
 def constitution_agent_status(name: str):
     return get_channel_status(f"constitution:{name}")
+
+
+@app.get("/api/repositories/{name}/agent/history")
+def repository_agent_history(
+    name: str,
+    session_id: str | None = Query(default=None),
+    start: int | str | None = Query(default=None),
+):
+    try:
+        normalized_start = int(start) if start is not None else None
+        return export_chat_history(session_id, normalized_start)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
 
 
 @app.get("/api/settings")
