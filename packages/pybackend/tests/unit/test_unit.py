@@ -199,7 +199,7 @@ class TestAgentService:
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')
     def test_send_agent_message_with_session_id(self, mock_subprocess_run, mock_get_working_dir):
-        """Test follow-up messages use provided session ID."""
+        """Test messages include provided session ID each time."""
         from agent_service import _conversation_sessions, send_agent_message
 
         mock_working_dir = Path("/test/workspace/repo")
@@ -213,7 +213,7 @@ class TestAgentService:
         _conversation_sessions.clear()
 
         send_agent_message("test-repo", "Hello agent", "ses_123")
-        send_agent_message("test-repo", "Follow up")
+        send_agent_message("test-repo", "Follow up", "ses_123")
 
         assert mock_subprocess_run.call_args_list[0] == call(
             ["opencode", "run", "-s", "ses_123", "--format", "json", "Hello agent"],
@@ -227,6 +227,43 @@ class TestAgentService:
             text=True,
             cwd=mock_working_dir,
         )
+        assert _conversation_sessions["test-repo"] == "ses_123"
+
+    @patch('agent_service._get_working_directory')
+    @patch('agent_service.subprocess.run')
+    def test_send_agent_message_resets_channel_without_session_id(
+        self, mock_subprocess_run, mock_get_working_dir
+    ):
+        """When session ID is omitted, the channel starts a fresh session."""
+        from agent_service import _conversation_sessions, send_agent_message
+
+        mock_working_dir = Path("/test/workspace/repo")
+        mock_get_working_dir.return_value = mock_working_dir
+
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = "Agent response content"
+        mock_subprocess_run.return_value = mock_result
+
+        _conversation_sessions.clear()
+        send_agent_message("test-repo", "Hello agent", "ses_123")
+        assert _conversation_sessions["test-repo"] == "ses_123"
+
+        send_agent_message("test-repo", "Fresh start")
+
+        assert mock_subprocess_run.call_args_list[0] == call(
+            ["opencode", "run", "-s", "ses_123", "--format", "json", "Hello agent"],
+            capture_output=True,
+            text=True,
+            cwd=mock_working_dir,
+        )
+        assert mock_subprocess_run.call_args_list[1] == call(
+            ["opencode", "run", "--format", "json", "Fresh start"],
+            capture_output=True,
+            text=True,
+            cwd=mock_working_dir,
+        )
+        assert "test-repo" not in _conversation_sessions
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')
