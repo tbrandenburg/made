@@ -328,10 +328,15 @@ export const RepositoryPage: React.FC = () => {
 
         setChat((previousChat) => {
           const existingKeys = new Set(
-            previousChat.map((message) => buildMessageDedupKey(message)),
+            previousChat
+              .filter((message) => message.messageType !== "tool")
+              .map((message) => buildMessageDedupKey(message)),
           );
           const mapped = mapHistoryToMessages(history.messages);
           const deduped = mapped.filter((message) => {
+            if (message.messageType === "tool") {
+              return true;
+            }
             const key = buildMessageDedupKey(message);
             if (existingKeys.has(key)) {
               return false;
