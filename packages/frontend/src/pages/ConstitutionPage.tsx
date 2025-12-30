@@ -10,6 +10,7 @@ import { marked } from "marked";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { usePersistentChat } from "../hooks/usePersistentChat";
+import { usePersistentString } from "../hooks/usePersistentString";
 import { api } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
@@ -25,7 +26,12 @@ export const ConstitutionPage: React.FC = () => {
     () => (name ? `constitution-chat-${name}` : "constitution-chat"),
     [name],
   );
+  const sessionStorageKey = useMemo(
+    () => (name ? `constitution-session-${name}` : "constitution-session"),
+    [name],
+  );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
+  const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);
   const [prompt, setPrompt] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
@@ -107,6 +113,9 @@ export const ConstitutionPage: React.FC = () => {
         ...prev,
         ...mapAgentReplyToMessages(reply),
       ]);
+      if (reply.sessionId) {
+        setSessionId(reply.sessionId);
+      }
       setActiveTab("agent");
       setAgentStatus(null);
       setChatLoading(false);
@@ -229,6 +238,11 @@ export const ConstitutionPage: React.FC = () => {
                   {chat.length === 0 && !chatLoading && (
                     <div className="empty">
                       Start a conversation to discuss this constitution.
+                    </div>
+                  )}
+                  {sessionId && (
+                    <div className="chat-session-id" aria-label="Session ID">
+                      Session ID: {sessionId}
                     </div>
                   )}
                 </div>
