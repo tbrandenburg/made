@@ -7,7 +7,6 @@ from threading import Lock
 
 from config import ensure_directory, get_made_directory, get_workspace_home
 
-_active_conversations: set[str] = set()
 _processing_lock = Lock()
 _processing_channels: dict[str, datetime] = {}
 _conversation_sessions: dict[str, str] = {}
@@ -41,11 +40,11 @@ def get_channel_status(channel: str) -> dict[str, object]:
     }
 
 
-def _build_opencode_command(message: str, is_continuation: bool) -> list[str]:
+def _build_opencode_command(message: str, session_id: str | None) -> list[str]:
     """Build the opencode command based on conversation state."""
     command = ["opencode", "run"]
-    if is_continuation:
-        command.append("-c")
+    if session_id:
+        command.extend(["-s", session_id])
     command.extend(["--format", "json", message])
     return command
 
@@ -283,13 +282,16 @@ def export_chat_history(
     }
 
 
-def send_agent_message(channel: str, message: str):
+def send_agent_message(channel: str, message: str, session_id: str | None = None):
     if not _mark_channel_processing(channel):
         raise ChannelBusyError("Agent is still processing a previous message for this chat.")
 
     working_dir = _get_working_directory(channel)
-    continue_conversation = channel in _active_conversations
-    command = _build_opencode_command(message, continue_conversation)
+    active_session = session_id or _conversation_sessions.get(channel)
+    if active_session:
+        _conversation_sessions[channel] = active_session
+
+    command = _build_opencode_command(message, active_session)
 
     try:
         # Run the opencode command with the message in the appropriate directory
@@ -309,7 +311,6 @@ def send_agent_message(channel: str, message: str):
                 if parsed_responses
                 else result.stdout.strip()
             )
-            _active_conversations.add(channel)
         else:
             parsed_responses = []
             response = (

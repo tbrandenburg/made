@@ -162,10 +162,10 @@ export const api = {
       method: "DELETE",
       body: JSON.stringify({ path: filePath }),
     }),
-  sendAgentMessage: (name: string, message: string) =>
+  sendAgentMessage: (name: string, message: string, sessionId?: string) =>
     request<AgentReply>(`/repositories/${name}/agent`, {
       method: "POST",
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, sessionId }),
     }),
   getRepositoryAgentStatus: (name: string) =>
     request<AgentStatus>(`/repositories/${name}/agent/status`),
@@ -194,10 +194,10 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
-  sendKnowledgeAgent: (name: string, message: string) =>
+  sendKnowledgeAgent: (name: string, message: string, sessionId?: string) =>
     request<AgentReply>(`/knowledge/${name}/agent`, {
       method: "POST",
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, sessionId }),
     }),
   getKnowledgeAgentStatus: (name: string) =>
     request<AgentStatus>(`/knowledge/${name}/agent/status`),
@@ -210,10 +210,10 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
-  sendConstitutionAgent: (name: string, message: string) =>
+  sendConstitutionAgent: (name: string, message: string, sessionId?: string) =>
     request<AgentReply>(`/constitutions/${name}/agent`, {
       method: "POST",
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, sessionId }),
     }),
   getConstitutionAgentStatus: (name: string) =>
     request<AgentStatus>(`/constitutions/${name}/agent/status`),

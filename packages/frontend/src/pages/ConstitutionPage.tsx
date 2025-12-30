@@ -108,7 +108,7 @@ export const ConstitutionPage: React.FC = () => {
     setPrompt("");
     setChatLoading(true);
     try {
-      const reply = await api.sendConstitutionAgent(name, userMessage.text);
+      const reply = await api.sendConstitutionAgent(name, userMessage.text, sessionId || undefined);
       setChat((prev) => [
         ...prev,
         ...mapAgentReplyToMessages(reply),

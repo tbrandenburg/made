@@ -198,12 +198,13 @@ def delete_repository_file_endpoint(name: str, payload: dict = Body(...)):
 @app.post("/api/repositories/{name}/agent")
 def repository_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
+    session_id = payload.get("sessionId")
     if not message:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
         )
     try:
-        return send_agent_message(name, message)
+        return send_agent_message(name, message, session_id)
     except ChannelBusyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
@@ -255,12 +256,13 @@ def knowledge_write(name: str, payload: dict = Body(...)):
 @app.post("/api/knowledge/{name}/agent")
 def knowledge_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
+    session_id = payload.get("sessionId")
     if not message:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
         )
     try:
-        return send_agent_message(f"knowledge:{name}", message)
+        return send_agent_message(f"knowledge:{name}", message, session_id)
     except ChannelBusyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
@@ -302,12 +304,13 @@ def constitution_write(name: str, payload: dict = Body(...)):
 @app.post("/api/constitutions/{name}/agent")
 def constitution_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
+    session_id = payload.get("sessionId")
     if not message:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
         )
     try:
-        return send_agent_message(f"constitution:{name}", message)
+        return send_agent_message(f"constitution:{name}", message, session_id)
     except ChannelBusyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
