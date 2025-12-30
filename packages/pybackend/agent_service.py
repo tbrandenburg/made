@@ -245,18 +245,22 @@ def _filter_export_messages(
 
 
 def export_chat_history(
-    session_id: str | None, start_timestamp: int | float | str | None = None
+    session_id: str | None,
+    start_timestamp: int | float | str | None = None,
+    channel: str | None = None,
 ) -> dict[str, object]:
     if not session_id:
         raise ValueError("Session ID is required")
 
     normalized_start = _to_milliseconds(start_timestamp) if start_timestamp is not None else None
+    working_dir = _get_working_directory(channel) if channel else None
 
     try:
         result = subprocess.run(
             ["opencode", "export", session_id],
             capture_output=True,
             text=True,
+            cwd=working_dir,
         )
     except FileNotFoundError:
         raise FileNotFoundError(

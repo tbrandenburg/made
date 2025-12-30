@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -161,3 +162,24 @@ class TestExportChatHistory:
 
         with pytest.raises(ValueError):
             export_chat_history("ses_123")
+
+    @patch("agent_service.subprocess.run")
+    @patch("agent_service._get_working_directory")
+    def test_export_chat_history_uses_channel_working_directory(
+        self, mock_get_working_directory, mock_run
+    ):
+        mock_get_working_directory.return_value = Path("/tmp/workspace/sample")
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = json.dumps(self.SAMPLE_EXPORT)
+        mock_run.return_value = mock_result
+
+        export_chat_history("ses_123", channel="sample")
+
+        mock_get_working_directory.assert_called_once_with("sample")
+        mock_run.assert_called_once_with(
+            ["opencode", "export", "ses_123"],
+            capture_output=True,
+            text=True,
+            cwd=Path("/tmp/workspace/sample"),
+        )

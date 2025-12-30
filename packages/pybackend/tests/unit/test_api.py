@@ -70,7 +70,7 @@ class TestChatHistoryEndpoint:
         )
 
         assert response.status_code == 200
-        mock_export.assert_called_once_with("ses_1", 123)
+        mock_export.assert_called_once_with("ses_1", 123, "sample")
 
     @patch('app.export_chat_history')
     def test_repository_history_bad_request(self, mock_export):
