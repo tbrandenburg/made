@@ -368,7 +368,7 @@ export const RepositoryPage: React.FC = () => {
     setPendingPrompt("");
     setChatLoading(true);
     try {
-      const reply = await api.sendAgentMessage(name, message);
+      const reply = await api.sendAgentMessage(name, message, sessionId || undefined);
       setChat((prev) => [
         ...prev,
         ...mapAgentReplyToMessages(reply),

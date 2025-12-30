@@ -108,7 +108,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
     setPrompt("");
     setChatLoading(true);
     try {
-      const reply = await api.sendKnowledgeAgent(name, userMessage.text);
+      const reply = await api.sendKnowledgeAgent(name, userMessage.text, sessionId || undefined);
       setChat((prev) => [
         ...prev,
         ...mapAgentReplyToMessages(reply),

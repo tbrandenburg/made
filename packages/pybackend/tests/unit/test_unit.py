@@ -164,7 +164,7 @@ class TestAgentService:
     @patch('agent_service.subprocess.run')
     def test_send_agent_message_success(self, mock_subprocess_run, mock_get_working_dir):
         """Test successful agent message sending."""
-        from agent_service import _active_conversations, send_agent_message
+        from agent_service import send_agent_message
 
         # Setup mocks
         mock_working_dir = Path("/test/workspace/repo")
@@ -174,8 +174,6 @@ class TestAgentService:
         mock_result.returncode = 0
         mock_result.stdout = "Agent response content"
         mock_subprocess_run.return_value = mock_result
-
-        _active_conversations.clear()
 
         # Test successful message
         result = send_agent_message("test-repo", "Hello agent")
@@ -200,9 +198,9 @@ class TestAgentService:
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')
-    def test_send_agent_message_continuation(self, mock_subprocess_run, mock_get_working_dir):
-        """Test follow-up messages use continuation flag."""
-        from agent_service import _active_conversations, send_agent_message
+    def test_send_agent_message_with_session_id(self, mock_subprocess_run, mock_get_working_dir):
+        """Test follow-up messages use provided session ID."""
+        from agent_service import _conversation_sessions, send_agent_message
 
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
@@ -212,19 +210,19 @@ class TestAgentService:
         mock_result.stdout = "Agent response content"
         mock_subprocess_run.return_value = mock_result
 
-        _active_conversations.clear()
+        _conversation_sessions.clear()
 
-        send_agent_message("test-repo", "Hello agent")
+        send_agent_message("test-repo", "Hello agent", "ses_123")
         send_agent_message("test-repo", "Follow up")
 
         assert mock_subprocess_run.call_args_list[0] == call(
-            ["opencode", "run", "--format", "json", "Hello agent"],
+            ["opencode", "run", "-s", "ses_123", "--format", "json", "Hello agent"],
             capture_output=True,
             text=True,
             cwd=mock_working_dir,
         )
         assert mock_subprocess_run.call_args_list[1] == call(
-            ["opencode", "run", "-c", "--format", "json", "Follow up"],
+            ["opencode", "run", "-s", "ses_123", "--format", "json", "Follow up"],
             capture_output=True,
             text=True,
             cwd=mock_working_dir,
@@ -234,7 +232,7 @@ class TestAgentService:
     @patch('agent_service.subprocess.run')
     def test_send_agent_message_parses_json_output(self, mock_subprocess_run, mock_get_working_dir):
         """Ensure opencode JSON output is parsed for text and session ID."""
-        from agent_service import _active_conversations, _conversation_sessions, send_agent_message
+        from agent_service import _conversation_sessions, send_agent_message
 
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
@@ -249,7 +247,6 @@ class TestAgentService:
         ])
         mock_subprocess_run.return_value = mock_result
 
-        _active_conversations.clear()
         _conversation_sessions.clear()
 
         result = send_agent_message("test-repo", "Hello agent")
@@ -266,7 +263,7 @@ class TestAgentService:
     @patch('agent_service.subprocess.run')
     def test_send_agent_message_includes_tool_use(self, mock_subprocess_run, mock_get_working_dir):
         """Ensure tool_use entries are included with type metadata."""
-        from agent_service import _active_conversations, send_agent_message
+        from agent_service import send_agent_message
 
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
@@ -279,8 +276,6 @@ class TestAgentService:
             '{"type":"text","timestamp":1766956200000,"sessionID":"ses_tool","part":{"type":"text","text":"After tool"}}',
         ])
         mock_subprocess_run.return_value = mock_result
-
-        _active_conversations.clear()
 
         result = send_agent_message("test-repo", "Hello agent")
 
@@ -310,7 +305,7 @@ class TestAgentService:
     @patch('agent_service.subprocess.run')
     def test_send_agent_message_command_failure(self, mock_subprocess_run, mock_get_working_dir):
         """Test agent message sending with command failure."""
-        from agent_service import _active_conversations, send_agent_message
+        from agent_service import send_agent_message
         
         # Setup mocks
         mock_working_dir = Path("/test/workspace/repo")
@@ -321,8 +316,6 @@ class TestAgentService:
         mock_result.stderr = "Command error"
         mock_subprocess_run.return_value = mock_result
 
-        _active_conversations.clear()
-        
         # Test failed command
         result = send_agent_message("test-repo", "Hello agent")
 
@@ -333,7 +326,7 @@ class TestAgentService:
     @patch('agent_service.subprocess.run')
     def test_send_agent_message_file_not_found(self, mock_subprocess_run, mock_get_working_dir):
         """Test agent message sending when opencode is not found."""
-        from agent_service import _active_conversations, send_agent_message
+        from agent_service import send_agent_message
         
         # Setup mocks
         mock_working_dir = Path("/test/workspace/repo")
@@ -341,8 +334,6 @@ class TestAgentService:
 
         mock_subprocess_run.side_effect = FileNotFoundError()
 
-        _active_conversations.clear()
-        
         # Test file not found
         result = send_agent_message("test-repo", "Hello agent")
         
@@ -353,7 +344,7 @@ class TestAgentService:
     @patch('agent_service.subprocess.run')
     def test_send_agent_message_generic_exception(self, mock_subprocess_run, mock_get_working_dir):
         """Test agent message sending with generic exception."""
-        from agent_service import _active_conversations, send_agent_message
+        from agent_service import send_agent_message
         
         # Setup mocks
         mock_working_dir = Path("/test/workspace/repo")
@@ -361,8 +352,6 @@ class TestAgentService:
 
         mock_subprocess_run.side_effect = Exception("Generic error")
 
-        _active_conversations.clear()
-        
         # Test generic exception
         result = send_agent_message("test-repo", "Hello agent")
         

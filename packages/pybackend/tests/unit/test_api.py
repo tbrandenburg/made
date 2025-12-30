@@ -329,7 +329,18 @@ class TestRepositoryEndpoints:
         response = client.post("/api/repositories/test-repo/agent", json=payload)
         
         assert response.status_code == 200
-        mock_agent.assert_called_once_with("test-repo", "Test message")
+        mock_agent.assert_called_once_with("test-repo", "Test message", None)
+
+    @patch('app.send_agent_message')
+    def test_repository_agent_with_session_id(self, mock_agent):
+        """Test repository agent forwards provided session ID."""
+        mock_agent.return_value = {"response": "Agent response"}
+        payload = {"message": "Test message", "sessionId": "ses_456"}
+
+        response = client.post("/api/repositories/test-repo/agent", json=payload)
+
+        assert response.status_code == 200
+        mock_agent.assert_called_once_with("test-repo", "Test message", "ses_456")
 
 
 class TestKnowledgeEndpoints:
@@ -387,7 +398,18 @@ class TestKnowledgeEndpoints:
         response = client.post("/api/knowledge/test-guide/agent", json=payload)
         
         assert response.status_code == 200
-        mock_agent.assert_called_once_with("knowledge:test-guide", "Test message")
+        mock_agent.assert_called_once_with("knowledge:test-guide", "Test message", None)
+
+    @patch('app.send_agent_message')
+    def test_knowledge_agent_with_session_id(self, mock_agent):
+        """Test knowledge agent forwards provided session ID."""
+        mock_agent.return_value = {"response": "Agent response"}
+        payload = {"message": "Test message", "sessionId": "ses_k"}
+
+        response = client.post("/api/knowledge/test-guide/agent", json=payload)
+
+        assert response.status_code == 200
+        mock_agent.assert_called_once_with("knowledge:test-guide", "Test message", "ses_k")
 
 
 class TestConstitutionEndpoints:
@@ -436,7 +458,18 @@ class TestConstitutionEndpoints:
         response = client.post("/api/constitutions/test-const/agent", json=payload)
         
         assert response.status_code == 200
-        mock_agent.assert_called_once_with("constitution:test-const", "Test message")
+        mock_agent.assert_called_once_with("constitution:test-const", "Test message", None)
+
+    @patch('app.send_agent_message')
+    def test_constitution_agent_with_session_id(self, mock_agent):
+        """Test constitution agent forwards provided session ID."""
+        mock_agent.return_value = {"response": "Agent response"}
+        payload = {"message": "Test message", "sessionId": "ses_c"}
+
+        response = client.post("/api/constitutions/test-const/agent", json=payload)
+
+        assert response.status_code == 200
+        mock_agent.assert_called_once_with("constitution:test-const", "Test message", "ses_c")
 
 
 class TestSettingsEndpoints:
