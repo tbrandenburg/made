@@ -22,9 +22,10 @@ async function request<T>(
         try {
           const parsed = JSON.parse(message);
           if (parsed?.detail) {
-            message = typeof parsed.detail === "string"
-              ? parsed.detail
-              : JSON.stringify(parsed.detail);
+            message =
+              typeof parsed.detail === "string"
+                ? parsed.detail
+                : JSON.stringify(parsed.detail);
           }
         } catch {
           // Ignore JSON parse errors and keep the raw message
@@ -186,7 +187,9 @@ export const api = {
     );
   },
   getRepositoryCommands: (name: string) =>
-    request<{ commands: CommandDefinition[] }>(`/repositories/${name}/commands`),
+    request<{ commands: CommandDefinition[] }>(
+      `/repositories/${name}/commands`,
+    ),
   listKnowledge: () => request<{ artefacts: ArtefactSummary[] }>("/knowledge"),
   getKnowledge: (name: string) => request<MatterFile>(`/knowledge/${name}`),
   saveKnowledge: (name: string, payload: MatterFile) =>

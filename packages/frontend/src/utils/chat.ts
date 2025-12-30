@@ -2,7 +2,7 @@ import { AgentReply, ChatHistoryMessage } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 
 const QUOTE_PAIRS: Record<string, string> = {
-  "\"": "\"",
+  '"': '"',
   "'": "'",
   "`": "`",
   "“": "”",
@@ -76,7 +76,8 @@ export const mapHistoryToMessages = (
 
   return messages.map((message) => {
     const role = message.role === "assistant" ? "agent" : "user";
-    const baseId = message.messageId || `${role}-${message.timestamp || "unknown"}`;
+    const baseId =
+      message.messageId || `${role}-${message.timestamp || "unknown"}`;
     const count = occurrenceCounter[baseId] ?? 0;
     occurrenceCounter[baseId] = count + 1;
 

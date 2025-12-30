@@ -27,7 +27,8 @@ import {
 } from "../utils/chat";
 
 const stripCommandFrontmatter = (content: string) => {
-  const delimiterPattern = /^\s*---(?:[\r\n]+[\s\S]*?[\r\n]+---|[\s\S]*?---)\s*/;
+  const delimiterPattern =
+    /^\s*---(?:[\r\n]+[\s\S]*?[\r\n]+---|[\s\S]*?---)\s*/;
   return delimiterPattern.test(content)
     ? content.replace(delimiterPattern, "").trim()
     : content.trim();
@@ -74,7 +75,8 @@ const COMMAND_ACTIONS = [
   {
     id: "init-spec-kit",
     label: "Initialize Spec Kit",
-    prompt: 'Execute "specify init . --ai opencode --script sh" to initialize the Spec Kit.',
+    prompt:
+      'Execute "specify init . --ai opencode --script sh" to initialize the Spec Kit.',
   },
   {
     id: "init",
@@ -297,7 +299,9 @@ export const RepositoryPage: React.FC = () => {
       const status = await api.getRepositoryAgentStatus(name);
       setChatLoading(status.processing);
       setChatError(
-        status.processing ? "Agent is still processing the previous message." : null,
+        status.processing
+          ? "Agent is still processing the previous message."
+          : null,
       );
       return status.processing;
     } catch (error) {
@@ -316,7 +320,9 @@ export const RepositoryPage: React.FC = () => {
 
     const syncChatHistory = async () => {
       try {
-        const startTimestamp = lastKnownTimestamp ? lastKnownTimestamp + 1 : undefined;
+        const startTimestamp = lastKnownTimestamp
+          ? lastKnownTimestamp + 1
+          : undefined;
         const history = await api.getRepositoryAgentHistory(
           name,
           sessionId,
@@ -375,11 +381,12 @@ export const RepositoryPage: React.FC = () => {
     setPendingPrompt("");
     setChatLoading(true);
     try {
-      const reply = await api.sendAgentMessage(name, message, sessionId || undefined);
-      setChat((prev) => [
-        ...prev,
-        ...mapAgentReplyToMessages(reply),
-      ]);
+      const reply = await api.sendAgentMessage(
+        name,
+        message,
+        sessionId || undefined,
+      );
+      setChat((prev) => [...prev, ...mapAgentReplyToMessages(reply)]);
       if (reply.sessionId) {
         setSessionId(reply.sessionId);
       }
@@ -390,7 +397,9 @@ export const RepositoryPage: React.FC = () => {
       const messageText = error instanceof Error ? error.message : "";
       const agentBusy = messageText.toLowerCase().includes("processing");
       setChatError(
-        agentBusy ? "Agent is still processing the previous message." : "Failed to reach agent",
+        agentBusy
+          ? "Agent is still processing the previous message."
+          : "Failed to reach agent",
       );
       console.error("Failed to send agent message", error);
       const processing = await refreshAgentStatus();
@@ -453,7 +462,7 @@ export const RepositoryPage: React.FC = () => {
     setCommandModal((prev) => ({
       ...prev,
       values: prev.values.map((existing, idx) =>
-        idx === index ? value : existing
+        idx === index ? value : existing,
       ),
     }));
   };
@@ -658,15 +667,17 @@ export const RepositoryPage: React.FC = () => {
                 className={`chat-message ${message.role} ${message.messageType || ""}`}
               >
                 <div className="chat-meta">
-                  {`${message.role === "agent"
-                    ? message.messageType === "thinking"
-                      ? "🧠 "
-                      : message.messageType === "tool"
-                        ? "🛠️ "
-                        : message.messageType === "final"
-                          ? "🎯 "
-                          : ""
-                    : ""}${new Date(message.timestamp).toLocaleString()}`}
+                  {`${
+                    message.role === "agent"
+                      ? message.messageType === "thinking"
+                        ? "🧠 "
+                        : message.messageType === "tool"
+                          ? "🛠️ "
+                          : message.messageType === "final"
+                            ? "🎯 "
+                            : ""
+                      : ""
+                  }${new Date(message.timestamp).toLocaleString()}`}
                 </div>
                 <div
                   className="markdown"
@@ -816,8 +827,12 @@ export const RepositoryPage: React.FC = () => {
               </button>
             }
           >
-            {commandsLoading && <div className="alert">Loading commands...</div>}
-            {commandsError && <div className="alert error">{commandsError}</div>}
+            {commandsLoading && (
+              <div className="alert">Loading commands...</div>
+            )}
+            {commandsError && (
+              <div className="alert error">{commandsError}</div>
+            )}
             {!commandsLoading && !commandsError && (
               <>
                 {availableCommands.length === 0 ? (

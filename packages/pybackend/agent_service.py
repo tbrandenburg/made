@@ -78,7 +78,9 @@ def _to_milliseconds(raw_value: object) -> int | None:
 
 def _format_timestamp(raw_timestamp: int | float | str | None) -> str:
     try:
-        timestamp_value = float(raw_timestamp) / 1000 if raw_timestamp is not None else None
+        timestamp_value = (
+            float(raw_timestamp) / 1000 if raw_timestamp is not None else None
+        )
     except (TypeError, ValueError):
         timestamp_value = None
 
@@ -136,17 +138,27 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]
         if payload_type == "text":
             text = _extract_part_content(part, "text")
             if text:
-                parts.append({"kind": "text", "content": text, "timestamp": payload_timestamp})
+                parts.append(
+                    {"kind": "text", "content": text, "timestamp": payload_timestamp}
+                )
         elif payload_type in {"tool_use", "tool"}:
             tool_name = _extract_part_content(part, payload_type)
             if tool_name:
-                parts.append({"kind": "tool", "content": tool_name, "timestamp": payload_timestamp})
+                parts.append(
+                    {
+                        "kind": "tool",
+                        "content": tool_name,
+                        "timestamp": payload_timestamp,
+                    }
+                )
 
     if not parts:
         return session_id, []
 
     responses: list[dict[str, str]] = []
-    text_indices = [index for index, part in enumerate(parts) if part.get("kind") == "text"]
+    text_indices = [
+        index for index, part in enumerate(parts) if part.get("kind") == "text"
+    ]
 
     for index, part in enumerate(parts):
         kind = part.get("kind")
@@ -154,7 +166,9 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]
         raw_timestamp = part.get("timestamp")
 
         if kind == "text":
-            message_type = "final" if text_indices and index == text_indices[-1] else "thinking"
+            message_type = (
+                "final" if text_indices and index == text_indices[-1] else "thinking"
+            )
             text_content = content
         else:
             message_type = "tool"
@@ -183,7 +197,9 @@ def _resolve_message_timestamp(message_info: dict[str, object]) -> int | None:
     return None
 
 
-def _resolve_part_timestamp(part: dict[str, object], fallback: int | None) -> int | None:
+def _resolve_part_timestamp(
+    part: dict[str, object], fallback: int | None
+) -> int | None:
     time_info = part.get("time") or {}
     if isinstance(time_info, dict):
         for key in ("end", "start"):
@@ -251,7 +267,9 @@ def export_chat_history(
     if not session_id:
         raise ValueError("Session ID is required")
 
-    normalized_start = _to_milliseconds(start_timestamp) if start_timestamp is not None else None
+    normalized_start = (
+        _to_milliseconds(start_timestamp) if start_timestamp is not None else None
+    )
     working_dir = _get_working_directory(channel) if channel else None
 
     try:
@@ -284,7 +302,9 @@ def export_chat_history(
 
 def send_agent_message(channel: str, message: str, session_id: str | None = None):
     if not _mark_channel_processing(channel):
-        raise ChannelBusyError("Agent is still processing a previous message for this chat.")
+        raise ChannelBusyError(
+            "Agent is still processing a previous message for this chat."
+        )
 
     working_dir = _get_working_directory(channel)
     active_session = session_id

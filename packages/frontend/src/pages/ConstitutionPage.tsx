@@ -71,7 +71,9 @@ export const ConstitutionPage: React.FC = () => {
       const status = await api.getConstitutionAgentStatus(name);
       setChatLoading(status.processing);
       setAgentStatus(
-        status.processing ? "Agent is still processing the previous message." : null,
+        status.processing
+          ? "Agent is still processing the previous message."
+          : null,
       );
       return status.processing;
     } catch (error) {
@@ -108,11 +110,12 @@ export const ConstitutionPage: React.FC = () => {
     setPrompt("");
     setChatLoading(true);
     try {
-      const reply = await api.sendConstitutionAgent(name, userMessage.text, sessionId || undefined);
-      setChat((prev) => [
-        ...prev,
-        ...mapAgentReplyToMessages(reply),
-      ]);
+      const reply = await api.sendConstitutionAgent(
+        name,
+        userMessage.text,
+        sessionId || undefined,
+      );
+      setChat((prev) => [...prev, ...mapAgentReplyToMessages(reply)]);
       if (reply.sessionId) {
         setSessionId(reply.sessionId);
       }
@@ -124,7 +127,9 @@ export const ConstitutionPage: React.FC = () => {
       const message = error instanceof Error ? error.message : "";
       const busy = message.toLowerCase().includes("processing");
       setAgentStatus(
-        busy ? "Agent is still processing the previous message." : "Agent unavailable",
+        busy
+          ? "Agent is still processing the previous message."
+          : "Agent unavailable",
       );
       const processing = await refreshAgentStatus();
       if (!processing) {
@@ -211,15 +216,17 @@ export const ConstitutionPage: React.FC = () => {
                       className={`chat-message ${message.role} ${message.messageType || ""}`}
                     >
                       <div className="chat-meta">
-                        {`${message.role === "agent"
-                          ? message.messageType === "thinking"
-                            ? "🧠 "
-                            : message.messageType === "tool"
-                              ? "🛠️ "
-                              : message.messageType === "final"
-                                ? "🎯 "
-                                : ""
-                          : ""}${new Date(message.timestamp).toLocaleString()}`}
+                        {`${
+                          message.role === "agent"
+                            ? message.messageType === "thinking"
+                              ? "🧠 "
+                              : message.messageType === "tool"
+                                ? "🛠️ "
+                                : message.messageType === "final"
+                                  ? "🎯 "
+                                  : ""
+                            : ""
+                        }${new Date(message.timestamp).toLocaleString()}`}
                       </div>
                       <div
                         className="markdown"
