@@ -70,6 +70,13 @@ def _get_working_directory(channel: str) -> Path:
     return ensure_directory(made_dir / "constitutions")
 
 
+def _to_milliseconds(raw_value: object) -> int | None:
+    try:
+        return int(float(raw_value))
+    except (TypeError, ValueError):
+        return None
+
+
 def _format_timestamp(raw_timestamp: int | float | str | None) -> str:
     try:
         timestamp_value = float(raw_timestamp) / 1000 if raw_timestamp is not None else None
@@ -82,6 +89,28 @@ def _format_timestamp(raw_timestamp: int | float | str | None) -> str:
         else datetime.now(UTC)
     )
     return dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _format_timestamp_optional(raw_timestamp: int | float | str | None) -> str | None:
+    millis = _to_milliseconds(raw_timestamp)
+    if millis is None:
+        return None
+
+    dt = datetime.fromtimestamp(millis / 1000, tz=UTC)
+    return dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _extract_part_content(part: dict[str, object], part_type: str) -> str:
+    if part_type == "text":
+        return str(part.get("text") or "")
+
+    if part_type == "tool_use":
+        for key in ("tool", "name", "id"):
+            if part.get(key):
+                return str(part[key])
+        return ""
+
+    return ""
 
 
 def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]]]:
@@ -106,11 +135,11 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]
         part = payload.get("part") or {}
 
         if payload_type == "text":
-            text = part.get("text")
+            text = _extract_part_content(part, "text")
             if text:
                 parts.append({"kind": "text", "content": text, "timestamp": payload_timestamp})
         elif payload_type == "tool_use":
-            tool_name = part.get("tool")
+            tool_name = _extract_part_content(part, "tool_use")
             if tool_name:
                 parts.append({"kind": "tool", "content": tool_name, "timestamp": payload_timestamp})
 
@@ -141,6 +170,104 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]
         )
 
     return session_id, responses
+
+
+def _resolve_message_timestamp(message_info: dict[str, object]) -> int | None:
+    time_info = message_info.get("time") or {}
+    if not isinstance(time_info, dict):
+        return None
+
+    for key in ("created", "start", "completed", "end", "updated"):
+        resolved = _to_milliseconds(time_info.get(key))
+        if resolved is not None:
+            return resolved
+    return None
+
+
+def _resolve_part_timestamp(part: dict[str, object], fallback: int | None) -> int | None:
+    time_info = part.get("time") or {}
+    if isinstance(time_info, dict):
+        for key in ("start", "end"):
+            resolved = _to_milliseconds(time_info.get(key))
+            if resolved is not None:
+                return resolved
+
+    resolved = _to_milliseconds(part.get("timestamp"))
+    if resolved is not None:
+        return resolved
+
+    return fallback
+
+
+def _filter_export_messages(
+    messages: list[dict[str, object]], start_timestamp: int | None
+) -> list[dict[str, object]]:
+    history: list[dict[str, object]] = []
+
+    for message in messages:
+        message_info = message.get("info") or {}
+        role = message_info.get("role")
+        if role not in {"user", "assistant"}:
+            continue
+
+        message_timestamp = _resolve_message_timestamp(message_info)
+
+        for part in message.get("parts") or []:
+            part_type = part.get("type")
+            if part_type not in {"text", "tool_use"}:
+                continue
+
+            part_timestamp = _resolve_part_timestamp(part, message_timestamp)
+            if start_timestamp is not None and part_timestamp is not None:
+                if part_timestamp < start_timestamp:
+                    continue
+
+            history.append(
+                {
+                    "messageId": message_info.get("id"),
+                    "role": role,
+                    "type": part_type,
+                    "content": _extract_part_content(part, part_type),
+                    "timestamp": _format_timestamp_optional(part_timestamp),
+                }
+            )
+
+    return history
+
+
+def export_chat_history(
+    session_id: str | None, start_timestamp: int | float | str | None = None
+) -> dict[str, object]:
+    if not session_id:
+        raise ValueError("Session ID is required")
+
+    normalized_start = _to_milliseconds(start_timestamp) if start_timestamp is not None else None
+
+    try:
+        result = subprocess.run(
+            ["opencode", "export", session_id],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
+        )
+
+    if result.returncode != 0:
+        error_message = result.stderr.strip() or "Failed to export session history"
+        raise RuntimeError(error_message)
+
+    try:
+        export_payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Invalid export data returned by opencode") from exc
+
+    messages = export_payload.get("messages") or []
+    return {
+        "sessionId": session_id,
+        "messages": _filter_export_messages(messages, normalized_start),
+    }
 
 
 def send_agent_message(channel: str, message: str):
