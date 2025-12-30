@@ -64,7 +64,12 @@ class TestExportChatHistory:
                 },
                 "parts": [
                     {"type": "text", "text": "Hi", "timestamp": 2000},
-                    {"type": "tool_use", "tool": "search", "time": {"end": 2500}},
+                        {"type": "tool_use", "tool": "search", "time": {"end": 2500}},
+                        {
+                            "type": "tool",
+                            "tool": "todowrite",
+                            "state": {"time": {"start": 3000, "end": 3100}},
+                        },
                 ],
             },
             {
@@ -106,6 +111,13 @@ class TestExportChatHistory:
                 "content": "search",
                 "timestamp": "1970-01-01T00:00:02.500Z",
             },
+            {
+                "messageId": "msg_2",
+                "role": "assistant",
+                "type": "tool",
+                "content": "todowrite",
+                "timestamp": "1970-01-01T00:00:03.100Z",
+            },
         ]
 
     @patch("agent_service.subprocess.run")
@@ -117,7 +129,7 @@ class TestExportChatHistory:
 
         result = export_chat_history("ses_123", start_timestamp=2000)
 
-        assert [msg["content"] for msg in result["messages"]] == ["Hi", "search"]
+        assert [msg["content"] for msg in result["messages"]] == ["Hi", "search", "todowrite"]
 
     def test_export_chat_history_missing_session(self):
         with pytest.raises(ValueError):

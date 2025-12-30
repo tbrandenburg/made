@@ -101,10 +101,10 @@ def _format_timestamp_optional(raw_timestamp: int | float | str | None) -> str |
 
 
 def _extract_part_content(part: dict[str, object], part_type: str) -> str:
-    if part_type == "text":
+    if part_type in {"text"}:
         return str(part.get("text") or "")
 
-    if part_type == "tool_use":
+    if part_type in {"tool_use", "tool"}:
         for key in ("tool", "name", "id"):
             if part.get(key):
                 return str(part[key])
@@ -138,8 +138,8 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]
             text = _extract_part_content(part, "text")
             if text:
                 parts.append({"kind": "text", "content": text, "timestamp": payload_timestamp})
-        elif payload_type == "tool_use":
-            tool_name = _extract_part_content(part, "tool_use")
+        elif payload_type in {"tool_use", "tool"}:
+            tool_name = _extract_part_content(part, payload_type)
             if tool_name:
                 parts.append({"kind": "tool", "content": tool_name, "timestamp": payload_timestamp})
 
@@ -187,10 +187,19 @@ def _resolve_message_timestamp(message_info: dict[str, object]) -> int | None:
 def _resolve_part_timestamp(part: dict[str, object], fallback: int | None) -> int | None:
     time_info = part.get("time") or {}
     if isinstance(time_info, dict):
-        for key in ("start", "end"):
+        for key in ("end", "start"):
             resolved = _to_milliseconds(time_info.get(key))
             if resolved is not None:
                 return resolved
+
+    state = part.get("state")
+    if isinstance(state, dict):
+        state_time = state.get("time") or {}
+        if isinstance(state_time, dict):
+            for key in ("end", "start"):
+                resolved = _to_milliseconds(state_time.get(key))
+                if resolved is not None:
+                    return resolved
 
     resolved = _to_milliseconds(part.get("timestamp"))
     if resolved is not None:
@@ -214,7 +223,7 @@ def _filter_export_messages(
 
         for part in message.get("parts") or []:
             part_type = part.get("type")
-            if part_type not in {"text", "tool_use"}:
+            if part_type not in {"text", "tool_use", "tool"}:
                 continue
 
             part_timestamp = _resolve_part_timestamp(part, message_timestamp)
