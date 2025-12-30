@@ -1,6 +1,34 @@
 import { AgentReply, ChatHistoryMessage } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 
+const QUOTE_PAIRS: Record<string, string> = {
+  "\"": "\"",
+  "'": "'",
+  "`": "`",
+  "“": "”",
+  "‘": "’",
+  "«": "»",
+};
+
+export const normalizeChatMessageText = (text: string | undefined | null) => {
+  let normalized = (text || "").trim();
+  const openingQuote = normalized[0];
+  const closingQuote = openingQuote ? QUOTE_PAIRS[openingQuote] : undefined;
+
+  if (closingQuote && normalized.endsWith(closingQuote)) {
+    normalized = normalized.slice(1, -closingQuote.length).trim();
+  }
+
+  return normalized;
+};
+
+export const buildMessageDedupKey = (message: ChatMessage) => {
+  const normalizedText = normalizeChatMessageText(message.text);
+  const normalizedType = message.messageType || "none";
+
+  return `${message.role}-${normalizedType}-${normalizedText}`;
+};
+
 const normalizeMessageType = (
   value: string | undefined,
 ): ChatMessage["messageType"] => {
