@@ -11,6 +11,7 @@ import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
 import { usePersistentChat } from "../hooks/usePersistentChat";
+import { usePersistentString } from "../hooks/usePersistentString";
 import {
   api,
   CommandDefinition,
@@ -139,7 +140,12 @@ export const RepositoryPage: React.FC = () => {
     () => (name ? `repository-chat-${name}` : "repository-chat"),
     [name],
   );
+  const sessionStorageKey = useMemo(
+    () => (name ? `repository-session-${name}` : "repository-session"),
+    [name],
+  );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
+  const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);
   const [pendingPrompt, setPendingPrompt] = useState("");
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
@@ -315,6 +321,9 @@ export const RepositoryPage: React.FC = () => {
         ...prev,
         ...mapAgentReplyToMessages(reply),
       ]);
+      if (reply.sessionId) {
+        setSessionId(reply.sessionId);
+      }
       setChatError(null);
       setActiveTab("agent");
       setChatLoading(false);
@@ -616,6 +625,11 @@ export const RepositoryPage: React.FC = () => {
             )}
             {chat.length === 0 && !chatLoading && (
               <div className="empty">No conversation yet.</div>
+            )}
+            {sessionId && (
+              <div className="chat-session-id" aria-label="Session ID">
+                Session ID: {sessionId}
+              </div>
             )}
           </div>
           {chatError && <div className="alert">{chatError}</div>}

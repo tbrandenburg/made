@@ -274,6 +274,14 @@ textarea {
   margin-bottom: 0.5rem;
 }
 
+.chat-session-id {
+  align-self: flex-end;
+  text-align: right;
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 .editor-input {
   min-height: 320px;
   font-family: "JetBrains Mono", "Fira Code", monospace;

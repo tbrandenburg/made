@@ -10,6 +10,7 @@ import { marked } from "marked";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { usePersistentChat } from "../hooks/usePersistentChat";
+import { usePersistentString } from "../hooks/usePersistentString";
 import { api } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
@@ -25,7 +26,12 @@ export const KnowledgeArtefactPage: React.FC = () => {
     () => (name ? `knowledge-chat-${name}` : "knowledge-chat"),
     [name],
   );
+  const sessionStorageKey = useMemo(
+    () => (name ? `knowledge-session-${name}` : "knowledge-session"),
+    [name],
+  );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
+  const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);
   const [prompt, setPrompt] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
@@ -107,6 +113,9 @@ export const KnowledgeArtefactPage: React.FC = () => {
         ...prev,
         ...mapAgentReplyToMessages(reply),
       ]);
+      if (reply.sessionId) {
+        setSessionId(reply.sessionId);
+      }
       setActiveTab("agent");
       setAgentStatus(null);
       setChatLoading(false);
@@ -214,26 +223,26 @@ export const KnowledgeArtefactPage: React.FC = () => {
             content: (
               <Panel title="Agent Conversation">
                 <div className="chat-window" ref={chatWindowRef}>
-                    {chat.map((message) => (
+                  {chat.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`chat-message ${message.role} ${message.messageType || ""}`}
+                    >
+                      <div className="chat-meta">
+                        {`${message.role === "agent"
+                          ? message.messageType === "thinking"
+                            ? "🧠 "
+                            : message.messageType === "tool"
+                              ? "🛠️ "
+                              : message.messageType === "final"
+                                ? "🎯 "
+                                : ""
+                          : ""}${new Date(message.timestamp).toLocaleString()}`}
+                      </div>
                       <div
-                        key={message.id}
-                        className={`chat-message ${message.role} ${message.messageType || ""}`}
-                      >
-                        <div className="chat-meta">
-                          {`${message.role === "agent"
-                            ? message.messageType === "thinking"
-                              ? "🧠 "
-                              : message.messageType === "tool"
-                                ? "🛠️ "
-                                : message.messageType === "final"
-                                  ? "🎯 "
-                                  : ""
-                            : ""}${new Date(message.timestamp).toLocaleString()}`}
-                        </div>
-                        <div
-                          className="markdown"
-                          dangerouslySetInnerHTML={{
-                            __html: marked(message.text || ""),
+                        className="markdown"
+                        dangerouslySetInnerHTML={{
+                          __html: marked(message.text || ""),
                         }}
                       />
                     </div>
@@ -247,6 +256,11 @@ export const KnowledgeArtefactPage: React.FC = () => {
                   {chat.length === 0 && !chatLoading && (
                     <div className="empty">
                       Start a conversation to collaborate with agents.
+                    </div>
+                  )}
+                  {sessionId && (
+                    <div className="chat-session-id" aria-label="Session ID">
+                      Session ID: {sessionId}
                     </div>
                   )}
                 </div>
