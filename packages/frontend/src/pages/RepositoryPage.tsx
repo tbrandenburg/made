@@ -20,7 +20,11 @@ import {
 } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
-import { mapAgentReplyToMessages, mapHistoryToMessages } from "../utils/chat";
+import {
+  buildMessageDedupKey,
+  mapAgentReplyToMessages,
+  mapHistoryToMessages,
+} from "../utils/chat";
 
 const stripCommandFrontmatter = (content: string) => {
   const delimiterPattern = /^\s*---(?:[\r\n]+[\s\S]*?[\r\n]+---|[\s\S]*?---)\s*/;
@@ -324,13 +328,11 @@ export const RepositoryPage: React.FC = () => {
 
         setChat((previousChat) => {
           const existingKeys = new Set(
-            previousChat.map(
-              (message) => `${message.role}-${message.timestamp}-${message.text}`,
-            ),
+            previousChat.map((message) => buildMessageDedupKey(message)),
           );
           const mapped = mapHistoryToMessages(history.messages);
           const deduped = mapped.filter((message) => {
-            const key = `${message.role}-${message.timestamp}-${message.text}`;
+            const key = buildMessageDedupKey(message);
             if (existingKeys.has(key)) {
               return false;
             }
