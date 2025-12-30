@@ -275,11 +275,31 @@ textarea {
 }
 
 .chat-session-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   align-self: flex-end;
-  text-align: right;
   font-style: italic;
   font-size: 0.85rem;
   color: var(--muted);
+  text-align: right;
+}
+
+.chat-session-id button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.5rem;
+  line-height: 1;
+}
+
+.chat-session-id button:hover,
+.chat-session-id button:focus-visible {
+  background: var(--neutral);
+  color: var(--text);
+  outline: none;
 }
 
 .editor-input {
