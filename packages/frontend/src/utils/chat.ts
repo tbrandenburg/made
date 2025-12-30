@@ -24,7 +24,8 @@ export const normalizeChatMessageText = (text: string | undefined | null) => {
 
 export const buildMessageDedupKey = (message: ChatMessage) => {
   const normalizedText = normalizeChatMessageText(message.text);
-  const normalizedType = message.messageType || "none";
+  const normalizedType =
+    message.role === "agent" ? message.messageType || "none" : "user";
 
   return `${message.role}-${normalizedType}-${normalizedText}`;
 };
