@@ -325,7 +325,7 @@ def repository_agent_history(
 ):
     try:
         normalized_start = int(start) if start is not None else None
-        return export_chat_history(session_id, normalized_start)
+        return export_chat_history(session_id, normalized_start, name)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     except FileNotFoundError as exc:
