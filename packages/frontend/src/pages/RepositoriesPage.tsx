@@ -19,10 +19,17 @@ export const RepositoriesPage: React.FC = () => {
     message: string;
   } | null>(null);
 
+  const sortRepositoriesByName = (
+    items: RepositorySummary[],
+  ): RepositorySummary[] =>
+    [...items].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+    );
+
   const loadRepositories = () => {
     api
       .listRepositories()
-      .then((res) => setRepositories(res.repositories))
+      .then((res) => setRepositories(sortRepositoriesByName(res.repositories)))
       .catch((err) => {
         console.error("Failed to load repositories", err);
         setAlert({ type: "error", message: "Unable to load repositories" });
