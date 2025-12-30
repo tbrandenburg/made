@@ -242,7 +242,14 @@ export const ConstitutionPage: React.FC = () => {
                   )}
                   {sessionId && (
                     <div className="chat-session-id" aria-label="Session ID">
-                      Session ID: {sessionId}
+                      <span>Session ID: {sessionId}</span>
+                      <button
+                        type="button"
+                        title="Clear session"
+                        onClick={() => setSessionId(null)}
+                      >
+                        🗑️
+                      </button>
                     </div>
                   )}
                 </div>
