@@ -287,9 +287,12 @@ def send_agent_message(channel: str, message: str, session_id: str | None = None
         raise ChannelBusyError("Agent is still processing a previous message for this chat.")
 
     working_dir = _get_working_directory(channel)
-    active_session = session_id or _conversation_sessions.get(channel)
-    if active_session:
-        _conversation_sessions[channel] = active_session
+    active_session = session_id
+
+    if session_id:
+        _conversation_sessions[channel] = session_id
+    else:
+        _conversation_sessions.pop(channel, None)
 
     command = _build_opencode_command(message, active_session)
 
