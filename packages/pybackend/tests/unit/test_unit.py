@@ -3,12 +3,9 @@ Unit tests focusing on isolated testing of individual functions.
 These tests mock all external dependencies and focus on business logic.
 """
 
-import pytest
-import subprocess
-import time
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import Mock, call, patch
 
 # These would be unit tests for individual service functions
 # For now, creating a minimal unit test structure

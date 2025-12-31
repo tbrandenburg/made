@@ -3,8 +3,6 @@ System tests for the MADE Python Backend.
 These tests verify the application starts correctly and core integrations work.
 """
 
-import pytest
-import httpx
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 

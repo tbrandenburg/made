@@ -308,8 +308,8 @@ def export_chat_history(
     try:
         export_payload = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        stdout_text = (result.stdout or "").strip()
-        stderr_text = (result.stderr or "").strip()
+        stdout_text = str(result.stdout or "").strip()
+        stderr_text = str(result.stderr or "").strip()
         logger.warning(
             (
                 "Invalid export data while exporting chat history "
