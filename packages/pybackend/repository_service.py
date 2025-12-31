@@ -1,9 +1,12 @@
 import os
 import subprocess
+import logging
 from pathlib import Path
 from typing import Dict, List, Union
 
 from config import get_workspace_home
+
+logger = logging.getLogger(__name__)
 
 
 FileNode = Dict[str, Union[str, int, List["FileNode"]]]
@@ -128,6 +131,7 @@ def create_repository(name: str) -> Dict[str, Union[str, bool, None]]:
     repo_path = workspace / name
     if repo_path.exists():
         raise ValueError("Repository already exists")
+    logger.info("Initializing repository '%s' in %s", name, workspace)
     repo_path.mkdir(parents=True, exist_ok=False)
     try:
         subprocess.check_call(
@@ -142,6 +146,7 @@ def create_repository(name: str) -> Dict[str, Union[str, bool, None]]:
         except OSError:
             pass
         raise ValueError("Failed to initialize git repository")
+    logger.info("Repository '%s' initialized successfully", name)
     return get_repository_info(name)
 
 
@@ -158,6 +163,7 @@ def clone_repository(
     if target_path.exists():
         raise ValueError("Repository already exists")
 
+    logger.info("Cloning repository '%s' into '%s'", repo_url, target_path)
     try:
         subprocess.check_call(
             ["git", "clone", repo_url, repo_name],
@@ -168,6 +174,7 @@ def clone_repository(
     except (subprocess.CalledProcessError, FileNotFoundError):
         raise ValueError("Failed to clone repository")
 
+    logger.info("Repository cloned to '%s'", target_path)
     return get_repository_info(repo_name)
 
 
@@ -211,6 +218,7 @@ def read_repository_file(repo_name: str, file_path: str) -> str:
 def write_repository_file(repo_name: str, file_path: str, content: str) -> None:
     workspace = get_workspace_home()
     target = workspace / repo_name / file_path
+    logger.info("Writing repository file '%s' in '%s'", file_path, repo_name)
     target.write_text(content, encoding="utf-8")
 
 
@@ -218,17 +226,25 @@ def create_repository_file(repo_name: str, file_path: str, content: str = "") ->
     workspace = get_workspace_home()
     target = workspace / repo_name / file_path
     target.parent.mkdir(parents=True, exist_ok=True)
+    logger.info("Creating repository file '%s' in '%s'", file_path, repo_name)
     target.write_text(content, encoding="utf-8")
 
 
 def rename_repository_file(repo_name: str, old_path: str, new_path: str) -> None:
     workspace = get_workspace_home()
+    logger.info(
+        "Renaming repository file from '%s' to '%s' in '%s'",
+        old_path,
+        new_path,
+        repo_name,
+    )
     (workspace / repo_name / old_path).rename(workspace / repo_name / new_path)
 
 
 def delete_repository_file(repo_name: str, file_path: str) -> None:
     workspace = get_workspace_home()
     target = workspace / repo_name / file_path
+    logger.info("Deleting repository path '%s' in '%s'", file_path, repo_name)
     if target.is_dir():
         for child in list(target.iterdir()):
             child_relative = Path(file_path) / child.name
