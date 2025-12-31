@@ -262,6 +262,37 @@ def _filter_export_messages(
     return history
 
 
+def _extract_json_envelope(raw_text: str) -> str | None:
+    for start_char, end_char in (("{", "}"), ("[", "]")):
+        start_index = raw_text.find(start_char)
+        end_index = raw_text.rfind(end_char)
+
+        if start_index == -1 or end_index == -1 or end_index < start_index:
+            continue
+
+        return raw_text[start_index : end_index + 1]
+
+    return None
+
+
+def _log_invalid_export_warning(
+    channel: str | None, session_id: str, stdout_text: str, stderr_text: str
+) -> None:
+    logger.warning(
+        (
+            "Invalid export data while exporting chat history "
+            "(channel: %s, session: %s). "
+            "stdout first: %r stdout last: %r stderr first: %r stderr last: %r"
+        ),
+        channel or "<unspecified>",
+        session_id,
+        stdout_text[:300],
+        stdout_text[-300:],
+        stderr_text[:300],
+        stderr_text[-300:],
+    )
+
+
 def export_chat_history(
     session_id: str | None,
     start_timestamp: int | float | str | None = None,
@@ -305,25 +336,36 @@ def export_chat_history(
         )
         raise RuntimeError(error_message)
 
+    stdout_text = str(result.stdout or "")
+    stderr_text = str(result.stderr or "")
+
     try:
-        export_payload = json.loads(result.stdout)
-    except json.JSONDecodeError as exc:
-        stdout_text = str(result.stdout or "").strip()
-        stderr_text = str(result.stderr or "").strip()
-        logger.warning(
-            (
-                "Invalid export data while exporting chat history "
-                "(channel: %s, session: %s). "
-                "stdout first: %r stdout last: %r stderr first: %r stderr last: %r"
-            ),
-            channel or "<unspecified>",
-            session_id,
-            stdout_text[:300],
-            stdout_text[-300:],
-            stderr_text[:300],
-            stderr_text[-300:],
-        )
-        raise ValueError("Invalid export data returned by opencode") from exc
+        export_payload = json.loads(stdout_text)
+    except json.JSONDecodeError:
+        trimmed_payload = _extract_json_envelope(stdout_text)
+
+        if trimmed_payload is not None:
+            try:
+                export_payload = json.loads(trimmed_payload)
+                logger.info(
+                    (
+                        "Parsed chat history export after trimming non-JSON output "
+                        "(channel: %s, session: %s, trimmed_bytes: %s)"
+                    ),
+                    channel or "<unspecified>",
+                    session_id,
+                    len(stdout_text) - len(trimmed_payload),
+                )
+            except json.JSONDecodeError as exc:
+                _log_invalid_export_warning(
+                    channel, session_id, stdout_text.strip(), stderr_text.strip()
+                )
+                raise ValueError("Invalid export data returned by opencode") from exc
+        else:
+            _log_invalid_export_warning(
+                channel, session_id, stdout_text.strip(), stderr_text.strip()
+            )
+            raise ValueError("Invalid export data returned by opencode")
 
     messages = export_payload.get("messages") or []
     return {
