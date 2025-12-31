@@ -1,3 +1,4 @@
+import logging
 import json
 import subprocess
 import time
@@ -6,6 +7,8 @@ from pathlib import Path
 from threading import Lock
 
 from config import ensure_directory, get_made_directory, get_workspace_home
+
+logger = logging.getLogger(__name__)
 
 _processing_lock = Lock()
 _processing_channels: dict[str, datetime] = {}
@@ -272,6 +275,13 @@ def export_chat_history(
     )
     working_dir = _get_working_directory(channel) if channel else None
 
+    logger.info(
+        "Exporting chat history (channel: %s, session: %s, start: %s)",
+        channel or "<unspecified>",
+        session_id,
+        normalized_start,
+    )
+
     try:
         result = subprocess.run(
             ["opencode", "export", session_id],
@@ -280,17 +290,29 @@ def export_chat_history(
             cwd=working_dir,
         )
     except FileNotFoundError:
+        logger.error("Unable to export history: 'opencode' command not found")
         raise FileNotFoundError(
             "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
         )
 
     if result.returncode != 0:
         error_message = result.stderr.strip() or "Failed to export session history"
+        logger.error(
+            "Exporting chat history failed (channel: %s, session: %s): %s",
+            channel or "<unspecified>",
+            session_id,
+            error_message,
+        )
         raise RuntimeError(error_message)
 
     try:
         export_payload = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
+        logger.warning(
+            "Invalid export data while exporting chat history (channel: %s, session: %s)",
+            channel or "<unspecified>",
+            session_id,
+        )
         raise ValueError("Invalid export data returned by opencode") from exc
 
     messages = export_payload.get("messages") or []
@@ -316,6 +338,10 @@ def send_agent_message(channel: str, message: str, session_id: str | None = None
 
     command = _build_opencode_command(message, active_session)
 
+    logger.info(
+        "Sending agent message (channel: %s, session: %s)", channel, active_session
+    )
+
     try:
         # Run the opencode command with the message in the appropriate directory
         result = subprocess.run(
@@ -334,6 +360,11 @@ def send_agent_message(channel: str, message: str, session_id: str | None = None
                 if parsed_responses
                 else result.stdout.strip()
             )
+            logger.info(
+                "Agent message processed (channel: %s, session: %s)",
+                channel,
+                _conversation_sessions.get(channel),
+            )
         else:
             parsed_responses = []
             response = (
@@ -341,13 +372,21 @@ def send_agent_message(channel: str, message: str, session_id: str | None = None
                 if result.stderr.strip()
                 else "Command failed with no output"
             )
+            logger.error(
+                "Agent command failed (channel: %s, session: %s): %s",
+                channel,
+                _conversation_sessions.get(channel),
+                response,
+            )
 
     except FileNotFoundError:
         parsed_responses = []
         response = "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
+        logger.error("Agent command not found for channel %s", channel)
     except Exception as e:
         parsed_responses = []
         response = f"Error: {str(e)}"
+        logger.exception("Unexpected error sending agent message on channel %s", channel)
     finally:
         _clear_channel_processing(channel)
 
