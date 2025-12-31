@@ -3,12 +3,10 @@ Unit tests for the MADE Python Backend API endpoints.
 Tests cover all main API endpoints with proper mocking of services.
 """
 
-import json
-import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
-from agent_service import ChannelBusyError, export_chat_history
+from agent_service import ChannelBusyError
 
 from app import app
 

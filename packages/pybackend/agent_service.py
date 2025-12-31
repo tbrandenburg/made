@@ -308,10 +308,20 @@ def export_chat_history(
     try:
         export_payload = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
+        stdout_text = str(result.stdout or "").strip()
+        stderr_text = str(result.stderr or "").strip()
         logger.warning(
-            "Invalid export data while exporting chat history (channel: %s, session: %s)",
+            (
+                "Invalid export data while exporting chat history "
+                "(channel: %s, session: %s). "
+                "stdout first: %r stdout last: %r stderr first: %r stderr last: %r"
+            ),
             channel or "<unspecified>",
             session_id,
+            stdout_text[:300],
+            stdout_text[-300:],
+            stderr_text[:300],
+            stderr_text[-300:],
         )
         raise ValueError("Invalid export data returned by opencode") from exc
 
