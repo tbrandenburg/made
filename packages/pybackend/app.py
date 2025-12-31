@@ -35,6 +35,7 @@ from repository_service import (
 )
 from settings_service import read_settings, write_settings
 from config import (
+    ensure_directory,
     ensure_made_structure,
     get_made_directory,
     get_workspace_home,
@@ -42,9 +43,15 @@ from config import (
     get_backend_port,
 )
 
+log_dir = ensure_directory(get_made_directory() / "logs")
+log_file = log_dir / "backend.log"
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(log_file, encoding="utf-8"),
+    ],
 )
 logger = logging.getLogger("made.pybackend")
 
@@ -412,10 +419,29 @@ def repository_agent_history(
         )
         return export_chat_history(session_id, normalized_start, name)
     except ValueError as exc:
+        logger.warning(
+            "Bad request exporting agent history for '%s' (session: %s, start: %s): %s",
+            name,
+            session_id or "current",
+            start,
+            exc,
+        )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     except FileNotFoundError as exc:
+        logger.warning(
+            "Repository '%s' not found while exporting history (session: %s, start: %s)",
+            name,
+            session_id or "current",
+            start,
+        )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:  # pragma: no cover - passthrough errors
+        logger.exception(
+            "Unexpected error exporting history for '%s' (session: %s, start: %s)",
+            name,
+            session_id or "current",
+            start,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
