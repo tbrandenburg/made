@@ -177,6 +177,22 @@ class TestExportChatHistory:
         assert any(msg["content"] == "Hello" for msg in result["messages"])
 
     @patch("agent_service.subprocess.run")
+    def test_export_chat_history_handles_multiple_json_blocks_with_noise(
+        self, mock_run
+    ):
+        mock_result = Mock()
+        mock_result.returncode = 0
+        first_payload = json.dumps(self.SAMPLE_EXPORT)
+        second_payload = json.dumps({"messages": []})
+        mock_result.stdout = f"INFO log before\n{first_payload}\nnoise-between\n{second_payload}"
+        mock_run.return_value = mock_result
+
+        result = export_chat_history("ses_123")
+
+        assert result["sessionId"] == "ses_123"
+        assert any(msg["content"] == "Hello" for msg in result["messages"])
+
+    @patch("agent_service.subprocess.run")
     @patch("agent_service._get_working_directory")
     def test_export_chat_history_uses_channel_working_directory(
         self, mock_get_working_directory, mock_run
