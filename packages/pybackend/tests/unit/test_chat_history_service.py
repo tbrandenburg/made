@@ -164,6 +164,19 @@ class TestExportChatHistory:
             export_chat_history("ses_123")
 
     @patch("agent_service.subprocess.run")
+    def test_export_chat_history_trims_non_json_prefix_and_suffix(self, mock_run):
+        mock_result = Mock()
+        mock_result.returncode = 0
+        payload = json.dumps(self.SAMPLE_EXPORT)
+        mock_result.stdout = f"intro text\n{payload}\ntrailing stats"
+        mock_run.return_value = mock_result
+
+        result = export_chat_history("ses_123")
+
+        assert result["sessionId"] == "ses_123"
+        assert any(msg["content"] == "Hello" for msg in result["messages"])
+
+    @patch("agent_service.subprocess.run")
     @patch("agent_service._get_working_directory")
     def test_export_chat_history_uses_channel_working_directory(
         self, mock_get_working_directory, mock_run
