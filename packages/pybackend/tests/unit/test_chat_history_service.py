@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -82,10 +83,16 @@ class TestExportChatHistory:
 
     @patch("agent_service.subprocess.run")
     def test_export_chat_history_success(self, mock_run):
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = json.dumps(self.SAMPLE_EXPORT)
-        mock_run.return_value = mock_result
+        def _fake_run(cmd, stdout=None, stderr=None, text=None, cwd=None):
+            if stdout is not None:
+                stdout.write(json.dumps(self.SAMPLE_EXPORT))
+                stdout.flush()
+            mock_result = Mock()
+            mock_result.returncode = 0
+            mock_result.stderr = ""
+            return mock_result
+
+        mock_run.side_effect = _fake_run
 
         result = export_chat_history("ses_123")
 
@@ -123,10 +130,16 @@ class TestExportChatHistory:
 
     @patch("agent_service.subprocess.run")
     def test_export_chat_history_with_start_filter(self, mock_run):
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = json.dumps(self.SAMPLE_EXPORT)
-        mock_run.return_value = mock_result
+        def _fake_run(cmd, stdout=None, stderr=None, text=None, cwd=None):
+            if stdout is not None:
+                stdout.write(json.dumps(self.SAMPLE_EXPORT))
+                stdout.flush()
+            mock_result = Mock()
+            mock_result.returncode = 0
+            mock_result.stderr = ""
+            return mock_result
+
+        mock_run.side_effect = _fake_run
 
         result = export_chat_history("ses_123", start_timestamp=2000)
 
@@ -155,33 +168,55 @@ class TestExportChatHistory:
 
     @patch("agent_service.subprocess.run")
     def test_export_chat_history_bad_json(self, mock_run):
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = "not json"
-        mock_run.return_value = mock_result
+        def _fake_run(cmd, stdout=None, stderr=None, text=None, cwd=None):
+            if stdout is not None:
+                stdout.write("not json")
+                stdout.flush()
+            mock_result = Mock()
+            mock_result.returncode = 0
+            mock_result.stderr = ""
+            return mock_result
+
+        mock_run.side_effect = _fake_run
 
         with pytest.raises(ValueError):
             export_chat_history("ses_123")
 
     @patch("agent_service.subprocess.run")
     def test_export_chat_history_rejects_non_json_prefix_or_suffix(self, mock_run):
-        mock_result = Mock()
-        mock_result.returncode = 0
         payload = json.dumps(self.SAMPLE_EXPORT)
-        mock_result.stdout = f"intro text\n{payload}\ntrailing stats"
-        mock_run.return_value = mock_result
+
+        def _fake_run(cmd, stdout=None, stderr=None, text=None, cwd=None):
+            if stdout is not None:
+                stdout.write(f"intro text\n{payload}\ntrailing stats")
+                stdout.flush()
+            mock_result = Mock()
+            mock_result.returncode = 0
+            mock_result.stderr = ""
+            return mock_result
+
+        mock_run.side_effect = _fake_run
 
         with pytest.raises(ValueError):
             export_chat_history("ses_123")
 
     @patch("agent_service.subprocess.run")
     def test_export_chat_history_rejects_multiple_json_blocks(self, mock_run):
-        mock_result = Mock()
-        mock_result.returncode = 0
         first_payload = json.dumps(self.SAMPLE_EXPORT)
         second_payload = json.dumps({"messages": []})
-        mock_result.stdout = f"INFO log before\n{first_payload}\nnoise-between\n{second_payload}"
-        mock_run.return_value = mock_result
+
+        def _fake_run(cmd, stdout=None, stderr=None, text=None, cwd=None):
+            if stdout is not None:
+                stdout.write(
+                    f"INFO log before\n{first_payload}\nnoise-between\n{second_payload}"
+                )
+                stdout.flush()
+            mock_result = Mock()
+            mock_result.returncode = 0
+            mock_result.stderr = ""
+            return mock_result
+
+        mock_run.side_effect = _fake_run
 
         with pytest.raises(ValueError):
             export_chat_history("ses_123")
@@ -192,17 +227,24 @@ class TestExportChatHistory:
         self, mock_get_working_directory, mock_run
     ):
         mock_get_working_directory.return_value = Path("/tmp/workspace/sample")
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = json.dumps(self.SAMPLE_EXPORT)
-        mock_run.return_value = mock_result
+        def _fake_run(cmd, stdout=None, stderr=None, text=None, cwd=None):
+            if stdout is not None:
+                stdout.write(json.dumps(self.SAMPLE_EXPORT))
+                stdout.flush()
+            mock_result = Mock()
+            mock_result.returncode = 0
+            mock_result.stderr = ""
+            return mock_result
+
+        mock_run.side_effect = _fake_run
 
         export_chat_history("ses_123", channel="sample")
 
         mock_get_working_directory.assert_called_once_with("sample")
         mock_run.assert_called_once_with(
             ["opencode", "export", "ses_123"],
-            capture_output=True,
+            stdout=mock_run.call_args.kwargs["stdout"],
+            stderr=subprocess.PIPE,
             text=True,
             cwd=Path("/tmp/workspace/sample"),
         )
