@@ -21,6 +21,8 @@
     "react-router-dom": "^6.23.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
     "@types/node": "^20.11.30",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
@@ -28,9 +30,10 @@
     "@typescript-eslint/parser": "^8.5.0",
     "@vitejs/plugin-react": "^4.2.1",
     "eslint": "^9.5.0",
-    "globals": "^15.6.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react": "^7.34.1",
+    "globals": "^15.6.0",
+    "jsdom": "^27.4.0",
     "prettier": "^3.3.2",
     "sass": "^1.77.5",
     "typescript": "^5.4.5",

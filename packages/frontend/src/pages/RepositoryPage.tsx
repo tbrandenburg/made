@@ -25,6 +25,7 @@ import {
   mapHistoryToMessages,
   mergeChatMessages,
 } from "../utils/chat";
+import { ClearSessionModal } from "../components/ClearSessionModal";
 
 const stripCommandFrontmatter = (content: string) => {
   const delimiterPattern =
@@ -209,6 +210,7 @@ export const RepositoryPage: React.FC = () => {
   const [renamePath, setRenamePath] = useState("");
   const [movePath, setMovePath] = useState("");
   const [loadingFile, setLoadingFile] = useState(false);
+  const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
 
   useEffect(() => {
     if (!name) {
@@ -389,6 +391,21 @@ export const RepositoryPage: React.FC = () => {
         setChatLoading(false);
       }
     }
+  };
+
+  const handleCancelClearSession = () => {
+    setClearSessionModalOpen(false);
+  };
+
+  const handleClearSessionOnly = () => {
+    setSessionId(null);
+    setClearSessionModalOpen(false);
+  };
+
+  const handleClearSessionAndHistory = () => {
+    setSessionId(null);
+    setChat([]);
+    setClearSessionModalOpen(false);
   };
 
   const getCommandArgumentPlan = (command: CommandDefinition) => {
@@ -684,7 +701,7 @@ export const RepositoryPage: React.FC = () => {
                 <button
                   type="button"
                   title="Clear session"
-                  onClick={() => setSessionId(null)}
+                  onClick={() => setClearSessionModalOpen(true)}
                 >
                   🗑️
                 </button>
@@ -879,6 +896,13 @@ export const RepositoryPage: React.FC = () => {
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={handleTabChange}
+      />
+
+      <ClearSessionModal
+        open={clearSessionModalOpen}
+        onCancel={handleCancelClearSession}
+        onClearSessionOnly={handleClearSessionOnly}
+        onClearSessionAndHistory={handleClearSessionAndHistory}
       />
 
       <Modal
