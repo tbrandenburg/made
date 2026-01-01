@@ -21,9 +21,9 @@ import {
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
 import {
-  buildMessageDedupKey,
   mapAgentReplyToMessages,
   mapHistoryToMessages,
+  mergeChatMessages,
 } from "../utils/chat";
 
 const stripCommandFrontmatter = (content: string) => {
@@ -333,26 +333,8 @@ export const RepositoryPage: React.FC = () => {
         if (!history.messages?.length) return;
 
         setChat((previousChat) => {
-          const existingKeys = new Set(
-            previousChat
-              .filter((message) => message.messageType !== "tool")
-              .map((message) => buildMessageDedupKey(message)),
-          );
           const mapped = mapHistoryToMessages(history.messages);
-          const deduped = mapped.filter((message) => {
-            if (message.messageType === "tool") {
-              return true;
-            }
-            const key = buildMessageDedupKey(message);
-            if (existingKeys.has(key)) {
-              return false;
-            }
-            existingKeys.add(key);
-            return true;
-          });
-
-          if (!deduped.length) return previousChat;
-          return [...previousChat, ...deduped];
+          return mergeChatMessages(previousChat, mapped);
         });
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
