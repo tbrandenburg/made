@@ -23,10 +23,14 @@ export const normalizeChatMessageText = (text: string | undefined | null) => {
 };
 
 export const buildMessageDedupKey = (message: ChatMessage) => {
-  if (message.messageKey) return message.messageKey;
-
   const normalizedText = normalizeChatMessageText(message.text).slice(0, 200);
-  return normalizedText || message.id;
+
+  if (message.role === "agent") {
+    if (message.messageKey) return message.messageKey;
+    return normalizedText || message.id;
+  }
+
+  return normalizedText || message.messageKey || message.id;
 };
 
 const normalizeMessageType = (
@@ -82,12 +86,19 @@ export const mapHistoryToMessages = (
       message.messageId || `${role}-${message.timestamp || "unknown"}`;
     const count = occurrenceCounter[baseId] ?? 0;
     occurrenceCounter[baseId] = count + 1;
+    const normalizedContent = normalizeChatMessageText(message.content);
 
     return {
       id: `${baseId}-${count}`,
-      messageKey: message.messageId || baseId,
+      messageKey:
+        role === "agent"
+          ? message.messageId || baseId
+          : normalizedContent || message.messageId || baseId,
       role,
-      text: message.content || "",
+      text:
+        role === "user"
+          ? normalizedContent
+          : message.content || "",
       timestamp: normalizeTimestamp(message.timestamp),
       messageType: normalizeHistoryMessageType(message.type),
     };

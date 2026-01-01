@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { ChatHistoryMessage } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
-import { buildMessageDedupKey, mergeChatMessages } from "./chat";
+import {
+  buildMessageDedupKey,
+  mapHistoryToMessages,
+  mergeChatMessages,
+} from "./chat";
 
 const baseTimestamp = "2024-01-01T00:00:00.000Z";
 
@@ -95,6 +100,35 @@ describe("chat utils", () => {
       const merged = mergeChatMessages(existing, incoming);
       expect(merged[0].text).toBe("Replaced");
       expect(merged[0].timestamp).toBe(newerTimestamp);
+    });
+
+    it("merges repeated user history entries using normalised text", () => {
+      const existing: ChatMessage[] = [
+        {
+          id: "local-1",
+          role: "user",
+          text: "Okey, commit and push",
+          timestamp: "2026-01-01T14:58:58.000Z",
+        },
+      ];
+
+      const history: ChatHistoryMessage[] = [
+        {
+          messageId: "msg-1",
+          role: "user",
+          type: "text",
+          content: '"Okey, commit and push"',
+          timestamp: "2026-01-01T14:59:01.000Z",
+        },
+      ];
+
+      const mapped = mapHistoryToMessages(history);
+      expect(mapped[0].text).toBe("Okey, commit and push");
+      expect(mapped[0].messageKey).toBe("Okey, commit and push");
+
+      const merged = mergeChatMessages(existing, mapped);
+      expect(merged).toHaveLength(1);
+      expect(merged[0].timestamp).toBe("2026-01-01T14:59:01.000Z");
     });
   });
 });
