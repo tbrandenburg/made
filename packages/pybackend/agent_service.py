@@ -393,6 +393,14 @@ def export_chat_history(
     stdout_text = str(result.stdout or "")
     stderr_text = str(result.stderr or "")
 
+    logger.debug(
+        "Captured opencode export output (channel: %s, session: %s, stdout_bytes: %s, stderr_bytes: %s)",
+        channel or "<unspecified>",
+        session_id,
+        len(stdout_text),
+        len(stderr_text),
+    )
+
     try:
         export_payload = _decode_json_output(stdout_text, channel, session_id)
     except ValueError as exc:
