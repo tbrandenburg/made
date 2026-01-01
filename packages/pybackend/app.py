@@ -1,4 +1,6 @@
 import logging
+from copy import deepcopy
+from uvicorn.config import LOGGING_CONFIG
 
 from fastapi import Body, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -489,10 +491,19 @@ def start():
     port = get_backend_port()
     logger.info("Starting MADE backend on %s:%s", host, port)
 
+    log_config = deepcopy(LOGGING_CONFIG)
+    log_config["formatters"]["default"]["fmt"] = (
+        "%(asctime)s %(levelprefix)s %(message)s"
+    )
+    log_config["formatters"]["access"]["fmt"] = (
+        '%(asctime)s %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s'
+    )
+
     uvicorn.run(
         "app:app",
         host=host,
         port=port,
+        log_config=log_config,
     )
 
 
