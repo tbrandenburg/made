@@ -164,22 +164,18 @@ class TestExportChatHistory:
             export_chat_history("ses_123")
 
     @patch("agent_service.subprocess.run")
-    def test_export_chat_history_trims_non_json_prefix_and_suffix(self, mock_run):
+    def test_export_chat_history_rejects_non_json_prefix_or_suffix(self, mock_run):
         mock_result = Mock()
         mock_result.returncode = 0
         payload = json.dumps(self.SAMPLE_EXPORT)
         mock_result.stdout = f"intro text\n{payload}\ntrailing stats"
         mock_run.return_value = mock_result
 
-        result = export_chat_history("ses_123")
-
-        assert result["sessionId"] == "ses_123"
-        assert any(msg["content"] == "Hello" for msg in result["messages"])
+        with pytest.raises(ValueError):
+            export_chat_history("ses_123")
 
     @patch("agent_service.subprocess.run")
-    def test_export_chat_history_handles_multiple_json_blocks_with_noise(
-        self, mock_run
-    ):
+    def test_export_chat_history_rejects_multiple_json_blocks(self, mock_run):
         mock_result = Mock()
         mock_result.returncode = 0
         first_payload = json.dumps(self.SAMPLE_EXPORT)
@@ -187,10 +183,8 @@ class TestExportChatHistory:
         mock_result.stdout = f"INFO log before\n{first_payload}\nnoise-between\n{second_payload}"
         mock_run.return_value = mock_result
 
-        result = export_chat_history("ses_123")
-
-        assert result["sessionId"] == "ses_123"
-        assert any(msg["content"] == "Hello" for msg in result["messages"])
+        with pytest.raises(ValueError):
+            export_chat_history("ses_123")
 
     @patch("agent_service.subprocess.run")
     @patch("agent_service._get_working_directory")
