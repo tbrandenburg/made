@@ -1,7 +1,8 @@
-import logging
 import json
+import logging
 import subprocess
 import time
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
@@ -262,10 +263,75 @@ def _filter_export_messages(
     return history
 
 
-def _decode_json_output(stdout_text: str, channel: str | None, session_id: str):
-    """Parse clean JSON from stdout."""
+def _prune_export_payload(export_payload: dict[str, object]) -> dict[str, object]:
+    """Strip export payload down to only the fields required for history reconstruction."""
+
+    def _prune_time(time_obj: object) -> dict[str, object]:
+        if not isinstance(time_obj, dict):
+            return {}
+        pruned = {
+            key: time_obj[key]
+            for key in ("created", "start", "completed", "end", "updated")
+            if key in time_obj
+        }
+        return pruned
+
+    def _prune_part(part: object) -> dict[str, object]:
+        if not isinstance(part, dict):
+            return {}
+        pruned_part: dict[str, object] = {}
+        part_type = part.get("type")
+        if part_type:
+            pruned_part["type"] = part_type
+
+        for key in ("text", "tool", "name", "id", "timestamp"):
+            if key in part:
+                pruned_part[key] = part[key]
+
+        time_info = _prune_time(part.get("time"))
+        if time_info:
+            pruned_part["time"] = time_info
+
+        state = part.get("state")
+        if isinstance(state, dict):
+            state_time = _prune_time(state.get("time"))
+            if state_time:
+                pruned_part["state"] = {"time": state_time}
+
+        return pruned_part
+
+    def _prune_message(message: object) -> dict[str, object]:
+        if not isinstance(message, dict):
+            return {"info": {}, "parts": []}
+
+        info = message.get("info") or {}
+        parts = message.get("parts") or []
+
+        pruned_info: dict[str, object] = {}
+        for key in ("id", "role"):
+            if key in info:
+                pruned_info[key] = info[key]
+
+        time_info = _prune_time(info.get("time"))
+        if time_info:
+            pruned_info["time"] = time_info
+
+        return {
+            "info": pruned_info,
+            "parts": [_prune_part(part) for part in parts if isinstance(part, dict)],
+        }
+
+    messages = export_payload.get("messages") or []
+    return {"messages": [_prune_message(message) for message in messages]}
+
+
+def _decode_json_file(
+    json_file: Path, channel: str | None, session_id: str
+) -> dict[str, object]:
+    """Parse clean JSON from a file."""
     try:
-        return json.loads(stdout_text)
+        with json_file.open("r", encoding="utf-8") as handle:
+            return json.load(handle)
     except json.JSONDecodeError as exc:
         logger.error(
             "Invalid JSON export (channel: %s, session: %s): %s",
@@ -276,19 +342,18 @@ def _decode_json_output(stdout_text: str, channel: str | None, session_id: str):
         raise ValueError("Invalid export data returned by opencode") from exc
 
 
-def _log_invalid_export_warning(
-    channel: str | None, session_id: str, stdout_text: str, stderr_text: str
+def _log_invalid_export_file(
+    channel: str | None, session_id: str, stdout_preview: str, stderr_text: str
 ) -> None:
     logger.warning(
         (
             "Invalid export data while exporting chat history "
             "(channel: %s, session: %s). "
-            "stdout first: %r stdout last: %r stderr first: %r stderr last: %r"
+            "stdout sample: %r stderr first: %r stderr last: %r"
         ),
         channel or "<unspecified>",
         session_id,
-        stdout_text[:300],
-        stdout_text[-300:],
+        stdout_preview,
         stderr_text[:300],
         stderr_text[-300:],
     )
@@ -314,52 +379,60 @@ def export_chat_history(
         normalized_start,
     )
 
-    try:
-        result = subprocess.run(
-            ["opencode", "export", session_id],
-            capture_output=True,
-            text=True,
-            cwd=working_dir,
-        )
-    except FileNotFoundError:
-        logger.error("Unable to export history: 'opencode' command not found")
-        raise FileNotFoundError(
-            "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
-        )
+    with tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8", delete=True) as tmp:
+        try:
+            result = subprocess.run(
+                ["opencode", "export", session_id],
+                stdout=tmp,
+                stderr=subprocess.PIPE,
+                text=True,
+                cwd=working_dir,
+            )
+        except FileNotFoundError:
+            logger.error("Unable to export history: 'opencode' command not found")
+            raise FileNotFoundError(
+                "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
+            )
 
-    if result.returncode != 0:
-        error_message = result.stderr.strip() or "Failed to export session history"
-        logger.error(
-            "Exporting chat history failed (channel: %s, session: %s): %s",
+        stderr_text = str(result.stderr or "")
+
+        if result.returncode != 0:
+            error_message = stderr_text.strip() or "Failed to export session history"
+            logger.error(
+                "Exporting chat history failed (channel: %s, session: %s): %s",
+                channel or "<unspecified>",
+                session_id,
+                error_message,
+            )
+            raise RuntimeError(error_message)
+
+        tmp.flush()
+        tmp_path = Path(tmp.name)
+        stdout_size = tmp_path.stat().st_size
+
+        logger.debug(
+            "Captured opencode export output (channel: %s, session: %s, stdout_bytes: %s, stderr_bytes: %s)",
             channel or "<unspecified>",
             session_id,
-            error_message,
+            stdout_size,
+            len(stderr_text),
         )
-        raise RuntimeError(error_message)
 
-    stdout_text = str(result.stdout or "")
-    stderr_text = str(result.stderr or "")
-
-    logger.debug(
-        "Captured opencode export output (channel: %s, session: %s, stdout_bytes: %s, stderr_bytes: %s)",
-        channel or "<unspecified>",
-        session_id,
-        len(stdout_text),
-        len(stderr_text),
-    )
-
-    try:
-        export_payload = _decode_json_output(stdout_text, channel, session_id)
-    except ValueError as exc:
-        _log_invalid_export_warning(
-            channel, session_id, stdout_text.strip(), stderr_text.strip()
-        )
-        raise exc
+        try:
+            export_payload = _decode_json_file(tmp_path, channel, session_id)
+        except ValueError as exc:
+            tmp.seek(0)
+            preview = tmp.read(600)
+            _log_invalid_export_file(
+                channel, session_id, preview, stderr_text.strip()
+            )
+            raise exc
 
     messages = export_payload.get("messages") or []
+    pruned_messages = _prune_export_payload({"messages": messages})["messages"]
     return {
         "sessionId": session_id,
-        "messages": _filter_export_messages(messages, normalized_start),
+        "messages": _filter_export_messages(pruned_messages, normalized_start),
     }
 
 
