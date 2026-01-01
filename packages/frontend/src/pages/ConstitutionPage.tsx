@@ -15,6 +15,7 @@ import { api } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
 import { mapAgentReplyToMessages } from "../utils/chat";
+import { ClearSessionModal } from "../components/ClearSessionModal";
 
 export const ConstitutionPage: React.FC = () => {
   const { name } = useParams();
@@ -36,6 +37,7 @@ export const ConstitutionPage: React.FC = () => {
   const [status, setStatus] = useState<string | null>(null);
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
+  const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
   const chatWindowRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -136,6 +138,21 @@ export const ConstitutionPage: React.FC = () => {
         setChatLoading(false);
       }
     }
+  };
+
+  const handleCancelClearSession = () => {
+    setClearSessionModalOpen(false);
+  };
+
+  const handleClearSessionOnly = () => {
+    setSessionId(null);
+    setClearSessionModalOpen(false);
+  };
+
+  const handleClearSessionAndHistory = () => {
+    setSessionId(null);
+    setChat([]);
+    setClearSessionModalOpen(false);
   };
 
   return (
@@ -253,7 +270,7 @@ export const ConstitutionPage: React.FC = () => {
                       <button
                         type="button"
                         title="Clear session"
-                        onClick={() => setSessionId(null)}
+                        onClick={() => setClearSessionModalOpen(true)}
                       >
                         🗑️
                       </button>
@@ -281,6 +298,12 @@ export const ConstitutionPage: React.FC = () => {
         ]}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+      />
+      <ClearSessionModal
+        open={clearSessionModalOpen}
+        onCancel={handleCancelClearSession}
+        onClearSessionOnly={handleClearSessionOnly}
+        onClearSessionAndHistory={handleClearSessionAndHistory}
       />
     </div>
   );
