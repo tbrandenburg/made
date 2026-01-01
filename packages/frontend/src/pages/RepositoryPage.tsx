@@ -321,6 +321,7 @@ export const RepositoryPage: React.FC = () => {
     const controller = new AbortController();
 
     const syncChatHistory = async () => {
+      console.info("[ChatHistory] Request started");
       try {
         const startTimestamp = lastKnownTimestamp
           ? lastKnownTimestamp + 1
@@ -332,10 +333,14 @@ export const RepositoryPage: React.FC = () => {
           controller.signal,
         );
 
-        if (!history.messages?.length) return;
+        if (!history.messages?.length) {
+          console.info("[ChatHistory] Request completed with no new messages");
+          return;
+        }
 
         setChat((previousChat) => {
           const mapped = mapHistoryToMessages(history.messages);
+          console.info("[ChatHistory] Request completed; merge finished");
           return mergeChatMessages(previousChat, mapped);
         });
       } catch (error) {
