@@ -23,9 +23,10 @@ export const normalizeChatMessageText = (text: string | undefined | null) => {
 };
 
 export const buildMessageDedupKey = (message: ChatMessage) => {
-  const normalizedText = normalizeChatMessageText(message.text).slice(0, 200);
+  if (message.messageKey) return message.messageKey;
 
-  return normalizedText;
+  const normalizedText = normalizeChatMessageText(message.text).slice(0, 200);
+  return normalizedText || message.id;
 };
 
 const normalizeMessageType = (
@@ -47,6 +48,7 @@ export const mapAgentReplyToMessages = (reply: AgentReply): ChatMessage[] => {
 
   return parts.map((part, index) => ({
     id: `${reply.messageId}-${index}`,
+    messageKey: reply.messageId,
     role: "agent",
     text: part.text,
     timestamp: part.timestamp || reply.sent,
@@ -83,10 +85,67 @@ export const mapHistoryToMessages = (
 
     return {
       id: `${baseId}-${count}`,
+      messageKey: message.messageId || baseId,
       role,
       text: message.content || "",
       timestamp: normalizeTimestamp(message.timestamp),
       messageType: normalizeHistoryMessageType(message.type),
     };
   });
+};
+
+export const mergeChatMessages = (
+  existing: ChatMessage[],
+  incoming: ChatMessage[],
+) => {
+  const next = [...existing];
+  const existingIndexByKey = new Map<string, number>();
+
+  existing.forEach((message, index) => {
+    if (message.messageType === "tool") return;
+    const key = buildMessageDedupKey(message);
+    if (!key) return;
+    if (!existingIndexByKey.has(key)) {
+      existingIndexByKey.set(key, index);
+    }
+  });
+
+  incoming.forEach((message) => {
+    if (message.messageType === "tool") {
+      next.push(message);
+      return;
+    }
+
+    const key = buildMessageDedupKey(message);
+    if (!key) {
+      next.push(message);
+      return;
+    }
+
+    const existingIndex = existingIndexByKey.get(key);
+    if (existingIndex === undefined) {
+      existingIndexByKey.set(key, next.length);
+      next.push(message);
+      return;
+    }
+
+    const existingMessage = next[existingIndex];
+    const incomingText = normalizeChatMessageText(message.text);
+    const existingText = normalizeChatMessageText(existingMessage.text);
+    const incomingTimestamp = Date.parse(message.timestamp);
+    const existingTimestamp = Date.parse(existingMessage.timestamp);
+
+    const incomingIsNewer =
+      incomingTimestamp > existingTimestamp ||
+      (!Number.isNaN(incomingTimestamp) && Number.isNaN(existingTimestamp));
+
+    if (
+      incomingText.length > existingText.length ||
+      incomingIsNewer
+    ) {
+      next[existingIndex] = message;
+    }
+  });
+
+  return next;
 };
