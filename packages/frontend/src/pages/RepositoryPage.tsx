@@ -322,6 +322,7 @@ export const RepositoryPage: React.FC = () => {
 
     const syncChatHistory = async () => {
       const requestStartedAt = Date.now();
+      console.info(`[ChatHistory] Request started at ${requestStartedAt}`);
       try {
         const startTimestamp = lastKnownTimestamp
           ? lastKnownTimestamp + 1
@@ -336,7 +337,7 @@ export const RepositoryPage: React.FC = () => {
         const requestCompletedAt = Date.now();
         if (!history.messages?.length) {
           console.info(
-            `[ChatHistory] History request completed with no new messages in ${requestCompletedAt - requestStartedAt}ms`,
+            `[ChatHistory] Request completed at ${requestCompletedAt} with no new messages`,
           );
           return;
         }
@@ -346,7 +347,7 @@ export const RepositoryPage: React.FC = () => {
           const merged = mergeChatMessages(previousChat, mapped);
           const processingCompletedAt = Date.now();
           console.info(
-            `[ChatHistory] History fetched in ${requestCompletedAt - requestStartedAt}ms; total time from request to merge: ${processingCompletedAt - requestStartedAt}ms`,
+            `[ChatHistory] Request completed at ${requestCompletedAt}; merge finished at ${processingCompletedAt}`,
           );
           return merged;
         });
