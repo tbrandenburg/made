@@ -276,7 +276,7 @@ def _extract_json_envelope(raw_text: str) -> str | None:
 
 
 def _decode_json_output(stdout_text: str, channel: str | None, session_id: str):
-    """Try to parse JSON from stdout even when wrapped in noise."""
+    """Parse JSON from stdout, tolerating minimal wrapping."""
     try:
         return json.loads(stdout_text)
     except json.JSONDecodeError:
@@ -299,30 +299,6 @@ def _decode_json_output(stdout_text: str, channel: str | None, session_id: str):
                 channel or "<unspecified>",
                 session_id,
                 len(stdout_text) - len(trimmed_payload),
-            )
-            return parsed
-
-    decoder = json.JSONDecoder()
-
-    for index, char in enumerate(stdout_text):
-        if char not in "{[":
-            continue
-
-        try:
-            parsed, offset = decoder.raw_decode(stdout_text[index:])
-        except json.JSONDecodeError:
-            continue
-
-        if parsed is not None:
-            logger.info(
-                (
-                    "Parsed chat history export by extracting first JSON block "
-                    "(channel: %s, session: %s, trimmed_prefix: %s, trimmed_suffix: %s)"
-                ),
-                channel or "<unspecified>",
-                session_id,
-                index,
-                len(stdout_text) - (index + offset),
             )
             return parsed
 
