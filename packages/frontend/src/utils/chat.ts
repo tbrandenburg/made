@@ -23,14 +23,12 @@ export const normalizeChatMessageText = (text: string | undefined | null) => {
 };
 
 export const buildMessageDedupKey = (message: ChatMessage) => {
-  const normalizedText = normalizeChatMessageText(message.text).slice(0, 200);
+  const normalizedText = normalizeChatMessageText(message.text);
+  const baseKey = message.messageKey || normalizedText || message.id;
 
-  if (message.role === "agent") {
-    if (message.messageKey) return message.messageKey;
-    return normalizedText || message.id;
-  }
+  if (!baseKey) return undefined;
 
-  return normalizedText || message.messageKey || message.id;
+  return `${message.role}:${baseKey}`;
 };
 
 const normalizeMessageType = (
@@ -64,7 +62,7 @@ const normalizeTimestamp = (rawTimestamp: string | null | undefined) => {
   if (rawTimestamp && !Number.isNaN(Date.parse(rawTimestamp))) {
     return new Date(rawTimestamp).toISOString();
   }
-  return new Date().toISOString();
+  return rawTimestamp || "";
 };
 
 const normalizeHistoryMessageType = (
@@ -113,20 +111,12 @@ export const mergeChatMessages = (
   const existingIndexByKey = new Map<string, number>();
 
   existing.forEach((message, index) => {
-    if (message.messageType === "tool") return;
     const key = buildMessageDedupKey(message);
     if (!key) return;
-    if (!existingIndexByKey.has(key)) {
-      existingIndexByKey.set(key, index);
-    }
+    existingIndexByKey.set(key, index);
   });
 
   incoming.forEach((message) => {
-    if (message.messageType === "tool") {
-      next.push(message);
-      return;
-    }
-
     const key = buildMessageDedupKey(message);
     if (!key) {
       next.push(message);
@@ -146,9 +136,12 @@ export const mergeChatMessages = (
     const incomingTimestamp = Date.parse(message.timestamp);
     const existingTimestamp = Date.parse(existingMessage.timestamp);
 
+    const incomingValid = !Number.isNaN(incomingTimestamp);
+    const existingValid = !Number.isNaN(existingTimestamp);
+
     const incomingIsNewer =
-      incomingTimestamp > existingTimestamp ||
-      (!Number.isNaN(incomingTimestamp) && Number.isNaN(existingTimestamp));
+      (incomingValid && existingValid && incomingTimestamp > existingTimestamp) ||
+      (incomingValid && !existingValid);
 
     if (
       incomingText.length > existingText.length ||

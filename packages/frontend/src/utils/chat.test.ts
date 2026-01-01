@@ -21,7 +21,7 @@ describe("chat utils", () => {
         timestamp: baseTimestamp,
       };
 
-      expect(buildMessageDedupKey(message)).toBe("stable-key");
+      expect(buildMessageDedupKey(message)).toBe("agent:stable-key");
     });
 
     it("falls back to normalised text when no key is provided", () => {
@@ -32,7 +32,7 @@ describe("chat utils", () => {
         timestamp: baseTimestamp,
       };
 
-      expect(buildMessageDedupKey(message)).toBe("Wrapped content");
+      expect(buildMessageDedupKey(message)).toBe("agent:Wrapped content");
     });
   });
 
