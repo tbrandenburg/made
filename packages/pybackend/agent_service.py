@@ -262,71 +262,18 @@ def _filter_export_messages(
     return history
 
 
-def _extract_json_envelope(raw_text: str) -> str | None:
-    for start_char, end_char in (("{", "}"), ("[", "]")):
-        start_index = raw_text.find(start_char)
-        end_index = raw_text.rfind(end_char)
-
-        if start_index == -1 or end_index == -1 or end_index < start_index:
-            continue
-
-        return raw_text[start_index : end_index + 1]
-
-    return None
-
-
 def _decode_json_output(stdout_text: str, channel: str | None, session_id: str):
-    """Parse JSON from stdout, tolerating minimal wrapping while ignoring stderr."""
+    """Parse clean JSON from stdout."""
     try:
         return json.loads(stdout_text)
-    except json.JSONDecodeError:
-        pass
-
-    trimmed_payload = _extract_json_envelope(stdout_text)
-
-    if trimmed_payload is not None:
-        try:
-            parsed = json.loads(trimmed_payload)
-        except json.JSONDecodeError:
-            parsed = None
-
-        if parsed is not None:
-            logger.info(
-                (
-                    "Parsed chat history export after trimming non-JSON output "
-                    "(channel: %s, session: %s, trimmed_bytes: %s)"
-                ),
-                channel or "<unspecified>",
-                session_id,
-                len(stdout_text) - len(trimmed_payload),
-            )
-            return parsed
-
-    decoder = json.JSONDecoder()
-
-    for index, char in enumerate(stdout_text):
-        if char not in "{[":
-            continue
-
-        try:
-            parsed, offset = decoder.raw_decode(stdout_text[index:])
-        except json.JSONDecodeError:
-            continue
-
-        if parsed is not None:
-            logger.info(
-                (
-                    "Parsed chat history export from first JSON block "
-                    "(channel: %s, session: %s, trimmed_prefix: %s, ignored_suffix: %s)"
-                ),
-                channel or "<unspecified>",
-                session_id,
-                index,
-                len(stdout_text) - (index + offset),
-            )
-            return parsed
-
-    raise ValueError("Invalid export data returned by opencode")
+    except json.JSONDecodeError as exc:
+        logger.error(
+            "Invalid JSON export (channel: %s, session: %s): %s",
+            channel or "<unspecified>",
+            session_id,
+            exc,
+        )
+        raise ValueError("Invalid export data returned by opencode") from exc
 
 
 def _log_invalid_export_warning(
