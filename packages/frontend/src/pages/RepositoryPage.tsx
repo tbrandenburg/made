@@ -321,8 +321,7 @@ export const RepositoryPage: React.FC = () => {
     const controller = new AbortController();
 
     const syncChatHistory = async () => {
-      const requestStartedAt = Date.now();
-      console.info(`[ChatHistory] Request started at ${requestStartedAt}`);
+      console.info("[ChatHistory] Request started");
       try {
         const startTimestamp = lastKnownTimestamp
           ? lastKnownTimestamp + 1
@@ -334,22 +333,15 @@ export const RepositoryPage: React.FC = () => {
           controller.signal,
         );
 
-        const requestCompletedAt = Date.now();
         if (!history.messages?.length) {
-          console.info(
-            `[ChatHistory] Request completed at ${requestCompletedAt} with no new messages`,
-          );
+          console.info("[ChatHistory] Request completed with no new messages");
           return;
         }
 
         setChat((previousChat) => {
           const mapped = mapHistoryToMessages(history.messages);
-          const merged = mergeChatMessages(previousChat, mapped);
-          const processingCompletedAt = Date.now();
-          console.info(
-            `[ChatHistory] Request completed at ${requestCompletedAt}; merge finished at ${processingCompletedAt}`,
-          );
-          return merged;
+          console.info("[ChatHistory] Request completed; merge finished");
+          return mergeChatMessages(previousChat, mapped);
         });
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
