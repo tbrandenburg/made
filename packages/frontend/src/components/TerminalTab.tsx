@@ -50,9 +50,15 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({ repositoryName }) => {
     fitAddon.fit();
     terminal.focus();
 
-    const socket = new WebSocket(
-      buildWebSocketUrl(`/repositories/${repositoryName}/terminal`),
+    const socketUrl = buildWebSocketUrl(
+      `/repositories/${repositoryName}/terminal`,
     );
+    console.info("[Terminal] Connecting", {
+      repositoryName,
+      socketUrl,
+    });
+
+    const socket = new WebSocket(socketUrl);
 
     const sendResize = () => {
       fitAddon.fit();
@@ -75,7 +81,11 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({ repositoryName }) => {
 
     socket.addEventListener("open", () => {
       terminal.writeln(`🖥️ Connected to ${repositoryName}`);
-      console.info("[Terminal] WebSocket connected", repositoryName);
+      console.info("[Terminal] WebSocket connected", {
+        repositoryName,
+        socketUrl,
+        readyState: socket.readyState,
+      });
       sendResize();
     });
 
@@ -88,19 +98,23 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({ repositoryName }) => {
     });
 
     socket.addEventListener("close", (event) => {
-      console.info(
-        "[Terminal] WebSocket closed",
+      console.info("[Terminal] WebSocket closed", {
         repositoryName,
-        "code:",
-        event.code,
-        "reason:",
-        event.reason,
-      );
+        socketUrl,
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+      });
       terminal.writeln("\r\nSession closed.");
     });
 
     socket.addEventListener("error", (event) => {
-      console.error("[Terminal] WebSocket error", repositoryName, event);
+      console.error("[Terminal] WebSocket error", {
+        repositoryName,
+        socketUrl,
+        readyState: socket.readyState,
+        event,
+      });
       terminal.writeln("\r\nConnection error.");
     });
 
