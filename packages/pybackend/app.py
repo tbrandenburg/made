@@ -348,10 +348,23 @@ def repository_commands(name: str):
 
 @app.websocket("/api/repositories/{name}/terminal")
 async def repository_terminal(name: str, websocket: WebSocket):
+    client = websocket.client
+    client_addr = (
+        f"{getattr(client, 'host', 'unknown')}:{getattr(client, 'port', '0')}"
+        if client
+        else "unknown"
+    )
+    logger.info(
+        "Terminal connection attempt for repository '%s' from %s", name, client_addr
+    )
     try:
         repo_path = _repository_path(name)
     except FileNotFoundError:
-        logger.warning("Terminal connection refused; repository '%s' not found", name)
+        logger.warning(
+            "Terminal connection refused; repository '%s' not found (client: %s)",
+            name,
+            client_addr,
+        )
         await websocket.close(
             code=status.WS_1008_POLICY_VIOLATION, reason="Repository not found"
         )
@@ -361,18 +374,23 @@ async def repository_terminal(name: str, websocket: WebSocket):
     try:
         master_fd, process, shell = _start_shell(repo_path)
     except Exception as exc:  # pragma: no cover - passthrough errors
-        logger.exception("Failed to start terminal for '%s'", name)
+        logger.exception(
+            "Failed to start terminal for '%s' (client: %s)", name, client_addr
+        )
         await websocket.close(
             code=status.WS_1011_INTERNAL_ERROR,
             reason="Failed to start shell",
         )
         return
 
-    logger.info("Terminal session started for repository '%s'", name)
-    loop = asyncio.get_running_loop()
-    _resize_pty(
-        master_fd, DEFAULT_TERMINAL_COLUMNS, DEFAULT_TERMINAL_ROWS
+    logger.info(
+        "Terminal session started for repository '%s' using %s (client: %s)",
+        name,
+        shell,
+        client_addr,
     )
+    loop = asyncio.get_running_loop()
+    _resize_pty(master_fd, DEFAULT_TERMINAL_COLUMNS, DEFAULT_TERMINAL_ROWS)
 
     async def forward_output() -> None:
         try:
@@ -383,8 +401,13 @@ async def repository_terminal(name: str, websocket: WebSocket):
                 if not data:
                     break
                 await websocket.send_text(data.decode(errors="ignore"))
-        except WebSocketDisconnect:
-            logger.info("Terminal websocket disconnected for '%s'", name)
+        except WebSocketDisconnect as exc:
+            logger.info(
+                "Terminal websocket disconnected during output for '%s' from %s (code=%s)",
+                name,
+                client_addr,
+                exc.code,
+            )
         except Exception as exc:  # pragma: no cover - defensive
             logger.error("Terminal output stopped for '%s': %s", name, exc)
         finally:
@@ -416,13 +439,24 @@ async def repository_terminal(name: str, websocket: WebSocket):
             data = str(payload.get("data", ""))
             if not data:
                 continue
+            logger.debug(
+                "Received terminal input for '%s' from %s (%s bytes)",
+                name,
+                client_addr,
+                len(data),
+            )
             try:
                 os.write(master_fd, data.encode())
             except OSError as exc:  # pragma: no cover - defensive
                 logger.error("Failed to write to terminal for '%s': %s", name, exc)
                 break
-    except WebSocketDisconnect:
-        logger.info("Terminal websocket disconnected for '%s'", name)
+    except WebSocketDisconnect as exc:
+        logger.info(
+            "Terminal websocket disconnected for '%s' from %s (code=%s)",
+            name,
+            client_addr,
+            exc.code,
+        )
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("Unexpected terminal error for '%s'", name)
     finally:
