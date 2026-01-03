@@ -1,8 +1,20 @@
+import asyncio
+import contextlib
+import fcntl
+import json
 import logging
+import os
+import pty
+import struct
+import subprocess
+import termios
 from copy import deepcopy
+from pathlib import Path
+
 from uvicorn.config import LOGGING_CONFIG
 
-from fastapi import Body, FastAPI, HTTPException, Query, status
+from fastapi import Body, FastAPI, HTTPException, Query, WebSocket, status
+from fastapi.websockets import WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from agent_service import (
@@ -65,6 +77,51 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+TERMINAL_BUFFER_SIZE = 4096
+DEFAULT_TERMINAL_COLUMNS = 120
+DEFAULT_TERMINAL_ROWS = 32
+
+
+def _repository_path(name: str) -> Path:
+    repo_path = get_workspace_home() / name
+    if not repo_path.exists() or not repo_path.is_dir():
+        raise FileNotFoundError("Repository not found")
+    return repo_path
+
+
+def _resize_pty(fd: int, cols: int, rows: int) -> None:
+    if cols <= 0 or rows <= 0:
+        return
+    try:
+        size = struct.pack("HHHH", rows, cols, 0, 0)
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, size)
+    except OSError as exc:  # pragma: no cover - defensive
+        logger.debug("Failed to resize pty: %s", exc)
+
+
+def _start_shell(repo_path: Path) -> tuple[int, subprocess.Popen, str]:
+    master_fd, slave_fd = pty.openpty()
+    env = os.environ.copy()
+    env.setdefault("TERM", "xterm-256color")
+    shell = env.get("SHELL", "/bin/bash")
+    try:
+        process = subprocess.Popen(
+            [shell],
+            cwd=repo_path,
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            env=env,
+            preexec_fn=os.setsid,
+        )
+    except Exception:
+        os.close(master_fd)
+        os.close(slave_fd)
+        raise
+
+    os.close(slave_fd)
+    return master_fd, process, shell
 
 
 @app.get("/api/health")
@@ -287,6 +344,100 @@ def repository_commands(name: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
+
+
+@app.websocket("/api/repositories/{name}/terminal")
+async def repository_terminal(name: str, websocket: WebSocket):
+    try:
+        repo_path = _repository_path(name)
+    except FileNotFoundError:
+        logger.warning("Terminal connection refused; repository '%s' not found", name)
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION, reason="Repository not found"
+        )
+        return
+
+    await websocket.accept()
+    try:
+        master_fd, process, shell = _start_shell(repo_path)
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        logger.exception("Failed to start terminal for '%s'", name)
+        await websocket.close(
+            code=status.WS_1011_INTERNAL_ERROR,
+            reason="Failed to start shell",
+        )
+        return
+
+    logger.info("Terminal session started for repository '%s'", name)
+    loop = asyncio.get_running_loop()
+    _resize_pty(
+        master_fd, DEFAULT_TERMINAL_COLUMNS, DEFAULT_TERMINAL_ROWS
+    )
+
+    async def forward_output() -> None:
+        try:
+            while True:
+                data = await loop.run_in_executor(
+                    None, os.read, master_fd, TERMINAL_BUFFER_SIZE
+                )
+                if not data:
+                    break
+                await websocket.send_text(data.decode(errors="ignore"))
+        except WebSocketDisconnect:
+            logger.info("Terminal websocket disconnected for '%s'", name)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("Terminal output stopped for '%s': %s", name, exc)
+        finally:
+            with contextlib.suppress(Exception):
+                await websocket.close()
+
+    reader_task = asyncio.create_task(forward_output())
+
+    try:
+        await websocket.send_text(
+            f"Connected to {repo_path} using {os.path.basename(shell)}. Type 'exit' to close the shell.\\r\\n"
+        )
+        while True:
+            message = await websocket.receive_text()
+            try:
+                payload = json.loads(message)
+            except json.JSONDecodeError:
+                payload = {"type": "input", "data": message}
+
+            if payload.get("type") == "resize":
+                cols = int(payload.get("cols") or 0)
+                rows = int(payload.get("rows") or 0)
+                _resize_pty(master_fd, cols, rows)
+                logger.info(
+                    "Resized terminal for '%s' to cols=%s rows=%s", name, cols, rows
+                )
+                continue
+
+            data = str(payload.get("data", ""))
+            if not data:
+                continue
+            try:
+                os.write(master_fd, data.encode())
+            except OSError as exc:  # pragma: no cover - defensive
+                logger.error("Failed to write to terminal for '%s': %s", name, exc)
+                break
+    except WebSocketDisconnect:
+        logger.info("Terminal websocket disconnected for '%s'", name)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("Unexpected terminal error for '%s'", name)
+    finally:
+        reader_task.cancel()
+        with contextlib.suppress(Exception):
+            await reader_task
+        with contextlib.suppress(Exception):
+            os.close(master_fd)
+        if process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                process.kill()
+        logger.info("Terminal session closed for repository '%s'", name)
 
 
 @app.get("/api/knowledge")

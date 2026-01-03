@@ -4,7 +4,10 @@ These tests verify the application starts correctly and core integrations work.
 """
 
 from unittest.mock import patch
+
+import pytest
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from app import app
 
@@ -150,3 +153,38 @@ def test_repository_commands_endpoint(mock_list_commands):
     assert "commands" in body
     assert body["commands"][0]["description"] == "Test command"
     mock_list_commands.assert_called_once_with("sample")
+
+
+class TestTerminalWebSocket:
+    def test_terminal_rejects_missing_repository(self):
+        """Connections should be refused for unknown repositories."""
+        with pytest.raises(WebSocketDisconnect) as excinfo:
+            with client.websocket_connect(
+                "/api/repositories/missing/terminal"
+            ) as websocket:
+                websocket.receive_text()
+
+        assert excinfo.value.code == 1008
+
+    def test_terminal_executes_commands_in_repository(self, tmp_path, monkeypatch):
+        """Terminal websocket should stream shell output from the repository path."""
+        repo = tmp_path / "demo"
+        repo.mkdir()
+        monkeypatch.setenv("MADE_WORKSPACE_HOME", str(tmp_path))
+
+        messages: list[str] = []
+        with TestClient(app) as local_client:
+            with local_client.websocket_connect(
+                "/api/repositories/demo/terminal"
+            ) as websocket:
+                messages.append(websocket.receive_text())
+                websocket.send_text("pwd\n")
+                websocket.send_text("echo terminal-ready\n")
+                websocket.send_text("exit\n")
+                with pytest.raises(WebSocketDisconnect):
+                    while True:
+                        messages.append(websocket.receive_text())
+
+        output = "\n".join(messages)
+        assert str(repo) in output
+        assert "terminal-ready" in output

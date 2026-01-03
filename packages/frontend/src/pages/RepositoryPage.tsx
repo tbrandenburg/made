@@ -10,11 +10,12 @@ import { marked } from "marked";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
+import { TerminalTab } from "../components/TerminalTab";
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import {
-  api,
-  CommandDefinition,
+    api,
+    CommandDefinition,
   FileNode,
   RepositorySummary,
 } from "../hooks/useApi";
@@ -728,6 +729,15 @@ export const RepositoryPage: React.FC = () => {
               {chatLoading ? "Sending..." : "Send"}
             </button>
           </div>
+        </Panel>
+      ),
+    },
+    {
+      id: "terminal",
+      label: "Terminal",
+      content: (
+        <Panel title="Repository Terminal">
+          <TerminalTab repositoryName={name || undefined} />
         </Panel>
       ),
     },
