@@ -290,7 +290,9 @@ cython_debug/
 # uv.lock
 
 # Made specific directories
-.made/
+.made/*
+!.made/commands/
+!.made/commands/*.md
 
 # Test results
 test-results/
