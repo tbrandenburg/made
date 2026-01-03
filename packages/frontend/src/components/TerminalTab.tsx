@@ -22,7 +22,10 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({ repositoryName }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!repositoryName || !containerRef.current) return;
+    if (!repositoryName || !containerRef.current) {
+      console.warn("[Terminal] Missing repository name or container");
+      return;
+    }
 
     const terminal = new Terminal({
       convertEol: true,
@@ -72,6 +75,7 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({ repositoryName }) => {
 
     socket.addEventListener("open", () => {
       terminal.writeln(`🖥️ Connected to ${repositoryName}`);
+      console.info("[Terminal] WebSocket connected", repositoryName);
       sendResize();
     });
 
@@ -83,11 +87,20 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({ repositoryName }) => {
       terminal.write(payload);
     });
 
-    socket.addEventListener("close", () => {
+    socket.addEventListener("close", (event) => {
+      console.info(
+        "[Terminal] WebSocket closed",
+        repositoryName,
+        "code:",
+        event.code,
+        "reason:",
+        event.reason,
+      );
       terminal.writeln("\r\nSession closed.");
     });
 
-    socket.addEventListener("error", () => {
+    socket.addEventListener("error", (event) => {
+      console.error("[Terminal] WebSocket error", repositoryName, event);
       terminal.writeln("\r\nConnection error.");
     });
 

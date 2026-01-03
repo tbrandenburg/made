@@ -368,6 +368,7 @@ async def repository_terminal(name: str, websocket: WebSocket):
         )
         return
 
+    logger.info("Terminal session started for repository '%s'", name)
     loop = asyncio.get_running_loop()
     _resize_pty(
         master_fd, DEFAULT_TERMINAL_COLUMNS, DEFAULT_TERMINAL_ROWS
@@ -385,7 +386,7 @@ async def repository_terminal(name: str, websocket: WebSocket):
         except WebSocketDisconnect:
             logger.info("Terminal websocket disconnected for '%s'", name)
         except Exception as exc:  # pragma: no cover - defensive
-            logger.debug("Terminal output stopped for '%s': %s", name, exc)
+            logger.error("Terminal output stopped for '%s': %s", name, exc)
         finally:
             with contextlib.suppress(Exception):
                 await websocket.close()
@@ -407,14 +408,23 @@ async def repository_terminal(name: str, websocket: WebSocket):
                 cols = int(payload.get("cols") or 0)
                 rows = int(payload.get("rows") or 0)
                 _resize_pty(master_fd, cols, rows)
+                logger.info(
+                    "Resized terminal for '%s' to cols=%s rows=%s", name, cols, rows
+                )
                 continue
 
             data = str(payload.get("data", ""))
             if not data:
                 continue
-            os.write(master_fd, data.encode())
+            try:
+                os.write(master_fd, data.encode())
+            except OSError as exc:  # pragma: no cover - defensive
+                logger.error("Failed to write to terminal for '%s': %s", name, exc)
+                break
     except WebSocketDisconnect:
         logger.info("Terminal websocket disconnected for '%s'", name)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("Unexpected terminal error for '%s'", name)
     finally:
         reader_task.cancel()
         with contextlib.suppress(Exception):
@@ -427,6 +437,7 @@ async def repository_terminal(name: str, websocket: WebSocket):
                 process.wait(timeout=2)
             except subprocess.TimeoutExpired:
                 process.kill()
+        logger.info("Terminal session closed for repository '%s'", name)
 
 
 @app.get("/api/knowledge")
