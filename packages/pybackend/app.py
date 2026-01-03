@@ -59,9 +59,10 @@ from config import (
 
 log_dir = ensure_directory(get_made_directory() / "logs")
 log_file = log_dir / "backend.log"
+LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    format=LOG_FORMAT,
     handlers=[
         logging.StreamHandler(),
         logging.FileHandler(log_file, encoding="utf-8"),
@@ -677,12 +678,12 @@ def start():
     logger.info("Starting MADE backend on %s:%s", host, port)
 
     log_config = deepcopy(LOGGING_CONFIG)
-    log_config["formatters"]["default"]["fmt"] = (
-        "%(asctime)s %(levelprefix)s %(message)s"
-    )
+    log_config["formatters"]["default"]["fmt"] = LOG_FORMAT
     log_config["formatters"]["access"]["fmt"] = (
-        '%(asctime)s %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s'
+        '%(asctime)s %(levelname)s [%(name)s] %(client_addr)s - "%(request_line)s" %(status_code)s'
     )
+    log_config["formatters"]["access"]["use_colors"] = False
+    log_config["formatters"]["default"]["use_colors"] = False
 
     uvicorn.run(
         "app:app",
