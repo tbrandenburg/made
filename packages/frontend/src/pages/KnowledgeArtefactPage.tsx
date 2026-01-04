@@ -9,6 +9,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { marked } from "marked";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
+import { ChatWindow } from "../components/ChatWindow";
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import { api } from "../hooks/useApi";
@@ -244,57 +245,14 @@ export const KnowledgeArtefactPage: React.FC = () => {
             label: "Agent",
             content: (
               <Panel title="Agent Conversation">
-                <div className="chat-window" ref={chatWindowRef}>
-                  {chat.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`chat-message ${message.role} ${message.messageType || ""}`}
-                    >
-                      <div className="chat-meta">
-                        {`${
-                          message.role === "agent"
-                            ? message.messageType === "thinking"
-                              ? "🧠 "
-                              : message.messageType === "tool"
-                                ? "🛠️ "
-                                : message.messageType === "final"
-                                  ? "🎯 "
-                                  : ""
-                            : ""
-                        }${new Date(message.timestamp).toLocaleString()}`}
-                      </div>
-                      <div
-                        className="markdown"
-                        dangerouslySetInnerHTML={{
-                          __html: marked(message.text || ""),
-                        }}
-                      />
-                    </div>
-                  ))}
-                  {chatLoading && (
-                    <div className="loading-indicator">
-                      <div className="loading-spinner"></div>
-                      <span>Agent is thinking...</span>
-                    </div>
-                  )}
-                  {chat.length === 0 && !chatLoading && (
-                    <div className="empty">
-                      Start a conversation to collaborate with agents.
-                    </div>
-                  )}
-                  {sessionId && (
-                    <div className="chat-session-id" aria-label="Session ID">
-                      <span>Session ID: {sessionId}</span>
-                      <button
-                        type="button"
-                        title="Clear session"
-                        onClick={() => setClearSessionModalOpen(true)}
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <ChatWindow
+                  chat={chat}
+                  chatWindowRef={chatWindowRef}
+                  loading={chatLoading}
+                  emptyMessage="Start a conversation to collaborate with agents."
+                  sessionId={sessionId}
+                  onClearSession={() => setClearSessionModalOpen(true)}
+                />
                 {agentStatus && <div className="alert">{agentStatus}</div>}
                 <textarea
                   value={prompt}

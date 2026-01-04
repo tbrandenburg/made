@@ -11,6 +11,7 @@ import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
 import { TerminalTab } from "../components/TerminalTab";
+import { ChatWindow } from "../components/ChatWindow";
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import {
@@ -176,6 +177,18 @@ export const RepositoryPage: React.FC = () => {
     values: [],
   });
   const chatWindowRef = useRef<HTMLDivElement>(null);
+  const copyAllMessages = useCallback(() => {
+    if (!navigator.clipboard || !chat.length) return;
+
+    const content = chat
+      .map((message) => message.text || "")
+      .join("\n\n")
+      .trim();
+
+    navigator.clipboard.writeText(content).catch((error) => {
+      console.error("Failed to copy chat history", error);
+    });
+  }, [chat]);
 
   const scrollToBottom = () => {
     if (chatWindowRef.current) {
@@ -664,56 +677,29 @@ export const RepositoryPage: React.FC = () => {
       id: "agent",
       label: "Agent",
       content: (
-        <Panel title="Agent Collaboration">
-          <div className="chat-window" ref={chatWindowRef}>
-            {chat.map((message) => (
-              <div
-                key={message.id}
-                className={`chat-message ${message.role} ${message.messageType || ""}`}
-              >
-                <div className="chat-meta">
-                  {`${
-                    message.role === "agent"
-                      ? message.messageType === "thinking"
-                        ? "🧠 "
-                        : message.messageType === "tool"
-                          ? "🛠️ "
-                          : message.messageType === "final"
-                            ? "🎯 "
-                            : ""
-                      : ""
-                  }${new Date(message.timestamp).toLocaleString()}`}
-                </div>
-                <div
-                  className="markdown"
-                  dangerouslySetInnerHTML={{
-                    __html: marked(message.text || ""),
-                  }}
-                />
-              </div>
-            ))}
-            {chatLoading && (
-              <div className="loading-indicator">
-                <div className="loading-spinner"></div>
-                <span>Agent is thinking...</span>
-              </div>
-            )}
-            {chat.length === 0 && !chatLoading && (
-              <div className="empty">No conversation yet.</div>
-            )}
-            {sessionId && (
-              <div className="chat-session-id" aria-label="Session ID">
-                <span>Session ID: {sessionId}</span>
-                <button
-                  type="button"
-                  title="Clear session"
-                  onClick={() => setClearSessionModalOpen(true)}
-                >
-                  🗑️
-                </button>
-              </div>
-            )}
-          </div>
+        <Panel
+          title="Agent Collaboration"
+          actions={
+            <button
+              type="button"
+              className="copy-button"
+              onClick={copyAllMessages}
+              aria-label="Copy chat messages"
+              title="Copy chat messages"
+              disabled={!chat.length}
+            >
+              📋
+            </button>
+          }
+        >
+          <ChatWindow
+            chat={chat}
+            chatWindowRef={chatWindowRef}
+            loading={chatLoading}
+            emptyMessage="No conversation yet."
+            sessionId={sessionId}
+            onClearSession={() => setClearSessionModalOpen(true)}
+          />
           {chatError && <div className="alert">{chatError}</div>}
           <textarea
             value={pendingPrompt}
