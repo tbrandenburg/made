@@ -410,6 +410,10 @@ async def repository_terminal(name: str, websocket: WebSocket):
                 client_addr,
                 exc.code,
             )
+        except asyncio.CancelledError:
+            logger.info(
+                "Terminal output task cancelled for '%s' from %s", name, client_addr
+            )
         except Exception as exc:  # pragma: no cover - defensive
             logger.error("Terminal output stopped for '%s': %s", name, exc)
         finally:
@@ -464,7 +468,7 @@ async def repository_terminal(name: str, websocket: WebSocket):
         logger.exception("Unexpected terminal error for '%s'", name)
     finally:
         reader_task.cancel()
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await reader_task
         with contextlib.suppress(Exception):
             os.close(master_fd)
