@@ -420,7 +420,8 @@ async def repository_terminal(name: str, websocket: WebSocket):
 
     try:
         await websocket.send_text(
-            f"Connected to {repo_path} using {os.path.basename(shell)}. Type 'exit' to close the shell.\\r\\n"
+            f"Connected to {repo_path} using {os.path.basename(shell)}.\n"
+            "Type 'exit' to close the shell.\n"
         )
         while True:
             message = await websocket.receive_text()
