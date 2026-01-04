@@ -486,10 +486,12 @@ def send_agent_message(channel: str, message: str, session_id: str | None = None
                 if result.stderr.strip()
                 else "Command failed with no output"
             )
+            command_preview = " ".join(command)[:200]
             logger.error(
-                "Agent command failed (channel: %s, session: %s): %s",
+                "Agent command failed (channel: %s, session: %s, command: %s): %s",
                 channel,
                 _conversation_sessions.get(channel),
+                command_preview,
                 response,
             )
 
