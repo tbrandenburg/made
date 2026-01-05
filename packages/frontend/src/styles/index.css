@@ -129,6 +129,38 @@ textarea {
   color: var(--text);
 }
 
+.copy-button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: color 0.2s ease, opacity 0.2s ease;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.copy-button:hover,
+.copy-button:focus-visible {
+  opacity: 1;
+  color: var(--text);
+  outline: none;
+}
+
+.copy-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.copy-button svg {
+  width: 18px;
+  height: 18px;
+}
+
 .primary {
   padding: 0.75rem 1.25rem;
   border-radius: 0.9rem;
@@ -242,6 +274,8 @@ textarea {
   padding: 0.75rem 1rem;
   border-radius: 0.9rem;
   box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+  position: relative;
+  padding-right: 2.5rem;
 }
 
 .chat-message pre,
@@ -272,6 +306,16 @@ textarea {
   font-size: 0.75rem;
   color: var(--muted);
   margin-bottom: 0.5rem;
+}
+
+.chat-copy-button {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+}
+
+.chat-message:hover .chat-copy-button {
+  opacity: 0.9;
 }
 
 .chat-session-id {
