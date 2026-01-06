@@ -12,11 +12,13 @@ import { TabView } from "../components/TabView";
 import { ChatWindow } from "../components/ChatWindow";
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
-import { api } from "../hooks/useApi";
+import { api, ChatSession } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
-import { mapAgentReplyToMessages } from "../utils/chat";
+import { mapAgentReplyToMessages, mapHistoryToMessages } from "../utils/chat";
 import { ClearSessionModal } from "../components/ClearSessionModal";
+import { SessionPickerModal } from "../components/SessionPickerModal";
+import { DatabaseIcon } from "../components/icons/DatabaseIcon";
 
 export const ConstitutionPage: React.FC = () => {
   const { name } = useParams();
@@ -39,6 +41,10 @@ export const ConstitutionPage: React.FC = () => {
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
+  const [sessionModalOpen, setSessionModalOpen] = useState(false);
+  const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
+  const [sessionListError, setSessionListError] = useState<string | null>(null);
+  const [sessionListLoading, setSessionListLoading] = useState(false);
   const chatWindowRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -49,6 +55,19 @@ export const ConstitutionPage: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
+  }, [chat]);
+
+  const copyAllMessages = useCallback(() => {
+    if (!navigator.clipboard || !chat.length) return;
+
+    const content = chat
+      .map((message) => message.text || "")
+      .join("\n\n")
+      .trim();
+
+    navigator.clipboard.writeText(content).catch((error) => {
+      console.error("Failed to copy chat history", error);
+    });
   }, [chat]);
 
   useEffect(() => {
@@ -88,6 +107,24 @@ export const ConstitutionPage: React.FC = () => {
   useEffect(() => {
     refreshAgentStatus();
   }, [refreshAgentStatus]);
+
+  const openSessionModal = useCallback(async () => {
+    if (!name) return;
+    setSessionModalOpen(true);
+    setSessionListLoading(true);
+    try {
+      const response = await api.getConstitutionAgentSessions(name, 10);
+      setSessionOptions(response.sessions || []);
+      setSessionListError(null);
+    } catch (error) {
+      console.error("Failed to load sessions", error);
+      const message =
+        error instanceof Error ? error.message : "Unable to load sessions";
+      setSessionListError(message);
+    } finally {
+      setSessionListLoading(false);
+    }
+  }, [name]);
 
   const handleSave = async () => {
     if (!name) return;
@@ -154,6 +191,27 @@ export const ConstitutionPage: React.FC = () => {
     setSessionId(null);
     setChat([]);
     setClearSessionModalOpen(false);
+  };
+
+  const handleSessionSelect = async (session: ChatSession) => {
+    if (!name) return;
+    setSessionModalOpen(false);
+    setChat([]);
+    setSessionId(session.id);
+    setChatLoading(true);
+    try {
+      const history = await api.getConstitutionAgentHistory(name, session.id);
+      const mapped = mapHistoryToMessages(history.messages || []);
+      setChat(mapped);
+      setAgentStatus(null);
+    } catch (error) {
+      console.error("Failed to load session history", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to load session history";
+      setAgentStatus(message);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   return (
@@ -226,7 +284,47 @@ export const ConstitutionPage: React.FC = () => {
             id: "agent",
             label: "Agent",
             content: (
-              <Panel title="Agent Conversation">
+              <Panel
+                title="Agent Conversation"
+                actions={
+                  <div className="panel-action-buttons">
+                    <button
+                      type="button"
+                      className="copy-button"
+                      onClick={openSessionModal}
+                      aria-label="Choose a session"
+                      title="Choose a session"
+                    >
+                      <DatabaseIcon />
+                    </button>
+                    <button
+                      type="button"
+                      className="copy-button"
+                      onClick={copyAllMessages}
+                      aria-label="Copy chat messages"
+                      title="Copy chat messages"
+                      disabled={!chat.length}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    </button>
+                  </div>
+                }
+              >
                 <ChatWindow
                   chat={chat}
                   chatWindowRef={chatWindowRef}
@@ -262,6 +360,14 @@ export const ConstitutionPage: React.FC = () => {
         onCancel={handleCancelClearSession}
         onClearSessionOnly={handleClearSessionOnly}
         onClearSessionAndHistory={handleClearSessionAndHistory}
+      />
+      <SessionPickerModal
+        open={sessionModalOpen}
+        loading={sessionListLoading}
+        error={sessionListError}
+        sessions={sessionOptions}
+        onClose={() => setSessionModalOpen(false)}
+        onSelect={handleSessionSelect}
       />
     </div>
   );
