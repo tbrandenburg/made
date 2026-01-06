@@ -16,6 +16,7 @@ _processing_lock = Lock()
 _processing_channels: dict[str, datetime] = {}
 _conversation_sessions: dict[str, str] = {}
 SESSION_ROW_PATTERN = re.compile(r"^(ses_[^\s]+)\s{2,}(.*?)\s{2,}(.+)$")
+LOG_PREVIEW_LIMIT = 500
 
 
 class ChannelBusyError(RuntimeError):
@@ -44,6 +45,14 @@ def get_channel_status(channel: str) -> dict[str, object]:
         "processing": started_at is not None,
         "startedAt": started_at.isoformat() if started_at else None,
     }
+
+
+def _preview_output(raw_text: str, limit: int = LOG_PREVIEW_LIMIT) -> str:
+    stripped = (raw_text or "").strip()
+    if len(stripped) <= limit:
+        return stripped
+
+    return stripped[: limit - 3] + "..."
 
 
 def _build_opencode_command(session_id: str | None) -> list[str]:
@@ -133,6 +142,7 @@ def _parse_session_table(output: str, limit: int) -> list[dict[str, str]]:
 
         match = SESSION_ROW_PATTERN.match(stripped)
         if not match:
+            logger.debug("Skipping non-matching session row: %s", stripped)
             continue
 
         session_id, title, updated = match.groups()
@@ -142,6 +152,13 @@ def _parse_session_table(output: str, limit: int) -> list[dict[str, str]]:
 
         if len(sessions) >= limit:
             break
+
+    if not sessions:
+        logger.warning(
+            "No sessions parsed from opencode output (limit: %s, preview: %s)",
+            limit,
+            _preview_output(output),
+        )
 
     return sessions
 
@@ -490,11 +507,21 @@ def list_chat_sessions(channel: str | None = None, limit: int = 10) -> list[dict
     if result.returncode != 0:
         error_message = stderr_text.strip() or "Failed to list sessions"
         logger.error(
-            "Listing chat sessions failed (channel: %s): %s",
+            "Listing chat sessions failed (channel: %s, cwd: %s, code: %s, stderr: %s)",
             channel or "<unspecified>",
-            error_message,
+            working_dir,
+            result.returncode,
+            _preview_output(stderr_text),
         )
         raise RuntimeError(error_message)
+
+    logger.debug(
+        "Listing chat sessions succeeded (channel: %s, cwd: %s, stdout_bytes: %s, stderr_preview: %s)",
+        channel or "<unspecified>",
+        working_dir,
+        len(result.stdout or ""),
+        _preview_output(stderr_text),
+    )
 
     return _parse_session_table(result.stdout or "", limit)
 
