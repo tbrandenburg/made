@@ -12,6 +12,7 @@ import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
 import { TerminalTab } from "../components/TerminalTab";
 import { ChatWindow } from "../components/ChatWindow";
+import { SessionPickerModal } from "../components/SessionPickerModal";
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import {
@@ -29,6 +30,7 @@ import {
   mergeChatMessages,
 } from "../utils/chat";
 import { ClearSessionModal } from "../components/ClearSessionModal";
+import { DatabaseIcon } from "../components/icons/DatabaseIcon";
 
 const stripCommandFrontmatter = (content: string) => {
   const delimiterPattern =
@@ -136,26 +138,6 @@ const FileIcon: React.FC = () => (
   >
     <path d="M14.25 3v4.5h4.5L14.25 3Z" />
     <path d="M5.25 4.5A1.5 1.5 0 0 1 6.75 3h7.5l4.5 4.5V19.5a1.5 1.5 0 0 1-1.5 1.5H6.75a1.5 1.5 0 0 1-1.5-1.5v-15Z" />
-  </svg>
-);
-
-const DatabaseIcon: React.FC = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    width="18"
-    height="18"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-    focusable="false"
-  >
-    <ellipse cx="12" cy="5" rx="9" ry="3" />
-    <path d="M3 5v7c0 1.7 4 3 9 3s9-1.3 9-3V5" />
-    <path d="M3 12v7c0 1.7 4 3 9 3s9-1.3 9-3v-7" />
   </svg>
 );
 
@@ -989,41 +971,14 @@ export const RepositoryPage: React.FC = () => {
         onTabChange={handleTabChange}
       />
 
-      <Modal
+      <SessionPickerModal
         open={sessionModalOpen}
-        title="Choose a session"
+        loading={sessionListLoading}
+        error={sessionListError}
+        sessions={sessionOptions}
         onClose={() => setSessionModalOpen(false)}
-      >
-        {sessionListLoading && <p>Loading sessions...</p>}
-        {sessionListError && <div className="alert">{sessionListError}</div>}
-        {!sessionListLoading && (
-          <div className="session-list">
-            {sessionOptions.map((session) => (
-              <button
-                key={session.id}
-                className="session-pill"
-                onClick={() => handleSessionSelect(session)}
-              >
-                <span className="session-pill-id">{session.id}</span>
-                <span className="session-pill-title">{session.title}</span>
-                <span className="session-pill-date">{session.updated}</span>
-              </button>
-            ))}
-            {!sessionOptions.length && !sessionListError && (
-              <p className="muted">No sessions available.</p>
-            )}
-          </div>
-        )}
-        <div className="modal-actions">
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => setSessionModalOpen(false)}
-          >
-            Cancel
-          </button>
-        </div>
-      </Modal>
+        onSelect={handleSessionSelect}
+      />
 
       <ClearSessionModal
         open={clearSessionModalOpen}

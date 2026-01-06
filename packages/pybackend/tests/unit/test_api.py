@@ -127,6 +127,122 @@ class TestRepositoryAgentSessions:
         assert response.status_code == 500
 
 
+class TestKnowledgeAgentHistory:
+    @patch('app.export_chat_history')
+    def test_knowledge_history_success(self, mock_export):
+        mock_export.return_value = {"sessionId": "ses_1", "messages": []}
+
+        response = client.get(
+            "/api/knowledge/sample/agent/history",
+            params={"session_id": "ses_1", "start": 123},
+        )
+
+        assert response.status_code == 200
+        mock_export.assert_called_once_with("ses_1", 123, "knowledge:sample")
+
+    @patch('app.export_chat_history')
+    def test_knowledge_history_bad_request(self, mock_export):
+        mock_export.side_effect = ValueError("bad")
+
+        response = client.get(
+            "/api/knowledge/sample/agent/history",
+            params={"session_id": "", "start": None},
+        )
+
+        assert response.status_code == 400
+
+    @patch('app.export_chat_history')
+    def test_knowledge_history_server_error(self, mock_export):
+        mock_export.side_effect = RuntimeError("boom")
+
+        response = client.get(
+            "/api/knowledge/sample/agent/history",
+            params={"session_id": "ses_1"},
+        )
+
+        assert response.status_code == 500
+
+
+class TestKnowledgeAgentSessions:
+    @patch('app.list_chat_sessions')
+    def test_knowledge_sessions_success(self, mock_list):
+        mock_list.return_value = [{"id": "ses_1"}]
+
+        response = client.get(
+            "/api/knowledge/sample/agent/sessions",
+            params={"limit": 5},
+        )
+
+        assert response.status_code == 200
+        mock_list.assert_called_once_with("knowledge:sample", 5)
+
+    @patch('app.list_chat_sessions')
+    def test_knowledge_sessions_error(self, mock_list):
+        mock_list.side_effect = RuntimeError("boom")
+
+        response = client.get("/api/knowledge/sample/agent/sessions")
+
+        assert response.status_code == 500
+
+
+class TestConstitutionAgentHistory:
+    @patch('app.export_chat_history')
+    def test_constitution_history_success(self, mock_export):
+        mock_export.return_value = {"sessionId": "ses_1", "messages": []}
+
+        response = client.get(
+            "/api/constitutions/sample/agent/history",
+            params={"session_id": "ses_1", "start": 123},
+        )
+
+        assert response.status_code == 200
+        mock_export.assert_called_once_with("ses_1", 123, "constitution:sample")
+
+    @patch('app.export_chat_history')
+    def test_constitution_history_bad_request(self, mock_export):
+        mock_export.side_effect = ValueError("bad")
+
+        response = client.get(
+            "/api/constitutions/sample/agent/history",
+            params={"session_id": "", "start": None},
+        )
+
+        assert response.status_code == 400
+
+    @patch('app.export_chat_history')
+    def test_constitution_history_server_error(self, mock_export):
+        mock_export.side_effect = RuntimeError("boom")
+
+        response = client.get(
+            "/api/constitutions/sample/agent/history",
+            params={"session_id": "ses_1"},
+        )
+
+        assert response.status_code == 500
+
+
+class TestConstitutionAgentSessions:
+    @patch('app.list_chat_sessions')
+    def test_constitution_sessions_success(self, mock_list):
+        mock_list.return_value = [{"id": "ses_1"}]
+
+        response = client.get(
+            "/api/constitutions/sample/agent/sessions",
+            params={"limit": 5},
+        )
+
+        assert response.status_code == 200
+        mock_list.assert_called_once_with("constitution:sample", 5)
+
+    @patch('app.list_chat_sessions')
+    def test_constitution_sessions_error(self, mock_list):
+        mock_list.side_effect = RuntimeError("boom")
+
+        response = client.get("/api/constitutions/sample/agent/sessions")
+
+        assert response.status_code == 500
+
+
 class TestRepositoryEndpoints:
     """Test repository-related endpoints."""
 

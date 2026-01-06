@@ -192,10 +192,54 @@ export const api = {
       { signal },
     );
   },
+  getKnowledgeAgentHistory: (
+    name: string,
+    sessionId: string,
+    startTimestamp?: number,
+    signal?: AbortSignal,
+  ) => {
+    const params = new URLSearchParams({ session_id: sessionId });
+    if (typeof startTimestamp === "number" && Number.isFinite(startTimestamp)) {
+      params.append("start", Math.floor(startTimestamp).toString());
+    }
+
+    return request<ChatHistoryResponse>(
+      `/knowledge/${name}/agent/history?${params.toString()}`,
+      { signal },
+    );
+  },
+  getConstitutionAgentHistory: (
+    name: string,
+    sessionId: string,
+    startTimestamp?: number,
+    signal?: AbortSignal,
+  ) => {
+    const params = new URLSearchParams({ session_id: sessionId });
+    if (typeof startTimestamp === "number" && Number.isFinite(startTimestamp)) {
+      params.append("start", Math.floor(startTimestamp).toString());
+    }
+
+    return request<ChatHistoryResponse>(
+      `/constitutions/${name}/agent/history?${params.toString()}`,
+      { signal },
+    );
+  },
   getRepositoryAgentSessions: (name: string, limit = 10) => {
     const params = new URLSearchParams({ limit: String(limit) });
     return request<{ sessions: ChatSession[] }>(
       `/repositories/${name}/agent/sessions?${params.toString()}`,
+    );
+  },
+  getKnowledgeAgentSessions: (name: string, limit = 10) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    return request<{ sessions: ChatSession[] }>(
+      `/knowledge/${name}/agent/sessions?${params.toString()}`,
+    );
+  },
+  getConstitutionAgentSessions: (name: string, limit = 10) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    return request<{ sessions: ChatSession[] }>(
+      `/constitutions/${name}/agent/sessions?${params.toString()}`,
     );
   },
   getRepositoryCommands: (name: string) =>

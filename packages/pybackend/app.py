@@ -540,6 +540,63 @@ def knowledge_agent_status(name: str):
     return get_channel_status(f"knowledge:{name}")
 
 
+@app.get("/api/knowledge/{name}/agent/history")
+def knowledge_agent_history(
+    name: str,
+    session_id: str | None = Query(default=None),
+    start: int | str | None = Query(default=None),
+):
+    try:
+        normalized_start = int(start) if start is not None else None
+        logger.info(
+            "Exporting agent history for knowledge '%s' (session: %s, start: %s)",
+            name,
+            session_id or "current",
+            start,
+        )
+        return export_chat_history(session_id, normalized_start, f"knowledge:{name}")
+    except ValueError as exc:
+        logger.warning(
+            "Bad request exporting agent history for knowledge '%s' (session: %s, start: %s): %s",
+            name,
+            session_id or "current",
+            start,
+            exc,
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        logger.exception(
+            "Unexpected error exporting history for knowledge '%s' (session: %s, start: %s)",
+            name,
+            session_id or "current",
+            start,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/knowledge/{name}/agent/sessions")
+def knowledge_agent_sessions(
+    name: str,
+    limit: int = Query(default=10, ge=1, le=50),
+):
+    try:
+        logger.info(
+            "Listing agent sessions for knowledge '%s' (limit: %s)", name, limit
+        )
+        return {"sessions": list_chat_sessions(f"knowledge:{name}", limit)}
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        logger.exception(
+            "Unexpected error listing sessions for knowledge '%s' (limit: %s)",
+            name,
+            limit,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
 @app.get("/api/constitutions")
 def constitutions():
     try:
@@ -596,6 +653,63 @@ def constitution_agent(name: str, payload: dict = Body(...)):
 @app.get("/api/constitutions/{name}/agent/status")
 def constitution_agent_status(name: str):
     return get_channel_status(f"constitution:{name}")
+
+
+@app.get("/api/constitutions/{name}/agent/history")
+def constitution_agent_history(
+    name: str,
+    session_id: str | None = Query(default=None),
+    start: int | str | None = Query(default=None),
+):
+    try:
+        normalized_start = int(start) if start is not None else None
+        logger.info(
+            "Exporting agent history for constitution '%s' (session: %s, start: %s)",
+            name,
+            session_id or "current",
+            start,
+        )
+        return export_chat_history(session_id, normalized_start, f"constitution:{name}")
+    except ValueError as exc:
+        logger.warning(
+            "Bad request exporting agent history for constitution '%s' (session: %s, start: %s): %s",
+            name,
+            session_id or "current",
+            start,
+            exc,
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        logger.exception(
+            "Unexpected error exporting history for constitution '%s' (session: %s, start: %s)",
+            name,
+            session_id or "current",
+            start,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/constitutions/{name}/agent/sessions")
+def constitution_agent_sessions(
+    name: str,
+    limit: int = Query(default=10, ge=1, le=50),
+):
+    try:
+        logger.info(
+            "Listing agent sessions for constitution '%s' (limit: %s)", name, limit
+        )
+        return {"sessions": list_chat_sessions(f"constitution:{name}", limit)}
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        logger.exception(
+            "Unexpected error listing sessions for constitution '%s' (limit: %s)",
+            name,
+            limit,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
 
 
 @app.get("/api/repositories/{name}/agent/history")
