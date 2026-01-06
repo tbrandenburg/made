@@ -154,6 +154,8 @@ textarea {
   opacity: 0.35;
   cursor: not-allowed;
   box-shadow: none;
+  background: transparent;
+  border: none;
 }
 
 .copy-button svg {
