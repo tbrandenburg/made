@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import subprocess
 import time
 import tempfile
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 _processing_lock = Lock()
 _processing_channels: dict[str, datetime] = {}
 _conversation_sessions: dict[str, str] = {}
+SESSION_ROW_PATTERN = re.compile(r"^(ses_[^\s]+)\s{2,}(.*?)\s{2,}(.+)$")
 
 
 class ChannelBusyError(RuntimeError):
@@ -116,6 +118,32 @@ def _extract_part_content(part: dict[str, object], part_type: str) -> str:
         return ""
 
     return ""
+
+
+def _parse_session_table(output: str, limit: int) -> list[dict[str, str]]:
+    sessions: list[dict[str, str]] = []
+    for line in output.splitlines():
+        stripped = line.strip()
+        if (
+            not stripped
+            or stripped.startswith("Session ID")
+            or stripped.startswith("─")
+        ):
+            continue
+
+        match = SESSION_ROW_PATTERN.match(stripped)
+        if not match:
+            continue
+
+        session_id, title, updated = match.groups()
+        sessions.append(
+            {"id": session_id.strip(), "title": title.strip(), "updated": updated.strip()}
+        )
+
+        if len(sessions) >= limit:
+            break
+
+    return sessions
 
 
 def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]]]:
@@ -434,6 +462,41 @@ def export_chat_history(
         "sessionId": session_id,
         "messages": _filter_export_messages(pruned_messages, normalized_start),
     }
+
+
+def list_chat_sessions(channel: str | None = None, limit: int = 10) -> list[dict[str, str]]:
+    working_dir = _get_working_directory(channel) if channel else None
+    logger.info(
+        "Listing chat sessions (channel: %s, limit: %s)",
+        channel or "<unspecified>",
+        limit,
+    )
+
+    try:
+        result = subprocess.run(
+            ["opencode", "sessions"],
+            capture_output=True,
+            text=True,
+            cwd=working_dir,
+        )
+    except FileNotFoundError:
+        logger.error("Unable to list sessions: 'opencode' command not found")
+        raise FileNotFoundError(
+            "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
+        )
+
+    stderr_text = str(result.stderr or "")
+
+    if result.returncode != 0:
+        error_message = stderr_text.strip() or "Failed to list sessions"
+        logger.error(
+            "Listing chat sessions failed (channel: %s): %s",
+            channel or "<unspecified>",
+            error_message,
+        )
+        raise RuntimeError(error_message)
+
+    return _parse_session_table(result.stdout or "", limit)
 
 
 def send_agent_message(channel: str, message: str, session_id: str | None = None):

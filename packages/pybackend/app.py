@@ -21,6 +21,7 @@ from agent_service import (
     ChannelBusyError,
     export_chat_history,
     get_channel_status,
+    list_chat_sessions,
     send_agent_message,
 )
 from constitution_service import (
@@ -635,6 +636,25 @@ def repository_agent_history(
             name,
             session_id or "current",
             start,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/repositories/{name}/agent/sessions")
+def repository_agent_sessions(
+    name: str,
+    limit: int = Query(default=10, ge=1, le=50),
+):
+    try:
+        logger.info(
+            "Listing agent sessions for repository '%s' (limit: %s)", name, limit
+        )
+        return {"sessions": list_chat_sessions(name, limit)}
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        logger.exception(
+            "Unexpected error listing sessions for '%s' (limit: %s)", name, limit
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)

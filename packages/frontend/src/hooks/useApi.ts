@@ -102,6 +102,12 @@ export type ChatHistoryResponse = {
   messages: ChatHistoryMessage[];
 };
 
+export type ChatSession = {
+  id: string;
+  title: string;
+  updated: string;
+};
+
 export type CommandDefinition = {
   id: string;
   name: string;
@@ -184,6 +190,12 @@ export const api = {
     return request<ChatHistoryResponse>(
       `/repositories/${name}/agent/history?${params.toString()}`,
       { signal },
+    );
+  },
+  getRepositoryAgentSessions: (name: string, limit = 10) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    return request<{ sessions: ChatSession[] }>(
+      `/repositories/${name}/agent/sessions?${params.toString()}`,
     );
   },
   getRepositoryCommands: (name: string) =>

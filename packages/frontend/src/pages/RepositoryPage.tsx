@@ -15,8 +15,9 @@ import { ChatWindow } from "../components/ChatWindow";
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import {
-    api,
-    CommandDefinition,
+  api,
+  CommandDefinition,
+  ChatSession,
   FileNode,
   RepositorySummary,
 } from "../hooks/useApi";
@@ -138,6 +139,26 @@ const FileIcon: React.FC = () => (
   </svg>
 );
 
+const DatabaseIcon: React.FC = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    width="18"
+    height="18"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <ellipse cx="12" cy="5" rx="9" ry="3" />
+    <path d="M3 5v7c0 1.7 4 3 9 3s9-1.3 9-3V5" />
+    <path d="M3 12v7c0 1.7 4 3 9 3s9-1.3 9-3v-7" />
+  </svg>
+);
+
 export const RepositoryPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
@@ -158,6 +179,10 @@ export const RepositoryPage: React.FC = () => {
   const [pendingPrompt, setPendingPrompt] = useState("");
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
+  const [sessionModalOpen, setSessionModalOpen] = useState(false);
+  const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
+  const [sessionListError, setSessionListError] = useState<string | null>(null);
+  const [sessionListLoading, setSessionListLoading] = useState(false);
   const [availableCommands, setAvailableCommands] = useState<
     CommandDefinition[]
   >([]);
@@ -264,6 +289,24 @@ export const RepositoryPage: React.FC = () => {
   useEffect(() => {
     loadCommands();
   }, [loadCommands]);
+
+  const openSessionModal = useCallback(async () => {
+    if (!name) return;
+    setSessionModalOpen(true);
+    setSessionListLoading(true);
+    try {
+      const response = await api.getRepositoryAgentSessions(name, 10);
+      setSessionOptions(response.sessions || []);
+      setSessionListError(null);
+    } catch (error) {
+      console.error("Failed to load sessions", error);
+      const message =
+        error instanceof Error ? error.message : "Unable to load sessions";
+      setSessionListError(message);
+    } finally {
+      setSessionListLoading(false);
+    }
+  }, [name]);
 
   const toggleFolder = (pathId: string) => {
     setExpanded((prev) => {
@@ -425,6 +468,27 @@ export const RepositoryPage: React.FC = () => {
     setSessionId(null);
     setChat([]);
     setClearSessionModalOpen(false);
+  };
+
+  const handleSessionSelect = async (session: ChatSession) => {
+    if (!name) return;
+    setSessionModalOpen(false);
+    setChat([]);
+    setSessionId(session.id);
+    setChatLoading(true);
+    try {
+      const history = await api.getRepositoryAgentHistory(name, session.id);
+      const mapped = mapHistoryToMessages(history.messages || []);
+      setChat(mapped);
+      setChatError(null);
+    } catch (error) {
+      console.error("Failed to load session history", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to load session history";
+      setChatError(message);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   const getCommandArgumentPlan = (command: CommandDefinition) => {
@@ -680,31 +744,42 @@ export const RepositoryPage: React.FC = () => {
         <Panel
           title="Agent Collaboration"
           actions={
-            <button
-              type="button"
-              className="copy-button"
-              onClick={copyAllMessages}
-              aria-label="Copy chat messages"
-              title="Copy chat messages"
-              disabled={!chat.length}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-                focusable="false"
+            <div className="panel-action-buttons">
+              <button
+                type="button"
+                className="copy-button"
+                onClick={openSessionModal}
+                aria-label="Choose a session"
+                title="Choose a session"
               >
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-              </svg>
-            </button>
+                <DatabaseIcon />
+              </button>
+              <button
+                type="button"
+                className="copy-button"
+                onClick={copyAllMessages}
+                aria-label="Copy chat messages"
+                title="Copy chat messages"
+                disabled={!chat.length}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              </button>
+            </div>
           }
         >
           <ChatWindow
@@ -913,6 +988,42 @@ export const RepositoryPage: React.FC = () => {
         activeTab={activeTab}
         onTabChange={handleTabChange}
       />
+
+      <Modal
+        open={sessionModalOpen}
+        title="Choose a session"
+        onClose={() => setSessionModalOpen(false)}
+      >
+        {sessionListLoading && <p>Loading sessions...</p>}
+        {sessionListError && <div className="alert">{sessionListError}</div>}
+        {!sessionListLoading && (
+          <div className="session-list">
+            {sessionOptions.map((session) => (
+              <button
+                key={session.id}
+                className="session-pill"
+                onClick={() => handleSessionSelect(session)}
+              >
+                <span className="session-pill-id">{session.id}</span>
+                <span className="session-pill-title">{session.title}</span>
+                <span className="session-pill-date">{session.updated}</span>
+              </button>
+            ))}
+            {!sessionOptions.length && !sessionListError && (
+              <p className="muted">No sessions available.</p>
+            )}
+          </div>
+        )}
+        <div className="modal-actions">
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setSessionModalOpen(false)}
+          >
+            Cancel
+          </button>
+        </div>
+      </Modal>
 
       <ClearSessionModal
         open={clearSessionModalOpen}

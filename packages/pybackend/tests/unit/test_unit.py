@@ -3,6 +3,7 @@ Unit tests focusing on isolated testing of individual functions.
 These tests mock all external dependencies and focus on business logic.
 """
 
+import pytest
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import Mock, call, patch
@@ -456,3 +457,63 @@ class TestAgentService:
             input="Hello agent",
             cwd=mock_working_dir,
         )
+
+    @patch('agent_service._get_working_directory')
+    @patch('agent_service.subprocess.run')
+    def test_list_chat_sessions_parses_table(self, mock_subprocess_run, mock_get_working_dir):
+        """Parse the latest sessions from the opencode session table."""
+        from agent_service import list_chat_sessions
+
+        mock_working_dir = Path("/test/workspace/repo")
+        mock_get_working_dir.return_value = mock_working_dir
+
+        sample_output = """
+Session ID                      Title                                                               Updated
+───────────────────────────────────────────────────────────────────────────────────────────────────────────
+ses_491478d5cffeFxA6xUVv2N23Nt  Initializing Spec Kit with init command                             11:06 AM · 12/30/2025
+ses_491481eecffe4pR71zMCkOJZ7m  Initializing OpenSpec with openspec init --tools opencode           11:05 AM · 12/30/2025
+ses_4914bfe4effepdH39D0v1ZDnef  Analyzing agent bmad-master                                         11:04 AM · 12/30/2025
+ses_49181ca28ffej0r7WDvr6raUj8  Greeting and quick check-in                                         10:40 AM · 12/30/2025
+ses_491a96418ffew8gU7Oc6boz2cs  Greeting check-in                                                   9:19 AM · 12/30/2025
+ses_493eaba05ffedQxkNfr20tD6Zg  Greeting understanding visible files                                10:49 PM · 12/29/2025
+ses_4c2a7aec2ffeNazAMQvwaAjFwQ  Answering user last statements                                      9:54 PM · 12/20/2025
+ses_4c40a936cffejrP1Izw91LluiS  Listing branches with gh cli                                        8:47 PM · 12/20/2025
+ses_4c4d18ffbffeqKwEdv9S3B78Dy  Analyzing frontend-backend connection issues with 5xWhy hypotheses  11:15 AM · 12/20/2025
+ses_4c7dd22b9ffe8RCrnIPoCt7Not  Greeting and quick check-in                                         8:42 PM · 12/19/2025
+ses_4c8e3aa80ffelZtRBggBr0vGj0  Greeting and quick check-in                                         3:56 PM · 12/19/2025
+ses_4c8f3449effeDe1146uIO6XLX8  Greeting: quick check-in                                            3:39 PM · 12/19/2025
+ses_4c91f8ba7ffe6Ai025uAGGZwR5  Greeting engagement: Hello!                                         2:50 PM · 12/19/2025
+ses_4c9512f03ffekOFJMinyNgfyv7  Investigating repository details                                    2:14 PM · 12/19/2025
+ses_4c9b107a0ffeuRQ2c1mUgvcZto  Greeting and quick check-in                                         12:11 PM · 12/19/2025
+"""
+
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = sample_output
+        mock_subprocess_run.return_value = mock_result
+
+        sessions = list_chat_sessions("test-repo", limit=10)
+
+        assert len(sessions) == 10
+        assert sessions[0]["id"] == "ses_491478d5cffeFxA6xUVv2N23Nt"
+        assert sessions[0]["title"] == "Initializing Spec Kit with init command"
+        assert sessions[0]["updated"] == "11:06 AM · 12/30/2025"
+        assert sessions[-1]["id"] == "ses_4c7dd22b9ffe8RCrnIPoCt7Not"
+
+    @patch('agent_service._get_working_directory')
+    @patch('agent_service.subprocess.run')
+    def test_list_chat_sessions_handles_errors(self, mock_subprocess_run, mock_get_working_dir):
+        """Raise errors when the opencode session list fails."""
+        from agent_service import list_chat_sessions
+
+        mock_working_dir = Path("/test/workspace/repo")
+        mock_get_working_dir.return_value = mock_working_dir
+
+        mock_result = Mock()
+        mock_result.returncode = 1
+        mock_result.stdout = ""
+        mock_result.stderr = "boom"
+        mock_subprocess_run.return_value = mock_result
+
+        with pytest.raises(RuntimeError):
+            list_chat_sessions("test-repo", limit=5)

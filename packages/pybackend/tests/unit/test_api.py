@@ -104,6 +104,29 @@ class TestChatHistoryEndpoint:
         assert response.status_code == 500
 
 
+class TestRepositoryAgentSessions:
+    @patch('app.list_chat_sessions')
+    def test_repository_sessions_success(self, mock_list):
+        mock_list.return_value = [{"id": "ses_1", "title": "Hello", "updated": "Today"}]
+
+        response = client.get(
+            "/api/repositories/sample/agent/sessions",
+            params={"limit": 5},
+        )
+
+        assert response.status_code == 200
+        mock_list.assert_called_once_with("sample", 5)
+        assert response.json()["sessions"][0]["id"] == "ses_1"
+
+    @patch('app.list_chat_sessions')
+    def test_repository_sessions_error(self, mock_list):
+        mock_list.side_effect = RuntimeError("bad")
+
+        response = client.get("/api/repositories/sample/agent/sessions")
+
+        assert response.status_code == 500
+
+
 class TestRepositoryEndpoints:
     """Test repository-related endpoints."""
 
