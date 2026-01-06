@@ -177,10 +177,11 @@ class TestAgentService:
         
         # Verify subprocess call
         mock_subprocess_run.assert_called_once_with(
-            ["opencode", "run", "--format", "json", "Hello agent"],
+            ["opencode", "run", "--format", "json"],
             capture_output=True,
             text=True,
-            cwd=mock_working_dir
+            input="Hello agent",
+            cwd=mock_working_dir,
         )
         
         # Verify response structure
@@ -192,6 +193,31 @@ class TestAgentService:
         assert result["prompt"] == "Hello agent"
         assert result["response"] == "Agent response content"
         assert result["responses"] == []
+
+    @patch('agent_service._get_working_directory')
+    @patch('agent_service.subprocess.run')
+    def test_send_agent_message_with_leading_hyphen(self, mock_subprocess_run, mock_get_working_dir):
+        """Messages beginning with '-' are passed via stdin, not parsed as flags."""
+        from agent_service import send_agent_message
+
+        mock_working_dir = Path("/test/workspace/repo")
+        mock_get_working_dir.return_value = mock_working_dir
+
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stdout = "Response"
+        mock_subprocess_run.return_value = mock_result
+
+        result = send_agent_message("test-repo", "-inspect")
+
+        mock_subprocess_run.assert_called_once_with(
+            ["opencode", "run", "--format", "json"],
+            capture_output=True,
+            text=True,
+            input="-inspect",
+            cwd=mock_working_dir,
+        )
+        assert result["prompt"] == "-inspect"
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')
@@ -213,15 +239,17 @@ class TestAgentService:
         send_agent_message("test-repo", "Follow up", "ses_123")
 
         assert mock_subprocess_run.call_args_list[0] == call(
-            ["opencode", "run", "-s", "ses_123", "--format", "json", "Hello agent"],
+            ["opencode", "run", "-s", "ses_123", "--format", "json"],
             capture_output=True,
             text=True,
+            input="Hello agent",
             cwd=mock_working_dir,
         )
         assert mock_subprocess_run.call_args_list[1] == call(
-            ["opencode", "run", "-s", "ses_123", "--format", "json", "Follow up"],
+            ["opencode", "run", "-s", "ses_123", "--format", "json"],
             capture_output=True,
             text=True,
+            input="Follow up",
             cwd=mock_working_dir,
         )
         assert _conversation_sessions["test-repo"] == "ses_123"
@@ -249,15 +277,17 @@ class TestAgentService:
         send_agent_message("test-repo", "Fresh start")
 
         assert mock_subprocess_run.call_args_list[0] == call(
-            ["opencode", "run", "-s", "ses_123", "--format", "json", "Hello agent"],
+            ["opencode", "run", "-s", "ses_123", "--format", "json"],
             capture_output=True,
             text=True,
+            input="Hello agent",
             cwd=mock_working_dir,
         )
         assert mock_subprocess_run.call_args_list[1] == call(
-            ["opencode", "run", "--format", "json", "Fresh start"],
+            ["opencode", "run", "--format", "json"],
             capture_output=True,
             text=True,
+            input="Fresh start",
             cwd=mock_working_dir,
         )
         assert "test-repo" not in _conversation_sessions
@@ -292,6 +322,13 @@ class TestAgentService:
         ]
         assert result["sessionId"] == "ses_123"
         assert _conversation_sessions["test-repo"] == "ses_123"
+        mock_subprocess_run.assert_called_once_with(
+            ["opencode", "run", "--format", "json"],
+            capture_output=True,
+            text=True,
+            input="Hello agent",
+            cwd=mock_working_dir,
+        )
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')
@@ -321,6 +358,13 @@ class TestAgentService:
             {"text": "firecrawl_firecrawl_search", "timestamp": "2025-12-28T21:09:59.000Z", "type": "tool"},
             {"text": "After tool", "timestamp": "2025-12-28T21:10:00.000Z", "type": "final"},
         ]
+        mock_subprocess_run.assert_called_once_with(
+            ["opencode", "run", "--format", "json"],
+            capture_output=True,
+            text=True,
+            input="Hello agent",
+            cwd=mock_working_dir,
+        )
 
     def test_parse_opencode_output_single_text_is_final(self):
         """Ensure a single text response is treated as the final message."""
@@ -355,6 +399,13 @@ class TestAgentService:
 
         # Verify error response
         assert result["response"] == "Error: Command error"
+        mock_subprocess_run.assert_called_once_with(
+            ["opencode", "run", "--format", "json"],
+            capture_output=True,
+            text=True,
+            input="Hello agent",
+            cwd=mock_working_dir,
+        )
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')
@@ -373,6 +424,13 @@ class TestAgentService:
         
         # Verify file not found response
         assert result["response"] == "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
+        mock_subprocess_run.assert_called_once_with(
+            ["opencode", "run", "--format", "json"],
+            capture_output=True,
+            text=True,
+            input="Hello agent",
+            cwd=mock_working_dir,
+        )
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.run')
@@ -391,3 +449,10 @@ class TestAgentService:
         
         # Verify generic error response
         assert result["response"] == "Error: Generic error"
+        mock_subprocess_run.assert_called_once_with(
+            ["opencode", "run", "--format", "json"],
+            capture_output=True,
+            text=True,
+            input="Hello agent",
+            cwd=mock_working_dir,
+        )
