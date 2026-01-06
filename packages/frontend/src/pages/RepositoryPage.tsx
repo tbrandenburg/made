@@ -181,7 +181,11 @@ export const RepositoryPage: React.FC = () => {
     if (!navigator.clipboard || !chat.length) return;
 
     const content = chat
-      .map((message) => message.text || "")
+      .map((message) => {
+        const rolePrefix = message.role === "agent" ? "[agent]" : "[user]";
+        const messageText = message.text || "";
+        return messageText ? `${rolePrefix} ${messageText}` : rolePrefix;
+      })
       .join("\n\n")
       .trim();
 
