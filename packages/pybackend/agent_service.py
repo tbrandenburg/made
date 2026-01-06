@@ -491,7 +491,7 @@ def list_chat_sessions(channel: str | None = None, limit: int = 10) -> list[dict
 
     try:
         result = subprocess.run(
-            ["opencode", "sessions"],
+            ["opencode", "session", "list"],
             capture_output=True,
             text=True,
             cwd=working_dir,
