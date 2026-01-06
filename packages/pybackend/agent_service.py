@@ -44,12 +44,12 @@ def get_channel_status(channel: str) -> dict[str, object]:
     }
 
 
-def _build_opencode_command(message: str, session_id: str | None) -> list[str]:
+def _build_opencode_command(session_id: str | None) -> list[str]:
     """Build the opencode command based on conversation state."""
     command = ["opencode", "run"]
     if session_id:
         command.extend(["-s", session_id])
-    command.extend(["--format", "json", message])
+    command.extend(["--format", "json"])
     return command
 
 
@@ -450,7 +450,7 @@ def send_agent_message(channel: str, message: str, session_id: str | None = None
     else:
         _conversation_sessions.pop(channel, None)
 
-    command = _build_opencode_command(message, active_session)
+    command = _build_opencode_command(active_session)
 
     logger.info(
         "Sending agent message (channel: %s, session: %s)", channel, active_session
@@ -462,6 +462,7 @@ def send_agent_message(channel: str, message: str, session_id: str | None = None
             command,
             capture_output=True,
             text=True,
+            input=message,
             cwd=working_dir,  # Run in the correct directory
         )
 
