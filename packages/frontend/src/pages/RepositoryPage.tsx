@@ -385,13 +385,23 @@ export const RepositoryPage: React.FC = () => {
   useEffect(() => {
     if (!chatLoading || !name || !sessionId) return;
 
-    const intervalId = window.setInterval(() => {
-      const controller = new AbortController();
-      syncChatHistory(controller.signal);
-    }, 5000);
+    const controller = new AbortController();
+    let timeoutId: number | undefined;
+
+    const tick = async () => {
+      await syncChatHistory(controller.signal);
+      if (!controller.signal.aborted) {
+        timeoutId = window.setTimeout(tick, 5000);
+      }
+    };
+
+    tick();
 
     return () => {
-      window.clearInterval(intervalId);
+      controller.abort();
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
     };
   }, [chatLoading, name, sessionId, syncChatHistory]);
 
