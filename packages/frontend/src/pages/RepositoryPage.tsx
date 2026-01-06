@@ -341,11 +341,9 @@ export const RepositoryPage: React.FC = () => {
     refreshAgentStatus();
   }, [refreshAgentStatus]);
 
-  useEffect(() => {
-    if (!name || !sessionId) return;
-    const controller = new AbortController();
-
-    const syncChatHistory = async () => {
+  const syncChatHistory = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!name || !sessionId) return;
       console.info("[ChatHistory] Request started");
       try {
         const startTimestamp = lastKnownTimestamp
@@ -355,7 +353,7 @@ export const RepositoryPage: React.FC = () => {
           name,
           sessionId,
           startTimestamp,
-          controller.signal,
+          signal,
         );
 
         if (!history.messages?.length) {
@@ -374,11 +372,28 @@ export const RepositoryPage: React.FC = () => {
         }
         console.error("Failed to load chat history", error);
       }
-    };
+    },
+    [lastKnownTimestamp, name, sessionId, setChat],
+  );
 
-    syncChatHistory();
+  useEffect(() => {
+    const controller = new AbortController();
+    syncChatHistory(controller.signal);
     return () => controller.abort();
-  }, [name, sessionId, lastKnownTimestamp, setChat]);
+  }, [syncChatHistory]);
+
+  useEffect(() => {
+    if (!chatLoading || !name || !sessionId) return;
+
+    const intervalId = window.setInterval(() => {
+      const controller = new AbortController();
+      syncChatHistory(controller.signal);
+    }, 5000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [chatLoading, name, sessionId, syncChatHistory]);
 
   const handleSendMessage = async (prompt?: string) => {
     if (!name) return;
