@@ -143,8 +143,10 @@ textarea {
   opacity: 0.6;
   transition: color 0.2s ease, opacity 0.2s ease;
   background: transparent;
+  background-color: transparent !important;
   border: none;
   padding: 0;
+  box-shadow: none;
 }
 
 .copy-button:hover,
@@ -152,6 +154,8 @@ textarea {
   opacity: 1;
   color: var(--text);
   outline: none;
+  background-color: transparent;
+  box-shadow: none;
 }
 
 .copy-button:disabled {
