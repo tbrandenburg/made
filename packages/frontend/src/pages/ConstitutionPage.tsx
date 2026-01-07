@@ -178,6 +178,18 @@ export const ConstitutionPage: React.FC = () => {
     }
   };
 
+  const handleCancel = async () => {
+    if (!name) return;
+    try {
+      await api.cancelConstitutionAgent(name);
+    } catch (error) {
+      console.error("Failed to cancel agent request", error);
+      setAgentStatus("Unable to cancel the agent request.");
+    } finally {
+      await refreshAgentStatus();
+    }
+  };
+
   const handleCancelClearSession = () => {
     setClearSessionModalOpen(false);
   };
@@ -340,13 +352,19 @@ export const ConstitutionPage: React.FC = () => {
                   placeholder="Ask the agent to update governance rules..."
                 />
                 <div className="button-bar">
-                  <button
-                    className="primary"
-                    onClick={handleSend}
-                    disabled={chatLoading || !prompt.trim()}
-                  >
-                    {chatLoading ? "Sending..." : "Send"}
-                  </button>
+                  {chatLoading ? (
+                    <button className="danger" onClick={handleCancel}>
+                      Cancel
+                    </button>
+                  ) : (
+                    <button
+                      className="primary"
+                      onClick={handleSend}
+                      disabled={!prompt.trim()}
+                    >
+                      Send
+                    </button>
+                  )}
                 </div>
               </Panel>
             ),

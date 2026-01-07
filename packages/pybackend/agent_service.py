@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 _processing_lock = Lock()
 _processing_channels: dict[str, datetime] = {}
+_processing_processes: dict[str, subprocess.Popen] = {}
+_cancelled_channels: set[str] = set()
 _conversation_sessions: dict[str, str] = {}
 SESSION_ROW_PATTERN = re.compile(r"^(ses_[^\s]+)\s{2,}(.*?)\s{2,}(.+)$")
 LOG_PREVIEW_LIMIT = 500
@@ -35,6 +37,43 @@ def _mark_channel_processing(channel: str) -> bool:
 def _clear_channel_processing(channel: str) -> None:
     with _processing_lock:
         _processing_channels.pop(channel, None)
+        _processing_processes.pop(channel, None)
+        _cancelled_channels.discard(channel)
+
+
+def _set_channel_process(channel: str, process: subprocess.Popen) -> None:
+    with _processing_lock:
+        _processing_processes[channel] = process
+
+
+def _mark_channel_cancelled(channel: str) -> None:
+    with _processing_lock:
+        _cancelled_channels.add(channel)
+
+
+def _was_channel_cancelled(channel: str) -> bool:
+    with _processing_lock:
+        return channel in _cancelled_channels
+
+
+def cancel_agent_message(channel: str) -> bool:
+    with _processing_lock:
+        process = _processing_processes.get(channel)
+        if process is None:
+            return False
+        _cancelled_channels.add(channel)
+
+    if process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            process.kill()
+
+    with _processing_lock:
+        _processing_channels.pop(channel, None)
+        _processing_processes.pop(channel, None)
+    return True
 
 
 def get_channel_status(channel: str) -> dict[str, object]:
@@ -548,22 +587,28 @@ def send_agent_message(channel: str, message: str, session_id: str | None = None
 
     try:
         # Run the opencode command with the message in the appropriate directory
-        result = subprocess.run(
+        process = subprocess.Popen(
             command,
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            input=message,
-            cwd=working_dir,  # Run in the correct directory
+            cwd=working_dir,
         )
+        _set_channel_process(channel, process)
+        stdout, stderr = process.communicate(input=message)
 
-        if result.returncode == 0:
-            session_id, parsed_responses = _parse_opencode_output(result.stdout)
+        if _was_channel_cancelled(channel):
+            parsed_responses = []
+            response = "Agent request cancelled."
+        elif process.returncode == 0:
+            session_id, parsed_responses = _parse_opencode_output(stdout or "")
             if session_id:
                 _conversation_sessions[channel] = session_id
             response = (
                 "\n\n".join(part["text"] for part in parsed_responses)
                 if parsed_responses
-                else result.stdout.strip()
+                else (stdout or "").strip()
             )
             logger.info(
                 "Agent message processed (channel: %s, session: %s)",
@@ -573,8 +618,8 @@ def send_agent_message(channel: str, message: str, session_id: str | None = None
         else:
             parsed_responses = []
             response = (
-                f"Error: {result.stderr.strip()}"
-                if result.stderr.strip()
+                f"Error: {(stderr or '').strip()}"
+                if (stderr or "").strip()
                 else "Command failed with no output"
             )
             command_preview = " ".join(command)[:200]

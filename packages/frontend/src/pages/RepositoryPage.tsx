@@ -473,6 +473,18 @@ export const RepositoryPage: React.FC = () => {
     }
   };
 
+  const handleCancelAgent = async () => {
+    if (!name) return;
+    try {
+      await api.cancelRepositoryAgent(name);
+    } catch (error) {
+      console.error("Failed to cancel agent request", error);
+      setChatError("Unable to cancel the agent request.");
+    } finally {
+      await refreshAgentStatus();
+    }
+  };
+
   const handleCancelClearSession = () => {
     setClearSessionModalOpen(false);
   };
@@ -815,13 +827,19 @@ export const RepositoryPage: React.FC = () => {
             placeholder="Describe the change or ask the agent..."
           />
           <div className="button-bar">
-            <button
-              className="primary"
-              onClick={() => handleSendMessage()}
-              disabled={chatLoading || !pendingPrompt.trim()}
-            >
-              {chatLoading ? "Sending..." : "Send"}
-            </button>
+            {chatLoading ? (
+              <button className="danger" onClick={handleCancelAgent}>
+                Cancel
+              </button>
+            ) : (
+              <button
+                className="primary"
+                onClick={() => handleSendMessage()}
+                disabled={!pendingPrompt.trim()}
+              >
+                Send
+              </button>
+            )}
           </div>
         </Panel>
       ),

@@ -4,6 +4,7 @@ These tests mock all external dependencies and focus on business logic.
 """
 
 import pytest
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import Mock, call, patch
@@ -159,8 +160,8 @@ class TestAgentService:
         assert result == const_dir
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.subprocess.run')
-    def test_send_agent_message_success(self, mock_subprocess_run, mock_get_working_dir):
+    @patch('agent_service.subprocess.Popen')
+    def test_send_agent_message_success(self, mock_subprocess_popen, mock_get_working_dir):
         """Test successful agent message sending."""
         from agent_service import send_agent_message
 
@@ -168,22 +169,24 @@ class TestAgentService:
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = "Agent response content"
-        mock_subprocess_run.return_value = mock_result
+        mock_process = Mock()
+        mock_process.returncode = 0
+        mock_process.communicate.return_value = ("Agent response content", "")
+        mock_subprocess_popen.return_value = mock_process
 
         # Test successful message
         result = send_agent_message("test-repo", "Hello agent")
         
         # Verify subprocess call
-        mock_subprocess_run.assert_called_once_with(
+        mock_subprocess_popen.assert_called_once_with(
             ["opencode", "run", "--format", "json"],
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            input="Hello agent",
             cwd=mock_working_dir,
         )
+        mock_process.communicate.assert_called_once_with(input="Hello agent")
         
         # Verify response structure
         assert "messageId" in result
@@ -196,69 +199,75 @@ class TestAgentService:
         assert result["responses"] == []
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.subprocess.run')
-    def test_send_agent_message_with_leading_hyphen(self, mock_subprocess_run, mock_get_working_dir):
+    @patch('agent_service.subprocess.Popen')
+    def test_send_agent_message_with_leading_hyphen(self, mock_subprocess_popen, mock_get_working_dir):
         """Messages beginning with '-' are passed via stdin, not parsed as flags."""
         from agent_service import send_agent_message
 
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = "Response"
-        mock_subprocess_run.return_value = mock_result
+        mock_process = Mock()
+        mock_process.returncode = 0
+        mock_process.communicate.return_value = ("Response", "")
+        mock_subprocess_popen.return_value = mock_process
 
         result = send_agent_message("test-repo", "-inspect")
 
-        mock_subprocess_run.assert_called_once_with(
+        mock_subprocess_popen.assert_called_once_with(
             ["opencode", "run", "--format", "json"],
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            input="-inspect",
             cwd=mock_working_dir,
         )
+        mock_process.communicate.assert_called_once_with(input="-inspect")
         assert result["prompt"] == "-inspect"
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.subprocess.run')
-    def test_send_agent_message_with_session_id(self, mock_subprocess_run, mock_get_working_dir):
+    @patch('agent_service.subprocess.Popen')
+    def test_send_agent_message_with_session_id(self, mock_subprocess_popen, mock_get_working_dir):
         """Test messages include provided session ID each time."""
         from agent_service import _conversation_sessions, send_agent_message
 
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = "Agent response content"
-        mock_subprocess_run.return_value = mock_result
+        mock_process = Mock()
+        mock_process.returncode = 0
+        mock_process.communicate.return_value = ("Agent response content", "")
+        mock_subprocess_popen.return_value = mock_process
 
         _conversation_sessions.clear()
 
         send_agent_message("test-repo", "Hello agent", "ses_123")
         send_agent_message("test-repo", "Follow up", "ses_123")
 
-        assert mock_subprocess_run.call_args_list[0] == call(
+        assert mock_subprocess_popen.call_args_list[0] == call(
             ["opencode", "run", "-s", "ses_123", "--format", "json"],
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            input="Hello agent",
             cwd=mock_working_dir,
         )
-        assert mock_subprocess_run.call_args_list[1] == call(
+        assert mock_subprocess_popen.call_args_list[1] == call(
             ["opencode", "run", "-s", "ses_123", "--format", "json"],
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            input="Follow up",
             cwd=mock_working_dir,
         )
+        assert mock_process.communicate.call_args_list[0] == call(input="Hello agent")
+        assert mock_process.communicate.call_args_list[1] == call(input="Follow up")
         assert _conversation_sessions["test-repo"] == "ses_123"
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.subprocess.run')
+    @patch('agent_service.subprocess.Popen')
     def test_send_agent_message_resets_channel_without_session_id(
-        self, mock_subprocess_run, mock_get_working_dir
+        self, mock_subprocess_popen, mock_get_working_dir
     ):
         """When session ID is omitted, the channel starts a fresh session."""
         from agent_service import _conversation_sessions, send_agent_message
@@ -266,10 +275,10 @@ class TestAgentService:
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = "Agent response content"
-        mock_subprocess_run.return_value = mock_result
+        mock_process = Mock()
+        mock_process.returncode = 0
+        mock_process.communicate.return_value = ("Agent response content", "")
+        mock_subprocess_popen.return_value = mock_process
 
         _conversation_sessions.clear()
         send_agent_message("test-repo", "Hello agent", "ses_123")
@@ -277,40 +286,44 @@ class TestAgentService:
 
         send_agent_message("test-repo", "Fresh start")
 
-        assert mock_subprocess_run.call_args_list[0] == call(
+        assert mock_subprocess_popen.call_args_list[0] == call(
             ["opencode", "run", "-s", "ses_123", "--format", "json"],
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            input="Hello agent",
             cwd=mock_working_dir,
         )
-        assert mock_subprocess_run.call_args_list[1] == call(
+        assert mock_subprocess_popen.call_args_list[1] == call(
             ["opencode", "run", "--format", "json"],
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            input="Fresh start",
             cwd=mock_working_dir,
         )
+        assert mock_process.communicate.call_args_list[0] == call(input="Hello agent")
+        assert mock_process.communicate.call_args_list[1] == call(input="Fresh start")
         assert "test-repo" not in _conversation_sessions
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.subprocess.run')
-    def test_send_agent_message_parses_json_output(self, mock_subprocess_run, mock_get_working_dir):
+    @patch('agent_service.subprocess.Popen')
+    def test_send_agent_message_parses_json_output(self, mock_subprocess_popen, mock_get_working_dir):
         """Ensure opencode JSON output is parsed for text and session ID."""
         from agent_service import _conversation_sessions, send_agent_message
 
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = '\n'.join([
+        mock_process = Mock()
+        mock_process.returncode = 0
+        mock_process.communicate.return_value = ('\n'.join([
             '{"type":"step_start","timestamp":1766956198081,"sessionID":"ses_123","part":{"type":"step-start"}}',
             '{"type":"text","timestamp":1766956199330,"sessionID":"ses_123","part":{"type":"text","text":"First line"}}',
             '{"type":"text","timestamp":1766956199331,"sessionID":"ses_123","part":{"type":"text","text":"Second line"}}',
             '{"type":"step_finish","timestamp":1766956225161,"sessionID":"ses_123","part":{"type":"step-finish"}}',
-        ])
-        mock_subprocess_run.return_value = mock_result
+        ]), "")
+        mock_subprocess_popen.return_value = mock_process
 
         _conversation_sessions.clear()
 
@@ -323,31 +336,33 @@ class TestAgentService:
         ]
         assert result["sessionId"] == "ses_123"
         assert _conversation_sessions["test-repo"] == "ses_123"
-        mock_subprocess_run.assert_called_once_with(
+        mock_subprocess_popen.assert_called_once_with(
             ["opencode", "run", "--format", "json"],
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            input="Hello agent",
             cwd=mock_working_dir,
         )
+        mock_process.communicate.assert_called_once_with(input="Hello agent")
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.subprocess.run')
-    def test_send_agent_message_includes_tool_use(self, mock_subprocess_run, mock_get_working_dir):
+    @patch('agent_service.subprocess.Popen')
+    def test_send_agent_message_includes_tool_use(self, mock_subprocess_popen, mock_get_working_dir):
         """Ensure tool_use entries are included with type metadata."""
         from agent_service import send_agent_message
 
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = '\n'.join([
+        mock_process = Mock()
+        mock_process.returncode = 0
+        mock_process.communicate.return_value = ('\n'.join([
             '{"type":"text","timestamp":1766956198000,"sessionID":"ses_tool","part":{"type":"text","text":"Before tool"}}',
             '{"type":"tool_use","timestamp":1766956199000,"sessionID":"ses_tool","part":{"tool":"firecrawl_firecrawl_search"}}',
             '{"type":"text","timestamp":1766956200000,"sessionID":"ses_tool","part":{"type":"text","text":"After tool"}}',
-        ])
-        mock_subprocess_run.return_value = mock_result
+        ]), "")
+        mock_subprocess_popen.return_value = mock_process
 
         result = send_agent_message("test-repo", "Hello agent")
 
@@ -359,13 +374,15 @@ class TestAgentService:
             {"text": "firecrawl_firecrawl_search", "timestamp": "2025-12-28T21:09:59.000Z", "type": "tool"},
             {"text": "After tool", "timestamp": "2025-12-28T21:10:00.000Z", "type": "final"},
         ]
-        mock_subprocess_run.assert_called_once_with(
+        mock_subprocess_popen.assert_called_once_with(
             ["opencode", "run", "--format", "json"],
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            input="Hello agent",
             cwd=mock_working_dir,
         )
+        mock_process.communicate.assert_called_once_with(input="Hello agent")
 
     def test_parse_opencode_output_single_text_is_final(self):
         """Ensure a single text response is treated as the final message."""
@@ -381,8 +398,8 @@ class TestAgentService:
         assert parsed == [{"text": "Final answer", "timestamp": "2025-12-28T21:09:59.331Z", "type": "final"}]
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.subprocess.run')
-    def test_send_agent_message_command_failure(self, mock_subprocess_run, mock_get_working_dir):
+    @patch('agent_service.subprocess.Popen')
+    def test_send_agent_message_command_failure(self, mock_subprocess_popen, mock_get_working_dir):
         """Test agent message sending with command failure."""
         from agent_service import send_agent_message
         
@@ -390,27 +407,29 @@ class TestAgentService:
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
         
-        mock_result = Mock()
-        mock_result.returncode = 1
-        mock_result.stderr = "Command error"
-        mock_subprocess_run.return_value = mock_result
+        mock_process = Mock()
+        mock_process.returncode = 1
+        mock_process.communicate.return_value = ("", "Command error")
+        mock_subprocess_popen.return_value = mock_process
 
         # Test failed command
         result = send_agent_message("test-repo", "Hello agent")
 
         # Verify error response
         assert result["response"] == "Error: Command error"
-        mock_subprocess_run.assert_called_once_with(
+        mock_subprocess_popen.assert_called_once_with(
             ["opencode", "run", "--format", "json"],
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            input="Hello agent",
             cwd=mock_working_dir,
         )
+        mock_process.communicate.assert_called_once_with(input="Hello agent")
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.subprocess.run')
-    def test_send_agent_message_file_not_found(self, mock_subprocess_run, mock_get_working_dir):
+    @patch('agent_service.subprocess.Popen')
+    def test_send_agent_message_file_not_found(self, mock_subprocess_popen, mock_get_working_dir):
         """Test agent message sending when opencode is not found."""
         from agent_service import send_agent_message
         
@@ -418,24 +437,25 @@ class TestAgentService:
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_subprocess_run.side_effect = FileNotFoundError()
+        mock_subprocess_popen.side_effect = FileNotFoundError()
 
         # Test file not found
         result = send_agent_message("test-repo", "Hello agent")
         
         # Verify file not found response
         assert result["response"] == "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
-        mock_subprocess_run.assert_called_once_with(
+        mock_subprocess_popen.assert_called_once_with(
             ["opencode", "run", "--format", "json"],
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            input="Hello agent",
             cwd=mock_working_dir,
         )
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.subprocess.run')
-    def test_send_agent_message_generic_exception(self, mock_subprocess_run, mock_get_working_dir):
+    @patch('agent_service.subprocess.Popen')
+    def test_send_agent_message_generic_exception(self, mock_subprocess_popen, mock_get_working_dir):
         """Test agent message sending with generic exception."""
         from agent_service import send_agent_message
         
@@ -443,18 +463,19 @@ class TestAgentService:
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_subprocess_run.side_effect = Exception("Generic error")
+        mock_subprocess_popen.side_effect = Exception("Generic error")
 
         # Test generic exception
         result = send_agent_message("test-repo", "Hello agent")
         
         # Verify generic error response
         assert result["response"] == "Error: Generic error"
-        mock_subprocess_run.assert_called_once_with(
+        mock_subprocess_popen.assert_called_once_with(
             ["opencode", "run", "--format", "json"],
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            input="Hello agent",
             cwd=mock_working_dir,
         )
 

@@ -176,6 +176,8 @@ export const api = {
     }),
   getRepositoryAgentStatus: (name: string) =>
     request<AgentStatus>(`/repositories/${name}/agent/status`),
+  cancelRepositoryAgent: (name: string) =>
+    request(`/repositories/${name}/agent/cancel`, { method: "POST" }),
   getRepositoryAgentHistory: (
     name: string,
     sessionId: string,
@@ -260,6 +262,8 @@ export const api = {
     }),
   getKnowledgeAgentStatus: (name: string) =>
     request<AgentStatus>(`/knowledge/${name}/agent/status`),
+  cancelKnowledgeAgent: (name: string) =>
+    request(`/knowledge/${name}/agent/cancel`, { method: "POST" }),
   listConstitutions: () =>
     request<{ constitutions: ArtefactSummary[] }>("/constitutions"),
   getConstitution: (name: string) =>
@@ -276,6 +280,8 @@ export const api = {
     }),
   getConstitutionAgentStatus: (name: string) =>
     request<AgentStatus>(`/constitutions/${name}/agent/status`),
+  cancelConstitutionAgent: (name: string) =>
+    request(`/constitutions/${name}/agent/cancel`, { method: "POST" }),
   getSettings: () => request<Record<string, unknown>>("/settings"),
   saveSettings: (settings: Record<string, unknown>) =>
     request("/settings", {

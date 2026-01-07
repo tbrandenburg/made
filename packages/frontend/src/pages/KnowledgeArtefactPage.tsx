@@ -178,6 +178,18 @@ export const KnowledgeArtefactPage: React.FC = () => {
     }
   };
 
+  const handleCancel = async () => {
+    if (!name) return;
+    try {
+      await api.cancelKnowledgeAgent(name);
+    } catch (error) {
+      console.error("Failed to cancel agent request", error);
+      setAgentStatus("Unable to cancel the agent request.");
+    } finally {
+      await refreshAgentStatus();
+    }
+  };
+
   const handleCancelClearSession = () => {
     setClearSessionModalOpen(false);
   };
@@ -358,13 +370,19 @@ export const KnowledgeArtefactPage: React.FC = () => {
                   placeholder="Ask the agent about this artefact..."
                 />
                 <div className="button-bar">
-                  <button
-                    className="primary"
-                    onClick={handleSend}
-                    disabled={chatLoading || !prompt.trim()}
-                  >
-                    {chatLoading ? "Sending..." : "Send"}
-                  </button>
+                  {chatLoading ? (
+                    <button className="danger" onClick={handleCancel}>
+                      Cancel
+                    </button>
+                  ) : (
+                    <button
+                      className="primary"
+                      onClick={handleSend}
+                      disabled={!prompt.trim()}
+                    >
+                      Send
+                    </button>
+                  )}
                 </div>
               </Panel>
             ),
