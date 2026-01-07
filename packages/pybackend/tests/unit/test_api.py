@@ -185,6 +185,27 @@ class TestKnowledgeAgentSessions:
         assert response.status_code == 500
 
 
+class TestKnowledgeAgentCancel:
+    @patch('app.cancel_agent_message')
+    def test_knowledge_agent_cancel_success(self, mock_cancel):
+        mock_cancel.return_value = True
+
+        response = client.post("/api/knowledge/sample/agent/cancel")
+
+        assert response.status_code == 200
+        assert response.json() == {"success": True}
+        mock_cancel.assert_called_once_with("knowledge:sample")
+
+    @patch('app.cancel_agent_message')
+    def test_knowledge_agent_cancel_not_found(self, mock_cancel):
+        mock_cancel.return_value = False
+
+        response = client.post("/api/knowledge/sample/agent/cancel")
+
+        assert response.status_code == 404
+        assert "No active agent process" in response.json()["detail"]
+
+
 class TestConstitutionAgentHistory:
     @patch('app.export_chat_history')
     def test_constitution_history_success(self, mock_export):
@@ -219,6 +240,27 @@ class TestConstitutionAgentHistory:
         )
 
         assert response.status_code == 500
+
+
+class TestConstitutionAgentCancel:
+    @patch('app.cancel_agent_message')
+    def test_constitution_agent_cancel_success(self, mock_cancel):
+        mock_cancel.return_value = True
+
+        response = client.post("/api/constitutions/sample/agent/cancel")
+
+        assert response.status_code == 200
+        assert response.json() == {"success": True}
+        mock_cancel.assert_called_once_with("constitution:sample")
+
+    @patch('app.cancel_agent_message')
+    def test_constitution_agent_cancel_not_found(self, mock_cancel):
+        mock_cancel.return_value = False
+
+        response = client.post("/api/constitutions/sample/agent/cancel")
+
+        assert response.status_code == 404
+        assert "No active agent process" in response.json()["detail"]
 
 
 class TestConstitutionAgentSessions:
@@ -347,6 +389,25 @@ class TestRepositoryEndpoints:
 
         assert response.status_code == 200
         assert response.json() == payload
+
+    @patch('app.cancel_agent_message')
+    def test_repository_agent_cancel_success(self, mock_cancel):
+        mock_cancel.return_value = True
+
+        response = client.post("/api/repositories/sample/agent/cancel")
+
+        assert response.status_code == 200
+        assert response.json() == {"success": True}
+        mock_cancel.assert_called_once_with("sample")
+
+    @patch('app.cancel_agent_message')
+    def test_repository_agent_cancel_not_found(self, mock_cancel):
+        mock_cancel.return_value = False
+
+        response = client.post("/api/repositories/sample/agent/cancel")
+
+        assert response.status_code == 404
+        assert "No active agent process" in response.json()["detail"]
 
     @patch('app.get_repository_info')
     def test_get_repository_info_success(self, mock_get_info):

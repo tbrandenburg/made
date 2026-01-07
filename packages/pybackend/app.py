@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from agent_service import (
     ChannelBusyError,
+    cancel_agent_message,
     export_chat_history,
     get_channel_status,
     list_chat_sessions,
@@ -337,6 +338,16 @@ def repository_agent_status(name: str):
     return get_channel_status(name)
 
 
+@app.post("/api/repositories/{name}/agent/cancel")
+def repository_agent_cancel(name: str):
+    if not cancel_agent_message(name):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active agent process to cancel",
+        )
+    return {"success": True}
+
+
 @app.get("/api/repositories/{name}/commands")
 def repository_commands(name: str):
     try:
@@ -540,6 +551,16 @@ def knowledge_agent_status(name: str):
     return get_channel_status(f"knowledge:{name}")
 
 
+@app.post("/api/knowledge/{name}/agent/cancel")
+def knowledge_agent_cancel(name: str):
+    if not cancel_agent_message(f"knowledge:{name}"):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active agent process to cancel",
+        )
+    return {"success": True}
+
+
 @app.get("/api/knowledge/{name}/agent/history")
 def knowledge_agent_history(
     name: str,
@@ -653,6 +674,16 @@ def constitution_agent(name: str, payload: dict = Body(...)):
 @app.get("/api/constitutions/{name}/agent/status")
 def constitution_agent_status(name: str):
     return get_channel_status(f"constitution:{name}")
+
+
+@app.post("/api/constitutions/{name}/agent/cancel")
+def constitution_agent_cancel(name: str):
+    if not cancel_agent_message(f"constitution:{name}"):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active agent process to cancel",
+        )
+    return {"success": True}
 
 
 @app.get("/api/constitutions/{name}/agent/history")
