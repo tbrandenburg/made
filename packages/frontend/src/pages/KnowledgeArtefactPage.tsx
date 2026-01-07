@@ -308,7 +308,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
                   <div className="panel-action-buttons">
                     <button
                       type="button"
-                      className="copy-button"
+                      className={`copy-button${chat.length ? "" : " is-muted"}`}
                       onClick={openSessionModal}
                       aria-label="Choose a session"
                       title="Choose a session"

@@ -166,6 +166,16 @@ textarea {
   border: none;
 }
 
+.copy-button.is-muted {
+  opacity: 0.35;
+}
+
+.copy-button.is-muted:hover,
+.copy-button.is-muted:focus-visible {
+  opacity: 0.35;
+  color: var(--muted);
+}
+
 .copy-button svg {
   width: 18px;
   height: 18px;
