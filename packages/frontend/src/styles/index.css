@@ -411,13 +411,16 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, transform 0.2s ease,
+    background-color 0.2s ease;
+  will-change: transform;
 }
 
 .session-pill:hover,
 .session-pill:focus-visible {
   border-color: var(--accent);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+  background-color: color-mix(in srgb, var(--surface) 90%, var(--accent));
   outline: none;
 }
 
