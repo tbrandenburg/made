@@ -355,22 +355,10 @@ textarea {
   text-align: right;
 }
 
-.chat-session-id button {
-  border: none;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  padding: 0.1rem 0.3rem;
-  border-radius: 0.5rem;
-  line-height: 1;
+.chat-session-id .copy-button {
+  width: 24px;
+  height: 24px;
   font-style: normal;
-}
-
-.chat-session-id button:hover,
-.chat-session-id button:focus-visible {
-  background: transparent;
-  color: var(--text);
-  outline: none;
 }
 
 .editor-input {
