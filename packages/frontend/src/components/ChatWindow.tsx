@@ -119,7 +119,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <span>Session ID: {sessionId}</span>
         <button
           type="button"
-          className="copy-button"
+          className="icon-button-small"
           aria-label="Clear session"
           title="Clear session"
           onClick={onClearSession}

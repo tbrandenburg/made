@@ -133,6 +133,7 @@ textarea {
   color: var(--text);
 }
 
+.icon-button-small,
 .copy-button {
   display: grid;
   place-items: center;
@@ -149,6 +150,8 @@ textarea {
   box-shadow: none;
 }
 
+.icon-button-small:hover,
+.icon-button-small:focus-visible,
 .copy-button:hover,
 .copy-button:focus-visible {
   opacity: 1;
@@ -158,6 +161,7 @@ textarea {
   box-shadow: none;
 }
 
+.icon-button-small:disabled,
 .copy-button:disabled {
   opacity: 0.35;
   cursor: not-allowed;
@@ -176,6 +180,7 @@ textarea {
   color: var(--muted);
 }
 
+.icon-button-small svg,
 .copy-button svg {
   width: 18px;
   height: 18px;
@@ -355,7 +360,7 @@ textarea {
   text-align: right;
 }
 
-.chat-session-id .copy-button {
+.chat-session-id .icon-button-small {
   width: 24px;
   height: 24px;
   font-style: normal;
