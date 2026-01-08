@@ -24,6 +24,30 @@ describe("chat utils", () => {
       expect(buildMessageDedupKey(message)).toBe("agent:stable-key");
     });
 
+    it("prioritises normalized text for user messages", () => {
+      const message: ChatMessage = {
+        id: "msg-1",
+        messageKey: "server-key",
+        role: "user",
+        text: "  Hello there!  ",
+        timestamp: baseTimestamp,
+      };
+
+      expect(buildMessageDedupKey(message)).toBe("user:Hello there!");
+    });
+
+    it("limits user message dedup keys to 300 characters", () => {
+      const longText = "a".repeat(350);
+      const message: ChatMessage = {
+        id: "msg-1",
+        role: "user",
+        text: longText,
+        timestamp: baseTimestamp,
+      };
+
+      expect(buildMessageDedupKey(message)).toBe(`user:${"a".repeat(300)}`);
+    });
+
     it("falls back to normalised text when no key is provided", () => {
       const message: ChatMessage = {
         id: "msg-2",
