@@ -949,18 +949,24 @@ export const RepositoryPage: React.FC = () => {
                   </div>
                 ) : (
                   <div className="commands-grid">
-                    {availableCommands.map((command) => (
-                      <button
-                        key={command.id}
-                        className="primary command-button"
-                        title={`${command.source} • ${command.name}`}
-                        onClick={() => handleCommandSelection(command)}
-                      >
-                        <span className="command-button__title">
-                          {command.description || command.name}
-                        </span>
-                      </button>
-                    ))}
+                    {availableCommands.map((command) => {
+                      const description = command.description || command.name;
+                      return (
+                        <button
+                          key={command.id}
+                          className="primary command-button"
+                          title={`${command.source} • ${command.name}`}
+                          onClick={() => handleCommandSelection(command)}
+                        >
+                          <span className="command-button__title">
+                            {command.name}
+                          </span>
+                          <span className="command-button__description">
+                            {description}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </>

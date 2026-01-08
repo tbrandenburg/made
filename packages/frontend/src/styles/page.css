@@ -186,3 +186,7 @@
 .command-button__title {
   font-weight: 600;
 }
+
+.command-button__description {
+  font-size: 0.85rem;
+}
