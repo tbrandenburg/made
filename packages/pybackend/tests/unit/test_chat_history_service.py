@@ -55,7 +55,12 @@ class TestExportChatHistory:
                     "time": {"created": 1000},
                 },
                 "parts": [
-                    {"type": "text", "text": "Hello", "time": {"start": 1000}},
+                    {
+                        "id": "prt_user_1",
+                        "type": "text",
+                        "text": "Hello",
+                        "time": {"start": 1000},
+                    },
                 ],
             },
             {
@@ -65,13 +70,20 @@ class TestExportChatHistory:
                     "time": {"created": 2000},
                 },
                 "parts": [
-                    {"type": "text", "text": "Hi", "timestamp": 2000},
-                        {"type": "tool_use", "tool": "search", "time": {"end": 2500}},
-                        {
-                            "type": "tool",
-                            "tool": "todowrite",
-                            "state": {"time": {"start": 3000, "end": 3100}},
-                        },
+                    {"id": "prt_text_1", "type": "text", "text": "Hi", "timestamp": 2000},
+                    {
+                        "id": "prt_tool_use",
+                        "type": "tool_use",
+                        "tool": "search",
+                        "callID": "call_search_1",
+                        "time": {"end": 2500},
+                    },
+                    {
+                        "id": "prt_tool_1",
+                        "type": "tool",
+                        "tool": "todowrite",
+                        "state": {"time": {"start": 3000, "end": 3100}},
+                    },
                 ],
             },
             {
@@ -104,6 +116,7 @@ class TestExportChatHistory:
                 "type": "text",
                 "content": "Hello",
                 "timestamp": "1970-01-01T00:00:01.000Z",
+                "partId": "prt_user_1",
             },
             {
                 "messageId": "msg_2",
@@ -111,6 +124,7 @@ class TestExportChatHistory:
                 "type": "text",
                 "content": "Hi",
                 "timestamp": "1970-01-01T00:00:02.000Z",
+                "partId": "prt_text_1",
             },
             {
                 "messageId": "msg_2",
@@ -118,6 +132,8 @@ class TestExportChatHistory:
                 "type": "tool_use",
                 "content": "search",
                 "timestamp": "1970-01-01T00:00:02.500Z",
+                "partId": "prt_tool_use",
+                "callId": "call_search_1",
             },
             {
                 "messageId": "msg_2",
@@ -125,6 +141,7 @@ class TestExportChatHistory:
                 "type": "tool",
                 "content": "todowrite",
                 "timestamp": "1970-01-01T00:00:03.100Z",
+                "partId": "prt_tool_1",
             },
         ]
 

@@ -73,6 +73,8 @@ export type AgentResponsePart = {
   text: string;
   timestamp?: string;
   type?: "thinking" | "tool" | "final";
+  partId?: string;
+  callId?: string;
 };
 
 export type AgentReply = {
@@ -95,6 +97,8 @@ export type ChatHistoryMessage = {
   type: "text" | "tool" | "tool_use";
   content: string;
   timestamp?: string | null;
+  partId?: string;
+  callId?: string;
 };
 
 export type ChatHistoryResponse = {

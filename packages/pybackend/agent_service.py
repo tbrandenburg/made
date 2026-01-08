@@ -202,7 +202,9 @@ def _parse_session_table(output: str, limit: int) -> list[dict[str, str]]:
     return sessions
 
 
-def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]]]:
+def _parse_opencode_output(
+    stdout: str,
+) -> tuple[str | None, list[dict[str, object]]]:
     session_id = None
     parts: list[dict[str, object]] = []
 
@@ -223,11 +225,20 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]
         payload_timestamp = payload.get("timestamp")
         part = payload.get("part") or {}
 
+        part_id = part.get("id")
+        call_id = part.get("callID") or part.get("callId")
+
         if payload_type == "text":
             text = _extract_part_content(part, "text")
             if text:
                 parts.append(
-                    {"kind": "text", "content": text, "timestamp": payload_timestamp}
+                    {
+                        "kind": "text",
+                        "content": text,
+                        "timestamp": payload_timestamp,
+                        "part_id": part_id,
+                        "call_id": call_id,
+                    }
                 )
         elif payload_type in {"tool_use", "tool"}:
             tool_name = _extract_part_content(part, payload_type)
@@ -237,6 +248,8 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]
                         "kind": "tool",
                         "content": tool_name,
                         "timestamp": payload_timestamp,
+                        "part_id": part_id,
+                        "call_id": call_id,
                     }
                 )
 
@@ -262,13 +275,20 @@ def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, str]
             message_type = "tool"
             text_content = content
 
-        responses.append(
-            {
-                "text": text_content,
-                "timestamp": _format_timestamp(raw_timestamp),
-                "type": message_type,
-            }
-        )
+        response: dict[str, object] = {
+            "text": text_content,
+            "timestamp": _format_timestamp(raw_timestamp),
+            "type": message_type,
+        }
+
+        part_id = part.get("part_id")
+        call_id = part.get("call_id")
+        if part_id:
+            response["partId"] = part_id
+        if call_id:
+            response["callId"] = call_id
+
+        responses.append(response)
 
     return session_id, responses
 
@@ -334,15 +354,22 @@ def _filter_export_messages(
                 if part_timestamp < start_timestamp:
                     continue
 
-            history.append(
-                {
-                    "messageId": message_info.get("id"),
-                    "role": role,
-                    "type": part_type,
-                    "content": _extract_part_content(part, part_type),
-                    "timestamp": _format_timestamp_optional(part_timestamp),
-                }
-            )
+            entry: dict[str, object] = {
+                "messageId": message_info.get("id"),
+                "role": role,
+                "type": part_type,
+                "content": _extract_part_content(part, part_type),
+                "timestamp": _format_timestamp_optional(part_timestamp),
+            }
+
+            part_id = part.get("id")
+            call_id = part.get("callID") or part.get("callId")
+            if part_id:
+                entry["partId"] = part_id
+            if call_id:
+                entry["callId"] = call_id
+
+            history.append(entry)
 
     return history
 
@@ -368,7 +395,7 @@ def _prune_export_payload(export_payload: dict[str, object]) -> dict[str, object
         if part_type:
             pruned_part["type"] = part_type
 
-        for key in ("text", "tool", "name", "id", "timestamp"):
+        for key in ("text", "tool", "name", "id", "timestamp", "callID", "callId"):
             if key in part:
                 pruned_part[key] = part[key]
 

@@ -102,7 +102,7 @@ describe("chat utils", () => {
       expect(merged[0].timestamp).toBe(newerTimestamp);
     });
 
-    it("merges repeated user history entries using normalised text", () => {
+    it("uses message IDs for user history entries when available", () => {
       const existing: ChatMessage[] = [
         {
           id: "local-1",
@@ -124,11 +124,26 @@ describe("chat utils", () => {
 
       const mapped = mapHistoryToMessages(history);
       expect(mapped[0].text).toBe("Okey, commit and push");
-      expect(mapped[0].messageKey).toBe("Okey, commit and push");
+      expect(mapped[0].messageKey).toBe("msg-1");
 
       const merged = mergeChatMessages(existing, mapped);
-      expect(merged).toHaveLength(1);
-      expect(merged[0].timestamp).toBe("2026-01-01T14:59:01.000Z");
+      expect(merged).toHaveLength(2);
+    });
+
+    it("uses call IDs to dedupe tool history entries", () => {
+      const history: ChatHistoryMessage[] = [
+        {
+          messageId: "msg-2",
+          role: "assistant",
+          type: "tool",
+          content: "search",
+          timestamp: "2026-01-01T15:00:00.000Z",
+          callId: "call-123",
+        },
+      ];
+
+      const mapped = mapHistoryToMessages(history);
+      expect(mapped[0].messageKey).toBe("call-123");
     });
   });
 });
