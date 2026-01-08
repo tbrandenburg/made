@@ -41,14 +41,20 @@ const normalizeMessageType = (
 };
 
 export const mapAgentReplyToMessages = (reply: AgentReply): ChatMessage[] => {
-  const parts =
+  const parts: AgentReply["responses"] =
     reply.responses && reply.responses.length
       ? reply.responses
       : reply.response
-        ? [{ text: reply.response, timestamp: reply.sent, type: "final" }]
+        ? [
+            {
+              text: reply.response,
+              timestamp: reply.sent,
+              type: "final",
+            },
+          ]
         : [];
 
-  return parts.map((part, index) => {
+  return (parts ?? []).map((part, index) => {
     const stableId = part.callId || part.partId || `${reply.messageId}-${index}`;
     const messageKey =
       part.callId || part.partId || `${reply.messageId}-${index}`;
