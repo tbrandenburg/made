@@ -48,14 +48,20 @@ export const mapAgentReplyToMessages = (reply: AgentReply): ChatMessage[] => {
         ? [{ text: reply.response, timestamp: reply.sent, type: "final" }]
         : [];
 
-  return parts.map((part, index) => ({
-    id: `${reply.messageId}-${index}`,
-    messageKey: reply.messageId,
-    role: "agent",
-    text: part.text,
-    timestamp: part.timestamp || reply.sent,
-    messageType: normalizeMessageType(part.type),
-  }));
+  return parts.map((part, index) => {
+    const stableId = part.callId || part.partId || `${reply.messageId}-${index}`;
+    const messageKey =
+      part.callId || part.partId || `${reply.messageId}-${index}`;
+
+    return {
+      id: stableId,
+      messageKey,
+      role: "agent",
+      text: part.text,
+      timestamp: part.timestamp || reply.sent,
+      messageType: normalizeMessageType(part.type),
+    };
+  });
 };
 
 const normalizeTimestamp = (rawTimestamp: string | null | undefined) => {
@@ -85,13 +91,14 @@ export const mapHistoryToMessages = (
     const count = occurrenceCounter[baseId] ?? 0;
     occurrenceCounter[baseId] = count + 1;
     const normalizedContent = normalizeChatMessageText(message.content);
+    const partKey = message.callId || message.partId;
 
     return {
       id: `${baseId}-${count}`,
       messageKey:
         role === "agent"
-          ? message.messageId || baseId
-          : normalizedContent || message.messageId || baseId,
+          ? partKey || message.messageId || baseId
+          : message.messageId || normalizedContent || baseId,
       role,
       text:
         role === "user"
