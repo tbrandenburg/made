@@ -113,6 +113,15 @@ $MADE_HOME/.made/
 └── settings.json  # Application settings
 ```
 
+### Command Discovery Locations
+
+MADE loads commands from the following locations (first found are combined):
+
+- `$MADE_HOME/.made/commands/` — pre-installed commands bundled at the MADE home.
+- `$MADE_WORKSPACE_HOME/.made/commands/` — workspace-scoped commands.
+- `~/.made/commands/`, `~/.claude/commands/`, `~/.codex/commands/` — user commands.
+- `$MADE_WORKSPACE_HOME/<repo>/.*/commands/**/*.md` — repository-specific commands inside hidden folders.
+
 ## API / Reference
 
 The backend provides a RESTful API with endpoints for:
