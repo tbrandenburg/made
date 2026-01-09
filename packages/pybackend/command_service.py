@@ -53,6 +53,7 @@ def list_commands(repo_name: str) -> List[Dict[str, Any]]:
         (Path.home() / ".made" / "commands", "user"),
         (Path.home() / ".claude" / "commands", "user"),
         (Path.home() / ".codex" / "commands", "user"),
+        (Path.home() / ".kiro" / "commands", "user"),
     ]
 
     for directory, source in command_roots:

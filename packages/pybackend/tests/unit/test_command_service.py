@@ -40,6 +40,7 @@ def test_list_commands_collects_all_locations(temp_env):
     made_command = made_home / ".made" / "commands" / "made.md"
     user_command = user_home / ".made" / "commands" / "user.md"
     codex_command = user_home / ".codex" / "commands" / "codex.md"
+    kiro_command = user_home / ".kiro" / "commands" / "kiro.md"
 
     for path in [
         repo_path,
@@ -47,6 +48,7 @@ def test_list_commands_collects_all_locations(temp_env):
         made_home / ".made" / "commands",
         user_home / ".made" / "commands",
         user_home / ".codex" / "commands",
+        user_home / ".kiro" / "commands",
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
@@ -55,16 +57,18 @@ def test_list_commands_collects_all_locations(temp_env):
     write_command_file(made_command, "Made command", "[arg]", "run $1")
     write_command_file(user_command, "User command", None, "say hi")
     write_command_file(codex_command, None, "[num]", "count $1")
+    write_command_file(kiro_command, None, None, "kiro content")
 
     commands = list_commands("sample-repo")
 
-    assert len(commands) == 5
+    assert len(commands) == 6
     descriptions = {command["description"] for command in commands}
     assert "Repo command" in descriptions
     assert "workspace" in descriptions
     assert "Made command" in descriptions
     assert "User command" in descriptions
     assert "codex" in descriptions
+    assert "kiro" in descriptions
 
     repo_entry = next(cmd for cmd in commands if cmd["name"] == "repo")
     assert repo_entry["argumentHint"] == "[name]"
