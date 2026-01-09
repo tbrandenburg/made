@@ -670,13 +670,29 @@ export const RepositoryPage: React.FC = () => {
     }
   };
 
+  const sortNodes = (nodes?: FileNode[]) => {
+    if (!nodes) return [];
+    return [...nodes].sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === "folder" ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+    });
+  };
+
   const renderNode = (node: FileNode, depth = 0): React.ReactNode => {
     if (node.path === ".") {
-      return node.children?.map((child) => renderNode(child, depth));
+      return sortNodes(node.children).map((child) =>
+        renderNode(child, depth),
+      );
     }
     const indent = { marginLeft: depth * 16 };
     const isFolder = node.type === "folder";
     const isExpanded = expanded.has(node.path);
+    const sortedChildren = sortNodes(node.children);
 
     const handleFolderToggle = () => toggleFolder(node.path);
     const handleToggleKeyDown = (event: React.KeyboardEvent) => {
@@ -761,7 +777,7 @@ export const RepositoryPage: React.FC = () => {
         </div>
         {isFolder &&
           isExpanded &&
-          node.children?.map((child) => renderNode(child, depth + 1))}
+          sortedChildren.map((child) => renderNode(child, depth + 1))}
       </div>
     );
   };
