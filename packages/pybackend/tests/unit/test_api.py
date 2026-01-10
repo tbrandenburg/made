@@ -347,7 +347,9 @@ class TestRepositoryEndpoints:
         )
 
         assert response.status_code == 201
-        mock_clone.assert_called_once_with("https://example.com/cloned.git", "custom")
+        mock_clone.assert_called_once_with(
+            "https://example.com/cloned.git", "custom", None
+        )
 
     def test_clone_repository_missing_url(self):
         """Test cloning without providing URL."""

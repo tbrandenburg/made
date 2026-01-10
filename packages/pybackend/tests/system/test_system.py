@@ -129,7 +129,7 @@ class TestServiceIntegration:
         assert response.status_code == 201
         assert response.json()["name"] == "cloned"
         mock_clone_repository.assert_called_once_with(
-            "https://example.com/repo.git", "custom"
+            "https://example.com/repo.git", "custom", None
         )
 
 
