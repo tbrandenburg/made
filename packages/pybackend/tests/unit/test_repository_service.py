@@ -57,6 +57,35 @@ def test_clone_repository_from_local_source(monkeypatch, tmp_path):
     assert result["hasGit"] is True
 
 
+def test_clone_repository_with_branch(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+
+    command_calls = []
+
+    def fake_check_call(command, **kwargs):
+        command_calls.append((command, kwargs))
+        (workspace / "repo").mkdir()
+
+    monkeypatch.setattr("repository_service.subprocess.check_call", fake_check_call)
+
+    result = clone_repository("https://example.com/repo.git", branch="release")
+
+    assert command_calls == [
+        (
+            ["git", "clone", "-b", "release", "https://example.com/repo.git", "repo"],
+            {
+                "cwd": str(workspace),
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+            },
+        )
+    ]
+    assert result["name"] == "repo"
+
+
 def test_clone_repository_ignores_empty_target(monkeypatch, tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()

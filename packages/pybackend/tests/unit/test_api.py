@@ -343,12 +343,16 @@ class TestRepositoryEndpoints:
 
         response = client.post(
             "/api/repositories/clone",
-            json={"url": "https://example.com/cloned.git", "name": "custom"},
+            json={
+                "url": "https://example.com/cloned.git",
+                "name": "custom",
+                "branch": "release",
+            },
         )
 
         assert response.status_code == 201
         mock_clone.assert_called_once_with(
-            "https://example.com/cloned.git", "custom", None
+            "https://example.com/cloned.git", "custom", "release"
         )
 
     def test_clone_repository_missing_url(self):
