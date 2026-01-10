@@ -4,7 +4,6 @@
     "opencode-openai-codex-auth@4.1.1",
     "opencode-skills"
   ],
-  "model": "github-copilot/claude-sonnet-4",
   "mcp": {
     "context7": {
       "type": "local",
@@ -30,7 +29,6 @@
     "todoread": true,
     "webfetch": true
   },
-  "model": "openai/gpt-5.1-codex",
   "provider": {
     "openai": {
       "options": {

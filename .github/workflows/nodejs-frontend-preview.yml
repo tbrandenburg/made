@@ -139,14 +139,9 @@ jobs:
       # Configure OpenCode
       # ------------------------------------------------------
       - name: Configure opencode
-        env:
-          OPENCODE_AUTH_JSON: ${{ secrets.OPENCODE_AUTH_JSON }}
         run: |
           mkdir -p "$HOME/.config/opencode"
           cp .github/opencode/config.json "$HOME/.config/opencode/config.json"
-
-          mkdir -p "$HOME/.local/share/opencode"
-          echo "$OPENCODE_AUTH_JSON" > "$HOME/.local/share/opencode/auth.json"
 
           check_file() {
             local path="$1"
@@ -161,7 +156,6 @@ jobs:
           }
 
           check_file "$HOME/.config/opencode/config.json" "config.json"
-          check_file "$HOME/.local/share/opencode/auth.json" "auth.json"
 
       - name: Run opencode success check
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
