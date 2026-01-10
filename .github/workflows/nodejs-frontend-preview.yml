@@ -157,6 +157,11 @@ jobs:
 
           check_file "$HOME/.config/opencode/config.json" "config.json"
 
+      - name: Prepare opencode skills directory
+        if: ${{ steps.detect.outputs.frontend_found == 'true' }}
+        run: |
+          mkdir -p "$HOME/.opencode/skills"
+
       - name: Run opencode success check
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         continue-on-error: true
