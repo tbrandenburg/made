@@ -181,6 +181,7 @@ def create_repo(payload: dict = Body(...)):
 def clone_repo(payload: dict = Body(...)):
     repo_url = payload.get("url")
     target_name = payload.get("name")
+    branch = payload.get("branch")
     if not repo_url:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -192,7 +193,7 @@ def clone_repo(payload: dict = Body(...)):
             repo_url,
             target_name or "<derived>",
         )
-        return clone_repository(repo_url, target_name)
+        return clone_repository(repo_url, target_name, branch)
     except ValueError as exc:
         logger.warning(
             "Repository cloning failed from '%s' to '%s': %s",
