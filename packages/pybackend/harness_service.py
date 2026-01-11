@@ -77,11 +77,30 @@ def run_harness(repo_name: str, harness_path: str) -> Dict[str, Any]:
     }
 
 
+def _read_process_state(pid: int) -> str | None:
+    proc_stat = Path("/proc") / str(pid) / "stat"
+    if not proc_stat.exists():
+        return None
+    try:
+        content = proc_stat.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    if ") " not in content:
+        return None
+    _, remainder = content.split(") ", 1)
+    if not remainder:
+        return None
+    return remainder.split(" ", 1)[0]
+
+
 def is_process_running(pid: int) -> bool:
     if pid <= 0:
         return False
     try:
         os.kill(pid, 0)
     except OSError:
+        return False
+    state = _read_process_state(pid)
+    if state in {"Z", "X"}:
         return False
     return True
