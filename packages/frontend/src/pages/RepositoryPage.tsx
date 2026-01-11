@@ -80,6 +80,12 @@ const formatArgumentHint = (argumentHint?: ArgumentHint) => {
   return normalizedHint.trim();
 };
 
+const formatHarnessTimestamp = (value: string) => {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return "Unknown time";
+  return new Date(parsed).toLocaleString();
+};
+
 const COMMAND_ACTIONS = [
   {
     id: "init-openspec",
@@ -327,6 +333,30 @@ export const RepositoryPage: React.FC = () => {
       .finally(() => setHarnessLoading(false));
   }, [name]);
 
+  const refreshHarnessStatuses = useCallback(async () => {
+    if (!harnessHistory.length) return;
+    const updates = await Promise.all(
+      harnessHistory.map(async (entry) => {
+        try {
+          const response = await api.getHarnessStatus(entry.pid);
+          return { pid: entry.pid, running: response.running };
+        } catch (error) {
+          console.error("Failed to fetch harness status", error);
+          return null;
+        }
+      }),
+    );
+    setHarnessStatuses((prev) => {
+      const next = { ...prev };
+      updates.forEach((update) => {
+        if (update) {
+          next[update.pid] = update.running;
+        }
+      });
+      return next;
+    });
+  }, [harnessHistory]);
+
   useEffect(() => {
     loadHarnesses();
   }, [loadHarnesses]);
@@ -381,37 +411,18 @@ export const RepositoryPage: React.FC = () => {
   useEffect(() => {
     if (!harnessHistory.length) return;
     let active = true;
-    const refreshStatuses = async () => {
-      const updates = await Promise.all(
-        harnessHistory.map(async (entry) => {
-          try {
-            const response = await api.getHarnessStatus(entry.pid);
-            return { pid: entry.pid, running: response.running };
-          } catch (error) {
-            console.error("Failed to fetch harness status", error);
-            return null;
-          }
-        }),
-      );
+    const refreshIfActive = async () => {
       if (!active) return;
-      setHarnessStatuses((prev) => {
-        const next = { ...prev };
-        updates.forEach((update) => {
-          if (update) {
-            next[update.pid] = update.running;
-          }
-        });
-        return next;
-      });
+      await refreshHarnessStatuses();
     };
 
-    refreshStatuses();
-    const interval = window.setInterval(refreshStatuses, 5000);
+    refreshIfActive();
+    const interval = window.setInterval(refreshIfActive, 5000);
     return () => {
       active = false;
       window.clearInterval(interval);
     };
-  }, [harnessHistory]);
+  }, [harnessHistory, refreshHarnessStatuses]);
 
   const openSessionModal = useCallback(async () => {
     if (!name) return;
@@ -1053,9 +1064,6 @@ export const RepositoryPage: React.FC = () => {
                         <span className="command-button__title">
                           {harness.name}
                         </span>
-                        <span className="command-button__description">
-                          {harness.path}
-                        </span>
                       </button>
                     ))}
                   </div>
@@ -1063,7 +1071,18 @@ export const RepositoryPage: React.FC = () => {
               </>
             )}
           </Panel>
-          <Panel title="Harness Runs">
+          <Panel
+            title="Harness Runs"
+            actions={
+              <button
+                className="secondary"
+                onClick={refreshHarnessStatuses}
+                disabled={!harnessHistory.length}
+              >
+                Refresh
+              </button>
+            }
+          >
             <div className="harness-history">
               {harnessHistory.length === 0 ? (
                 <div className="empty">No harness runs yet.</div>
@@ -1099,6 +1118,9 @@ export const RepositoryPage: React.FC = () => {
                         </span>
                         <span className="harness-pill__label">
                           PID {entry.pid} • {entry.name}
+                        </span>
+                        <span className="harness-pill__timestamp">
+                          {formatHarnessTimestamp(entry.startedAt)}
                         </span>
                       </div>
                     );
