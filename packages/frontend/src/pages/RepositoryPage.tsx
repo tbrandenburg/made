@@ -195,6 +195,7 @@ export const RepositoryPage: React.FC = () => {
     [name],
   );
   const [harnessHistory, setHarnessHistory] = useState<HarnessRun[]>([]);
+  const maxHarnessHistory = 10;
   const [commandModal, setCommandModal] = useState<{
     open: boolean;
     command: CommandDefinition | null;
@@ -346,16 +347,15 @@ export const RepositoryPage: React.FC = () => {
         setHarnessHistory([]);
         return;
       }
-      setHarnessHistory(
-        parsed.filter(
-          (entry) =>
-            entry &&
-            typeof entry.pid === "number" &&
-            typeof entry.name === "string" &&
-            typeof entry.path === "string" &&
-            typeof entry.startedAt === "string",
-        ),
+      const filtered = parsed.filter(
+        (entry) =>
+          entry &&
+          typeof entry.pid === "number" &&
+          typeof entry.name === "string" &&
+          typeof entry.path === "string" &&
+          typeof entry.startedAt === "string",
       );
+      setHarnessHistory(filtered.slice(0, maxHarnessHistory));
     } catch (error) {
       console.warn("Failed to read harness history", error);
       setHarnessHistory([]);
@@ -748,7 +748,7 @@ export const RepositoryPage: React.FC = () => {
         path: response.path || harness.path,
         startedAt: new Date().toISOString(),
       };
-      setHarnessHistory((prev) => [entry, ...prev]);
+      setHarnessHistory((prev) => [entry, ...prev].slice(0, maxHarnessHistory));
       setHarnessStatuses((prev) => ({ ...prev, [entry.pid]: true }));
     } catch (error) {
       console.error("Failed to run harness", error);
