@@ -1393,7 +1393,7 @@ export const RepositoryPage: React.FC = () => {
                   formatArgumentHint(commandModal.command?.argumentHint) ||
                   `Value for ${label}`
                 }
-                rows={4}
+                rows={3}
               />
             </div>
           ))
