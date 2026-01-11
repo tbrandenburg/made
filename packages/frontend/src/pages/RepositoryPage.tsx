@@ -240,6 +240,15 @@ export const RepositoryPage: React.FC = () => {
     placeholders: [],
     values: [],
   });
+  const [harnessModal, setHarnessModal] = useState<{
+    open: boolean;
+    harness: HarnessDefinition | null;
+    args: string;
+  }>({
+    open: false,
+    harness: null,
+    args: "",
+  });
   const chatWindowRef = useRef<HTMLDivElement>(null);
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
@@ -751,19 +760,36 @@ export const RepositoryPage: React.FC = () => {
     closeCommandModal();
   };
 
-  const handleHarnessRun = async (harness: HarnessDefinition) => {
+  const openHarnessModal = (harness: HarnessDefinition) => {
+    setHarnessModal({
+      open: true,
+      harness,
+      args: "",
+    });
+  };
+
+  const closeHarnessModal = () =>
+    setHarnessModal({ open: false, harness: null, args: "" });
+
+  const handleHarnessRun = async () => {
     if (!name) return;
+    if (!harnessModal.harness) return;
     setHarnessRunError(null);
     try {
-      const response = await api.runRepositoryHarness(name, harness.path);
+      const response = await api.runRepositoryHarness(
+        name,
+        harnessModal.harness.path,
+        harnessModal.args.trim(),
+      );
       const entry: HarnessRun = {
         pid: response.pid,
-        name: response.name || harness.name,
-        path: response.path || harness.path,
+        name: response.name || harnessModal.harness.name,
+        path: response.path || harnessModal.harness.path,
         startedAt: new Date().toISOString(),
       };
       setHarnessHistory((prev) => [entry, ...prev].slice(0, maxHarnessHistory));
       setHarnessStatuses((prev) => ({ ...prev, [entry.pid]: true }));
+      closeHarnessModal();
     } catch (error) {
       console.error("Failed to run harness", error);
       const message =
@@ -1062,7 +1088,7 @@ export const RepositoryPage: React.FC = () => {
                         key={harness.id}
                         className="primary command-button"
                         title={`${harness.source} • ${harness.path}`}
-                        onClick={() => handleHarnessRun(harness)}
+                        onClick={() => openHarnessModal(harness)}
                       >
                         <span className="command-button__title">
                           {harness.name}
@@ -1368,6 +1394,35 @@ export const RepositoryPage: React.FC = () => {
           </button>
           <button className="primary" onClick={handleCommandConfirm}>
             Insert into chat
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={harnessModal.open}
+        title={`Run Harness${harnessModal.harness ? `: ${harnessModal.harness.name}` : ""}`}
+        onClose={closeHarnessModal}
+      >
+        <div className="form-group">
+          <label htmlFor="harness-args">Arguments</label>
+          <input
+            id="harness-args"
+            value={harnessModal.args}
+            onChange={(event) =>
+              setHarnessModal((prev) => ({
+                ...prev,
+                args: event.target.value,
+              }))
+            }
+            placeholder="Optional arguments, e.g. --verbose --limit 10"
+          />
+        </div>
+        <div className="modal-actions">
+          <button className="secondary" onClick={closeHarnessModal}>
+            Cancel
+          </button>
+          <button className="primary" onClick={handleHarnessRun}>
+            Run
           </button>
         </div>
       </Modal>

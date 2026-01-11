@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -55,7 +56,19 @@ def list_harnesses(repo_name: str) -> List[Dict[str, Any]]:
     return harnesses
 
 
-def run_harness(repo_name: str, harness_path: str) -> Dict[str, Any]:
+def _parse_harness_args(raw_args: Any | None) -> List[str]:
+    if raw_args is None:
+        return []
+    if isinstance(raw_args, list):
+        return [str(arg) for arg in raw_args if str(arg)]
+    if isinstance(raw_args, str):
+        return shlex.split(raw_args)
+    return [str(raw_args)]
+
+
+def run_harness(
+    repo_name: str, harness_path: str, args: List[str] | None = None
+) -> Dict[str, Any]:
     resolved_path = Path(harness_path).expanduser().resolve()
     allowed_paths = {
         Path(entry["path"]).resolve() for entry in list_harnesses(repo_name)
@@ -63,8 +76,9 @@ def run_harness(repo_name: str, harness_path: str) -> Dict[str, Any]:
     if resolved_path not in allowed_paths:
         raise FileNotFoundError("Harness script not found")
 
+    command = ["bash", str(resolved_path), *(_parse_harness_args(args))]
     process = subprocess.Popen(
-        ["bash", str(resolved_path)],
+        command,
         cwd=str(resolved_path.parent),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

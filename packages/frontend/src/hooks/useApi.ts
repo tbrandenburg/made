@@ -263,12 +263,12 @@ export const api = {
     request<{ harnesses: HarnessDefinition[] }>(
       `/repositories/${name}/harnesses`,
     ),
-  runRepositoryHarness: (name: string, path: string) =>
+  runRepositoryHarness: (name: string, path: string, args?: string) =>
     request<{ pid: number; name: string; path: string }>(
       `/repositories/${name}/harnesses/run`,
       {
         method: "POST",
-        body: JSON.stringify({ path }),
+        body: JSON.stringify({ path, args }),
       },
     ),
   getHarnessStatus: (pid: number) =>
