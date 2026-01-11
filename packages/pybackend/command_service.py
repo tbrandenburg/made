@@ -110,4 +110,23 @@ def list_commands(repo_name: str) -> List[Dict[str, Any]]:
         commands.extend(_load_commands_from_dir(directory, source))
 
     commands.extend(_load_repo_commands(repo_name))
-    return commands
+    return _dedupe_commands_by_path(commands)
+
+
+def _dedupe_commands_by_path(commands: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    seen: set[str] = set()
+    deduped: List[Dict[str, Any]] = []
+    for command in commands:
+        path_value = command.get("path")
+        if not path_value:
+            deduped.append(command)
+            continue
+        try:
+            path_key = str(Path(path_value).resolve())
+        except OSError:
+            path_key = str(Path(path_value))
+        if path_key in seen:
+            continue
+        seen.add(path_key)
+        deduped.append(command)
+    return deduped
