@@ -118,3 +118,24 @@ def test_invalid_frontmatter_is_skipped(temp_env):
 
     assert len(commands) == 1
     assert commands[0]["name"] == "good"
+
+
+def test_parenthetical_comments_are_ignored_in_frontmatter(temp_env):
+    workspace, _, _ = temp_env
+    repo_path = workspace / "comment-repo"
+    command_path = repo_path / ".claude" / "commands" / "commented.md"
+    command_path.parent.mkdir(parents=True, exist_ok=True)
+    command_path.write_text(
+        "---\n"
+        "description: Commented command (internal note)\n"
+        "argument-hint: [feature/product idea] (blank = start with questions)\n"
+        "---\n"
+        "echo run\n",
+        encoding="utf-8",
+    )
+
+    commands = list_commands("comment-repo")
+
+    assert len(commands) == 1
+    assert commands[0]["description"] == "Commented command"
+    assert commands[0]["argumentHint"] == "[feature/product idea]"
