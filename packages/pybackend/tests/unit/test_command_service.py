@@ -142,3 +142,19 @@ def test_parenthetical_comments_are_ignored_in_frontmatter(temp_env):
     assert len(commands) == 1
     assert commands[0]["description"] == "Commented command"
     assert commands[0]["argumentHint"] == ["feature/product idea"]
+
+
+def test_list_commands_dedupes_identical_command_paths(tmp_path, monkeypatch):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setenv("MADE_HOME", str(workspace))
+    monkeypatch.setenv("MADE_WORKSPACE_HOME", str(workspace))
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "user_home")
+
+    command_path = workspace / ".made" / "commands" / "shared.md"
+    write_command_file(command_path, "Shared command", None, "echo shared")
+
+    commands = list_commands("repo")
+
+    assert len(commands) == 1
+    assert commands[0]["description"] == "Shared command"
