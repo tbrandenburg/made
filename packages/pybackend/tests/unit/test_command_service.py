@@ -103,3 +103,18 @@ def test_description_defaults_to_stem(temp_env):
     assert len(commands) == 1
     assert commands[0]["description"] == "no-meta"
     assert commands[0]["content"] == "Plain content"
+
+
+def test_invalid_frontmatter_is_skipped(temp_env):
+    workspace, made_home, user_home = temp_env
+    repo_path = workspace / "bad-repo"
+    good_command = repo_path / ".claude" / "commands" / "good.md"
+    bad_command = repo_path / ".claude" / "commands" / "bad.md"
+    good_command.parent.mkdir(parents=True, exist_ok=True)
+    write_command_file(good_command, "Good command", None, "echo ok")
+    bad_command.write_text('---\ndescription: "broken\n---\nfail\n', encoding="utf-8")
+
+    commands = list_commands("bad-repo")
+
+    assert len(commands) == 1
+    assert commands[0]["name"] == "good"
