@@ -384,7 +384,7 @@ def repository_harness_run(name: str, payload: dict = Body(...)):
         )
     try:
         logger.info("Running harness for repository '%s': %s", name, path)
-        return run_harness(name, path)
+        return run_harness(name, path, payload.get("args"))
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:  # pragma: no cover - passthrough errors
