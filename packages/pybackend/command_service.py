@@ -83,6 +83,9 @@ def _load_repo_commands(repo_name: str) -> List[Dict[str, Any]]:
         for path in repo_path.glob(".*/commands/**/*.md"):
             if path.is_file():
                 command_files.append((path, "repository"))
+        for path in repo_path.glob(".*/prompts/**/*.md"):
+            if path.is_file():
+                command_files.append((path, "repository"))
 
     commands = (_load_command_file(path, source) for path, source in sorted(command_files))
     return [command for command in commands if command]
