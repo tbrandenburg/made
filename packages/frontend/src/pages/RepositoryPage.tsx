@@ -1384,7 +1384,7 @@ export const RepositoryPage: React.FC = () => {
           commandModal.labels.map((label, index) => (
             <div className="form-group" key={`${label}-${index}`}>
               <label>{label}</label>
-              <input
+              <textarea
                 value={commandModal.values[index] || ""}
                 onChange={(event) =>
                   handleCommandValueChange(index, event.target.value)
@@ -1393,6 +1393,7 @@ export const RepositoryPage: React.FC = () => {
                   formatArgumentHint(commandModal.command?.argumentHint) ||
                   `Value for ${label}`
                 }
+                rows={3}
               />
             </div>
           ))
