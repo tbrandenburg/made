@@ -1,15 +1,31 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import frontmatter
+import yaml
 
 from config import get_made_home, get_workspace_home
 
 
-def _load_command_file(file_path: Path, source: str) -> Dict[str, Any]:
-    post = frontmatter.load(file_path)
+logger = logging.getLogger(__name__)
+
+
+def _load_command_file(file_path: Path, source: str) -> Optional[Dict[str, Any]]:
+    try:
+        post = frontmatter.load(file_path)
+    except (yaml.YAMLError, ValueError) as exc:
+        logger.warning(
+            "Skipping command file with invalid frontmatter: %s (%s)", file_path, exc
+        )
+        return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(
+            "Skipping command file due to unexpected error: %s (%s)", file_path, exc
+        )
+        return None
     metadata = post.metadata or {}
     description = str(metadata.get("description") or file_path.stem)
     argument_hint = metadata.get("argument-hint")
@@ -31,7 +47,8 @@ def _load_commands_from_dir(directory: Path, source: str) -> List[Dict[str, Any]
         return []
 
     command_files = sorted(directory.rglob("*.md"))
-    return [_load_command_file(file_path, source) for file_path in command_files]
+    commands = (_load_command_file(file_path, source) for file_path in command_files)
+    return [command for command in commands if command]
 
 
 def _load_repo_commands(repo_name: str) -> List[Dict[str, Any]]:
@@ -42,7 +59,8 @@ def _load_repo_commands(repo_name: str) -> List[Dict[str, Any]]:
             if path.is_file():
                 command_files.append((path, "repository"))
 
-    return [_load_command_file(path, source) for path, source in sorted(command_files)]
+    commands = (_load_command_file(path, source) for path, source in sorted(command_files))
+    return [command for command in commands if command]
 
 
 def list_commands(repo_name: str) -> List[Dict[str, Any]]:
