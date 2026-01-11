@@ -186,17 +186,20 @@
 
 .command-button__badge {
   position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
-  padding: 0.15rem 0.45rem;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.1rem 0.4rem;
   border-radius: 999px;
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   font-weight: 600;
   letter-spacing: 0.08em;
+  line-height: 1.1;
   text-transform: uppercase;
-  background: rgba(15, 23, 42, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(14, 116, 144, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   color: rgba(255, 255, 255, 0.95);
+  z-index: 1;
+  box-shadow: 0 6px 16px rgba(8, 47, 73, 0.35);
 }
 
 .command-button__title {
