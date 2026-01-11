@@ -1062,8 +1062,9 @@ export const RepositoryPage: React.FC = () => {
                 )}
               </>
             )}
+          </Panel>
+          <Panel title="Harness Runs">
             <div className="harness-history">
-              <div className="harness-history__title">Harness Runs</div>
               {harnessHistory.length === 0 ? (
                 <div className="empty">No harness runs yet.</div>
               ) : (
