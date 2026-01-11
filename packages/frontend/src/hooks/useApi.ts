@@ -123,6 +123,13 @@ export type CommandDefinition = {
   argumentHint?: string | string[] | null;
 };
 
+export type HarnessDefinition = {
+  id: string;
+  name: string;
+  path: string;
+  source: string;
+};
+
 export const api = {
   getDashboard: () =>
     request<{
@@ -252,6 +259,20 @@ export const api = {
     request<{ commands: CommandDefinition[] }>(
       `/repositories/${name}/commands`,
     ),
+  getRepositoryHarnesses: (name: string) =>
+    request<{ harnesses: HarnessDefinition[] }>(
+      `/repositories/${name}/harnesses`,
+    ),
+  runRepositoryHarness: (name: string, path: string) =>
+    request<{ pid: number; name: string; path: string }>(
+      `/repositories/${name}/harnesses/run`,
+      {
+        method: "POST",
+        body: JSON.stringify({ path }),
+      },
+    ),
+  getHarnessStatus: (pid: number) =>
+    request<{ pid: number; running: boolean }>(`/harnesses/${pid}/status`),
   listKnowledge: () => request<{ artefacts: ArtefactSummary[] }>("/knowledge"),
   getKnowledge: (name: string) => request<MatterFile>(`/knowledge/${name}`),
   saveKnowledge: (name: string, payload: MatterFile) =>

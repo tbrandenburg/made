@@ -37,6 +37,7 @@ from knowledge_service import (
     write_knowledge_artefact,
 )
 from command_service import list_commands
+from harness_service import is_process_running, list_harnesses, run_harness
 from repository_service import (
     create_repository,
     create_repository_file,
@@ -359,6 +360,43 @@ def repository_commands(name: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
+
+
+@app.get("/api/repositories/{name}/harnesses")
+def repository_harnesses(name: str):
+    try:
+        logger.info("Listing harnesses for repository '%s'", name)
+        return {"harnesses": list_harnesses(name)}
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        logger.exception("Failed to list harnesses for repository '%s'", name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.post("/api/repositories/{name}/harnesses/run")
+def repository_harness_run(name: str, payload: dict = Body(...)):
+    path = payload.get("path")
+    if not path:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Harness path is required",
+        )
+    try:
+        logger.info("Running harness for repository '%s': %s", name, path)
+        return run_harness(name, path)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        logger.exception("Failed to run harness for repository '%s'", name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/harnesses/{pid}/status")
+def harness_status(pid: int):
+    return {"pid": pid, "running": is_process_running(pid)}
 
 
 @app.websocket("/api/repositories/{name}/terminal")

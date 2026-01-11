@@ -190,3 +190,61 @@
 .command-button__description {
   font-size: 0.85rem;
 }
+
+.harness-center {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.harness-history {
+  margin-top: 1.5rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.harness-history__title {
+  font-weight: 600;
+}
+
+.harness-history__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.harness-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.harness-pill__label {
+  font-size: 0.85rem;
+}
+
+.harness-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.harness-status.running {
+  color: #f59e0b;
+}
+
+.harness-status.done {
+  color: #22c55e;
+}
+
+.harness-status.pending {
+  color: #94a3b8;
+}

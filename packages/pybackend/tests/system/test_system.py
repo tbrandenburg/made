@@ -3,6 +3,7 @@ System tests for the MADE Python Backend.
 These tests verify the application starts correctly and core integrations work.
 """
 
+import os
 from unittest.mock import patch
 
 import pytest
@@ -157,6 +158,37 @@ def test_repository_commands_endpoint(mock_list_commands):
     assert "commands" in body
     assert body["commands"][0]["description"] == "Test command"
     mock_list_commands.assert_called_once_with("sample")
+
+
+@patch("app.list_harnesses")
+def test_repository_harnesses_endpoint(mock_list_harnesses):
+    """Verify repository harnesses endpoint delegates to service and returns payload."""
+    mock_list_harnesses.return_value = [
+        {
+            "id": "test:harness",
+            "name": "harness",
+            "path": "/tmp/harness.sh",
+            "source": "user",
+        }
+    ]
+
+    response = client.get("/api/repositories/sample/harnesses")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "harnesses" in body
+    assert body["harnesses"][0]["name"] == "harness"
+    mock_list_harnesses.assert_called_once_with("sample")
+
+
+def test_harness_status_endpoint_uses_pid():
+    """Verify harness status endpoint reports a known PID as running."""
+    response = client.get(f"/api/harnesses/{os.getpid()}/status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["pid"] == os.getpid()
+    assert body["running"] is True
 
 
 class TestTerminalWebSocket:
