@@ -36,6 +36,7 @@ def test_list_commands_collects_all_locations(temp_env):
     workspace, made_home, user_home = temp_env
     repo_path = workspace / "sample-repo"
     repo_command = repo_path / ".hidden" / "commands" / "repo.md"
+    repo_prompt = repo_path / ".hidden" / "prompts" / "repo-prompt.md"
     workspace_command = workspace / ".made" / "commands" / "workspace.md"
     made_command = made_home / ".made" / "commands" / "made.md"
     user_command = user_home / ".made" / "commands" / "user.md"
@@ -61,6 +62,7 @@ def test_list_commands_collects_all_locations(temp_env):
         path.mkdir(parents=True, exist_ok=True)
 
     write_command_file(repo_command, "Repo command", "[name]", "echo $1")
+    write_command_file(repo_prompt, None, None, "repo prompt")
     write_command_file(workspace_command, None, None, "workspace content")
     write_command_file(made_command, "Made command", "[arg]", "run $1")
     write_command_file(user_command, "User command", None, "say hi")
@@ -73,9 +75,10 @@ def test_list_commands_collects_all_locations(temp_env):
 
     commands = list_commands("sample-repo")
 
-    assert len(commands) == 10
+    assert len(commands) == 11
     descriptions = {command["description"] for command in commands}
     assert "Repo command" in descriptions
+    assert "repo-prompt" in descriptions
     assert "workspace" in descriptions
     assert "Made command" in descriptions
     assert "User command" in descriptions
