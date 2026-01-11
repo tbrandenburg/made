@@ -93,6 +93,21 @@ const formatHarnessTimestamp = (value: string) => {
   return new Date(parsed).toLocaleString();
 };
 
+const formatCommandSourceLabel = (source: string) => {
+  switch (source) {
+    case "user":
+      return "USER (HOME)";
+    case "made":
+      return "MADE (MADE HOME)";
+    case "workspace":
+      return "WS (MADE Workspace)";
+    case "repository":
+      return "REPO";
+    default:
+      return source.toUpperCase();
+  }
+};
+
 const COMMAND_ACTIONS = [
   {
     id: "init-openspec",
@@ -1304,6 +1319,9 @@ export const RepositoryPage: React.FC = () => {
                           title={`${command.source} • ${command.name}`}
                           onClick={() => handleCommandSelection(command)}
                         >
+                          <span className="command-button__badge">
+                            {formatCommandSourceLabel(command.source)}
+                          </span>
                           <span className="command-button__title">
                             {command.name}
                           </span>
