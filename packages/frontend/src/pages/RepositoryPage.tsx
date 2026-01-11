@@ -193,6 +193,7 @@ export const RepositoryPage: React.FC = () => {
   const [harnessStatuses, setHarnessStatuses] = useState<
     Record<number, boolean | undefined>
   >({});
+  const maxHarnessHistory = 10;
   const harnessHistoryStorageKey = useMemo(
     () =>
       name
@@ -200,8 +201,32 @@ export const RepositoryPage: React.FC = () => {
         : "repository-harness-history",
     [name],
   );
-  const [harnessHistory, setHarnessHistory] = useState<HarnessRun[]>([]);
-  const maxHarnessHistory = 10;
+  const readHarnessHistory = useCallback(() => {
+    if (!harnessHistoryStorageKey) return [];
+    try {
+      const stored = localStorage.getItem(harnessHistoryStorageKey);
+      if (!stored) return [];
+      const parsed = JSON.parse(stored);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter(
+          (entry) =>
+            entry &&
+            typeof entry.pid === "number" &&
+            typeof entry.name === "string" &&
+            typeof entry.path === "string" &&
+            typeof entry.startedAt === "string",
+        )
+        .slice(0, maxHarnessHistory);
+    } catch (error) {
+      console.warn("Failed to read harness history", error);
+      return [];
+    }
+  }, [harnessHistoryStorageKey, maxHarnessHistory]);
+  const [harnessHistory, setHarnessHistory] = useState<HarnessRun[]>(() =>
+    readHarnessHistory(),
+  );
+  const skipHarnessHistoryPersist = useRef(true);
   const [commandModal, setCommandModal] = useState<{
     open: boolean;
     command: CommandDefinition | null;
@@ -342,7 +367,7 @@ export const RepositoryPage: React.FC = () => {
           return { pid: entry.pid, running: response.running };
         } catch (error) {
           console.error("Failed to fetch harness status", error);
-          return null;
+          return { pid: entry.pid, running: false };
         }
       }),
     );
@@ -362,38 +387,16 @@ export const RepositoryPage: React.FC = () => {
   }, [loadHarnesses]);
 
   useEffect(() => {
-    if (!harnessHistoryStorageKey) {
-      setHarnessHistory([]);
-      return;
-    }
-    try {
-      const stored = localStorage.getItem(harnessHistoryStorageKey);
-      if (!stored) {
-        setHarnessHistory([]);
-        return;
-      }
-      const parsed = JSON.parse(stored);
-      if (!Array.isArray(parsed)) {
-        setHarnessHistory([]);
-        return;
-      }
-      const filtered = parsed.filter(
-        (entry) =>
-          entry &&
-          typeof entry.pid === "number" &&
-          typeof entry.name === "string" &&
-          typeof entry.path === "string" &&
-          typeof entry.startedAt === "string",
-      );
-      setHarnessHistory(filtered.slice(0, maxHarnessHistory));
-    } catch (error) {
-      console.warn("Failed to read harness history", error);
-      setHarnessHistory([]);
-    }
-  }, [harnessHistoryStorageKey]);
+    skipHarnessHistoryPersist.current = true;
+    setHarnessHistory(readHarnessHistory());
+  }, [readHarnessHistory]);
 
   useEffect(() => {
     if (!harnessHistoryStorageKey) return;
+    if (skipHarnessHistoryPersist.current) {
+      skipHarnessHistoryPersist.current = false;
+      return;
+    }
     try {
       if (harnessHistory.length) {
         localStorage.setItem(
