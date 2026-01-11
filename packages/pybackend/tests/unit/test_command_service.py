@@ -138,4 +138,4 @@ def test_parenthetical_comments_are_ignored_in_frontmatter(temp_env):
 
     assert len(commands) == 1
     assert commands[0]["description"] == "Commented command"
-    assert commands[0]["argumentHint"] == "[feature/product idea]"
+    assert commands[0]["argumentHint"] == ["feature/product idea"]
