@@ -96,11 +96,11 @@ const formatHarnessTimestamp = (value: string) => {
 const formatCommandSourceLabel = (source: string) => {
   switch (source) {
     case "user":
-      return "USER (HOME)";
+      return "USER";
     case "made":
-      return "MADE (MADE HOME)";
+      return "MADE";
     case "workspace":
-      return "WS (MADE Workspace)";
+      return "WS";
     case "repository":
       return "REPO";
     default:
