@@ -41,6 +41,7 @@ def test_list_commands_collects_all_locations(temp_env):
     user_command = user_home / ".made" / "commands" / "user.md"
     codex_command = user_home / ".codex" / "commands" / "codex.md"
     kiro_command = user_home / ".kiro" / "commands" / "kiro.md"
+    opencode_command = user_home / ".opencode" / "command" / "opencode.md"
 
     for path in [
         repo_path,
@@ -49,6 +50,7 @@ def test_list_commands_collects_all_locations(temp_env):
         user_home / ".made" / "commands",
         user_home / ".codex" / "commands",
         user_home / ".kiro" / "commands",
+        user_home / ".opencode" / "command",
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
@@ -58,10 +60,11 @@ def test_list_commands_collects_all_locations(temp_env):
     write_command_file(user_command, "User command", None, "say hi")
     write_command_file(codex_command, None, "[num]", "count $1")
     write_command_file(kiro_command, None, None, "kiro content")
+    write_command_file(opencode_command, None, None, "opencode content")
 
     commands = list_commands("sample-repo")
 
-    assert len(commands) == 6
+    assert len(commands) == 7
     descriptions = {command["description"] for command in commands}
     assert "Repo command" in descriptions
     assert "workspace" in descriptions
@@ -69,10 +72,12 @@ def test_list_commands_collects_all_locations(temp_env):
     assert "User command" in descriptions
     assert "codex" in descriptions
     assert "kiro" in descriptions
+    assert "opencode" in descriptions
 
     repo_entry = next(cmd for cmd in commands if cmd["name"] == "repo")
     assert repo_entry["argumentHint"] == "[name]"
     assert repo_entry["content"] == "echo $1"
+
 
 def test_description_defaults_to_stem(temp_env):
     workspace, made_home, user_home = temp_env
