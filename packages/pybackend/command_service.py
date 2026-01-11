@@ -50,10 +50,13 @@ def list_commands(repo_name: str) -> List[Dict[str, Any]]:
     command_roots: List[Tuple[Path, str]] = [
         (get_made_home() / ".made" / "commands", "made"),
         (get_workspace_home() / ".made" / "commands", "workspace"),
+        (get_made_home() / ".kiro" / "prompts", "made"),
+        (get_workspace_home() / ".kiro" / "prompts", "workspace"),
         (Path.home() / ".made" / "commands", "user"),
         (Path.home() / ".claude" / "commands", "user"),
         (Path.home() / ".codex" / "commands", "user"),
         (Path.home() / ".kiro" / "commands", "user"),
+        (Path.home() / ".kiro" / "prompts", "user"),
         (Path.home() / ".opencode" / "command", "user"),
     ]
 

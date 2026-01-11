@@ -41,16 +41,22 @@ def test_list_commands_collects_all_locations(temp_env):
     user_command = user_home / ".made" / "commands" / "user.md"
     codex_command = user_home / ".codex" / "commands" / "codex.md"
     kiro_command = user_home / ".kiro" / "commands" / "kiro.md"
+    made_kiro_prompt = made_home / ".kiro" / "prompts" / "made-prompt.md"
+    workspace_kiro_prompt = workspace / ".kiro" / "prompts" / "workspace-prompt.md"
+    user_kiro_prompt = user_home / ".kiro" / "prompts" / "user-prompt.md"
     opencode_command = user_home / ".opencode" / "command" / "opencode.md"
 
     for path in [
         repo_path,
         workspace / ".made" / "commands",
         made_home / ".made" / "commands",
+        made_home / ".kiro" / "prompts",
         user_home / ".made" / "commands",
         user_home / ".codex" / "commands",
         user_home / ".kiro" / "commands",
+        user_home / ".kiro" / "prompts",
         user_home / ".opencode" / "command",
+        workspace / ".kiro" / "prompts",
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
@@ -60,11 +66,14 @@ def test_list_commands_collects_all_locations(temp_env):
     write_command_file(user_command, "User command", None, "say hi")
     write_command_file(codex_command, None, "[num]", "count $1")
     write_command_file(kiro_command, None, None, "kiro content")
+    write_command_file(made_kiro_prompt, None, None, "made prompt content")
+    write_command_file(workspace_kiro_prompt, None, None, "workspace prompt content")
+    write_command_file(user_kiro_prompt, None, None, "user prompt content")
     write_command_file(opencode_command, None, None, "opencode content")
 
     commands = list_commands("sample-repo")
 
-    assert len(commands) == 7
+    assert len(commands) == 10
     descriptions = {command["description"] for command in commands}
     assert "Repo command" in descriptions
     assert "workspace" in descriptions
@@ -72,6 +81,9 @@ def test_list_commands_collects_all_locations(temp_env):
     assert "User command" in descriptions
     assert "codex" in descriptions
     assert "kiro" in descriptions
+    assert "made-prompt" in descriptions
+    assert "workspace-prompt" in descriptions
+    assert "user-prompt" in descriptions
     assert "opencode" in descriptions
 
     repo_entry = next(cmd for cmd in commands if cmd["name"] == "repo")
