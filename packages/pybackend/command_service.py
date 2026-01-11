@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -11,11 +12,35 @@ from config import get_made_home, get_workspace_home
 
 
 logger = logging.getLogger(__name__)
+_PAREN_COMMENT_PATTERN = re.compile(r"\s*\([^()]*\)\s*$")
+
+
+def _strip_parenthetical_comment(value: str) -> str:
+    return _PAREN_COMMENT_PATTERN.sub("", value).rstrip()
+
+
+def _sanitize_frontmatter(raw_text: str) -> str:
+    lines = raw_text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return raw_text
+
+    end_index = next(
+        (index for index, line in enumerate(lines[1:], start=1) if line.strip() == "---"),
+        None,
+    )
+    if end_index is None:
+        return raw_text
+
+    frontmatter_lines = [
+        _strip_parenthetical_comment(line) for line in lines[1:end_index]
+    ]
+    return "\n".join([lines[0], *frontmatter_lines, *lines[end_index:]])
 
 
 def _load_command_file(file_path: Path, source: str) -> Optional[Dict[str, Any]]:
     try:
-        post = frontmatter.load(file_path)
+        raw_text = file_path.read_text(encoding="utf-8")
+        post = frontmatter.loads(_sanitize_frontmatter(raw_text))
     except (yaml.YAMLError, ValueError) as exc:
         logger.warning(
             "Skipping command file with invalid frontmatter: %s (%s)", file_path, exc

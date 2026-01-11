@@ -42,6 +42,7 @@ const stripCommandFrontmatter = (content: string) => {
 };
 
 const ARGUMENT_SPECIFIER_PATTERN = /\[([^\]]+)\]|<([^>]+)>/g;
+const PARENTHETICAL_COMMENT_PATTERN = /\s*\([^()]*\)\s*$/g;
 
 type HarnessRun = {
   pid: number;
@@ -55,9 +56,15 @@ type ArgumentHint = string | string[] | null | undefined;
 const normalizeArgumentHint = (argumentHint: ArgumentHint) => {
   if (!argumentHint) return "";
   if (Array.isArray(argumentHint)) {
-    return argumentHint.filter((value) => typeof value === "string").join(" ");
+    return argumentHint
+      .filter((value) => typeof value === "string")
+      .map((value) => value.replace(PARENTHETICAL_COMMENT_PATTERN, "").trim())
+      .filter(Boolean)
+      .join(" ");
   }
-  return typeof argumentHint === "string" ? argumentHint : "";
+  return typeof argumentHint === "string"
+    ? argumentHint.replace(PARENTHETICAL_COMMENT_PATTERN, "").trim()
+    : "";
 };
 
 const extractArgumentLabels = (argumentHint?: ArgumentHint) => {
