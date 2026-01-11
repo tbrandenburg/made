@@ -73,13 +73,13 @@ test:
 	@echo "🧪 Running frontend tests..."
 	npm test
 	@echo "🧪 Running backend tests with coverage..."
-	cd $(PYBACKEND_DIR) && uv sync && uv run pytest --cov=. --cov-report=term-missing
+	cd $(PYBACKEND_DIR) && uv sync && uv run pytest -c pytest.cov.ini
 
 unit-test:
 	@echo "🔬 Running frontend unit tests..."
 	npm test
 	@echo "🔬 Running backend unit tests with coverage..."
-	cd $(PYBACKEND_DIR) && uv sync && uv run pytest tests/unit/ -v --cov=. --cov-report=term-missing
+	cd $(PYBACKEND_DIR) && uv sync && uv run pytest -c pytest.cov.ini tests/unit/
 
 system-test:
 	@echo "🏗️ Running system tests with service management..."
@@ -116,7 +116,7 @@ test-coverage:
 	@echo "📊 Frontend tests..."
 	npm test
 	@echo "📊 Backend tests with detailed coverage..."
-	cd $(PYBACKEND_DIR) && uv sync && uv run pytest --cov=. --cov-report=term-missing --cov-report=html:htmlcov --cov-branch --cov-fail-under=70
+	cd $(PYBACKEND_DIR) && uv sync && uv run pytest -c pytest.cov.ini --cov-branch --cov-fail-under=70
 	@echo "📊 Coverage report generated in packages/pybackend/htmlcov/"
 
 # Build & Run Tasks
