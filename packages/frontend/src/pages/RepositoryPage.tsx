@@ -20,6 +20,7 @@ import {
   CommandDefinition,
   ChatSession,
   FileNode,
+  HarnessDefinition,
   RepositorySummary,
 } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
@@ -41,6 +42,13 @@ const stripCommandFrontmatter = (content: string) => {
 };
 
 const ARGUMENT_SPECIFIER_PATTERN = /\[([^\]]+)\]|<([^>]+)>/g;
+
+type HarnessRun = {
+  pid: number;
+  name: string;
+  path: string;
+  startedAt: string;
+};
 
 type ArgumentHint = string | string[] | null | undefined;
 
@@ -70,6 +78,12 @@ const formatArgumentHint = (argumentHint?: ArgumentHint) => {
   }
 
   return normalizedHint.trim();
+};
+
+const formatHarnessTimestamp = (value: string) => {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return "Unknown time";
+  return new Date(parsed).toLocaleString();
 };
 
 const COMMAND_ACTIONS = [
@@ -170,6 +184,24 @@ export const RepositoryPage: React.FC = () => {
   >([]);
   const [commandsError, setCommandsError] = useState<string | null>(null);
   const [commandsLoading, setCommandsLoading] = useState(false);
+  const [availableHarnesses, setAvailableHarnesses] = useState<
+    HarnessDefinition[]
+  >([]);
+  const [harnessError, setHarnessError] = useState<string | null>(null);
+  const [harnessLoading, setHarnessLoading] = useState(false);
+  const [harnessRunError, setHarnessRunError] = useState<string | null>(null);
+  const [harnessStatuses, setHarnessStatuses] = useState<
+    Record<number, boolean | undefined>
+  >({});
+  const harnessHistoryStorageKey = useMemo(
+    () =>
+      name
+        ? `repository-harness-history-${name}`
+        : "repository-harness-history",
+    [name],
+  );
+  const [harnessHistory, setHarnessHistory] = useState<HarnessRun[]>([]);
+  const maxHarnessHistory = 10;
   const [commandModal, setCommandModal] = useState<{
     open: boolean;
     command: CommandDefinition | null;
@@ -282,6 +314,115 @@ export const RepositoryPage: React.FC = () => {
   useEffect(() => {
     loadCommands();
   }, [loadCommands]);
+
+  const loadHarnesses = useCallback(() => {
+    if (!name) return;
+    setHarnessLoading(true);
+    api
+      .getRepositoryHarnesses(name)
+      .then((response) => {
+        setAvailableHarnesses(response.harnesses);
+        setHarnessError(null);
+      })
+      .catch((error) => {
+        console.error("Failed to load harnesses", error);
+        const message =
+          error instanceof Error ? error.message : "Failed to load harnesses";
+        setHarnessError(message);
+      })
+      .finally(() => setHarnessLoading(false));
+  }, [name]);
+
+  const refreshHarnessStatuses = useCallback(async () => {
+    if (!harnessHistory.length) return;
+    const updates = await Promise.all(
+      harnessHistory.map(async (entry) => {
+        try {
+          const response = await api.getHarnessStatus(entry.pid);
+          return { pid: entry.pid, running: response.running };
+        } catch (error) {
+          console.error("Failed to fetch harness status", error);
+          return null;
+        }
+      }),
+    );
+    setHarnessStatuses((prev) => {
+      const next = { ...prev };
+      updates.forEach((update) => {
+        if (update) {
+          next[update.pid] = update.running;
+        }
+      });
+      return next;
+    });
+  }, [harnessHistory]);
+
+  useEffect(() => {
+    loadHarnesses();
+  }, [loadHarnesses]);
+
+  useEffect(() => {
+    if (!harnessHistoryStorageKey) {
+      setHarnessHistory([]);
+      return;
+    }
+    try {
+      const stored = localStorage.getItem(harnessHistoryStorageKey);
+      if (!stored) {
+        setHarnessHistory([]);
+        return;
+      }
+      const parsed = JSON.parse(stored);
+      if (!Array.isArray(parsed)) {
+        setHarnessHistory([]);
+        return;
+      }
+      const filtered = parsed.filter(
+        (entry) =>
+          entry &&
+          typeof entry.pid === "number" &&
+          typeof entry.name === "string" &&
+          typeof entry.path === "string" &&
+          typeof entry.startedAt === "string",
+      );
+      setHarnessHistory(filtered.slice(0, maxHarnessHistory));
+    } catch (error) {
+      console.warn("Failed to read harness history", error);
+      setHarnessHistory([]);
+    }
+  }, [harnessHistoryStorageKey]);
+
+  useEffect(() => {
+    if (!harnessHistoryStorageKey) return;
+    try {
+      if (harnessHistory.length) {
+        localStorage.setItem(
+          harnessHistoryStorageKey,
+          JSON.stringify(harnessHistory),
+        );
+      } else {
+        localStorage.removeItem(harnessHistoryStorageKey);
+      }
+    } catch (error) {
+      console.warn("Failed to persist harness history", error);
+    }
+  }, [harnessHistory, harnessHistoryStorageKey]);
+
+  useEffect(() => {
+    if (!harnessHistory.length) return;
+    let active = true;
+    const refreshIfActive = async () => {
+      if (!active) return;
+      await refreshHarnessStatuses();
+    };
+
+    refreshIfActive();
+    const interval = window.setInterval(refreshIfActive, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [harnessHistory, refreshHarnessStatuses]);
 
   const openSessionModal = useCallback(async () => {
     if (!name) return;
@@ -607,6 +748,27 @@ export const RepositoryPage: React.FC = () => {
     closeCommandModal();
   };
 
+  const handleHarnessRun = async (harness: HarnessDefinition) => {
+    if (!name) return;
+    setHarnessRunError(null);
+    try {
+      const response = await api.runRepositoryHarness(name, harness.path);
+      const entry: HarnessRun = {
+        pid: response.pid,
+        name: response.name || harness.name,
+        path: response.path || harness.path,
+        startedAt: new Date().toISOString(),
+      };
+      setHarnessHistory((prev) => [entry, ...prev].slice(0, maxHarnessHistory));
+      setHarnessStatuses((prev) => ({ ...prev, [entry.pid]: true }));
+    } catch (error) {
+      console.error("Failed to run harness", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to run harness";
+      setHarnessRunError(message);
+    }
+  };
+
   const handleSaveFile = async () => {
     if (!name || !selectedFile) return;
     try {
@@ -858,6 +1020,116 @@ export const RepositoryPage: React.FC = () => {
             )}
           </div>
         </Panel>
+      ),
+    },
+    {
+      id: "harnesses",
+      label: "Harnesses",
+      content: (
+        <div className="harness-center">
+          <Panel
+            title="Harness Scripts"
+            actions={
+              <button
+                className="secondary"
+                onClick={loadHarnesses}
+                disabled={harnessLoading}
+              >
+                Refresh
+              </button>
+            }
+          >
+            {harnessLoading && (
+              <div className="alert">Loading harnesses...</div>
+            )}
+            {harnessError && <div className="alert error">{harnessError}</div>}
+            {harnessRunError && (
+              <div className="alert error">{harnessRunError}</div>
+            )}
+            {!harnessLoading && !harnessError && (
+              <>
+                {availableHarnesses.length === 0 ? (
+                  <div className="empty">
+                    No harness scripts found in configured directories.
+                  </div>
+                ) : (
+                  <div className="commands-grid">
+                    {availableHarnesses.map((harness) => (
+                      <button
+                        key={harness.id}
+                        className="primary command-button"
+                        title={`${harness.source} • ${harness.path}`}
+                        onClick={() => handleHarnessRun(harness)}
+                      >
+                        <span className="command-button__title">
+                          {harness.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </Panel>
+          <Panel
+            title="Harness Runs"
+            actions={
+              <button
+                className="secondary"
+                onClick={refreshHarnessStatuses}
+                disabled={!harnessHistory.length}
+              >
+                Refresh
+              </button>
+            }
+          >
+            <div className="harness-history">
+              {harnessHistory.length === 0 ? (
+                <div className="empty">No harness runs yet.</div>
+              ) : (
+                <div className="harness-history__list">
+                  {harnessHistory.map((entry) => {
+                    const running = harnessStatuses[entry.pid];
+                    const statusClass =
+                      running === undefined
+                        ? "pending"
+                        : running
+                          ? "running"
+                          : "done";
+                    const statusIcon =
+                      running === undefined ? "…" : running ? "●" : "✓";
+                    const statusLabel =
+                      running === undefined
+                        ? "Checking status"
+                        : running
+                          ? "Running"
+                          : "Finished";
+                    return (
+                      <div
+                        className="harness-pill"
+                        key={`${entry.pid}-${entry.startedAt}`}
+                      >
+                        <span
+                          className={`harness-status ${statusClass}`}
+                          title={statusLabel}
+                          aria-label={statusLabel}
+                        >
+                          {statusIcon}
+                        </span>
+                        <span className="harness-pill__label">
+                          PID {entry.pid} • {entry.name}
+                        </span>
+                        <span className="harness-pill__timestamp">
+                          {formatHarnessTimestamp(entry.startedAt)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </Panel>
+        </div>
       ),
     },
     {
