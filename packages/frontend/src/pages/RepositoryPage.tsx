@@ -776,10 +776,11 @@ export const RepositoryPage: React.FC = () => {
     if (!harnessModal.harness) return;
     setHarnessRunError(null);
     try {
+      const argsValue = harnessModal.args;
       const response = await api.runRepositoryHarness(
         name,
         harnessModal.harness.path,
-        harnessModal.args.trim(),
+        argsValue.trim() ? argsValue : undefined,
       );
       const entry: HarnessRun = {
         pid: response.pid,
@@ -1405,7 +1406,7 @@ export const RepositoryPage: React.FC = () => {
       >
         <div className="form-group">
           <label htmlFor="harness-args">Arguments</label>
-          <input
+          <textarea
             id="harness-args"
             value={harnessModal.args}
             onChange={(event) =>
@@ -1415,6 +1416,7 @@ export const RepositoryPage: React.FC = () => {
               }))
             }
             placeholder="Optional arguments, e.g. --verbose --limit 10"
+            rows={4}
           />
         </div>
         <div className="modal-actions">
