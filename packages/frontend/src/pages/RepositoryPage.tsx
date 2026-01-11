@@ -333,7 +333,10 @@ export const RepositoryPage: React.FC = () => {
     api
       .getRepositoryCommands(name)
       .then((response) => {
-        setAvailableCommands(response.commands);
+        const sortedCommands = [...response.commands].sort((a, b) =>
+          a.name.localeCompare(b.name),
+        );
+        setAvailableCommands(sortedCommands);
         setCommandsError(null);
       })
       .catch((error) => {
