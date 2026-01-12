@@ -57,6 +57,31 @@ class TestDashboardEndpoint:
         assert "Dashboard error" in response.json()["detail"]
 
 
+class TestAgentsEndpoint:
+    """Test the agents endpoint."""
+
+    @patch('app.list_agents')
+    def test_list_agents_success(self, mock_list):
+        mock_list.return_value = [
+            {"name": "build", "type": "primary", "details": ["allow: read"]},
+            {"name": "plan", "type": "primary", "details": []},
+        ]
+
+        response = client.get("/api/agents")
+
+        assert response.status_code == 200
+        assert response.json() == {"agents": mock_list.return_value}
+
+    @patch('app.list_agents')
+    def test_list_agents_error(self, mock_list):
+        mock_list.side_effect = Exception("Agent error")
+
+        response = client.get("/api/agents")
+
+        assert response.status_code == 500
+        assert "Agent error" in response.json()["detail"]
+
+
 class TestChatHistoryEndpoint:
     @patch('app.export_chat_history')
     def test_repository_history_success(self, mock_export):
@@ -531,9 +556,9 @@ class TestRepositoryEndpoints:
         payload = {"message": "Test message"}
         
         response = client.post("/api/repositories/test-repo/agent", json=payload)
-        
+
         assert response.status_code == 200
-        mock_agent.assert_called_once_with("test-repo", "Test message", None)
+        mock_agent.assert_called_once_with("test-repo", "Test message", None, None)
 
     @patch('app.send_agent_message')
     def test_repository_agent_with_session_id(self, mock_agent):
@@ -544,7 +569,7 @@ class TestRepositoryEndpoints:
         response = client.post("/api/repositories/test-repo/agent", json=payload)
 
         assert response.status_code == 200
-        mock_agent.assert_called_once_with("test-repo", "Test message", "ses_456")
+        mock_agent.assert_called_once_with("test-repo", "Test message", "ses_456", None)
 
 
 class TestKnowledgeEndpoints:
@@ -600,9 +625,14 @@ class TestKnowledgeEndpoints:
         payload = {"message": "Test message"}
         
         response = client.post("/api/knowledge/test-guide/agent", json=payload)
-        
+
         assert response.status_code == 200
-        mock_agent.assert_called_once_with("knowledge:test-guide", "Test message", None)
+        mock_agent.assert_called_once_with(
+            "knowledge:test-guide",
+            "Test message",
+            None,
+            None,
+        )
 
     @patch('app.send_agent_message')
     def test_knowledge_agent_with_session_id(self, mock_agent):
@@ -613,7 +643,12 @@ class TestKnowledgeEndpoints:
         response = client.post("/api/knowledge/test-guide/agent", json=payload)
 
         assert response.status_code == 200
-        mock_agent.assert_called_once_with("knowledge:test-guide", "Test message", "ses_k")
+        mock_agent.assert_called_once_with(
+            "knowledge:test-guide",
+            "Test message",
+            "ses_k",
+            None,
+        )
 
 
 class TestConstitutionEndpoints:
@@ -660,9 +695,14 @@ class TestConstitutionEndpoints:
         payload = {"message": "Test message"}
         
         response = client.post("/api/constitutions/test-const/agent", json=payload)
-        
+
         assert response.status_code == 200
-        mock_agent.assert_called_once_with("constitution:test-const", "Test message", None)
+        mock_agent.assert_called_once_with(
+            "constitution:test-const",
+            "Test message",
+            None,
+            None,
+        )
 
     @patch('app.send_agent_message')
     def test_constitution_agent_with_session_id(self, mock_agent):
@@ -673,7 +713,12 @@ class TestConstitutionEndpoints:
         response = client.post("/api/constitutions/test-const/agent", json=payload)
 
         assert response.status_code == 200
-        mock_agent.assert_called_once_with("constitution:test-const", "Test message", "ses_c")
+        mock_agent.assert_called_once_with(
+            "constitution:test-const",
+            "Test message",
+            "ses_c",
+            None,
+        )
 
 
 class TestSettingsEndpoints:

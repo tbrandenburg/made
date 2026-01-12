@@ -22,6 +22,7 @@ from agent_service import (
     cancel_agent_message,
     export_chat_history,
     get_channel_status,
+    list_agents,
     list_chat_sessions,
     send_agent_message,
 )
@@ -145,6 +146,18 @@ def dashboard():
         return get_dashboard_summary()
     except Exception as exc:  # pragma: no cover - passthrough errors
         logger.exception("Failed to fetch dashboard summary")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/agents")
+def list_available_agents():
+    try:
+        logger.info("Listing available agents")
+        return {"agents": list_agents()}
+    except Exception as exc:
+        logger.exception("Failed to list available agents")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
@@ -320,17 +333,19 @@ def delete_repository_file_endpoint(name: str, payload: dict = Body(...)):
 def repository_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
     session_id = payload.get("sessionId")
+    agent = payload.get("agent")
     if not message:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
         )
     try:
         logger.info(
-            "Forwarding agent message for repository '%s' (session: %s)",
+            "Forwarding agent message for repository '%s' (session: %s, agent: %s)",
             name,
             session_id or "new",
+            agent or "default",
         )
-        return send_agent_message(name, message, session_id)
+        return send_agent_message(name, message, session_id, agent)
     except ChannelBusyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
@@ -570,17 +585,19 @@ def knowledge_write(name: str, payload: dict = Body(...)):
 def knowledge_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
     session_id = payload.get("sessionId")
+    agent = payload.get("agent")
     if not message:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
         )
     try:
         logger.info(
-            "Forwarding agent message for knowledge '%s' (session: %s)",
+            "Forwarding agent message for knowledge '%s' (session: %s, agent: %s)",
             name,
             session_id or "new",
+            agent or "default",
         )
-        return send_agent_message(f"knowledge:{name}", message, session_id)
+        return send_agent_message(f"knowledge:{name}", message, session_id, agent)
     except ChannelBusyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
@@ -695,17 +712,19 @@ def constitution_write(name: str, payload: dict = Body(...)):
 def constitution_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
     session_id = payload.get("sessionId")
+    agent = payload.get("agent")
     if not message:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
         )
     try:
         logger.info(
-            "Forwarding agent message for constitution '%s' (session: %s)",
+            "Forwarding agent message for constitution '%s' (session: %s, agent: %s)",
             name,
             session_id or "new",
+            agent or "default",
         )
-        return send_agent_message(f"constitution:{name}", message, session_id)
+        return send_agent_message(f"constitution:{name}", message, session_id, agent)
     except ChannelBusyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
