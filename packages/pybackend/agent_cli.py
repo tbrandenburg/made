@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import os
 from pathlib import Path
 import subprocess
 
@@ -89,3 +90,62 @@ class OpenCodeAgentCLI(AgentCLI):
             capture_output=True,
             text=True,
         )
+
+
+class KiroAgentCLI(AgentCLI):
+    @property
+    def cli_name(self) -> str:
+        return "kiro-cli"
+
+    def build_run_command(self, session_id: str | None, agent: str | None) -> list[str]:
+        command = ["kiro-cli", "chat", "--no-interactive"]
+        if session_id:
+            command.append("--resume")
+        if agent:
+            command.extend(["--agent", agent])
+        return command
+
+    def start_run(self, command: list[str], cwd: Path) -> subprocess.Popen:
+        return subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=cwd,
+        )
+
+    def export_session(
+        self, session_id: str, cwd: Path | None, stdout
+    ) -> subprocess.CompletedProcess:
+        return subprocess.CompletedProcess(
+            args=["kiro-cli", "chat", "--resume"],
+            returncode=1,
+            stdout="",
+            stderr=(
+                "Kiro CLI session export is not supported yet via the backend."
+            ),
+        )
+
+    def list_sessions(self, cwd: Path | None) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["kiro-cli", "chat", "--list-sessions"],
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+        )
+
+    def list_agents(self) -> subprocess.CompletedProcess:
+        return subprocess.CompletedProcess(
+            args=["kiro-cli", "chat"],
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+
+def get_agent_cli() -> AgentCLI:
+    cli_choice = os.environ.get("MADE_AGENT_CLI", "opencode").strip().lower()
+    if cli_choice == "kiro":
+        return KiroAgentCLI()
+    return OpenCodeAgentCLI()

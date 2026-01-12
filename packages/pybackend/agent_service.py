@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
 
-from agent_cli import OpenCodeAgentCLI
+from agent_cli import get_agent_cli
 from config import ensure_directory, get_made_directory, get_workspace_home
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ _conversation_sessions: dict[str, str] = {}
 SESSION_ROW_PATTERN = re.compile(r"^(ses_[^\s]+)\s{2,}(.*?)\s{2,}(.+)$")
 AGENT_ROW_PATTERN = re.compile(r"^(?P<name>\S+)\s+\((?P<kind>[^)]+)\)\s*$")
 LOG_PREVIEW_LIMIT = 500
-AGENT_CLI = OpenCodeAgentCLI()
+AGENT_CLI = get_agent_cli()
 
 
 class ChannelBusyError(RuntimeError):
@@ -600,7 +600,7 @@ def _parse_agent_list(output: str) -> list[dict[str, object]]:
                 details.append(stripped)
 
     if not agents:
-        logger.warning("No agents parsed from opencode output")
+        logger.warning("No agents parsed from agent CLI output")
     return agents
 
 

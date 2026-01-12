@@ -539,3 +539,24 @@ ses_4c9b107a0ffeuRQ2c1mUgvcZto  Greeting and quick check-in                     
             },
             {"name": "plan", "type": "primary", "details": ["allow: think"]},
         ]
+
+
+class TestAgentCliSelection:
+    """Test agent CLI selection logic."""
+
+    def test_get_agent_cli_defaults_to_opencode(self):
+        """Ensure opencode CLI is used by default."""
+        from agent_cli import OpenCodeAgentCLI, get_agent_cli
+
+        cli = get_agent_cli()
+
+        assert isinstance(cli, OpenCodeAgentCLI)
+
+    def test_get_agent_cli_uses_kiro(self):
+        """Ensure kiro CLI is selected when configured."""
+        from agent_cli import KiroAgentCLI, get_agent_cli
+
+        with patch.dict("os.environ", {"MADE_AGENT_CLI": "kiro"}):
+            cli = get_agent_cli()
+
+        assert isinstance(cli, KiroAgentCLI)
