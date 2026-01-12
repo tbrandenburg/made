@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
 
+from agent_cli import OpenCodeAgentCLI
 from config import ensure_directory, get_made_directory, get_workspace_home
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ _conversation_sessions: dict[str, str] = {}
 SESSION_ROW_PATTERN = re.compile(r"^(ses_[^\s]+)\s{2,}(.*?)\s{2,}(.+)$")
 AGENT_ROW_PATTERN = re.compile(r"^(?P<name>\S+)\s+\((?P<kind>[^)]+)\)\s*$")
 LOG_PREVIEW_LIMIT = 500
+AGENT_CLI = OpenCodeAgentCLI()
 
 
 class ChannelBusyError(RuntimeError):
@@ -93,20 +95,6 @@ def _preview_output(raw_text: str, limit: int = LOG_PREVIEW_LIMIT) -> str:
         return stripped
 
     return stripped[: limit - 3] + "..."
-
-
-def _build_opencode_command(
-    session_id: str | None,
-    agent: str | None,
-) -> list[str]:
-    """Build the opencode command based on conversation state."""
-    command = ["opencode", "run"]
-    if session_id:
-        command.extend(["-s", session_id])
-    if agent:
-        command.extend(["--agent", agent])
-    command.extend(["--format", "json"])
-    return command
 
 
 def _get_working_directory(channel: str) -> Path:
@@ -498,18 +486,12 @@ def export_chat_history(
 
     with tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8", delete=True) as tmp:
         try:
-            result = subprocess.run(
-                ["opencode", "export", session_id],
-                stdout=tmp,
-                stderr=subprocess.PIPE,
-                text=True,
-                cwd=working_dir,
-            )
+            result = AGENT_CLI.export_session(session_id, working_dir, stdout=tmp)
         except FileNotFoundError:
-            logger.error("Unable to export history: 'opencode' command not found")
-            raise FileNotFoundError(
-                "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
+            logger.error(
+                "Unable to export history: '%s' command not found", AGENT_CLI.cli_name
             )
+            raise FileNotFoundError(AGENT_CLI.missing_command_error())
 
         stderr_text = str(result.stderr or "")
 
@@ -562,17 +544,12 @@ def list_chat_sessions(channel: str | None = None, limit: int = 10) -> list[dict
     )
 
     try:
-        result = subprocess.run(
-            ["opencode", "session", "list"],
-            capture_output=True,
-            text=True,
-            cwd=working_dir,
-        )
+        result = AGENT_CLI.list_sessions(working_dir)
     except FileNotFoundError:
-        logger.error("Unable to list sessions: 'opencode' command not found")
-        raise FileNotFoundError(
-            "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
+        logger.error(
+            "Unable to list sessions: '%s' command not found", AGENT_CLI.cli_name
         )
+        raise FileNotFoundError(AGENT_CLI.missing_command_error())
 
     stderr_text = str(result.stderr or "")
 
@@ -628,18 +605,14 @@ def _parse_agent_list(output: str) -> list[dict[str, object]]:
 
 
 def list_agents() -> list[dict[str, object]]:
-    logger.info("Listing available opencode agents")
+    logger.info("Listing available %s agents", AGENT_CLI.cli_name)
     try:
-        result = subprocess.run(
-            ["opencode", "agent", "list"],
-            capture_output=True,
-            text=True,
-        )
+        result = AGENT_CLI.list_agents()
     except FileNotFoundError:
-        logger.error("Unable to list agents: 'opencode' command not found")
-        raise FileNotFoundError(
-            "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
+        logger.error(
+            "Unable to list agents: '%s' command not found", AGENT_CLI.cli_name
         )
+        raise FileNotFoundError(AGENT_CLI.missing_command_error())
 
     stderr_text = str(result.stderr or "")
 
@@ -680,22 +653,15 @@ def send_agent_message(
     else:
         _conversation_sessions.pop(channel, None)
 
-    command = _build_opencode_command(active_session, agent)
+    command = AGENT_CLI.build_run_command(active_session, agent)
 
     logger.info(
         "Sending agent message (channel: %s, session: %s)", channel, active_session
     )
 
     try:
-        # Run the opencode command with the message in the appropriate directory
-        process = subprocess.Popen(
-            command,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            cwd=working_dir,
-        )
+        # Run the agent command with the message in the appropriate directory
+        process = AGENT_CLI.start_run(command, working_dir)
         _set_channel_process(channel, process)
         stdout, stderr = process.communicate(input=message)
 
@@ -734,7 +700,7 @@ def send_agent_message(
 
     except FileNotFoundError:
         parsed_responses = []
-        response = "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
+        response = AGENT_CLI.missing_command_error()
         logger.error("Agent command not found for channel %s", channel)
     except Exception as e:
         parsed_responses = []
