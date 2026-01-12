@@ -1,5 +1,4 @@
 import json
-import subprocess
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -93,9 +92,9 @@ class TestExportChatHistory:
         ]
     }
 
-    @patch("agent_service.subprocess.run")
-    def test_export_chat_history_success(self, mock_run):
-        def _fake_run(cmd, stdout=None, stderr=None, text=None, cwd=None):
+    @patch("agent_service.AGENT_CLI.export_session")
+    def test_export_chat_history_success(self, mock_export):
+        def _fake_export(session_id, cwd, stdout=None):
             if stdout is not None:
                 stdout.write(json.dumps(self.SAMPLE_EXPORT))
                 stdout.flush()
@@ -104,7 +103,7 @@ class TestExportChatHistory:
             mock_result.stderr = ""
             return mock_result
 
-        mock_run.side_effect = _fake_run
+        mock_export.side_effect = _fake_export
 
         result = export_chat_history("ses_123")
 
@@ -145,9 +144,9 @@ class TestExportChatHistory:
             },
         ]
 
-    @patch("agent_service.subprocess.run")
-    def test_export_chat_history_with_start_filter(self, mock_run):
-        def _fake_run(cmd, stdout=None, stderr=None, text=None, cwd=None):
+    @patch("agent_service.AGENT_CLI.export_session")
+    def test_export_chat_history_with_start_filter(self, mock_export):
+        def _fake_export(session_id, cwd, stdout=None):
             if stdout is not None:
                 stdout.write(json.dumps(self.SAMPLE_EXPORT))
                 stdout.flush()
@@ -156,7 +155,7 @@ class TestExportChatHistory:
             mock_result.stderr = ""
             return mock_result
 
-        mock_run.side_effect = _fake_run
+        mock_export.side_effect = _fake_export
 
         result = export_chat_history("ses_123", start_timestamp=2000)
 
@@ -166,26 +165,26 @@ class TestExportChatHistory:
         with pytest.raises(ValueError):
             export_chat_history("")
 
-    @patch("agent_service.subprocess.run")
-    def test_export_chat_history_missing_opencode(self, mock_run):
-        mock_run.side_effect = FileNotFoundError()
+    @patch("agent_service.AGENT_CLI.export_session")
+    def test_export_chat_history_missing_opencode(self, mock_export):
+        mock_export.side_effect = FileNotFoundError()
 
         with pytest.raises(FileNotFoundError):
             export_chat_history("ses_123")
 
-    @patch("agent_service.subprocess.run")
-    def test_export_chat_history_failure(self, mock_run):
+    @patch("agent_service.AGENT_CLI.export_session")
+    def test_export_chat_history_failure(self, mock_export):
         mock_result = Mock()
         mock_result.returncode = 1
         mock_result.stderr = "Failed"
-        mock_run.return_value = mock_result
+        mock_export.return_value = mock_result
 
         with pytest.raises(RuntimeError):
             export_chat_history("ses_123")
 
-    @patch("agent_service.subprocess.run")
-    def test_export_chat_history_bad_json(self, mock_run):
-        def _fake_run(cmd, stdout=None, stderr=None, text=None, cwd=None):
+    @patch("agent_service.AGENT_CLI.export_session")
+    def test_export_chat_history_bad_json(self, mock_export):
+        def _fake_export(session_id, cwd, stdout=None):
             if stdout is not None:
                 stdout.write("not json")
                 stdout.flush()
@@ -194,16 +193,16 @@ class TestExportChatHistory:
             mock_result.stderr = ""
             return mock_result
 
-        mock_run.side_effect = _fake_run
+        mock_export.side_effect = _fake_export
 
         with pytest.raises(ValueError):
             export_chat_history("ses_123")
 
-    @patch("agent_service.subprocess.run")
-    def test_export_chat_history_rejects_non_json_prefix_or_suffix(self, mock_run):
+    @patch("agent_service.AGENT_CLI.export_session")
+    def test_export_chat_history_rejects_non_json_prefix_or_suffix(self, mock_export):
         payload = json.dumps(self.SAMPLE_EXPORT)
 
-        def _fake_run(cmd, stdout=None, stderr=None, text=None, cwd=None):
+        def _fake_export(session_id, cwd, stdout=None):
             if stdout is not None:
                 stdout.write(f"intro text\n{payload}\ntrailing stats")
                 stdout.flush()
@@ -212,17 +211,17 @@ class TestExportChatHistory:
             mock_result.stderr = ""
             return mock_result
 
-        mock_run.side_effect = _fake_run
+        mock_export.side_effect = _fake_export
 
         with pytest.raises(ValueError):
             export_chat_history("ses_123")
 
-    @patch("agent_service.subprocess.run")
-    def test_export_chat_history_rejects_multiple_json_blocks(self, mock_run):
+    @patch("agent_service.AGENT_CLI.export_session")
+    def test_export_chat_history_rejects_multiple_json_blocks(self, mock_export):
         first_payload = json.dumps(self.SAMPLE_EXPORT)
         second_payload = json.dumps({"messages": []})
 
-        def _fake_run(cmd, stdout=None, stderr=None, text=None, cwd=None):
+        def _fake_export(session_id, cwd, stdout=None):
             if stdout is not None:
                 stdout.write(
                     f"INFO log before\n{first_payload}\nnoise-between\n{second_payload}"
@@ -233,18 +232,18 @@ class TestExportChatHistory:
             mock_result.stderr = ""
             return mock_result
 
-        mock_run.side_effect = _fake_run
+        mock_export.side_effect = _fake_export
 
         with pytest.raises(ValueError):
             export_chat_history("ses_123")
 
-    @patch("agent_service.subprocess.run")
+    @patch("agent_service.AGENT_CLI.export_session")
     @patch("agent_service._get_working_directory")
     def test_export_chat_history_uses_channel_working_directory(
-        self, mock_get_working_directory, mock_run
+        self, mock_get_working_directory, mock_export
     ):
         mock_get_working_directory.return_value = Path("/tmp/workspace/sample")
-        def _fake_run(cmd, stdout=None, stderr=None, text=None, cwd=None):
+        def _fake_export(session_id, cwd, stdout=None):
             if stdout is not None:
                 stdout.write(json.dumps(self.SAMPLE_EXPORT))
                 stdout.flush()
@@ -253,15 +252,13 @@ class TestExportChatHistory:
             mock_result.stderr = ""
             return mock_result
 
-        mock_run.side_effect = _fake_run
+        mock_export.side_effect = _fake_export
 
         export_chat_history("ses_123", channel="sample")
 
         mock_get_working_directory.assert_called_once_with("sample")
-        mock_run.assert_called_once_with(
-            ["opencode", "export", "ses_123"],
-            stdout=mock_run.call_args.kwargs["stdout"],
-            stderr=subprocess.PIPE,
-            text=True,
-            cwd=Path("/tmp/workspace/sample"),
-        )
+        mock_export.assert_called_once()
+        args, kwargs = mock_export.call_args
+        assert args[0] == "ses_123"
+        assert args[1] == Path("/tmp/workspace/sample")
+        assert "stdout" in kwargs
