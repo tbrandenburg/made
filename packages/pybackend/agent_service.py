@@ -18,6 +18,7 @@ _processing_processes: dict[str, subprocess.Popen] = {}
 _cancelled_channels: set[str] = set()
 _conversation_sessions: dict[str, str] = {}
 SESSION_ROW_PATTERN = re.compile(r"^(ses_[^\s]+)\s{2,}(.*?)\s{2,}(.+)$")
+AGENT_ROW_PATTERN = re.compile(r"^(?P<name>\S+)\s+\((?P<kind>[^)]+)\)\s*$")
 LOG_PREVIEW_LIMIT = 500
 
 
@@ -94,11 +95,16 @@ def _preview_output(raw_text: str, limit: int = LOG_PREVIEW_LIMIT) -> str:
     return stripped[: limit - 3] + "..."
 
 
-def _build_opencode_command(session_id: str | None) -> list[str]:
+def _build_opencode_command(
+    session_id: str | None,
+    agent: str | None,
+) -> list[str]:
     """Build the opencode command based on conversation state."""
     command = ["opencode", "run"]
     if session_id:
         command.extend(["-s", session_id])
+    if agent:
+        command.extend(["--agent", agent])
     command.extend(["--format", "json"])
     return command
 
@@ -592,7 +598,75 @@ def list_chat_sessions(channel: str | None = None, limit: int = 10) -> list[dict
     return _parse_session_table(result.stdout or "", limit)
 
 
-def send_agent_message(channel: str, message: str, session_id: str | None = None):
+def _parse_agent_list(output: str) -> list[dict[str, object]]:
+    agents: list[dict[str, object]] = []
+    current_agent: dict[str, object] | None = None
+
+    for line in output.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        match = AGENT_ROW_PATTERN.match(stripped)
+        if match:
+            current_agent = {
+                "name": match.group("name"),
+                "type": match.group("kind"),
+                "details": [],
+            }
+            agents.append(current_agent)
+            continue
+
+        if current_agent is not None:
+            details = current_agent.get("details")
+            if isinstance(details, list):
+                details.append(stripped)
+
+    if not agents:
+        logger.warning("No agents parsed from opencode output")
+    return agents
+
+
+def list_agents() -> list[dict[str, object]]:
+    logger.info("Listing available opencode agents")
+    try:
+        result = subprocess.run(
+            ["opencode", "agent", "list"],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        logger.error("Unable to list agents: 'opencode' command not found")
+        raise FileNotFoundError(
+            "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
+        )
+
+    stderr_text = str(result.stderr or "")
+
+    if result.returncode != 0:
+        error_message = stderr_text.strip() or "Failed to list agents"
+        logger.error(
+            "Listing agents failed (code: %s, stderr: %s)",
+            result.returncode,
+            _preview_output(stderr_text),
+        )
+        raise RuntimeError(error_message)
+
+    logger.debug(
+        "Listing agents succeeded (stdout_bytes: %s, stderr_preview: %s)",
+        len(result.stdout or ""),
+        _preview_output(stderr_text),
+    )
+
+    return _parse_agent_list(result.stdout or "")
+
+
+def send_agent_message(
+    channel: str,
+    message: str,
+    session_id: str | None = None,
+    agent: str | None = None,
+):
     if not _mark_channel_processing(channel):
         raise ChannelBusyError(
             "Agent is still processing a previous message for this chat."
@@ -606,7 +680,7 @@ def send_agent_message(channel: str, message: str, session_id: str | None = None
     else:
         _conversation_sessions.pop(channel, None)
 
-    command = _build_opencode_command(active_session)
+    command = _build_opencode_command(active_session, agent)
 
     logger.info(
         "Sending agent message (channel: %s, session: %s)", channel, active_session

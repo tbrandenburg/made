@@ -266,6 +266,32 @@ class TestAgentService:
 
     @patch('agent_service._get_working_directory')
     @patch('agent_service.subprocess.Popen')
+    def test_send_agent_message_with_agent(self, mock_subprocess_popen, mock_get_working_dir):
+        """Test messages include provided agent."""
+        from agent_service import send_agent_message
+
+        mock_working_dir = Path("/test/workspace/repo")
+        mock_get_working_dir.return_value = mock_working_dir
+
+        mock_process = Mock()
+        mock_process.returncode = 0
+        mock_process.communicate.return_value = ("Agent response content", "")
+        mock_subprocess_popen.return_value = mock_process
+
+        send_agent_message("test-repo", "Hello agent", agent="plan")
+
+        mock_subprocess_popen.assert_called_once_with(
+            ["opencode", "run", "--agent", "plan", "--format", "json"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=mock_working_dir,
+        )
+        mock_process.communicate.assert_called_once_with(input="Hello agent")
+
+    @patch('agent_service._get_working_directory')
+    @patch('agent_service.subprocess.Popen')
     def test_send_agent_message_resets_channel_without_session_id(
         self, mock_subprocess_popen, mock_get_working_dir
     ):
@@ -538,3 +564,27 @@ ses_4c9b107a0ffeuRQ2c1mUgvcZto  Greeting and quick check-in                     
 
         with pytest.raises(RuntimeError):
             list_chat_sessions("test-repo", limit=5)
+
+    def test_parse_agent_list_includes_details(self):
+        """Parse agent list output including detail lines."""
+        from agent_service import _parse_agent_list
+
+        output = "\n".join(
+            [
+                "build (primary)",
+                "  allow: read",
+                "  deny: write",
+                "",
+                "plan (primary)",
+                "  allow: think",
+            ]
+        )
+
+        assert _parse_agent_list(output) == [
+            {
+                "name": "build",
+                "type": "primary",
+                "details": ["allow: read", "deny: write"],
+            },
+            {"name": "plan", "type": "primary", "details": ["allow: think"]},
+        ]
