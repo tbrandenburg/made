@@ -58,6 +58,13 @@ class TestKiroAgentCLI:
         expected_complex = "Bold underlined colored"
         assert cli._strip_ansi_codes(complex_ansi) == expected_complex
 
+    def test_clean_response_text_strips_prefixes(self):
+        """Test _clean_response_text strips prompt markers and labels."""
+        cli = KiroAgentCLI()
+        text = "\x1b[38;5;141m> \x1b[0m(Assistant) Hello there"
+        assert cli._clean_response_text(text) == "Hello there"
+        assert cli._clean_response_text(">     (Heading) Title") == "Title"
+
     @unittest.mock.patch("subprocess.run")
     def test_run_agent_success(self, mock_run):
         """Test run_agent with successful subprocess execution."""
@@ -77,7 +84,7 @@ class TestKiroAgentCLI:
 
     @unittest.mock.patch("subprocess.run")
     def test_run_agent_strips_ansi_codes(self, mock_run):
-        """Test run_agent strips ANSI escape sequences from output."""
+        """Test run_agent strips ANSI escape sequences and prompt markers."""
         # Mock kiro-cli response with ANSI codes
         mock_run.return_value.returncode = 0
         mock_run.return_value.stdout = "\x1b[38;5;141m> \x1b[0mHere's a poem\x1b[0m\x1b[0m"
@@ -89,8 +96,8 @@ class TestKiroAgentCLI:
         assert isinstance(result, RunResult)
         assert result.success is True
         assert len(result.response_parts) == 1
-        # Verify ANSI codes are stripped
-        assert result.response_parts[0].text == "> Here's a poem"
+        # Verify ANSI codes and prompt markers are stripped
+        assert result.response_parts[0].text == "Here's a poem"
         assert "\x1b[" not in result.response_parts[0].text
 
         # Verify subprocess was called correctly

@@ -38,6 +38,16 @@ class KiroAgentCLI(AgentCLI):
         ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
         return ansi_escape.sub("", text)
 
+    def _clean_response_text(self, text: str) -> str:
+        """Normalize kiro-cli output for display."""
+        cleaned = self._strip_ansi_codes(text)
+        if not cleaned:
+            return cleaned
+
+        cleaned = re.sub(r"(?m)^>\s*", "", cleaned)
+        cleaned = re.sub(r"(?m)^\([^)]*\)\s*", "", cleaned)
+        return cleaned.strip()
+
     def _get_database_path(self) -> Path | None:
         """Get the path to Kiro's SQLite database."""
         # Check environment variable first
@@ -82,7 +92,7 @@ class KiroAgentCLI(AgentCLI):
 
             if process.returncode == 0:
                 # Parse kiro-cli output - strip ANSI codes for clean display
-                response_text = self._strip_ansi_codes((process.stdout or "").strip())
+                response_text = self._clean_response_text(process.stdout or "")
                 response_parts = (
                     [
                         ResponsePart(
@@ -210,12 +220,15 @@ class KiroAgentCLI(AgentCLI):
             # Add assistant message
             if "Response" in assistant_msg:
                 response_data = assistant_msg["Response"]
+                response_text = self._clean_response_text(
+                    response_data.get("content", "")
+                )
                 messages.append(
                     HistoryMessage(
                         message_id=response_data.get("message_id"),
                         role="assistant",
                         content_type="text",
-                        content=response_data.get("content", ""),
+                        content=response_text,
                         timestamp=None,  # No timestamp in response data
                     )
                 )
