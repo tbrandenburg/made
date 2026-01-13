@@ -63,6 +63,7 @@ class TestKiroAgentCLI:
         cli = KiroAgentCLI()
         text = "\x1b[38;5;141m> \x1b[0m(Assistant) Hello there"
         assert cli._clean_response_text(text) == "Hello there"
+        assert cli._clean_response_text(">     (heading) Title") == "Title"
 
     @unittest.mock.patch("subprocess.run")
     def test_run_agent_success(self, mock_run):

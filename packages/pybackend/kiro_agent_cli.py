@@ -44,18 +44,14 @@ class KiroAgentCLI(AgentCLI):
         if not cleaned:
             return cleaned
 
-        lines = []
-        for line in cleaned.splitlines():
-            line = re.sub(r"^>\s?", "", line)
-            line = re.sub(
-                r"^\((assistant|analysis|final|thinking|tool|heading)\)\s+",
-                "",
-                line,
-                flags=re.IGNORECASE,
-            )
-            lines.append(line)
-
-        return "\n".join(lines).strip()
+        cleaned = re.sub(r"(?m)^>\s*", "", cleaned)
+        cleaned = re.sub(
+            r"(?m)^\((assistant|analysis|final|thinking|tool|heading)\)\s*",
+            "",
+            cleaned,
+            flags=re.IGNORECASE,
+        )
+        return cleaned.strip()
 
     def _get_database_path(self) -> Path | None:
         """Get the path to Kiro's SQLite database."""
