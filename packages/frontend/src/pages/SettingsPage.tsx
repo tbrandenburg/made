@@ -11,7 +11,10 @@ const agentCliOptions = ["opencode", "kiro"];
 export const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SettingsMap>({});
   const [activeTab, setActiveTab] = useState("settings");
-  const [status, setStatus] = useState<string | null>(null);
+  const [status, setStatus] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   useEffect(() => {
     api
@@ -19,7 +22,7 @@ export const SettingsPage: React.FC = () => {
       .then((data) => setSettings(data))
       .catch((error) => {
         console.error("Failed to load settings", error);
-        setStatus("Failed to load settings");
+        setStatus({ message: "Failed to load settings", type: "error" });
       });
   }, []);
 
@@ -30,17 +33,19 @@ export const SettingsPage: React.FC = () => {
   const handleSave = async () => {
     try {
       await api.saveSettings(settings);
-      setStatus("Settings saved");
+      setStatus({ message: "Settings saved", type: "success" });
     } catch (error) {
       console.error("Failed to save settings", error);
-      setStatus("Save failed");
+      setStatus({ message: "Save failed", type: "error" });
     }
   };
 
   return (
     <div className="page">
       <h1>Settings</h1>
-      {status && <div className="alert">{status}</div>}
+      {status && (
+        <div className={`alert ${status.type}`}>{status.message}</div>
+      )}
       <TabView
         tabs={[
           {
