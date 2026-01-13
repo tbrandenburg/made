@@ -12,6 +12,7 @@ import { TabView } from "../components/TabView";
 import { ChatWindow } from "../components/ChatWindow";
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
+import { useAgentCli } from "../hooks/useAgentCli";
 import { api, ChatSession } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
@@ -26,13 +27,17 @@ export const KnowledgeArtefactPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("content");
   const [frontmatter, setFrontmatter] = useState<Record<string, unknown>>({});
   const [content, setContent] = useState("");
+  const agentCli = useAgentCli();
   const chatStorageKey = useMemo(
     () => (name ? `knowledge-chat-${name}` : "knowledge-chat"),
     [name],
   );
   const sessionStorageKey = useMemo(
-    () => (name ? `knowledge-session-${name}` : "knowledge-session"),
-    [name],
+    () =>
+      name
+        ? `knowledge-session-${name}-${agentCli}`
+        : `knowledge-session-${agentCli}`,
+    [agentCli, name],
   );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);

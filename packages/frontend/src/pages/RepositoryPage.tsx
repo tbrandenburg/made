@@ -15,6 +15,7 @@ import { ChatWindow } from "../components/ChatWindow";
 import { SessionPickerModal } from "../components/SessionPickerModal";
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
+import { useAgentCli } from "../hooks/useAgentCli";
 import {
   api,
   CommandDefinition,
@@ -184,13 +185,17 @@ export const RepositoryPage: React.FC = () => {
   const [repository, setRepository] = useState<RepositorySummary | null>(null);
   const [fileTree, setFileTree] = useState<FileNode | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(["."]));
+  const agentCli = useAgentCli();
   const chatStorageKey = useMemo(
     () => (name ? `repository-chat-${name}` : "repository-chat"),
     [name],
   );
   const sessionStorageKey = useMemo(
-    () => (name ? `repository-session-${name}` : "repository-session"),
-    [name],
+    () =>
+      name
+        ? `repository-session-${name}-${agentCli}`
+        : `repository-session-${agentCli}`,
+    [agentCli, name],
   );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);
