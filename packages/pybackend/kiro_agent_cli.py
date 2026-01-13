@@ -74,6 +74,24 @@ class KiroAgentCLI(AgentCLI):
         except (TypeError, ValueError):
             return None
 
+    def _session_matches_directory(self, session_id: str, cwd: Path) -> bool:
+        """Check whether a session belongs to the provided working directory."""
+        db_path = self._get_database_path()
+        if not db_path:
+            return False
+
+        directory_key = self._get_directory_key(cwd)
+        try:
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT 1 FROM conversations_v2 WHERE key = ? AND conversation_id = ? LIMIT 1",
+                    (directory_key, session_id),
+                )
+                return cursor.fetchone() is not None
+        except sqlite3.Error:
+            return False
+
     def run_agent(
         self, message: str, session_id: str | None, agent: str | None, cwd: Path
     ) -> RunResult:
@@ -81,7 +99,7 @@ class KiroAgentCLI(AgentCLI):
         try:
             # Build command inline
             command = ["kiro-cli", "chat", "--no-interactive", "--trust-all-tools"]
-            if session_id:
+            if session_id and self._session_matches_directory(session_id, cwd):
                 command.append("--resume")
             if agent:
                 command.extend(["--agent", agent])

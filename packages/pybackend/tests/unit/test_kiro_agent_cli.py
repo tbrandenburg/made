@@ -111,6 +111,67 @@ class TestKiroAgentCLI:
         ]
 
     @unittest.mock.patch("subprocess.run")
+    def test_run_agent_resumes_only_for_matching_directory(self, mock_run):
+        """Test run_agent resumes only when session matches working directory."""
+        with tempfile.NamedTemporaryFile(suffix=".sqlite3", delete=False) as tmp_db:
+            db_path = Path(tmp_db.name)
+
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    CREATE TABLE conversations_v2 (
+                        key TEXT NOT NULL,
+                        conversation_id TEXT NOT NULL,
+                        value TEXT NOT NULL,
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL,
+                        PRIMARY KEY (key, conversation_id)
+                    )
+                """)
+                cursor.execute(
+                    "INSERT INTO conversations_v2 (key, conversation_id, value, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                    (
+                        "/test/path",
+                        "test-conv-123",
+                        json.dumps({"conversation_id": "test-conv-123", "history": []}),
+                        1736766000000,
+                        1736766000000,
+                    ),
+                )
+                conn.commit()
+
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = "Test response from kiro-cli"
+            mock_run.return_value.stderr = ""
+
+            with unittest.mock.patch.object(
+                KiroAgentCLI, "_get_database_path", return_value=db_path
+            ):
+                cli = KiroAgentCLI()
+
+                cli.run_agent("test message", "test-conv-123", None, Path("/test/path"))
+                call_args = mock_run.call_args
+                assert call_args[0][0] == [
+                    "kiro-cli",
+                    "chat",
+                    "--no-interactive",
+                    "--trust-all-tools",
+                    "--resume",
+                ]
+
+                mock_run.reset_mock()
+                cli.run_agent("test message", "test-conv-123", None, Path("/other/path"))
+                call_args = mock_run.call_args
+                assert call_args[0][0] == [
+                    "kiro-cli",
+                    "chat",
+                    "--no-interactive",
+                    "--trust-all-tools",
+                ]
+
+            db_path.unlink()
+
+    @unittest.mock.patch("subprocess.run")
     def test_run_agent_command_not_found(self, mock_run):
         """Test run_agent with FileNotFoundError from subprocess."""
         mock_run.side_effect = FileNotFoundError("kiro-cli not found")
