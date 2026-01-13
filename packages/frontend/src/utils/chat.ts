@@ -25,9 +25,13 @@ export const normalizeChatMessageText = (text: string | undefined | null) => {
 export const buildMessageDedupKey = (message: ChatMessage) => {
   const normalizedText = normalizeChatMessageText(message.text);
   const userTextKey = normalizedText.slice(0, 300);
+  const userMessageIdKey =
+    message.messageKey && message.messageKey.startsWith("msg-")
+      ? message.messageKey
+      : undefined;
   const baseKey =
     message.role === "user"
-      ? userTextKey || message.messageKey || message.id
+      ? userMessageIdKey || userTextKey || message.messageKey || message.id
       : message.messageKey || normalizedText || message.id;
 
   if (!baseKey) return undefined;
