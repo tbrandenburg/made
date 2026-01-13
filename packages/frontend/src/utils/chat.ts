@@ -130,11 +130,21 @@ export const mergeChatMessages = (
 ) => {
   const next = [...existing];
   const existingIndexByKey = new Map<string, number>();
+  const existingUserTextIndex = new Map<string, number>();
 
   existing.forEach((message, index) => {
     const key = buildMessageDedupKey(message);
     if (!key) return;
     existingIndexByKey.set(key, index);
+    if (
+      message.role === "user" &&
+      !message.messageKey?.startsWith("msg-")
+    ) {
+      const userTextKey = normalizeChatMessageText(message.text).slice(0, 300);
+      if (userTextKey) {
+        existingUserTextIndex.set(userTextKey, index);
+      }
+    }
   });
 
   incoming.forEach((message) => {
@@ -144,7 +154,17 @@ export const mergeChatMessages = (
       return;
     }
 
-    const existingIndex = existingIndexByKey.get(key);
+    let existingIndex = existingIndexByKey.get(key);
+    if (
+      existingIndex === undefined &&
+      message.role === "user" &&
+      message.messageKey?.startsWith("msg-")
+    ) {
+      const userTextKey = normalizeChatMessageText(message.text).slice(0, 300);
+      if (userTextKey) {
+        existingIndex = existingUserTextIndex.get(userTextKey);
+      }
+    }
     if (existingIndex === undefined) {
       existingIndexByKey.set(key, next.length);
       next.push(message);
