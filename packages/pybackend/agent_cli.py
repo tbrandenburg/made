@@ -140,17 +140,17 @@ class OpenCodeAgentCLI(AgentCLI):
 
             if payload_type == "text":
                 text = self._extract_part_content(part, "text")
-                if text:
-                    parts.append({
-                        "kind": "text",
-                        "content": text,
-                        "timestamp": payload_timestamp,
-                        "part_id": part_id,
-                        "call_id": call_id,
-                    })
+                # Include all text parts, even empty ones, to maintain conversation flow
+                parts.append({
+                    "kind": "text",
+                    "content": text,
+                    "timestamp": payload_timestamp,
+                    "part_id": part_id,
+                    "call_id": call_id,
+                })
             elif payload_type in {"tool_use", "tool"}:
                 tool_name = self._extract_part_content(part, payload_type)
-                if tool_name:
+                if tool_name:  # Only include tools if they have content
                     parts.append({
                         "kind": "tool",
                         "content": tool_name,
