@@ -15,9 +15,7 @@ def read_settings():
     settings_path = get_settings_path()
     if not settings_path.exists():
         defaults = {
-            "theme": "system",
-            "agentEndpoint": "https://a2a-protocol.org/mock",
-            "notifications": True,
+            "agentCli": "opencode",
         }
         settings_path.write_text(json.dumps(defaults, indent=2), encoding="utf-8")
         return defaults

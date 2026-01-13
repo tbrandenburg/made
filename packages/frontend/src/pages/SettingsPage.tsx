@@ -6,6 +6,8 @@ import "../styles/page.css";
 
 type SettingsMap = Record<string, unknown>;
 
+const agentCliOptions = ["opencode", "kiro-cli"];
+
 export const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SettingsMap>({});
   const [activeTab, setActiveTab] = useState("settings");
@@ -57,13 +59,29 @@ export const SettingsPage: React.FC = () => {
                   {Object.entries(settings).map(([key, value]) => (
                     <div key={key} className="settings-row">
                       <label htmlFor={`setting-${key}`}>{key}</label>
-                      <input
-                        id={`setting-${key}`}
-                        value={String(value ?? "")}
-                        onChange={(event) =>
-                          handleChange(key, event.target.value)
-                        }
-                      />
+                      {key === "agentCli" ? (
+                        <select
+                          id={`setting-${key}`}
+                          value={String(value ?? "")}
+                          onChange={(event) =>
+                            handleChange(key, event.target.value)
+                          }
+                        >
+                          {agentCliOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          id={`setting-${key}`}
+                          value={String(value ?? "")}
+                          onChange={(event) =>
+                            handleChange(key, event.target.value)
+                          }
+                        />
+                      )}
                     </div>
                   ))}
                   {Object.keys(settings).length === 0 && (
