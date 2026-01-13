@@ -45,12 +45,7 @@ class KiroAgentCLI(AgentCLI):
             return cleaned
 
         cleaned = re.sub(r"(?m)^>\s*", "", cleaned)
-        cleaned = re.sub(
-            r"(?m)^\((assistant|analysis|final|thinking|tool|heading)\)\s*",
-            "",
-            cleaned,
-            flags=re.IGNORECASE,
-        )
+        cleaned = re.sub(r"(?m)^\([^)]*\)\s*", "", cleaned)
         return cleaned.strip()
 
     def _get_database_path(self) -> Path | None:
