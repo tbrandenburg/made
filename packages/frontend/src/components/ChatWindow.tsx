@@ -102,7 +102,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <div
           className="markdown"
           dangerouslySetInnerHTML={{
-            __html: marked(message.text || ""),
+            __html: message.text?.trim() 
+              ? marked(message.text) 
+              : "<em>Empty message</em>",
           }}
         />
       </div>

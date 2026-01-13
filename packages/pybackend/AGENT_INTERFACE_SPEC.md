@@ -21,7 +21,7 @@ type AgentReply = {
 ### AgentResponsePart (Streaming Parts)
 ```typescript
 type AgentResponsePart = {
-  text: string;                // Content text
+  text: string;                // Content text (may be empty string)
   timestamp?: string;          // ISO timestamp
   type?: "thinking" | "tool" | "final"; // Response type classification
   partId?: string;             // Unique part identifier
@@ -29,18 +29,22 @@ type AgentResponsePart = {
 };
 ```
 
+**Note**: The `text` field may contain empty strings when the underlying LLM produces empty responses. The frontend handles this by displaying "Empty message" in italics for better user experience.
+
 ### ChatHistoryMessage (History Export)
 ```typescript
 type ChatHistoryMessage = {
   messageId?: string;          // Message identifier
   role: "user" | "assistant";  // Message role
   type: "text" | "tool" | "tool_use"; // Content type
-  content: string;             // Message content
+  content: string;             // Message content (may be empty string)
   timestamp?: string | null;   // ISO timestamp
   partId?: string;             // Part identifier
   callId?: string;             // Call identifier
 };
 ```
+
+**Note**: The `content` field may contain empty strings when the underlying LLM produces empty responses. The frontend handles this gracefully.
 
 ### ChatHistoryResponse (History Container)
 ```typescript
