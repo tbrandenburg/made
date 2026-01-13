@@ -300,3 +300,9 @@ test-results/
 
 # Workspace
 workspace/
+
+# Kiro CLI configuration
+.kiro/
+
+# Agent plans and artifacts
+.agents/
