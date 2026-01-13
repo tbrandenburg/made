@@ -1,17 +1,21 @@
 import json
+import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
-from agent_service import (
+from agent_cli import (
+    _decode_json_file,
+    _filter_export_messages,
     _format_timestamp,
     _format_timestamp_optional,
+    _prune_export_payload,
     _resolve_part_timestamp,
     _resolve_message_timestamp,
     _to_milliseconds,
-    export_chat_history,
 )
+from agent_service import export_chat_history
 
 
 class TestTimestampHelpers:
@@ -92,23 +96,11 @@ class TestExportChatHistory:
         ]
     }
 
-    @patch("agent_service.AGENT_CLI.export_session")
-    def test_export_chat_history_success(self, mock_export):
-        def _fake_export(session_id, cwd, stdout=None):
-            if stdout is not None:
-                stdout.write(json.dumps(self.SAMPLE_EXPORT))
-                stdout.flush()
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stderr = ""
-            return mock_result
+    def test_filter_export_messages(self):
+        pruned = _prune_export_payload(self.SAMPLE_EXPORT)
+        messages = _filter_export_messages(pruned["messages"], None)
 
-        mock_export.side_effect = _fake_export
-
-        result = export_chat_history("ses_123")
-
-        assert result["sessionId"] == "ses_123"
-        assert result["messages"] == [
+        assert messages == [
             {
                 "messageId": "msg_1",
                 "role": "user",
@@ -144,22 +136,18 @@ class TestExportChatHistory:
             },
         ]
 
+    def test_filter_export_messages_with_start_filter(self):
+        pruned = _prune_export_payload(self.SAMPLE_EXPORT)
+        messages = _filter_export_messages(pruned["messages"], 2000)
+        assert [msg["content"] for msg in messages] == ["Hi", "search", "todowrite"]
+
     @patch("agent_service.AGENT_CLI.export_session")
-    def test_export_chat_history_with_start_filter(self, mock_export):
-        def _fake_export(session_id, cwd, stdout=None):
-            if stdout is not None:
-                stdout.write(json.dumps(self.SAMPLE_EXPORT))
-                stdout.flush()
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stderr = ""
-            return mock_result
+    def test_export_chat_history_success(self, mock_export):
+        mock_export.return_value = [{"messageId": "msg_1", "role": "user"}]
+        result = export_chat_history("ses_123")
 
-        mock_export.side_effect = _fake_export
-
-        result = export_chat_history("ses_123", start_timestamp=2000)
-
-        assert [msg["content"] for msg in result["messages"]] == ["Hi", "search", "todowrite"]
+        assert result["sessionId"] == "ses_123"
+        assert result["messages"] == [{"messageId": "msg_1", "role": "user"}]
 
     def test_export_chat_history_missing_session(self):
         with pytest.raises(ValueError):
@@ -174,68 +162,36 @@ class TestExportChatHistory:
 
     @patch("agent_service.AGENT_CLI.export_session")
     def test_export_chat_history_failure(self, mock_export):
-        mock_result = Mock()
-        mock_result.returncode = 1
-        mock_result.stderr = "Failed"
-        mock_export.return_value = mock_result
+        mock_export.side_effect = RuntimeError("Failed")
 
         with pytest.raises(RuntimeError):
             export_chat_history("ses_123")
 
-    @patch("agent_service.AGENT_CLI.export_session")
-    def test_export_chat_history_bad_json(self, mock_export):
-        def _fake_export(session_id, cwd, stdout=None):
-            if stdout is not None:
-                stdout.write("not json")
-                stdout.flush()
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stderr = ""
-            return mock_result
+    def test_export_chat_history_bad_json(self):
+        with tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8") as tmp:
+            tmp.write("not json")
+            tmp.flush()
+            with pytest.raises(ValueError):
+                _decode_json_file(Path(tmp.name), "ses_123")
 
-        mock_export.side_effect = _fake_export
-
-        with pytest.raises(ValueError):
-            export_chat_history("ses_123")
-
-    @patch("agent_service.AGENT_CLI.export_session")
-    def test_export_chat_history_rejects_non_json_prefix_or_suffix(self, mock_export):
+    def test_export_chat_history_rejects_non_json_prefix_or_suffix(self):
         payload = json.dumps(self.SAMPLE_EXPORT)
+        with tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8") as tmp:
+            tmp.write(f"intro text\n{payload}\ntrailing stats")
+            tmp.flush()
+            with pytest.raises(ValueError):
+                _decode_json_file(Path(tmp.name), "ses_123")
 
-        def _fake_export(session_id, cwd, stdout=None):
-            if stdout is not None:
-                stdout.write(f"intro text\n{payload}\ntrailing stats")
-                stdout.flush()
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stderr = ""
-            return mock_result
-
-        mock_export.side_effect = _fake_export
-
-        with pytest.raises(ValueError):
-            export_chat_history("ses_123")
-
-    @patch("agent_service.AGENT_CLI.export_session")
-    def test_export_chat_history_rejects_multiple_json_blocks(self, mock_export):
+    def test_export_chat_history_rejects_multiple_json_blocks(self):
         first_payload = json.dumps(self.SAMPLE_EXPORT)
         second_payload = json.dumps({"messages": []})
-
-        def _fake_export(session_id, cwd, stdout=None):
-            if stdout is not None:
-                stdout.write(
-                    f"INFO log before\n{first_payload}\nnoise-between\n{second_payload}"
-                )
-                stdout.flush()
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stderr = ""
-            return mock_result
-
-        mock_export.side_effect = _fake_export
-
-        with pytest.raises(ValueError):
-            export_chat_history("ses_123")
+        with tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8") as tmp:
+            tmp.write(
+                f"INFO log before\n{first_payload}\nnoise-between\n{second_payload}"
+            )
+            tmp.flush()
+            with pytest.raises(ValueError):
+                _decode_json_file(Path(tmp.name), "ses_123")
 
     @patch("agent_service.AGENT_CLI.export_session")
     @patch("agent_service._get_working_directory")
@@ -243,22 +199,13 @@ class TestExportChatHistory:
         self, mock_get_working_directory, mock_export
     ):
         mock_get_working_directory.return_value = Path("/tmp/workspace/sample")
-        def _fake_export(session_id, cwd, stdout=None):
-            if stdout is not None:
-                stdout.write(json.dumps(self.SAMPLE_EXPORT))
-                stdout.flush()
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stderr = ""
-            return mock_result
-
-        mock_export.side_effect = _fake_export
+        mock_export.return_value = []
 
         export_chat_history("ses_123", channel="sample")
 
         mock_get_working_directory.assert_called_once_with("sample")
-        mock_export.assert_called_once()
-        args, kwargs = mock_export.call_args
-        assert args[0] == "ses_123"
-        assert args[1] == Path("/tmp/workspace/sample")
-        assert "stdout" in kwargs
+        mock_export.assert_called_once_with(
+            "ses_123",
+            mock_get_working_directory.return_value,
+            start_timestamp=None,
+        )
