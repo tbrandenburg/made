@@ -118,7 +118,7 @@ jobs:
       # ------------------------------------------------------
       # Install OpenCode (binary install)
       # ------------------------------------------------------
-      - name: Install sst/opencode
+      - name: Install opencode
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         run: |
           set -euo pipefail
@@ -129,7 +129,7 @@ jobs:
           trap 'rm -rf "$TMPDIR"' EXIT
           ARCHIVE_PATH="$TMPDIR/opencode.tar.gz"
 
-          curl -fsSL "https://github.com/sst/opencode/releases/latest/download/opencode-linux-x64.tar.gz" -o "$ARCHIVE_PATH"
+          curl -fsSL "https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-x64.tar.gz" -o "$ARCHIVE_PATH"
           tar -xzf "$ARCHIVE_PATH" -C "$TMPDIR"
           install "$TMPDIR/opencode" "$INSTALL_DIR/opencode"
 
