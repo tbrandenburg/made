@@ -1,10 +1,8 @@
 """Unit tests for OpenCodeAgentCLI parsing functions."""
 
 import unittest
-from pathlib import Path
 
 from agent_cli import OpenCodeAgentCLI
-from agent_results import ResponsePart, HistoryMessage, SessionInfo, AgentInfo
 
 
 class TestOpenCodeAgentCLIParsing(unittest.TestCase):

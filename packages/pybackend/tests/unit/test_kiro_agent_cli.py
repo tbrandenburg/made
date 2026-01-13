@@ -6,17 +6,12 @@ import tempfile
 import unittest.mock
 from pathlib import Path
 
-import pytest
 
 from kiro_agent_cli import KiroAgentCLI
 from agent_results import (
-    AgentInfo,
     AgentListResult,
     ExportResult,
-    HistoryMessage,
-    ResponsePart,
     RunResult,
-    SessionInfo,
     SessionListResult,
 )
 

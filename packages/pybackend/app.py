@@ -441,7 +441,7 @@ async def repository_terminal(name: str, websocket: WebSocket):
     await websocket.accept()
     try:
         master_fd, process, shell = _start_shell(repo_path)
-    except Exception as exc:  # pragma: no cover - passthrough errors
+    except Exception:  # pragma: no cover - passthrough errors
         logger.exception(
             "Failed to start terminal for '%s' (client: %s)", name, client_addr
         )
@@ -530,7 +530,7 @@ async def repository_terminal(name: str, websocket: WebSocket):
             client_addr,
             exc.code,
         )
-    except Exception as exc:  # pragma: no cover - defensive
+    except Exception:  # pragma: no cover - defensive
         logger.exception("Unexpected terminal error for '%s'", name)
     finally:
         reader_task.cancel()
