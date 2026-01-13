@@ -217,4 +217,5 @@ class TestExportChatHistory:
         args, kwargs = mock_export.call_args
         assert args[0] == "ses_123"
         assert args[1] == Path("/tmp/workspace/sample")
-        assert "stdout" in kwargs
+        assert kwargs["start_timestamp"] is None
+        assert kwargs["channel"] == "sample"
