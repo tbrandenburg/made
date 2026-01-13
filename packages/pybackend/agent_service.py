@@ -1,4 +1,3 @@
-import json
 import logging
 import time
 from datetime import UTC, datetime
@@ -6,7 +5,9 @@ from pathlib import Path
 from threading import Lock
 
 from agent_cli import OpenCodeAgentCLI
+from kiro_agent_cli import KiroAgentCLI
 from config import ensure_directory, get_made_directory, get_workspace_home
+from settings_service import read_settings
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,26 @@ _processing_lock = Lock()
 _processing_channels: dict[str, datetime] = {}
 _cancelled_channels: set[str] = set()
 _conversation_sessions: dict[str, str] = {}
-AGENT_CLI = OpenCodeAgentCLI()
+
+
+def get_agent_cli():
+    """Get the appropriate AgentCLI implementation based on settings."""
+    try:
+        settings = read_settings()
+        agent_cli_setting = settings.get("agentCli", "opencode")
+
+        if agent_cli_setting == "kiro":
+            return KiroAgentCLI()
+        else:
+            # Default to OpenCode for any other value
+            return OpenCodeAgentCLI()
+    except Exception:
+        # Fallback to OpenCode if settings can't be read
+        return OpenCodeAgentCLI()
+
+
+# Backward compatibility for tests
+AGENT_CLI = get_agent_cli()
 
 
 class ChannelBusyError(RuntimeError):
@@ -70,7 +90,9 @@ def _resolve_message_timestamp(message_info: dict[str, object]) -> int | None:
     return None
 
 
-def _resolve_part_timestamp(part: dict[str, object], fallback: int | None) -> int | None:
+def _resolve_part_timestamp(
+    part: dict[str, object], fallback: int | None
+) -> int | None:
     """Extract timestamp from part info."""
     time_info = part.get("time") or {}
     if isinstance(time_info, dict):
@@ -183,14 +205,10 @@ def export_chat_history(
         normalized_start,
     )
 
-    # Check if we're dealing with a mock (test environment)
-    if hasattr(AGENT_CLI.export_session, 'side_effect') or hasattr(AGENT_CLI.export_session, '_mock_name'):
-        # Use legacy interface for tests
-        return _export_chat_history_legacy(session_id, normalized_start, channel, working_dir)
-    
-    # Use new typed interface
-    result = AGENT_CLI.export_session(session_id, working_dir)
-    
+    # Use typed interface
+    agent_cli = get_agent_cli()
+    result = agent_cli.export_session(session_id, working_dir)
+
     if not result.success:
         logger.error(
             "Exporting chat history failed (channel: %s, session: %s): %s",
@@ -216,113 +234,9 @@ def export_chat_history(
     }
 
 
-def _export_chat_history_legacy(session_id: str, normalized_start: int | None, channel: str | None, working_dir: Path | None):
-    """Legacy export implementation for backward compatibility with tests."""
-    import tempfile
-    import json
-    
-    with tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8", delete=True) as tmp:
-        try:
-            # Use the legacy method name that tests expect
-            result = AGENT_CLI.export_session(session_id, working_dir, stdout=tmp)
-        except FileNotFoundError:
-            logger.error(
-                "Unable to export history: '%s' command not found", AGENT_CLI.cli_name
-            )
-            raise FileNotFoundError(AGENT_CLI.missing_command_error())
-
-        stderr_text = str(result.stderr or "")
-
-        if result.returncode != 0:
-            error_message = stderr_text.strip() or "Failed to export session history"
-            logger.error(
-                "Exporting chat history failed (channel: %s, session: %s): %s",
-                channel or "<unspecified>",
-                session_id,
-                error_message,
-            )
-            raise RuntimeError(error_message)
-
-        tmp.flush()
-        tmp_path = Path(tmp.name)
-
-        try:
-            with tmp_path.open("r", encoding="utf-8") as handle:
-                export_payload = json.load(handle)
-        except json.JSONDecodeError as exc:
-            logger.error(
-                "Invalid JSON export (channel: %s, session: %s): %s",
-                channel or "<unspecified>",
-                session_id,
-                exc,
-            )
-            raise ValueError("Invalid export data returned by opencode") from exc
-
-    messages = export_payload.get("messages") or []
-    filtered_messages = _filter_export_messages_legacy(messages, normalized_start)
-    return {
-        "sessionId": session_id,
-        "messages": filtered_messages,
-    }
-
-
-def _filter_export_messages_legacy(messages: list[dict[str, object]], start_timestamp: int | None) -> list[dict[str, object]]:
-    """Legacy message filtering for backward compatibility."""
-    history: list[dict[str, object]] = []
-
-    for message in messages:
-        message_info = message.get("info") or {}
-        role = message_info.get("role")
-        if role not in {"user", "assistant"}:
-            continue
-
-        message_timestamp = _resolve_message_timestamp(message_info)
-
-        for part in message.get("parts") or []:
-            part_type = part.get("type")
-            if part_type not in {"text", "tool_use", "tool"}:
-                continue
-
-            part_timestamp = _resolve_part_timestamp(part, message_timestamp)
-            if start_timestamp is not None and part_timestamp is not None:
-                if part_timestamp < start_timestamp:
-                    continue
-
-            entry: dict[str, object] = {
-                "messageId": message_info.get("id"),
-                "role": role,
-                "type": part_type,
-                "content": _extract_part_content_legacy(part, part_type),
-                "timestamp": _format_timestamp_optional(part_timestamp),
-            }
-
-            part_id = part.get("id")
-            call_id = part.get("callID") or part.get("callId")
-            if part_id:
-                entry["partId"] = part_id
-            if call_id:
-                entry["callId"] = call_id
-
-            history.append(entry)
-
-    return history
-
-
-def _extract_part_content_legacy(part: dict[str, object], part_type: str) -> str:
-    """Legacy content extraction for backward compatibility."""
-    if part_type in {"text"}:
-        return str(part.get("text") or "")
-
-    if part_type in {"tool_use", "tool"}:
-        for key in ("tool", "name", "id"):
-            if part.get(key):
-                return str(part[key])
-        return ""
-
-    return ""
-
-
-def list_chat_sessions(channel: str | None = None, limit: int = 10) -> list[dict[str, str]]:
+def list_chat_sessions(
+    channel: str | None = None, limit: int = 10
+) -> list[dict[str, str]]:
     working_dir = _get_working_directory(channel) if channel else None
     logger.info(
         "Listing chat sessions (channel: %s, limit: %s)",
@@ -330,13 +244,9 @@ def list_chat_sessions(channel: str | None = None, limit: int = 10) -> list[dict
         limit,
     )
 
-    # Check if we're dealing with a mock (test environment)
-    if hasattr(AGENT_CLI.list_sessions, 'side_effect') or hasattr(AGENT_CLI.list_sessions, '_mock_name'):
-        # Use legacy interface for tests
-        return _list_chat_sessions_legacy(channel, limit, working_dir)
+    agent_cli = get_agent_cli()
+    result = agent_cli.list_sessions(working_dir)
 
-    result = AGENT_CLI.list_sessions(working_dir)
-    
     if not result.success:
         logger.error(
             "Listing chat sessions failed (channel: %s, cwd: %s): %s",
@@ -353,88 +263,12 @@ def list_chat_sessions(channel: str | None = None, limit: int = 10) -> list[dict
     return [session.to_frontend_format() for session in limited_sessions]
 
 
-def _list_chat_sessions_legacy(channel: str | None, limit: int, working_dir: Path | None) -> list[dict[str, str]]:
-    """Legacy session listing for backward compatibility with tests."""
-    try:
-        result = AGENT_CLI.list_sessions(working_dir)
-    except FileNotFoundError:
-        logger.error(
-            "Unable to list sessions: '%s' command not found", AGENT_CLI.cli_name
-        )
-        raise FileNotFoundError(AGENT_CLI.missing_command_error())
-
-    stderr_text = str(result.stderr or "")
-
-    if result.returncode != 0:
-        error_message = stderr_text.strip() or "Failed to list sessions"
-        logger.error(
-            "Listing chat sessions failed (channel: %s, cwd: %s, code: %s, stderr: %s)",
-            channel or "<unspecified>",
-            working_dir,
-            result.returncode,
-            error_message[:500],  # Truncate for logging
-        )
-        raise RuntimeError(error_message)
-
-    logger.debug(
-        "Listing chat sessions succeeded (channel: %s, cwd: %s, stdout_bytes: %s, stderr_preview: %s)",
-        channel or "<unspecified>",
-        working_dir,
-        len(result.stdout or ""),
-        stderr_text[:500],  # Truncate for logging
-    )
-
-    return _parse_session_table_legacy(result.stdout or "", limit)
-
-
-def _parse_session_table_legacy(output: str, limit: int) -> list[dict[str, str]]:
-    """Legacy session table parsing for backward compatibility."""
-    import re
-    SESSION_ROW_PATTERN = re.compile(r"^(ses_[^\s]+)\s{2,}(.*?)\s{2,}(.+)$")
-    
-    sessions: list[dict[str, str]] = []
-    for line in output.splitlines():
-        stripped = line.strip()
-        if (
-            not stripped
-            or stripped.startswith("Session ID")
-            or stripped.startswith("─")
-        ):
-            continue
-
-        match = SESSION_ROW_PATTERN.match(stripped)
-        if not match:
-            logger.debug("Skipping non-matching session row: %s", stripped)
-            continue
-
-        session_id, title, updated = match.groups()
-        sessions.append(
-            {"id": session_id.strip(), "title": title.strip(), "updated": updated.strip()}
-        )
-
-        if len(sessions) >= limit:
-            break
-
-    if not sessions:
-        logger.warning(
-            "No sessions parsed from opencode output (limit: %s, preview: %s)",
-            limit,
-            output[:500],  # Truncate for logging
-        )
-
-    return sessions
-
-
 def list_agents() -> list[dict[str, object]]:
     logger.info("Listing available %s agents", AGENT_CLI.cli_name)
-    
-    # Check if we're dealing with a mock (test environment)
-    if hasattr(AGENT_CLI.list_agents, 'side_effect') or hasattr(AGENT_CLI.list_agents, '_mock_name'):
-        # Use legacy interface for tests
-        return _list_agents_legacy()
-    
-    result = AGENT_CLI.list_agents()
-    
+
+    agent_cli = get_agent_cli()
+    result = agent_cli.list_agents()
+
     if not result.success:
         logger.error("Listing agents failed: %s", result.error_message)
         if "command not found" in (result.error_message or ""):
@@ -444,132 +278,15 @@ def list_agents() -> list[dict[str, object]]:
     return [agent.to_frontend_format() for agent in result.agents]
 
 
-def _list_agents_legacy() -> list[dict[str, object]]:
-    """Legacy agent listing for backward compatibility with tests."""
-    try:
-        result = AGENT_CLI.list_agents()
-    except FileNotFoundError:
-        logger.error(
-            "Unable to list agents: '%s' command not found", AGENT_CLI.cli_name
-        )
-        raise FileNotFoundError(AGENT_CLI.missing_command_error())
-
-    stderr_text = str(result.stderr or "")
-
-    if result.returncode != 0:
-        error_message = stderr_text.strip() or "Failed to list agents"
-        logger.error(
-            "Listing agents failed (code: %s, stderr: %s)",
-            result.returncode,
-            error_message[:500],  # Truncate for logging
-        )
-        raise RuntimeError(error_message)
-
-    logger.debug(
-        "Listing agents succeeded (stdout_bytes: %s, stderr_preview: %s)",
-        len(result.stdout or ""),
-        stderr_text[:500],  # Truncate for logging
-    )
-
-    return _parse_agent_list(result.stdout or "")
-
-
 # Legacy parsing functions for backward compatibility with tests
-def _parse_opencode_output(stdout: str) -> tuple[str | None, list[dict[str, object]]]:
-    """Legacy opencode output parsing for backward compatibility with tests."""
-    session_id = None
-    parts: list[dict[str, object]] = []
-
-    for line in stdout.splitlines():
-        if not line.strip():
-            continue
-
-        try:
-            payload = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-
-        payload_session_id = payload.get("sessionID")
-        if payload_session_id:
-            session_id = payload_session_id
-
-        payload_type = payload.get("type")
-        payload_timestamp = payload.get("timestamp")
-        part = payload.get("part") or {}
-
-        part_id = part.get("id")
-        call_id = part.get("callID") or part.get("callId")
-
-        if payload_type == "text":
-            text = _extract_part_content_legacy(part, "text")
-            if text:
-                parts.append(
-                    {
-                        "kind": "text",
-                        "content": text,
-                        "timestamp": payload_timestamp,
-                        "part_id": part_id,
-                        "call_id": call_id,
-                    }
-                )
-        elif payload_type in {"tool_use", "tool"}:
-            tool_name = _extract_part_content_legacy(part, payload_type)
-            if tool_name:
-                parts.append(
-                    {
-                        "kind": "tool",
-                        "content": tool_name,
-                        "timestamp": payload_timestamp,
-                        "part_id": part_id,
-                        "call_id": call_id,
-                    }
-                )
-
-    if not parts:
-        return session_id, []
-
-    responses: list[dict[str, str]] = []
-    text_indices = [
-        index for index, part in enumerate(parts) if part.get("kind") == "text"
-    ]
-
-    for index, part in enumerate(parts):
-        kind = part.get("kind")
-        content = str(part.get("content", ""))
-        raw_timestamp = part.get("timestamp")
-
-        if kind == "text":
-            message_type = (
-                "final" if text_indices and index == text_indices[-1] else "thinking"
-            )
-            text_content = content
-        else:
-            message_type = "tool"
-            text_content = content
-
-        response: dict[str, object] = {
-            "text": text_content,
-            "timestamp": _format_timestamp(raw_timestamp),
-            "type": message_type,
-        }
-
-        part_id = part.get("part_id")
-        call_id = part.get("call_id")
-        if part_id:
-            response["partId"] = part_id
-        if call_id:
-            response["callId"] = call_id
-
-        responses.append(response)
-
-    return session_id, responses
 
 
 def _parse_agent_list(output: str) -> list[dict[str, object]]:
     """Legacy agent list parsing for backward compatibility with tests."""
     import re
+
     AGENT_ROW_PATTERN = re.compile(r"^(?P<name>\S+)\s+\((?P<kind>[^)]+)\)\s*$")
-    
+
     agents: list[dict[str, object]] = []
     current_agent: dict[str, object] | None = None
 
@@ -627,79 +344,46 @@ def send_agent_message(
             response = "Agent request cancelled."
             parsed_responses = []
         else:
-            # Check if we're dealing with a mock (test environment)
-            if hasattr(AGENT_CLI.run_agent, 'side_effect') or hasattr(AGENT_CLI.run_agent, '_mock_name') or hasattr(AGENT_CLI.start_run, 'side_effect') or hasattr(AGENT_CLI.start_run, '_mock_name'):
-                # Use legacy interface for tests
-                command = AGENT_CLI.build_run_command(active_session, agent)
-                process = AGENT_CLI.start_run(command, working_dir)
-                stdout, stderr = process.communicate(input=message)
+            # Use typed interface
+            agent_cli = get_agent_cli()
+            result = agent_cli.run_agent(message, active_session, agent, working_dir)
 
-                if process.returncode == 0:
-                    session_id, parsed_responses = _parse_opencode_output(stdout or "")
-                    if session_id:
-                        _conversation_sessions[channel] = session_id
-                    response = (
-                        "\n\n".join(part["text"] for part in parsed_responses)
-                        if parsed_responses
-                        else (stdout or "").strip()
-                    )
-                    logger.info(
-                        "Agent message processed (channel: %s, session: %s)",
-                        channel,
-                        _conversation_sessions.get(channel),
-                    )
-                else:
-                    parsed_responses = []
-                    response = (
-                        f"Error: {(stderr or '').strip()}"
-                        if (stderr or "").strip()
-                        else "Command failed with no output"
-                    )
-                    
-                    command_preview = " ".join(command)[:200]
-                    logger.error(
-                        "Agent command failed (channel: %s, session: %s, command: %s): %s",
-                        channel,
-                        _conversation_sessions.get(channel),
-                        command_preview,
-                        response,
-                    )
+            if result.success:
+                # Update session if we got a new one
+                if result.session_id:
+                    _conversation_sessions[channel] = result.session_id
+
+                response = result.combined_response
+                parsed_responses = [
+                    part.to_frontend_format() for part in result.response_parts
+                ]
+
+                logger.info(
+                    "Agent message processed (channel: %s, session: %s)",
+                    channel,
+                    _conversation_sessions.get(channel),
+                )
             else:
-                # Use new typed interface
-                result = AGENT_CLI.run_agent(message, active_session, agent, working_dir)
-                
-                if result.success:
-                    # Update session if we got a new one
-                    if result.session_id:
-                        _conversation_sessions[channel] = result.session_id
-                    
-                    response = result.combined_response
-                    parsed_responses = [part.to_frontend_format() for part in result.response_parts]
-                    
-                    logger.info(
-                        "Agent message processed (channel: %s, session: %s)",
-                        channel,
-                        _conversation_sessions.get(channel),
-                    )
-                else:
-                    response = result.error_message or "Command failed with no output"
-                    parsed_responses = []
-                    
-                    logger.error(
-                        "Agent command failed (channel: %s, session: %s): %s",
-                        channel,
-                        _conversation_sessions.get(channel),
-                        response,
-                    )
+                response = result.error_message or "Command failed with no output"
+                parsed_responses = []
+
+                logger.error(
+                    "Agent command failed (channel: %s, session: %s): %s",
+                    channel,
+                    _conversation_sessions.get(channel),
+                    response,
+                )
 
     except FileNotFoundError:
         parsed_responses = []
-        response = AGENT_CLI.missing_command_error()
+        response = get_agent_cli().missing_command_error()
         logger.error("Agent command not found for channel %s", channel)
     except Exception as e:
         parsed_responses = []
         response = f"Error: {str(e)}"
-        logger.exception("Unexpected error sending agent message on channel %s", channel)
+        logger.exception(
+            "Unexpected error sending agent message on channel %s", channel
+        )
     finally:
         _clear_channel_processing(channel)
 

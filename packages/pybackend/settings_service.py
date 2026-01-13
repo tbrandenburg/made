@@ -15,6 +15,7 @@ def read_settings():
     settings_path = get_settings_path()
     if not settings_path.exists():
         defaults = {
+            # Supported values: "opencode", "kiro"
             "agentCli": "opencode",
         }
         settings_path.write_text(json.dumps(defaults, indent=2), encoding="utf-8")
