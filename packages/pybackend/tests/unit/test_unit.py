@@ -6,7 +6,7 @@ These tests mock all external dependencies and focus on business logic.
 import pytest
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import Mock, call, patch
+from unittest.mock import ANY, Mock, call, patch
 
 # These would be unit tests for individual service functions
 # For now, creating a minimal unit test structure
@@ -159,29 +159,34 @@ class TestAgentService:
         assert result == const_dir
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.AGENT_CLI.start_run')
-    def test_send_agent_message_success(self, mock_start_run, mock_get_working_dir):
+    @patch('agent_service.AGENT_CLI.run_message')
+    def test_send_agent_message_success(self, mock_run_message, mock_get_working_dir):
         """Test successful agent message sending."""
         from agent_service import send_agent_message
+        from agent_cli import RunResult
 
         # Setup mocks
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_process = Mock()
-        mock_process.returncode = 0
-        mock_process.communicate.return_value = ("Agent response content", "")
-        mock_start_run.return_value = mock_process
+        mock_run_message.return_value = RunResult(
+            success=True,
+            response="Agent response content",
+            responses=[],
+            session_id=None,
+        )
 
         # Test successful message
         result = send_agent_message("test-repo", "Hello agent")
         
         # Verify CLI call
-        mock_start_run.assert_called_once_with(
-            ["opencode", "run", "--format", "json"],
+        mock_run_message.assert_called_once_with(
+            "Hello agent",
             mock_working_dir,
+            None,
+            None,
+            on_start=ANY,
         )
-        mock_process.communicate.assert_called_once_with(input="Hello agent")
         
         # Verify response structure
         assert "messageId" in result
@@ -194,96 +199,116 @@ class TestAgentService:
         assert result["responses"] == []
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.AGENT_CLI.start_run')
-    def test_send_agent_message_with_leading_hyphen(self, mock_start_run, mock_get_working_dir):
+    @patch('agent_service.AGENT_CLI.run_message')
+    def test_send_agent_message_with_leading_hyphen(self, mock_run_message, mock_get_working_dir):
         """Messages beginning with '-' are passed via stdin, not parsed as flags."""
         from agent_service import send_agent_message
+        from agent_cli import RunResult
 
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_process = Mock()
-        mock_process.returncode = 0
-        mock_process.communicate.return_value = ("Response", "")
-        mock_start_run.return_value = mock_process
+        mock_run_message.return_value = RunResult(
+            success=True,
+            response="Response",
+            responses=[],
+            session_id=None,
+        )
 
         result = send_agent_message("test-repo", "-inspect")
 
-        mock_start_run.assert_called_once_with(
-            ["opencode", "run", "--format", "json"],
+        mock_run_message.assert_called_once_with(
+            "-inspect",
             mock_working_dir,
+            None,
+            None,
+            on_start=ANY,
         )
-        mock_process.communicate.assert_called_once_with(input="-inspect")
         assert result["prompt"] == "-inspect"
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.AGENT_CLI.start_run')
-    def test_send_agent_message_with_session_id(self, mock_start_run, mock_get_working_dir):
+    @patch('agent_service.AGENT_CLI.run_message')
+    def test_send_agent_message_with_session_id(self, mock_run_message, mock_get_working_dir):
         """Test messages include provided session ID each time."""
         from agent_service import _conversation_sessions, send_agent_message
+        from agent_cli import RunResult
 
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_process = Mock()
-        mock_process.returncode = 0
-        mock_process.communicate.return_value = ("Agent response content", "")
-        mock_start_run.return_value = mock_process
+        mock_run_message.return_value = RunResult(
+            success=True,
+            response="Agent response content",
+            responses=[],
+            session_id=None,
+        )
 
         _conversation_sessions.clear()
 
         send_agent_message("test-repo", "Hello agent", "ses_123")
         send_agent_message("test-repo", "Follow up", "ses_123")
 
-        assert mock_start_run.call_args_list[0] == call(
-            ["opencode", "run", "-s", "ses_123", "--format", "json"],
+        assert mock_run_message.call_args_list[0] == call(
+            "Hello agent",
             mock_working_dir,
+            "ses_123",
+            None,
+            on_start=ANY,
         )
-        assert mock_start_run.call_args_list[1] == call(
-            ["opencode", "run", "-s", "ses_123", "--format", "json"],
+        assert mock_run_message.call_args_list[1] == call(
+            "Follow up",
             mock_working_dir,
+            "ses_123",
+            None,
+            on_start=ANY,
         )
-        assert mock_process.communicate.call_args_list[0] == call(input="Hello agent")
-        assert mock_process.communicate.call_args_list[1] == call(input="Follow up")
         assert _conversation_sessions["test-repo"] == "ses_123"
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.AGENT_CLI.start_run')
-    def test_send_agent_message_with_agent(self, mock_start_run, mock_get_working_dir):
+    @patch('agent_service.AGENT_CLI.run_message')
+    def test_send_agent_message_with_agent(self, mock_run_message, mock_get_working_dir):
         """Test messages include provided agent."""
         from agent_service import send_agent_message
+        from agent_cli import RunResult
 
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_process = Mock()
-        mock_process.returncode = 0
-        mock_process.communicate.return_value = ("Agent response content", "")
-        mock_start_run.return_value = mock_process
+        mock_run_message.return_value = RunResult(
+            success=True,
+            response="Agent response content",
+            responses=[],
+            session_id=None,
+        )
 
         send_agent_message("test-repo", "Hello agent", agent="plan")
 
-        mock_start_run.assert_called_once_with(
-            ["opencode", "run", "--agent", "plan", "--format", "json"],
+        mock_run_message.assert_called_once_with(
+            "Hello agent",
             mock_working_dir,
+            None,
+            "plan",
+            on_start=ANY,
         )
-        mock_process.communicate.assert_called_once_with(input="Hello agent")
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.AGENT_CLI.start_run')
+    @patch('agent_service.AGENT_CLI.run_message')
     def test_send_agent_message_resets_channel_without_session_id(
-        self, mock_start_run, mock_get_working_dir
+        self, mock_run_message, mock_get_working_dir
     ):
         """When session ID is omitted, the channel starts a fresh session."""
         from agent_service import _conversation_sessions, send_agent_message
+        from agent_cli import RunResult
 
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_process = Mock()
-        mock_process.returncode = 0
-        mock_process.communicate.return_value = ("Agent response content", "")
-        mock_start_run.return_value = mock_process
+        mock_run_message.return_value = RunResult(
+            success=True,
+            response="Agent response content",
+            responses=[],
+            session_id=None,
+        )
 
         _conversation_sessions.clear()
         send_agent_message("test-repo", "Hello agent", "ses_123")
@@ -291,36 +316,49 @@ class TestAgentService:
 
         send_agent_message("test-repo", "Fresh start")
 
-        assert mock_start_run.call_args_list[0] == call(
-            ["opencode", "run", "-s", "ses_123", "--format", "json"],
+        assert mock_run_message.call_args_list[0] == call(
+            "Hello agent",
             mock_working_dir,
+            "ses_123",
+            None,
+            on_start=ANY,
         )
-        assert mock_start_run.call_args_list[1] == call(
-            ["opencode", "run", "--format", "json"],
+        assert mock_run_message.call_args_list[1] == call(
+            "Fresh start",
             mock_working_dir,
+            None,
+            None,
+            on_start=ANY,
         )
-        assert mock_process.communicate.call_args_list[0] == call(input="Hello agent")
-        assert mock_process.communicate.call_args_list[1] == call(input="Fresh start")
         assert "test-repo" not in _conversation_sessions
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.AGENT_CLI.start_run')
-    def test_send_agent_message_parses_json_output(self, mock_start_run, mock_get_working_dir):
+    @patch('agent_service.AGENT_CLI.run_message')
+    def test_send_agent_message_parses_json_output(self, mock_run_message, mock_get_working_dir):
         """Ensure opencode JSON output is parsed for text and session ID."""
         from agent_service import _conversation_sessions, send_agent_message
+        from agent_cli import AgentResponsePart, RunResult
 
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_process = Mock()
-        mock_process.returncode = 0
-        mock_process.communicate.return_value = ('\n'.join([
-            '{"type":"step_start","timestamp":1766956198081,"sessionID":"ses_123","part":{"type":"step-start"}}',
-            '{"type":"text","timestamp":1766956199330,"sessionID":"ses_123","part":{"type":"text","text":"First line"}}',
-            '{"type":"text","timestamp":1766956199331,"sessionID":"ses_123","part":{"type":"text","text":"Second line"}}',
-            '{"type":"step_finish","timestamp":1766956225161,"sessionID":"ses_123","part":{"type":"step-finish"}}',
-        ]), "")
-        mock_start_run.return_value = mock_process
+        mock_run_message.return_value = RunResult(
+            success=True,
+            response="First line\n\nSecond line",
+            responses=[
+                AgentResponsePart(
+                    text="First line",
+                    timestamp="2025-12-28T21:09:59.330Z",
+                    type="thinking",
+                ),
+                AgentResponsePart(
+                    text="Second line",
+                    timestamp="2025-12-28T21:09:59.331Z",
+                    type="final",
+                ),
+            ],
+            session_id="ses_123",
+        )
 
         _conversation_sessions.clear()
 
@@ -333,29 +371,46 @@ class TestAgentService:
         ]
         assert result["sessionId"] == "ses_123"
         assert _conversation_sessions["test-repo"] == "ses_123"
-        mock_start_run.assert_called_once_with(
-            ["opencode", "run", "--format", "json"],
+        mock_run_message.assert_called_once_with(
+            "Hello agent",
             mock_working_dir,
+            None,
+            None,
+            on_start=ANY,
         )
-        mock_process.communicate.assert_called_once_with(input="Hello agent")
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.AGENT_CLI.start_run')
-    def test_send_agent_message_includes_tool_use(self, mock_start_run, mock_get_working_dir):
+    @patch('agent_service.AGENT_CLI.run_message')
+    def test_send_agent_message_includes_tool_use(self, mock_run_message, mock_get_working_dir):
         """Ensure tool_use entries are included with type metadata."""
         from agent_service import send_agent_message
+        from agent_cli import AgentResponsePart, RunResult
 
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_process = Mock()
-        mock_process.returncode = 0
-        mock_process.communicate.return_value = ('\n'.join([
-            '{"type":"text","timestamp":1766956198000,"sessionID":"ses_tool","part":{"type":"text","text":"Before tool"}}',
-            '{"type":"tool_use","timestamp":1766956199000,"sessionID":"ses_tool","part":{"tool":"firecrawl_firecrawl_search"}}',
-            '{"type":"text","timestamp":1766956200000,"sessionID":"ses_tool","part":{"type":"text","text":"After tool"}}',
-        ]), "")
-        mock_start_run.return_value = mock_process
+        mock_run_message.return_value = RunResult(
+            success=True,
+            response="Before tool\n\nfirecrawl_firecrawl_search\n\nAfter tool",
+            responses=[
+                AgentResponsePart(
+                    text="Before tool",
+                    timestamp="2025-12-28T21:09:58.000Z",
+                    type="thinking",
+                ),
+                AgentResponsePart(
+                    text="firecrawl_firecrawl_search",
+                    timestamp="2025-12-28T21:09:59.000Z",
+                    type="tool",
+                ),
+                AgentResponsePart(
+                    text="After tool",
+                    timestamp="2025-12-28T21:10:00.000Z",
+                    type="final",
+                ),
+            ],
+            session_id="ses_tool",
+        )
 
         result = send_agent_message("test-repo", "Hello agent")
 
@@ -367,54 +422,49 @@ class TestAgentService:
             {"text": "firecrawl_firecrawl_search", "timestamp": "2025-12-28T21:09:59.000Z", "type": "tool"},
             {"text": "After tool", "timestamp": "2025-12-28T21:10:00.000Z", "type": "final"},
         ]
-        mock_start_run.assert_called_once_with(
-            ["opencode", "run", "--format", "json"],
+        mock_run_message.assert_called_once_with(
+            "Hello agent",
             mock_working_dir,
+            None,
+            None,
+            on_start=ANY,
         )
-        mock_process.communicate.assert_called_once_with(input="Hello agent")
-
-    def test_parse_opencode_output_single_text_is_final(self):
-        """Ensure a single text response is treated as the final message."""
-        from agent_service import _parse_opencode_output
-
-        stdout = '\n'.join([
-            '{"type":"text","timestamp":1766956199331,"sessionID":"ses_final","part":{"type":"text","text":"Final answer"}}',
-        ])
-
-        session_id, parsed = _parse_opencode_output(stdout)
-
-        assert session_id == "ses_final"
-        assert parsed == [{"text": "Final answer", "timestamp": "2025-12-28T21:09:59.331Z", "type": "final"}]
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.AGENT_CLI.start_run')
-    def test_send_agent_message_command_failure(self, mock_start_run, mock_get_working_dir):
+    @patch('agent_service.AGENT_CLI.run_message')
+    def test_send_agent_message_command_failure(self, mock_run_message, mock_get_working_dir):
         """Test agent message sending with command failure."""
         from agent_service import send_agent_message
+        from agent_cli import RunResult
         
         # Setup mocks
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
         
-        mock_process = Mock()
-        mock_process.returncode = 1
-        mock_process.communicate.return_value = ("", "Command error")
-        mock_start_run.return_value = mock_process
+        mock_run_message.return_value = RunResult(
+            success=False,
+            response="",
+            responses=[],
+            session_id=None,
+            error="Command error",
+        )
 
         # Test failed command
         result = send_agent_message("test-repo", "Hello agent")
 
         # Verify error response
         assert result["response"] == "Error: Command error"
-        mock_start_run.assert_called_once_with(
-            ["opencode", "run", "--format", "json"],
+        mock_run_message.assert_called_once_with(
+            "Hello agent",
             mock_working_dir,
+            None,
+            None,
+            on_start=ANY,
         )
-        mock_process.communicate.assert_called_once_with(input="Hello agent")
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.AGENT_CLI.start_run')
-    def test_send_agent_message_file_not_found(self, mock_start_run, mock_get_working_dir):
+    @patch('agent_service.AGENT_CLI.run_message')
+    def test_send_agent_message_file_not_found(self, mock_run_message, mock_get_working_dir):
         """Test agent message sending when opencode is not found."""
         from agent_service import send_agent_message
         
@@ -422,21 +472,24 @@ class TestAgentService:
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_start_run.side_effect = FileNotFoundError()
+        mock_run_message.side_effect = FileNotFoundError()
 
         # Test file not found
         result = send_agent_message("test-repo", "Hello agent")
         
         # Verify file not found response
         assert result["response"] == "Error: 'opencode' command not found. Please ensure it is installed and in PATH."
-        mock_start_run.assert_called_once_with(
-            ["opencode", "run", "--format", "json"],
+        mock_run_message.assert_called_once_with(
+            "Hello agent",
             mock_working_dir,
+            None,
+            None,
+            on_start=ANY,
         )
 
     @patch('agent_service._get_working_directory')
-    @patch('agent_service.AGENT_CLI.start_run')
-    def test_send_agent_message_generic_exception(self, mock_start_run, mock_get_working_dir):
+    @patch('agent_service.AGENT_CLI.run_message')
+    def test_send_agent_message_generic_exception(self, mock_run_message, mock_get_working_dir):
         """Test agent message sending with generic exception."""
         from agent_service import send_agent_message
         
@@ -444,16 +497,19 @@ class TestAgentService:
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_start_run.side_effect = Exception("Generic error")
+        mock_run_message.side_effect = Exception("Generic error")
 
         # Test generic exception
         result = send_agent_message("test-repo", "Hello agent")
         
         # Verify generic error response
         assert result["response"] == "Error: Generic error"
-        mock_start_run.assert_called_once_with(
-            ["opencode", "run", "--format", "json"],
+        mock_run_message.assert_called_once_with(
+            "Hello agent",
             mock_working_dir,
+            None,
+            None,
+            on_start=ANY,
         )
 
     @patch('agent_service._get_working_directory')
@@ -461,34 +517,63 @@ class TestAgentService:
     def test_list_chat_sessions_parses_table(self, mock_list_sessions, mock_get_working_dir):
         """Parse the latest sessions from the opencode session table."""
         from agent_service import list_chat_sessions
+        from agent_cli import SessionInfo
 
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        sample_output = """
-Session ID                      Title                                                               Updated
-───────────────────────────────────────────────────────────────────────────────────────────────────────────
-ses_491478d5cffeFxA6xUVv2N23Nt  Initializing Spec Kit with init command                             11:06 AM · 12/30/2025
-ses_491481eecffe4pR71zMCkOJZ7m  Initializing OpenSpec with openspec init --tools opencode           11:05 AM · 12/30/2025
-ses_4914bfe4effepdH39D0v1ZDnef  Analyzing agent bmad-master                                         11:04 AM · 12/30/2025
-ses_49181ca28ffej0r7WDvr6raUj8  Greeting and quick check-in                                         10:40 AM · 12/30/2025
-ses_491a96418ffew8gU7Oc6boz2cs  Greeting check-in                                                   9:19 AM · 12/30/2025
-ses_493eaba05ffedQxkNfr20tD6Zg  Greeting understanding visible files                                10:49 PM · 12/29/2025
-ses_4c2a7aec2ffeNazAMQvwaAjFwQ  Answering user last statements                                      9:54 PM · 12/20/2025
-ses_4c40a936cffejrP1Izw91LluiS  Listing branches with gh cli                                        8:47 PM · 12/20/2025
-ses_4c4d18ffbffeqKwEdv9S3B78Dy  Analyzing frontend-backend connection issues with 5xWhy hypotheses  11:15 AM · 12/20/2025
-ses_4c7dd22b9ffe8RCrnIPoCt7Not  Greeting and quick check-in                                         8:42 PM · 12/19/2025
-ses_4c8e3aa80ffelZtRBggBr0vGj0  Greeting and quick check-in                                         3:56 PM · 12/19/2025
-ses_4c8f3449effeDe1146uIO6XLX8  Greeting: quick check-in                                            3:39 PM · 12/19/2025
-ses_4c91f8ba7ffe6Ai025uAGGZwR5  Greeting engagement: Hello!                                         2:50 PM · 12/19/2025
-ses_4c9512f03ffekOFJMinyNgfyv7  Investigating repository details                                    2:14 PM · 12/19/2025
-ses_4c9b107a0ffeuRQ2c1mUgvcZto  Greeting and quick check-in                                         12:11 PM · 12/19/2025
-"""
-
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = sample_output
-        mock_list_sessions.return_value = mock_result
+        mock_list_sessions.return_value = [
+            SessionInfo(
+                id="ses_491478d5cffeFxA6xUVv2N23Nt",
+                title="Initializing Spec Kit with init command",
+                updated="11:06 AM · 12/30/2025",
+            ),
+            SessionInfo(
+                id="ses_491481eecffe4pR71zMCkOJZ7m",
+                title="Initializing OpenSpec with openspec init --tools opencode",
+                updated="11:05 AM · 12/30/2025",
+            ),
+            SessionInfo(
+                id="ses_4914bfe4effepdH39D0v1ZDnef",
+                title="Analyzing agent bmad-master",
+                updated="11:04 AM · 12/30/2025",
+            ),
+            SessionInfo(
+                id="ses_49181ca28ffej0r7WDvr6raUj8",
+                title="Greeting and quick check-in",
+                updated="10:40 AM · 12/30/2025",
+            ),
+            SessionInfo(
+                id="ses_491a96418ffew8gU7Oc6boz2cs",
+                title="Greeting check-in",
+                updated="9:19 AM · 12/30/2025",
+            ),
+            SessionInfo(
+                id="ses_493eaba05ffedQxkNfr20tD6Zg",
+                title="Greeting understanding visible files",
+                updated="10:49 PM · 12/29/2025",
+            ),
+            SessionInfo(
+                id="ses_4c2a7aec2ffeNazAMQvwaAjFwQ",
+                title="Answering user last statements",
+                updated="9:54 PM · 12/20/2025",
+            ),
+            SessionInfo(
+                id="ses_4c40a936cffejrP1Izw91LluiS",
+                title="Listing branches with gh cli",
+                updated="8:47 PM · 12/20/2025",
+            ),
+            SessionInfo(
+                id="ses_4c4d18ffbffeqKwEdv9S3B78Dy",
+                title="Analyzing frontend-backend connection issues with 5xWhy hypotheses",
+                updated="11:15 AM · 12/20/2025",
+            ),
+            SessionInfo(
+                id="ses_4c7dd22b9ffe8RCrnIPoCt7Not",
+                title="Greeting and quick check-in",
+                updated="8:42 PM · 12/19/2025",
+            ),
+        ]
 
         sessions = list_chat_sessions("test-repo", limit=10)
 
@@ -507,18 +592,14 @@ ses_4c9b107a0ffeuRQ2c1mUgvcZto  Greeting and quick check-in                     
         mock_working_dir = Path("/test/workspace/repo")
         mock_get_working_dir.return_value = mock_working_dir
 
-        mock_result = Mock()
-        mock_result.returncode = 1
-        mock_result.stdout = ""
-        mock_result.stderr = "boom"
-        mock_list_sessions.return_value = mock_result
+        mock_list_sessions.side_effect = RuntimeError("boom")
 
         with pytest.raises(RuntimeError):
             list_chat_sessions("test-repo", limit=5)
 
     def test_parse_agent_list_includes_details(self):
         """Parse agent list output including detail lines."""
-        from agent_service import _parse_agent_list
+        from agent_cli import _parse_agent_list
 
         output = "\n".join(
             [
@@ -531,7 +612,7 @@ ses_4c9b107a0ffeuRQ2c1mUgvcZto  Greeting and quick check-in                     
             ]
         )
 
-        assert _parse_agent_list(output) == [
+        assert [agent.to_dict() for agent in _parse_agent_list(output)] == [
             {
                 "name": "build",
                 "type": "primary",

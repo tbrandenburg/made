@@ -1,17 +1,18 @@
-import json
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
-from agent_service import (
+from agent_cli import (
+    ExportMessage,
+    ExportResult,
     _format_timestamp,
     _format_timestamp_optional,
     _resolve_part_timestamp,
     _resolve_message_timestamp,
     _to_milliseconds,
-    export_chat_history,
 )
+from agent_service import export_chat_history
 
 
 class TestTimestampHelpers:
@@ -45,65 +46,46 @@ class TestTimestampHelpers:
 
 
 class TestExportChatHistory:
-    SAMPLE_EXPORT = {
-        "messages": [
-            {
-                "info": {
-                    "id": "msg_1",
-                    "role": "user",
-                    "time": {"created": 1000},
-                },
-                "parts": [
-                    {
-                        "id": "prt_user_1",
-                        "type": "text",
-                        "text": "Hello",
-                        "time": {"start": 1000},
-                    },
-                ],
-            },
-            {
-                "info": {
-                    "id": "msg_2",
-                    "role": "assistant",
-                    "time": {"created": 2000},
-                },
-                "parts": [
-                    {"id": "prt_text_1", "type": "text", "text": "Hi", "timestamp": 2000},
-                    {
-                        "id": "prt_tool_use",
-                        "type": "tool_use",
-                        "tool": "search",
-                        "callID": "call_search_1",
-                        "time": {"end": 2500},
-                    },
-                    {
-                        "id": "prt_tool_1",
-                        "type": "tool",
-                        "tool": "todowrite",
-                        "state": {"time": {"start": 3000, "end": 3100}},
-                    },
-                ],
-            },
-            {
-                "info": {"id": "msg_3", "role": "system", "time": {"created": 3000}},
-                "parts": [{"type": "text", "text": "Ignored"}],
-            },
-        ]
-    }
-
     @patch("agent_service.AGENT_CLI.export_session")
     def test_export_chat_history_success(self, mock_export):
-        def _fake_export(session_id, cwd, stdout=None):
-            if stdout is not None:
-                stdout.write(json.dumps(self.SAMPLE_EXPORT))
-                stdout.flush()
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stderr = ""
-            return mock_result
-
-        mock_export.side_effect = _fake_export
+        mock_export.return_value = ExportResult(
+            session_id="ses_123",
+            messages=[
+                ExportMessage(
+                    message_id="msg_1",
+                    role="user",
+                    type="text",
+                    content="Hello",
+                    timestamp="1970-01-01T00:00:01.000Z",
+                    part_id="prt_user_1",
+                ),
+                ExportMessage(
+                    message_id="msg_2",
+                    role="assistant",
+                    type="text",
+                    content="Hi",
+                    timestamp="1970-01-01T00:00:02.000Z",
+                    part_id="prt_text_1",
+                ),
+                ExportMessage(
+                    message_id="msg_2",
+                    role="assistant",
+                    type="tool_use",
+                    content="search",
+                    timestamp="1970-01-01T00:00:02.500Z",
+                    part_id="prt_tool_use",
+                    call_id="call_search_1",
+                ),
+                ExportMessage(
+                    message_id="msg_2",
+                    role="assistant",
+                    type="tool",
+                    content="todowrite",
+                    timestamp="1970-01-01T00:00:03.100Z",
+                    part_id="prt_tool_1",
+                ),
+            ],
+        )
 
         result = export_chat_history("ses_123")
 
@@ -146,16 +128,36 @@ class TestExportChatHistory:
 
     @patch("agent_service.AGENT_CLI.export_session")
     def test_export_chat_history_with_start_filter(self, mock_export):
-        def _fake_export(session_id, cwd, stdout=None):
-            if stdout is not None:
-                stdout.write(json.dumps(self.SAMPLE_EXPORT))
-                stdout.flush()
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stderr = ""
-            return mock_result
-
-        mock_export.side_effect = _fake_export
+        mock_export.return_value = ExportResult(
+            session_id="ses_123",
+            messages=[
+                ExportMessage(
+                    message_id="msg_2",
+                    role="assistant",
+                    type="text",
+                    content="Hi",
+                    timestamp="1970-01-01T00:00:02.000Z",
+                    part_id="prt_text_1",
+                ),
+                ExportMessage(
+                    message_id="msg_2",
+                    role="assistant",
+                    type="tool_use",
+                    content="search",
+                    timestamp="1970-01-01T00:00:02.500Z",
+                    part_id="prt_tool_use",
+                    call_id="call_search_1",
+                ),
+                ExportMessage(
+                    message_id="msg_2",
+                    role="assistant",
+                    type="tool",
+                    content="todowrite",
+                    timestamp="1970-01-01T00:00:03.100Z",
+                    part_id="prt_tool_1",
+                ),
+            ],
+        )
 
         result = export_chat_history("ses_123", start_timestamp=2000)
 
@@ -174,65 +176,28 @@ class TestExportChatHistory:
 
     @patch("agent_service.AGENT_CLI.export_session")
     def test_export_chat_history_failure(self, mock_export):
-        mock_result = Mock()
-        mock_result.returncode = 1
-        mock_result.stderr = "Failed"
-        mock_export.return_value = mock_result
+        mock_export.side_effect = RuntimeError("Failed")
 
         with pytest.raises(RuntimeError):
             export_chat_history("ses_123")
 
     @patch("agent_service.AGENT_CLI.export_session")
     def test_export_chat_history_bad_json(self, mock_export):
-        def _fake_export(session_id, cwd, stdout=None):
-            if stdout is not None:
-                stdout.write("not json")
-                stdout.flush()
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stderr = ""
-            return mock_result
-
-        mock_export.side_effect = _fake_export
+        mock_export.side_effect = ValueError("Invalid export data returned by opencode")
 
         with pytest.raises(ValueError):
             export_chat_history("ses_123")
 
     @patch("agent_service.AGENT_CLI.export_session")
     def test_export_chat_history_rejects_non_json_prefix_or_suffix(self, mock_export):
-        payload = json.dumps(self.SAMPLE_EXPORT)
-
-        def _fake_export(session_id, cwd, stdout=None):
-            if stdout is not None:
-                stdout.write(f"intro text\n{payload}\ntrailing stats")
-                stdout.flush()
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stderr = ""
-            return mock_result
-
-        mock_export.side_effect = _fake_export
+        mock_export.side_effect = ValueError("Invalid export data returned by opencode")
 
         with pytest.raises(ValueError):
             export_chat_history("ses_123")
 
     @patch("agent_service.AGENT_CLI.export_session")
     def test_export_chat_history_rejects_multiple_json_blocks(self, mock_export):
-        first_payload = json.dumps(self.SAMPLE_EXPORT)
-        second_payload = json.dumps({"messages": []})
-
-        def _fake_export(session_id, cwd, stdout=None):
-            if stdout is not None:
-                stdout.write(
-                    f"INFO log before\n{first_payload}\nnoise-between\n{second_payload}"
-                )
-                stdout.flush()
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stderr = ""
-            return mock_result
-
-        mock_export.side_effect = _fake_export
+        mock_export.side_effect = ValueError("Invalid export data returned by opencode")
 
         with pytest.raises(ValueError):
             export_chat_history("ses_123")
@@ -243,16 +208,7 @@ class TestExportChatHistory:
         self, mock_get_working_directory, mock_export
     ):
         mock_get_working_directory.return_value = Path("/tmp/workspace/sample")
-        def _fake_export(session_id, cwd, stdout=None):
-            if stdout is not None:
-                stdout.write(json.dumps(self.SAMPLE_EXPORT))
-                stdout.flush()
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stderr = ""
-            return mock_result
-
-        mock_export.side_effect = _fake_export
+        mock_export.return_value = ExportResult(session_id="ses_123", messages=[])
 
         export_chat_history("ses_123", channel="sample")
 
