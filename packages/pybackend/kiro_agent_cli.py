@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import sqlite3
 import subprocess
 from pathlib import Path
@@ -31,6 +32,11 @@ class KiroAgentCLI(AgentCLI):
     def missing_command_error(self) -> str:
         """Return error message for missing CLI command."""
         return f"Error: '{self.cli_name}' command not found. Please ensure it is installed and in PATH."
+
+    def _strip_ansi_codes(self, text: str) -> str:
+        """Remove ANSI escape sequences from text."""
+        ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+        return ansi_escape.sub("", text)
 
     def _get_database_path(self) -> Path | None:
         """Get the path to Kiro's SQLite database."""
@@ -75,8 +81,8 @@ class KiroAgentCLI(AgentCLI):
             )
 
             if process.returncode == 0:
-                # Parse kiro-cli output - for now, treat as simple text response
-                response_text = (process.stdout or "").strip()
+                # Parse kiro-cli output - strip ANSI codes for clean display
+                response_text = self._strip_ansi_codes((process.stdout or "").strip())
                 response_parts = (
                     [
                         ResponsePart(
