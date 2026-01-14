@@ -76,6 +76,23 @@ def get_last_commit_date(repo_path: Path) -> str | None:
         return None
 
 
+def get_branch_name(repo_path: Path) -> str | None:
+    try:
+        output = subprocess.check_output(
+            ["git", "-C", str(repo_path), "rev-parse", "--abbrev-ref", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+    if not output:
+        return None
+    if output == "HEAD":
+        return "Detached"
+    return output
+
+
 def get_license(repo_path: Path) -> str:
     for candidate in ["LICENSE", "LICENSE.md", "LICENSE.txt"]:
         license_path = repo_path / candidate
@@ -116,6 +133,7 @@ def get_repository_info(repo_name: str) -> Dict[str, Union[str, bool, None]]:
         "path": str(repo_path),
         "hasGit": is_git,
         "lastCommit": get_last_commit_date(repo_path) if is_git else None,
+        "branch": get_branch_name(repo_path) if is_git else None,
         "technology": detect_technology(repo_path),
         "license": get_license(repo_path),
     }

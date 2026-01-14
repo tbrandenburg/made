@@ -1371,6 +1371,9 @@ export const RepositoryPage: React.FC = () => {
           >
             {repository.hasGit ? "Git" : "No Git"}
           </span>
+          {repository.hasGit && repository.branch && (
+            <span className="badge">Branch: {repository.branch}</span>
+          )}
         </div>
       )}
       <TabView
