@@ -27,6 +27,8 @@ import {
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
 import {
+  formatChatMessageLabel,
+  formatChatMessageTimestamp,
   mapAgentReplyToMessages,
   mapHistoryToMessages,
   mergeChatMessages,
@@ -280,18 +282,13 @@ export const RepositoryPage: React.FC = () => {
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
 
-    const formatMessageLabel = (message: ChatMessage) => {
-      if (message.messageType === "tool") return "[tool]";
-      if (message.messageType === "thinking") return "[agent:thinking]";
-      if (message.messageType === "final") return "[agent:final]";
-      return `[${message.role}]`;
-    };
-
     const content = chat
       .map((message) => {
-        const label = formatMessageLabel(message);
+        const label = formatChatMessageLabel(message);
+        const timestamp = formatChatMessageTimestamp(message);
         const messageText = message.text || "";
-        return messageText ? `${label} ${messageText}` : label;
+        const header = `${label} ${timestamp}`.trim();
+        return messageText ? `${header} ${messageText}` : header;
       })
       .join("\n\n")
       .trim();

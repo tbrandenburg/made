@@ -22,6 +22,19 @@ export const normalizeChatMessageText = (text: string | undefined | null) => {
   return normalized;
 };
 
+export const formatChatMessageLabel = (message: ChatMessage) => {
+  if (message.messageType === "tool") return "[tool]";
+  if (message.messageType === "thinking") return "[agent:thinking]";
+  if (message.messageType === "final") return "[agent:final]";
+  return `[${message.role}]`;
+};
+
+export const formatChatMessageTimestamp = (message: ChatMessage) => {
+  const parsed = Date.parse(message.timestamp);
+  if (!Number.isFinite(parsed)) return "Unknown time";
+  return new Date(parsed).toLocaleString();
+};
+
 export const buildMessageDedupKey = (message: ChatMessage) => {
   const normalizedText = normalizeChatMessageText(message.text);
   const userTextKey = normalizedText.slice(0, 300);
