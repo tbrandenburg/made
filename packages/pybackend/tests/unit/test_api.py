@@ -463,13 +463,21 @@ class TestRepositoryEndpoints:
     @patch('app.list_repository_files')
     def test_list_repository_files_success(self, mock_list_files):
         """Test successful repository files listing."""
-        mock_files = ["file1.py", "file2.md", "dir/file3.txt"]
+        mock_files = {
+            "name": "test-repo",
+            "path": ".",
+            "type": "folder",
+            "children": [
+                {"name": "file1.py", "path": "file1.py", "type": "file", "size": 123},
+            ],
+        }
         mock_list_files.return_value = mock_files
         
         response = client.get("/api/repositories/test-repo/files")
         
         assert response.status_code == 200
         assert response.json() == mock_files
+        mock_list_files.assert_called_once_with("test-repo", ".")
 
     @patch('app.read_repository_file')
     def test_read_repository_file_success(self, mock_read):

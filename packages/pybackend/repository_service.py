@@ -203,35 +203,50 @@ def clone_repository(
     return get_repository_info(repo_name)
 
 
-def build_file_tree(current_path: Path, base_path: Path) -> FileNode:
-    stats = current_path.stat()
+def build_directory_node(current_path: Path, base_path: Path) -> FileNode:
     relative_path = current_path.relative_to(base_path)
-    if current_path.is_dir():
-        children = [
-            build_file_tree(child, base_path)
-            for child in current_path.iterdir()
-            if child.name != ".git"
-        ]
-        return {
-            "name": current_path.name,
-            "path": str(relative_path) if str(relative_path) != "." else ".",
-            "type": "folder",
-            "children": children,
-        }
+    children: list[FileNode] = []
+    for child in current_path.iterdir():
+        if child.name == ".git":
+            continue
+        child_relative = child.relative_to(base_path)
+        if child.is_dir():
+            children.append(
+                {
+                    "name": child.name,
+                    "path": (
+                        str(child_relative) if str(child_relative) != "." else "."
+                    ),
+                    "type": "folder",
+                }
+            )
+        else:
+            stats = child.stat()
+            children.append(
+                {
+                    "name": child.name,
+                    "path": str(child_relative),
+                    "type": "file",
+                    "size": stats.st_size,
+                }
+            )
     return {
         "name": current_path.name,
-        "path": str(relative_path),
-        "type": "file",
-        "size": stats.st_size,
+        "path": str(relative_path) if str(relative_path) != "." else ".",
+        "type": "folder",
+        "children": children,
     }
 
 
-def list_repository_files(repo_name: str) -> FileNode:
+def list_repository_files(repo_name: str, path: str = ".") -> FileNode:
     workspace = get_workspace_home()
     repo_path = workspace / repo_name
     if not repo_path.exists():
         raise FileNotFoundError("Repository not found")
-    return build_file_tree(repo_path, repo_path)
+    target_path = repo_path / path
+    if not target_path.exists() or not target_path.is_dir():
+        raise FileNotFoundError("Repository path not found")
+    return build_directory_node(target_path, repo_path)
 
 
 def read_repository_file(repo_name: str, file_path: str) -> str:

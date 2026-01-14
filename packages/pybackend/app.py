@@ -228,10 +228,10 @@ def repository_info(name: str):
 
 
 @app.get("/api/repositories/{name}/files")
-def repository_files(name: str):
+def repository_files(name: str, path: str = Query(".")):
     try:
-        logger.info("Listing files for repository '%s'", name)
-        return list_repository_files(name)
+        logger.info("Listing files for repository '%s' at '%s'", name, path)
+        return list_repository_files(name, path)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 

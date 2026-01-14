@@ -154,8 +154,10 @@ export const api = {
     }),
   getRepository: (name: string) =>
     request<RepositorySummary>(`/repositories/${name}`),
-  getRepositoryFiles: (name: string) =>
-    request<FileNode>(`/repositories/${name}/files`),
+  getRepositoryFiles: (name: string, path = ".") =>
+    request<FileNode>(
+      `/repositories/${name}/files?path=${encodeURIComponent(path)}`,
+    ),
   readRepositoryFile: (name: string, filePath: string) =>
     request<{ content: string }>(
       `/repositories/${name}/file?path=${encodeURIComponent(filePath)}`,
