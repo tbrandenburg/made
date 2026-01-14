@@ -346,7 +346,7 @@ export const RepositoryPage: React.FC = () => {
         console.error("Failed to load repository", error);
       });
     api
-      .getRepositoryFiles(name)
+      .getRepositoryFiles(name, ".")
       .then((tree) => setFileTree(tree))
       .catch((error) => console.error("Failed to load file tree", error));
   }, [name, navigate]);
@@ -481,6 +481,53 @@ export const RepositoryPage: React.FC = () => {
     }
   }, [name]);
 
+  const findNodeByPath = (node: FileNode, targetPath: string): FileNode | null => {
+    if (node.path === targetPath) {
+      return node;
+    }
+    if (!node.children) {
+      return null;
+    }
+    for (const child of node.children) {
+      const match = findNodeByPath(child, targetPath);
+      if (match) {
+        return match;
+      }
+    }
+    return null;
+  };
+
+  const updateNodeChildren = (
+    node: FileNode,
+    targetPath: string,
+    children: FileNode[],
+  ): FileNode => {
+    if (node.path === targetPath) {
+      return { ...node, children };
+    }
+    if (!node.children) {
+      return node;
+    }
+    return {
+      ...node,
+      children: node.children.map((child) =>
+        updateNodeChildren(child, targetPath, children),
+      ),
+    };
+  };
+
+  const loadFolderChildren = async (pathId: string) => {
+    if (!name) return;
+    try {
+      const node = await api.getRepositoryFiles(name, pathId);
+      setFileTree((prev) =>
+        prev ? updateNodeChildren(prev, pathId, node.children ?? []) : prev,
+      );
+    } catch (error) {
+      console.error("Failed to load folder contents", error);
+    }
+  };
+
   const toggleFolder = (pathId: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -491,6 +538,11 @@ export const RepositoryPage: React.FC = () => {
       }
       return next;
     });
+    if (!fileTree) return;
+    const node = findNodeByPath(fileTree, pathId);
+    if (node && node.type === "folder" && node.children === undefined) {
+      void loadFolderChildren(pathId);
+    }
   };
 
   const openFile = async (filePath: string) => {
@@ -520,7 +572,7 @@ export const RepositoryPage: React.FC = () => {
   const refreshFiles = () => {
     if (!name) return;
     api
-      .getRepositoryFiles(name)
+      .getRepositoryFiles(name, ".")
       .then((tree) => setFileTree(tree))
       .catch((error) => console.error("Failed to load file tree", error));
   };
