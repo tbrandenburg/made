@@ -320,6 +320,7 @@ export type RepositorySummary = {
   path: string;
   hasGit: boolean;
   lastCommit: string | null;
+  branch: string | null;
   technology: string;
   license: string;
 };
