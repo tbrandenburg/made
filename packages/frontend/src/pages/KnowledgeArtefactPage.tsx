@@ -16,7 +16,12 @@ import { useAgentCli } from "../hooks/useAgentCli";
 import { api, ChatSession } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
-import { mapAgentReplyToMessages, mapHistoryToMessages } from "../utils/chat";
+import {
+  formatChatMessageLabel,
+  formatChatMessageTimestamp,
+  mapAgentReplyToMessages,
+  mapHistoryToMessages,
+} from "../utils/chat";
 import { ClearSessionModal } from "../components/ClearSessionModal";
 import { SessionPickerModal } from "../components/SessionPickerModal";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
@@ -66,7 +71,13 @@ export const KnowledgeArtefactPage: React.FC = () => {
     if (!navigator.clipboard || !chat.length) return;
 
     const content = chat
-      .map((message) => message.text || "")
+      .map((message) => {
+        const label = formatChatMessageLabel(message);
+        const timestamp = formatChatMessageTimestamp(message);
+        const messageText = message.text || "";
+        const header = `${label} ${timestamp}`.trim();
+        return messageText ? `${header} ${messageText}` : header;
+      })
       .join("\n\n")
       .trim();
 
