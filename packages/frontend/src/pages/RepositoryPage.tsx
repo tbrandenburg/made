@@ -1388,6 +1388,8 @@ export const RepositoryPage: React.FC = () => {
                   <div className="commands-grid">
                     {availableCommands.map((command) => {
                       const description = command.description || command.name;
+                      const argumentPlan = getCommandArgumentPlan(command);
+                      const usesArguments = argumentPlan.labels.length > 0;
                       return (
                         <div className="command-button-wrapper" key={command.id}>
                           <button
@@ -1395,8 +1397,15 @@ export const RepositoryPage: React.FC = () => {
                             title={`${command.source} • ${command.name}`}
                             onClick={() => handleCommandSelection(command)}
                           >
-                            <span className="command-button__badge">
-                              {formatCommandSourceLabel(command.source)}
+                            <span className="command-button__badges">
+                              {usesArguments && (
+                                <span className="command-button__badge command-button__badge--args">
+                                  ARGS
+                                </span>
+                              )}
+                              <span className="command-button__badge">
+                                {formatCommandSourceLabel(command.source)}
+                              </span>
                             </span>
                             <span className="command-button__title">
                               {command.name}
