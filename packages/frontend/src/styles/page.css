@@ -245,9 +245,9 @@
 }
 
 .command-button__badge--args {
-  background: var(--neutral-strong);
-  border: 1px solid var(--border);
-  color: var(--muted);
+  background: rgba(250, 204, 21, 0.95);
+  border: 1px solid rgba(245, 158, 11, 0.95);
+  color: #1f2937;
   box-shadow: none;
 }
 
