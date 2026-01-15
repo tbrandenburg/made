@@ -182,7 +182,14 @@ const FileIcon: React.FC = () => (
 
 const MagnifyingGlassIcon: React.FC = () => (
   <svg aria-hidden="true" viewBox="0 0 24 24" role="img" focusable="false">
-    <path d="M11 4a7 7 0 1 0 4.39 12.46l3.58 3.58a1 1 0 0 0 1.42-1.42l-3.58-3.58A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z" />
+    <path
+      d="M11 4a7 7 0 1 0 4.39 12.46l3.58 3.58a1 1 0 0 0 1.42-1.42l-3.58-3.58A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
