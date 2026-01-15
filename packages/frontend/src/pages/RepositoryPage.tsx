@@ -180,6 +180,12 @@ const FileIcon: React.FC = () => (
   </svg>
 );
 
+const MagnifyingGlassIcon: React.FC = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" role="img" focusable="false">
+    <path d="M11 4a7 7 0 1 0 4.39 12.46l3.58 3.58a1 1 0 0 0 1.42-1.42l-3.58-3.58A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z" />
+  </svg>
+);
+
 export const RepositoryPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
@@ -269,6 +275,9 @@ export const RepositoryPage: React.FC = () => {
     placeholders: [],
     values: [],
   });
+  const [commandPreview, setCommandPreview] = useState<CommandDefinition | null>(
+    null,
+  );
   const [harnessModal, setHarnessModal] = useState<{
     open: boolean;
     harness: HarnessDefinition | null;
@@ -820,6 +829,14 @@ export const RepositoryPage: React.FC = () => {
       values: [],
     });
 
+  const openCommandPreview = (command: CommandDefinition) => {
+    setCommandPreview(command);
+  };
+
+  const closeCommandPreview = () => {
+    setCommandPreview(null);
+  };
+
   const handleCommandConfirm = () => {
     if (!commandModal.command) return;
     let text = stripCommandFrontmatter(commandModal.command.content);
@@ -838,6 +855,10 @@ export const RepositoryPage: React.FC = () => {
     setActiveTab("agent");
     closeCommandModal();
   };
+
+  const commandPreviewContent = commandPreview
+    ? stripCommandFrontmatter(commandPreview.content)
+    : "";
 
   const openHarnessModal = (harness: HarnessDefinition) => {
     setHarnessModal({
@@ -1367,22 +1388,32 @@ export const RepositoryPage: React.FC = () => {
                     {availableCommands.map((command) => {
                       const description = command.description || command.name;
                       return (
-                        <button
-                          key={command.id}
-                          className="primary command-button"
-                          title={`${command.source} • ${command.name}`}
-                          onClick={() => handleCommandSelection(command)}
-                        >
-                          <span className="command-button__badge">
-                            {formatCommandSourceLabel(command.source)}
-                          </span>
-                          <span className="command-button__title">
-                            {command.name}
-                          </span>
-                          <span className="command-button__description">
-                            {description}
-                          </span>
-                        </button>
+                        <div className="command-button-wrapper" key={command.id}>
+                          <button
+                            className="primary command-button command-button--previewable"
+                            title={`${command.source} • ${command.name}`}
+                            onClick={() => handleCommandSelection(command)}
+                          >
+                            <span className="command-button__badge">
+                              {formatCommandSourceLabel(command.source)}
+                            </span>
+                            <span className="command-button__title">
+                              {command.name}
+                            </span>
+                            <span className="command-button__description">
+                              {description}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            className="command-button__preview"
+                            onClick={() => openCommandPreview(command)}
+                            aria-label={`Preview ${command.name} command`}
+                            title="Preview command"
+                          >
+                            <MagnifyingGlassIcon />
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -1483,6 +1514,25 @@ export const RepositoryPage: React.FC = () => {
             Insert into chat
           </button>
         </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(commandPreview)}
+        title={
+          commandPreview ? `Command Preview: ${commandPreview.name}` : "Preview"
+        }
+        onClose={closeCommandPreview}
+      >
+        {commandPreview && commandPreviewContent ? (
+          <div
+            className="markdown"
+            dangerouslySetInnerHTML={{
+              __html: marked(commandPreviewContent),
+            }}
+          />
+        ) : (
+          <p>No command content available.</p>
+        )}
       </Modal>
 
       <Modal
