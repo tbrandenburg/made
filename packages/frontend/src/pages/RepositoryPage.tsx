@@ -795,6 +795,7 @@ export const RepositoryPage: React.FC = () => {
   };
 
   const handleCommandSelection = (command: CommandDefinition) => {
+    closeCommandPreview();
     const plan = getCommandArgumentPlan(command);
     if (plan.labels.length === 0) {
       handleSendMessage(stripCommandFrontmatter(command.content));
