@@ -20,6 +20,34 @@
   gap: 1rem;
 }
 
+.modal-body {
+  min-height: 0;
+}
+
+.modal--command-preview {
+  width: min(92vw, 640px);
+  max-height: min(85vh, 720px);
+}
+
+.modal--command-preview .modal-body {
+  overflow-y: auto;
+}
+
+.modal--command-preview .markdown {
+  padding-right: 0.5rem;
+}
+
+.modal--command-preview .modal-body > * {
+  margin-top: 0;
+}
+
+@media (max-width: 640px) {
+  .modal--command-preview {
+    padding: 1.5rem;
+    max-height: 78vh;
+  }
+}
+
 .modal-header {
   display: flex;
   align-items: center;
