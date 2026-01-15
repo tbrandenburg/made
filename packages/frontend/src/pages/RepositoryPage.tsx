@@ -1424,7 +1424,7 @@ export const RepositoryPage: React.FC = () => {
             {repository.hasGit ? "Git" : "No Git"}
           </span>
           {repository.hasGit && repository.branch && (
-            <span className="badge">Branch: {repository.branch}</span>
+            <span className="badge">{repository.branch}</span>
           )}
         </div>
       )}
