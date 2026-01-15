@@ -200,12 +200,18 @@ class KiroAgentCLI(AgentCLI):
         self, conversation_data: dict[str, Any]
     ) -> list[HistoryMessage]:
         """Parse Kiro conversation data into HistoryMessage objects."""
+        from datetime import datetime
+
         messages: list[HistoryMessage] = []
         history = conversation_data.get("history", [])
 
         for exchange in history:
             user_msg = exchange.get("user", {})
             assistant_msg = exchange.get("assistant", {})
+            metadata = exchange.get("request_metadata", {})
+
+            # Extract timestamp from metadata
+            assistant_timestamp_ms = metadata.get("stream_end_timestamp_ms")
 
             # Add user message
             user_content = user_msg.get("content", {})
@@ -214,9 +220,6 @@ class KiroAgentCLI(AgentCLI):
                 timestamp_str = user_msg.get("timestamp")
                 timestamp_ms = None
                 if timestamp_str:
-                    # Convert ISO timestamp to milliseconds
-                    from datetime import datetime
-
                     try:
                         dt = datetime.fromisoformat(
                             timestamp_str.replace("Z", "+00:00")
@@ -247,18 +250,35 @@ class KiroAgentCLI(AgentCLI):
                         role="assistant",
                         content_type="text",
                         content=response_text,
-                        timestamp=None,  # No timestamp in response data
+                        timestamp=assistant_timestamp_ms,
                     )
                 )
             elif "ToolUse" in assistant_msg:
                 tool_data = assistant_msg["ToolUse"]
+                tool_uses = tool_data.get("tool_uses", [])
+                
+                # Format tool usage information
+                content_parts = [tool_data.get("content", "")]
+                if tool_uses:
+                    tool_info = []
+                    for tool in tool_uses:
+                        tool_name = tool.get("name", "unknown")
+                        tool_args = tool.get("args", {})
+                        tool_info.append(f"Tool: {tool_name}")
+                        for key, value in tool_args.items():
+                            value_str = str(value)
+                            if len(value_str) > 200:
+                                value_str = value_str[:200] + "..."
+                            tool_info.append(f"  {key}: {value_str}")
+                    content_parts.append("\n".join(tool_info))
+                
                 messages.append(
                     HistoryMessage(
                         message_id=tool_data.get("message_id"),
                         role="assistant",
                         content_type="tool_use",
-                        content=tool_data.get("content", ""),
-                        timestamp=None,
+                        content="\n\n".join(filter(None, content_parts)),
+                        timestamp=assistant_timestamp_ms,
                     )
                 )
 
