@@ -136,7 +136,7 @@ export const RepositoriesPage: React.FC = () => {
                         <span className="badge">{repo.technology}</span>
                         <span className="badge">{repo.license}</span>
                         {repo.hasGit && repo.branch && (
-                          <span className="badge">Branch: {repo.branch}</span>
+                          <span className="badge">{repo.branch}</span>
                         )}
                       </div>
                       <div className="meta-secondary">
