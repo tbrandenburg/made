@@ -220,28 +220,28 @@
 
 .command-button__preview {
   position: absolute;
-  right: 0.6rem;
-  bottom: 0.6rem;
-  width: 1.7rem;
-  height: 1.7rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  background: rgba(15, 23, 42, 0.75);
-  color: rgba(255, 255, 255, 0.95);
+  right: 0.75rem;
+  bottom: 0.75rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: none;
+  background: transparent;
+  color: #fff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 16px rgba(8, 47, 73, 0.35);
+  box-shadow: none;
+  padding: 0;
 }
 
 .command-button__preview svg {
-  width: 0.9rem;
-  height: 0.9rem;
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
 .command-button__preview:hover,
 .command-button__preview:focus-visible {
-  background: rgba(30, 41, 59, 0.9);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .command-button__badge--args {
