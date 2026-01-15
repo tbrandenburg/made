@@ -1532,6 +1532,7 @@ export const RepositoryPage: React.FC = () => {
           commandPreview ? `Command Preview: ${commandPreview.name}` : "Preview"
         }
         onClose={closeCommandPreview}
+        className="modal--command-preview"
       >
         {commandPreview && commandPreviewContent ? (
           <div
