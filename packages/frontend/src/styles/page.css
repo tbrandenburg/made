@@ -176,6 +176,7 @@
 
 .command-button-wrapper {
   position: relative;
+  display: grid;
   width: 100%;
 }
 
@@ -219,9 +220,11 @@
 }
 
 .command-button__preview {
-  position: absolute;
-  right: 0.75rem;
-  bottom: 0.75rem;
+  position: relative;
+  grid-area: 1 / 1;
+  justify-self: end;
+  align-self: end;
+  margin: 0.75rem;
   width: 1.25rem;
   height: 1.25rem;
   border: none;
@@ -232,6 +235,7 @@
   justify-content: center;
   box-shadow: none;
   padding: 0;
+  z-index: 1;
 }
 
 .command-button__preview svg {
