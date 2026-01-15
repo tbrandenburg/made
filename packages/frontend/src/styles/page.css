@@ -184,10 +184,17 @@
   width: 100%;
 }
 
-.command-button__badge {
+.command-button__badges {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  z-index: 1;
+}
+
+.command-button__badge {
   padding: 0.1rem 0.4rem;
   border-radius: 999px;
   font-size: 0.55rem;
@@ -198,8 +205,14 @@
   background: rgba(14, 116, 144, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.5);
   color: rgba(255, 255, 255, 0.95);
-  z-index: 1;
   box-shadow: 0 6px 16px rgba(8, 47, 73, 0.35);
+}
+
+.command-button__badge--args {
+  background: var(--neutral-strong);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  box-shadow: none;
 }
 
 .command-button__title {
