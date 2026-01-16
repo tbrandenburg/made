@@ -24,7 +24,7 @@ def list_constitutions():
                     "frontmatter": data,
                 }
             )
-    return constitutions
+    return sorted(constitutions, key=lambda constitution: constitution["name"])
 
 
 def read_constitution(file_name: str):
