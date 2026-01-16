@@ -33,7 +33,7 @@ export const KnowledgePage: React.FC = () => {
     await api.saveKnowledge(filename, {
       content: "# New Artefact\n",
       frontmatter: {
-        type: "internal",
+        type: "document",
         tags: newTags ? newTags.split(",").map((tag) => tag.trim()) : [],
       },
     });
@@ -71,7 +71,7 @@ export const KnowledgePage: React.FC = () => {
                     >
                       <div className="metadata">
                         <span className="badge">
-                          {artefact.type ?? "internal"}
+                          {artefact.type ?? "document"}
                         </span>
                         {artefact.tags && artefact.tags.length > 0 && (
                           <span className="badge">
