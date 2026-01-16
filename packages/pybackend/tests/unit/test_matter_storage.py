@@ -41,7 +41,7 @@ def test_write_knowledge_creates_file(tmp_path, monkeypatch):
 
     name = "notes.md"
     content = "# Notes\nDetails about the system."
-    metadata = {"type": "internal", "tags": ["notes", "docs"]}
+    metadata = {"type": "document", "tags": ["notes", "docs"]}
 
     write_knowledge_artefact(name, metadata, content)
 

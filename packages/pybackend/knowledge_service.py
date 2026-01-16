@@ -19,7 +19,7 @@ def list_knowledge_artefacts():
             artefacts.append(
                 {
                     "name": entry.name,
-                    "type": data.get("type", "internal"),
+                    "type": data.get("type", "document"),
                     "tags": data.get("tags", []),
                     "content": parsed.content,
                     "frontmatter": data,

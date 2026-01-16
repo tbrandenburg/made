@@ -297,7 +297,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
                     <label htmlFor="artefact-type">Type</label>
                     <select
                       id="artefact-type"
-                      value={(frontmatter.type as string) || "internal"}
+                      value={(frontmatter.type as string) || "document"}
                       onChange={(event) =>
                         setFrontmatter({
                           ...frontmatter,
@@ -305,8 +305,8 @@ export const KnowledgeArtefactPage: React.FC = () => {
                         })
                       }
                     >
-                      <option value="internal">Internal</option>
-                      <option value="external">External</option>
+                      <option value="document">Document</option>
+                      <option value="template">Template</option>
                     </select>
                   </div>
                 </Panel>
