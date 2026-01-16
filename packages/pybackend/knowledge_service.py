@@ -25,7 +25,7 @@ def list_knowledge_artefacts():
                     "frontmatter": data,
                 }
             )
-    return artefacts
+    return sorted(artefacts, key=lambda artefact: artefact["name"])
 
 
 def read_knowledge_artefact(file_name: str):
