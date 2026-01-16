@@ -34,6 +34,14 @@ const copyText = (text: string) => {
   });
 };
 
+const stripFrontmatter = (content: string) => {
+  const delimiterPattern =
+    /^\s*---(?:[\r\n]+[\s\S]*?[\r\n]+---|[\s\S]*?---)\s*/;
+  return delimiterPattern.test(content)
+    ? content.replace(delimiterPattern, "").trim()
+    : content.trim();
+};
+
 const CopyIcon: React.FC = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -84,31 +92,34 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onClearSession,
 }) => (
   <div className="chat-window" ref={chatWindowRef}>
-    {chat.map((message) => (
-      <div
-        key={message.id}
-        className={`chat-message ${message.role} ${message.messageType || ""}`}
-      >
-        <div className="chat-meta">{formatTimestamp(message)}</div>
-        <button
-          type="button"
-          className="copy-button chat-copy-button"
-          aria-label="Copy message"
-          title="Copy message"
-          onClick={() => copyText(message.text || "")}
-        >
-          <CopyIcon />
-        </button>
+    {chat.map((message) => {
+      const strippedMessage = stripFrontmatter(message.text || "");
+      return (
         <div
-          className="markdown"
-          dangerouslySetInnerHTML={{
-            __html: message.text?.trim() 
-              ? marked(message.text) 
-              : "<em>Empty message</em>",
-          }}
-        />
-      </div>
-    ))}
+          key={message.id}
+          className={`chat-message ${message.role} ${message.messageType || ""}`}
+        >
+          <div className="chat-meta">{formatTimestamp(message)}</div>
+          <button
+            type="button"
+            className="copy-button chat-copy-button"
+            aria-label="Copy message"
+            title="Copy message"
+            onClick={() => copyText(strippedMessage)}
+          >
+            <CopyIcon />
+          </button>
+          <div
+            className="markdown"
+            dangerouslySetInnerHTML={{
+              __html: strippedMessage.trim()
+                ? marked(strippedMessage)
+                : "<em>Empty message</em>",
+            }}
+          />
+        </div>
+      );
+    })}
     {loading && (
       <div className="loading-indicator">
         <div className="loading-spinner"></div>

@@ -15,5 +15,5 @@ export const appendRestrictedAccessPolicy = (
 ): string => {
   const trimmed = message.trim();
   if (!trimmed) return trimmed;
-  return `${trimmed}\n\n${ACCESS_POLICY_BLOCK(fileName)}`;
+  return `${ACCESS_POLICY_BLOCK(fileName)}\n\n${trimmed}`;
 };
