@@ -221,11 +221,9 @@
 }
 
 .command-button__preview {
-  position: relative;
-  grid-area: 1 / 1;
-  justify-self: end;
-  align-self: end;
-  margin: 0.75rem;
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
   width: 1.25rem;
   height: 1.25rem;
   border: none;
