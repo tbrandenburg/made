@@ -26,6 +26,7 @@ import {
 } from "../utils/chat";
 import { ClearSessionModal } from "../components/ClearSessionModal";
 import { SessionPickerModal } from "../components/SessionPickerModal";
+import { ArrowDownIcon } from "../components/icons/ArrowDownIcon";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
 
 export const KnowledgeArtefactPage: React.FC = () => {
@@ -386,6 +387,16 @@ export const KnowledgeArtefactPage: React.FC = () => {
                 title="Agent Conversation"
                 actions={
                   <div className="panel-action-buttons">
+                    <button
+                      type="button"
+                      className="copy-button"
+                      onClick={scrollToBottom}
+                      aria-label="Scroll to last message"
+                      title="Scroll to last message"
+                      disabled={!chat.length}
+                    >
+                      <ArrowDownIcon />
+                    </button>
                     <button
                       type="button"
                       className={`copy-button${chat.length ? "" : " is-muted"}`}
