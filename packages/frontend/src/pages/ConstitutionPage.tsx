@@ -10,6 +10,8 @@ import { marked } from "marked";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { ChatWindow } from "../components/ChatWindow";
+import { CommandsTab } from "../components/CommandsTab";
+import { HarnessesTab } from "../components/HarnessesTab";
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import { useAgentCli } from "../hooks/useAgentCli";
@@ -43,6 +45,13 @@ export const ConstitutionPage: React.FC = () => {
         ? `constitution-session-${name}-${agentCli}`
         : `constitution-session-${agentCli}`,
     [agentCli, name],
+  );
+  const harnessHistoryStorageKey = useMemo(
+    () =>
+      name
+        ? `constitution-harness-history-${name}`
+        : "constitution-harness-history",
+    [name],
   );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);
@@ -153,45 +162,67 @@ export const ConstitutionPage: React.FC = () => {
     }
   };
 
-  const handleSend = async () => {
-    if (!name || !prompt.trim()) return;
-    const timestamp = new Date().toISOString();
-    const userMessage: ChatMessage = {
-      id: `${timestamp}-user`,
-      role: "user",
-      text: prompt.trim(),
-      timestamp,
-    };
-    setChat((prev) => [...prev, userMessage]);
-    setPrompt("");
-    setChatLoading(true);
-    try {
-      const reply = await api.sendConstitutionAgent(
-        name,
-        userMessage.text,
-        sessionId || undefined,
-      );
-      setChat((prev) => [...prev, ...mapAgentReplyToMessages(reply)]);
-      if (reply.sessionId) {
-        setSessionId(reply.sessionId);
+  const handleSendMessage = useCallback(
+    async (message: string, options?: { clearPrompt?: boolean }) => {
+      if (!name) return;
+      const trimmed = message.trim();
+      if (!trimmed) return;
+      const timestamp = new Date().toISOString();
+      const userMessage: ChatMessage = {
+        id: `${timestamp}-user`,
+        role: "user",
+        text: trimmed,
+        timestamp,
+      };
+      setChat((prev) => [...prev, userMessage]);
+      if (options?.clearPrompt) {
+        setPrompt("");
       }
-      setActiveTab("agent");
-      setAgentStatus(null);
-      setChatLoading(false);
-    } catch (error) {
-      console.error("Failed to contact agent", error);
-      const message = error instanceof Error ? error.message : "";
-      const busy = message.toLowerCase().includes("processing");
-      setAgentStatus(
-        busy
-          ? "Agent is still processing the previous message."
-          : "Agent unavailable",
-      );
-      const processing = await refreshAgentStatus();
-      if (!processing) {
+      setChatLoading(true);
+      try {
+        const reply = await api.sendConstitutionAgent(
+          name,
+          userMessage.text,
+          sessionId || undefined,
+        );
+        setChat((prev) => [...prev, ...mapAgentReplyToMessages(reply)]);
+        if (reply.sessionId) {
+          setSessionId(reply.sessionId);
+        }
+        setActiveTab("agent");
+        setAgentStatus(null);
         setChatLoading(false);
+      } catch (error) {
+        console.error("Failed to contact agent", error);
+        const errorMessage = error instanceof Error ? error.message : "";
+        const busy = errorMessage.toLowerCase().includes("processing");
+        setAgentStatus(
+          busy
+            ? "Agent is still processing the previous message."
+            : "Agent unavailable",
+        );
+        const processing = await refreshAgentStatus();
+        if (!processing) {
+          setChatLoading(false);
+        }
       }
-    }
+    },
+    [
+      name,
+      refreshAgentStatus,
+      sessionId,
+      setActiveTab,
+      setAgentStatus,
+      setChat,
+      setChatLoading,
+      setPrompt,
+      setSessionId,
+    ],
+  );
+
+  const handleSend = async () => {
+    if (!prompt.trim()) return;
+    await handleSendMessage(prompt, { clearPrompt: true });
   };
 
   const handleCancel = async () => {
@@ -241,6 +272,27 @@ export const ConstitutionPage: React.FC = () => {
       setChatLoading(false);
     }
   };
+
+  const loadCommands = useCallback(async () => {
+    const response = await api.getCommands();
+    return response.commands;
+  }, []);
+
+  const loadHarnesses = useCallback(async () => {
+    const response = await api.getHarnesses();
+    return response.harnesses;
+  }, []);
+
+  const runHarness = useCallback(
+    async (harnessPath: string, args?: string) =>
+      api.runHarness(harnessPath, args),
+    [],
+  );
+
+  const getHarnessStatus = useCallback(
+    async (pid: number) => api.getHarnessStatus(pid),
+    [],
+  );
 
   return (
     <div className="page">
@@ -383,6 +435,28 @@ export const ConstitutionPage: React.FC = () => {
                   )}
                 </div>
               </Panel>
+            ),
+          },
+          {
+            id: "harnesses",
+            label: "Harnesses",
+            content: (
+              <HarnessesTab
+                loadHarnesses={loadHarnesses}
+                runHarness={runHarness}
+                getHarnessStatus={getHarnessStatus}
+                historyStorageKey={harnessHistoryStorageKey}
+              />
+            ),
+          },
+          {
+            id: "commands",
+            label: "Commands",
+            content: (
+              <CommandsTab
+                loadCommands={loadCommands}
+                onSendMessage={(message) => handleSendMessage(message)}
+              />
             ),
           },
         ]}

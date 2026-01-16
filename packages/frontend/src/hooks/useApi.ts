@@ -273,6 +273,13 @@ export const api = {
         body: JSON.stringify({ path, args }),
       },
     ),
+  getCommands: () => request<{ commands: CommandDefinition[] }>("/commands"),
+  getHarnesses: () => request<{ harnesses: HarnessDefinition[] }>("/harnesses"),
+  runHarness: (path: string, args?: string) =>
+    request<{ pid: number; name: string; path: string }>(`/harnesses/run`, {
+      method: "POST",
+      body: JSON.stringify({ path, args }),
+    }),
   getHarnessStatus: (pid: number) =>
     request<{ pid: number; running: boolean }>(`/harnesses/${pid}/status`),
   listKnowledge: () => request<{ artefacts: ArtefactSummary[] }>("/knowledge"),
