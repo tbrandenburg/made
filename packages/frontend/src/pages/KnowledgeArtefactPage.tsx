@@ -24,6 +24,7 @@ import {
   mapAgentReplyToMessages,
   mapHistoryToMessages,
 } from "../utils/chat";
+import { appendRestrictedAccessPolicy } from "../utils/agentPrompt";
 import { ClearSessionModal } from "../components/ClearSessionModal";
 import { SessionPickerModal } from "../components/SessionPickerModal";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
@@ -180,9 +181,13 @@ export const KnowledgeArtefactPage: React.FC = () => {
       }
       setChatLoading(true);
       try {
+        const promptWithPolicy = appendRestrictedAccessPolicy(
+          userMessage.text,
+          name,
+        );
         const reply = await api.sendKnowledgeAgent(
           name,
-          userMessage.text,
+          promptWithPolicy,
           sessionId || undefined,
         );
         setChat((prev) => [...prev, ...mapAgentReplyToMessages(reply)]);
