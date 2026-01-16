@@ -57,6 +57,22 @@ export const ConstitutionPage: React.FC = () => {
   const [sessionListLoading, setSessionListLoading] = useState(false);
   const chatWindowRef = useRef<HTMLDivElement>(null);
 
+  const buildRestrictedPrompt = useCallback(
+    (fileName: string, message: string) => `---
+mode: restricted
+file: ${fileName}
+access_policy: >
+  By default, you may access ONLY the referenced file if needed.
+  All other files are inaccessible unless the prompt explicitly
+  requests broader access.
+  If required information is not accessible under the default scope,
+  respond with: "Not answerable with the provided files."
+---
+
+${message}`,
+    [],
+  );
+
   const scrollToBottom = () => {
     if (chatWindowRef.current) {
       chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
@@ -156,10 +172,11 @@ export const ConstitutionPage: React.FC = () => {
   const handleSend = async () => {
     if (!name || !prompt.trim()) return;
     const timestamp = new Date().toISOString();
+    const trimmedPrompt = prompt.trim();
     const userMessage: ChatMessage = {
       id: `${timestamp}-user`,
       role: "user",
-      text: prompt.trim(),
+      text: trimmedPrompt,
       timestamp,
     };
     setChat((prev) => [...prev, userMessage]);
@@ -168,7 +185,7 @@ export const ConstitutionPage: React.FC = () => {
     try {
       const reply = await api.sendConstitutionAgent(
         name,
-        userMessage.text,
+        buildRestrictedPrompt(name, trimmedPrompt),
         sessionId || undefined,
       );
       setChat((prev) => [...prev, ...mapAgentReplyToMessages(reply)]);
