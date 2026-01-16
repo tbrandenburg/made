@@ -151,7 +151,8 @@ describe("chat utils", () => {
       expect(mapped[0].messageKey).toBe("msg-1");
 
       const merged = mergeChatMessages(existing, mapped);
-      expect(merged).toHaveLength(2);
+      expect(merged).toHaveLength(1);
+      expect(merged[0].messageKey).toBe("msg-1");
     });
 
     it("uses call IDs to dedupe tool history entries", () => {
