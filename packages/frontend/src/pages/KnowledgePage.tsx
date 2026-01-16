@@ -13,6 +13,15 @@ export const KnowledgePage: React.FC = () => {
   const [newName, setNewName] = useState("");
   const [newTags, setNewTags] = useState("");
   const navigate = useNavigate();
+  const isTemplate = (artefact: ArtefactSummary) => {
+    if (typeof artefact.type === "string") {
+      return artefact.type === "template";
+    }
+    const frontmatterType = artefact.frontmatter?.type;
+    return typeof frontmatterType === "string" && frontmatterType === "template";
+  };
+  const templateArtefacts = artefacts.filter(isTemplate);
+  const documentArtefacts = artefacts.filter((artefact) => !isTemplate(artefact));
 
   const loadArtefacts = () => {
     api
@@ -63,24 +72,54 @@ export const KnowledgePage: React.FC = () => {
                   </button>
                 </div>
                 <div className="panel-column">
-                  {artefacts.map((artefact) => (
-                    <Panel
-                      key={artefact.name}
-                      title={artefact.name}
-                      to={`/knowledge/${artefact.name}`}
-                    >
-                      <div className="metadata">
-                        <span className="badge">
-                          {artefact.type ?? "document"}
-                        </span>
-                        {artefact.tags && artefact.tags.length > 0 && (
-                          <span className="badge">
-                            {artefact.tags.join(", ")}
-                          </span>
-                        )}
+                  {templateArtefacts.length > 0 && (
+                    <Panel title="Templates">
+                      <div className="panel-column">
+                        {templateArtefacts.map((artefact) => (
+                          <Panel
+                            key={artefact.name}
+                            title={artefact.name}
+                            to={`/knowledge/${artefact.name}`}
+                          >
+                            <div className="metadata">
+                              <span className="badge">
+                                {artefact.type ?? "document"}
+                              </span>
+                              {artefact.tags && artefact.tags.length > 0 && (
+                                <span className="badge">
+                                  {artefact.tags.join(", ")}
+                                </span>
+                              )}
+                            </div>
+                          </Panel>
+                        ))}
                       </div>
                     </Panel>
-                  ))}
+                  )}
+                  {documentArtefacts.length > 0 && (
+                    <Panel title="Documents">
+                      <div className="panel-column">
+                        {documentArtefacts.map((artefact) => (
+                          <Panel
+                            key={artefact.name}
+                            title={artefact.name}
+                            to={`/knowledge/${artefact.name}`}
+                          >
+                            <div className="metadata">
+                              <span className="badge">
+                                {artefact.type ?? "document"}
+                              </span>
+                              {artefact.tags && artefact.tags.length > 0 && (
+                                <span className="badge">
+                                  {artefact.tags.join(", ")}
+                                </span>
+                              )}
+                            </div>
+                          </Panel>
+                        ))}
+                      </div>
+                    </Panel>
+                  )}
                   {artefacts.length === 0 && (
                     <div className="empty">No artefacts available.</div>
                   )}

@@ -12,6 +12,17 @@ export const ConstitutionsPage: React.FC = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const navigate = useNavigate();
+  const isTemplate = (constitution: ArtefactSummary) => {
+    if (typeof constitution.type === "string") {
+      return constitution.type === "template";
+    }
+    const frontmatterType = constitution.frontmatter?.type;
+    return typeof frontmatterType === "string" && frontmatterType === "template";
+  };
+  const templateConstitutions = constitutions.filter(isTemplate);
+  const documentConstitutions = constitutions.filter(
+    (constitution) => !isTemplate(constitution),
+  );
 
   const loadConstitutions = () => {
     api
@@ -58,21 +69,50 @@ export const ConstitutionsPage: React.FC = () => {
                   </button>
                 </div>
                 <div className="panel-column">
-                  {constitutions.map((constitution) => (
-                    <Panel
-                      key={constitution.name}
-                      title={constitution.name}
-                      to={`/constitutions/${constitution.name}`}
-                    >
-                      <div className="metadata">
-                        {typeof constitution.frontmatter?.type === "string" && (
-                          <span className="badge">
-                            {String(constitution.frontmatter.type)}
-                          </span>
-                        )}
+                  {templateConstitutions.length > 0 && (
+                    <Panel title="Templates">
+                      <div className="panel-column">
+                        {templateConstitutions.map((constitution) => (
+                          <Panel
+                            key={constitution.name}
+                            title={constitution.name}
+                            to={`/constitutions/${constitution.name}`}
+                          >
+                            <div className="metadata">
+                              {typeof constitution.frontmatter?.type ===
+                                "string" && (
+                                <span className="badge">
+                                  {String(constitution.frontmatter.type)}
+                                </span>
+                              )}
+                            </div>
+                          </Panel>
+                        ))}
                       </div>
                     </Panel>
-                  ))}
+                  )}
+                  {documentConstitutions.length > 0 && (
+                    <Panel title="Documents">
+                      <div className="panel-column">
+                        {documentConstitutions.map((constitution) => (
+                          <Panel
+                            key={constitution.name}
+                            title={constitution.name}
+                            to={`/constitutions/${constitution.name}`}
+                          >
+                            <div className="metadata">
+                              {typeof constitution.frontmatter?.type ===
+                                "string" && (
+                                <span className="badge">
+                                  {String(constitution.frontmatter.type)}
+                                </span>
+                              )}
+                            </div>
+                          </Panel>
+                        ))}
+                      </div>
+                    </Panel>
+                  )}
                   {constitutions.length === 0 && (
                     <div className="empty">No constitutions available.</div>
                   )}
