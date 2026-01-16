@@ -409,6 +409,50 @@ def repository_harness_run(name: str, payload: dict = Body(...)):
         )
 
 
+@app.get("/api/commands")
+def global_commands():
+    try:
+        logger.info("Listing global commands")
+        return {"commands": list_commands()}
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        logger.exception("Failed to list global commands")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/harnesses")
+def global_harnesses():
+    try:
+        logger.info("Listing global harnesses")
+        return {"harnesses": list_harnesses()}
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        logger.exception("Failed to list global harnesses")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.post("/api/harnesses/run")
+def global_harness_run(payload: dict = Body(...)):
+    path = payload.get("path")
+    if not path:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Harness path is required",
+        )
+    try:
+        logger.info("Running global harness: %s", path)
+        return run_harness(None, path, payload.get("args"))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        logger.exception("Failed to run global harness: %s", path)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
 @app.get("/api/harnesses/{pid}/status")
 def harness_status(pid: int):
     return {"pid": pid, "running": is_process_running(pid)}

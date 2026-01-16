@@ -91,7 +91,7 @@ def _load_repo_commands(repo_name: str) -> List[Dict[str, Any]]:
     return [command for command in commands if command]
 
 
-def list_commands(repo_name: str) -> List[Dict[str, Any]]:
+def list_commands(repo_name: str | None = None) -> List[Dict[str, Any]]:
     commands: List[Dict[str, Any]] = []
     command_roots: List[Tuple[Path, str]] = [
         (get_made_home() / ".made" / "commands", "made"),
@@ -109,7 +109,8 @@ def list_commands(repo_name: str) -> List[Dict[str, Any]]:
     for directory, source in command_roots:
         commands.extend(_load_commands_from_dir(directory, source))
 
-    commands.extend(_load_repo_commands(repo_name))
+    if repo_name:
+        commands.extend(_load_repo_commands(repo_name))
     return _dedupe_commands_by_path(commands)
 
 

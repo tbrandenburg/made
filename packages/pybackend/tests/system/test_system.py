@@ -160,6 +160,28 @@ def test_repository_commands_endpoint(mock_list_commands):
     mock_list_commands.assert_called_once_with("sample")
 
 
+@patch("app.list_commands")
+def test_global_commands_endpoint(mock_list_commands):
+    """Verify global commands endpoint returns shared commands."""
+    mock_list_commands.return_value = [
+        {
+            "id": "global:cmd",
+            "name": "cmd",
+            "description": "Global command",
+            "content": "echo hi",
+            "metadata": {},
+        }
+    ]
+
+    response = client.get("/api/commands")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "commands" in body
+    assert body["commands"][0]["name"] == "cmd"
+    mock_list_commands.assert_called_once_with()
+
+
 @patch("app.list_harnesses")
 def test_repository_harnesses_endpoint(mock_list_harnesses):
     """Verify repository harnesses endpoint delegates to service and returns payload."""
@@ -179,6 +201,54 @@ def test_repository_harnesses_endpoint(mock_list_harnesses):
     assert "harnesses" in body
     assert body["harnesses"][0]["name"] == "harness"
     mock_list_harnesses.assert_called_once_with("sample")
+
+
+@patch("app.list_harnesses")
+def test_global_harnesses_endpoint(mock_list_harnesses):
+    """Verify global harnesses endpoint returns shared harnesses."""
+    mock_list_harnesses.return_value = [
+        {
+            "id": "global:harness",
+            "name": "harness",
+            "path": "/tmp/harness.sh",
+            "source": "user",
+        }
+    ]
+
+    response = client.get("/api/harnesses")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "harnesses" in body
+    assert body["harnesses"][0]["path"] == "/tmp/harness.sh"
+    mock_list_harnesses.assert_called_once_with()
+
+
+@patch("app.run_harness")
+def test_global_harness_run_endpoint(mock_run_harness):
+    """Verify global harness run delegates to service."""
+    mock_run_harness.return_value = {
+        "pid": 101,
+        "name": "harness",
+        "path": "/tmp/harness.sh",
+    }
+
+    response = client.post(
+        "/api/harnesses/run",
+        json={"path": "/tmp/harness.sh", "args": "--verbose"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["pid"] == 101
+    mock_run_harness.assert_called_once_with(None, "/tmp/harness.sh", "--verbose")
+
+
+def test_global_harness_run_requires_path():
+    """Verify global harness run rejects missing path."""
+    response = client.post("/api/harnesses/run", json={})
+
+    assert response.status_code == 400
 
 
 def test_harness_status_endpoint_uses_pid():

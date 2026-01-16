@@ -28,7 +28,9 @@ def _load_harnesses_from_dir(directory: Path, source: str) -> List[Dict[str, Any
     return [_load_harness_file(file_path, source) for file_path in harness_files]
 
 
-def _load_repo_harnesses(repo_name: str) -> List[Dict[str, Any]]:
+def _load_repo_harnesses(repo_name: str | None) -> List[Dict[str, Any]]:
+    if not repo_name:
+        return []
     repo_path = get_workspace_home() / repo_name
     harness_entries: List[Tuple[Path, str]] = []
     if repo_path.exists():
@@ -40,7 +42,7 @@ def _load_repo_harnesses(repo_name: str) -> List[Dict[str, Any]]:
     return [_load_harness_file(path, source) for path, source in sorted(harness_entries)]
 
 
-def list_harnesses(repo_name: str) -> List[Dict[str, Any]]:
+def list_harnesses(repo_name: str | None = None) -> List[Dict[str, Any]]:
     harnesses: List[Dict[str, Any]] = []
     harness_roots: List[Tuple[Path, str]] = [
         (get_made_home(), "made"),
@@ -67,7 +69,7 @@ def _parse_harness_args(raw_args: Any | None) -> List[str]:
 
 
 def run_harness(
-    repo_name: str, harness_path: str, args: List[str] | None = None
+    repo_name: str | None, harness_path: str, args: List[str] | None = None
 ) -> Dict[str, Any]:
     resolved_path = Path(harness_path).expanduser().resolve()
     allowed_paths = {
