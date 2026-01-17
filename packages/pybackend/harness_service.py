@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-from config import get_made_home, get_workspace_home
+from config import get_made_directory, get_made_home, get_workspace_home
 
 
 def _load_harness_file(file_path: Path, source: str) -> Dict[str, Any]:
@@ -44,8 +44,11 @@ def _load_repo_harnesses(repo_name: str | None) -> List[Dict[str, Any]]:
 
 def list_harnesses(repo_name: str | None = None) -> List[Dict[str, Any]]:
     harnesses: List[Dict[str, Any]] = []
+    made_directory = get_made_directory()
     harness_roots: List[Tuple[Path, str]] = [
         (get_made_home(), "made"),
+        (made_directory / "knowledge", "knowledge"),
+        (made_directory / "constitutions", "constitution"),
         (get_workspace_home(), "workspace"),
         (Path.home(), "user"),
     ]
