@@ -32,6 +32,9 @@ This guide outlines the minimal test levels absolutely required for **Python Fas
 Follow this mandatory guideline even if not instructed.
 Focus on lightweight, fast feedback — only essential tests are included.
 
+### CI/CD Note for Backend Pytest
+- If CI runs `python -m pytest packages/pybackend/tests/unit` directly, install backend dependencies first (e.g., `cd packages/pybackend && uv sync` or `python -m pip install -e packages/pybackend`) to avoid missing-import collection errors.
+
 ### ⚙️ Frontend Testing Checklist
 - [ ] **Unit Tests** — Cover core React components and utilities.
 - [ ] **Integration Tests** — Check that essential API calls work.
