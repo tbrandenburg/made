@@ -36,6 +36,7 @@ import {
 import { ClearSessionModal } from "../components/ClearSessionModal";
 import { ArrowDownIcon } from "../components/icons/ArrowDownIcon";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
+import { DownloadIcon } from "../components/icons/DownloadIcon";
 import { EditIcon } from "../components/icons/EditIcon";
 import { MoveIcon } from "../components/icons/MoveIcon";
 import { TagIcon } from "../components/icons/TagIcon";
@@ -204,6 +205,7 @@ export const RepositoryPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("agent");
   const [repository, setRepository] = useState<RepositorySummary | null>(null);
   const [fileTree, setFileTree] = useState<FileNode | null>(null);
+  const [fileActionError, setFileActionError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(["."]));
   const agentCli = useAgentCli();
   const chatStorageKey = useMemo(
@@ -988,6 +990,30 @@ export const RepositoryPage: React.FC = () => {
     }
   };
 
+  const handleDownloadFile = async (filePath: string, fileName: string) => {
+    if (!name) return;
+    setFileActionError(null);
+    try {
+      const response = await api.readRepositoryFile(name, filePath);
+      const blob = new Blob([response.content], {
+        type: "application/octet-stream",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download file", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to download file";
+      setFileActionError(message);
+    }
+  };
+
   const handleRenameFile = async () => {
     if (!name || !renameModal.from || !renamePath.trim()) return;
     try {
@@ -1098,6 +1124,17 @@ export const RepositoryPage: React.FC = () => {
             {node.name}
           </span>
           <div className="file-actions">
+            {!isFolder && (
+              <button
+                type="button"
+                className="copy-button file-action-button"
+                onClick={() => handleDownloadFile(node.path, node.name)}
+                aria-label={`Download ${node.name}`}
+                title={`Download ${node.name}`}
+              >
+                <DownloadIcon />
+              </button>
+            )}
             {!isFolder && (
               <button
                 type="button"
@@ -1376,6 +1413,9 @@ export const RepositoryPage: React.FC = () => {
           </div>
           <Panel title={`Files in ${name}`}>
             <div className="file-browser">
+              {fileActionError && (
+                <div className="alert error">{fileActionError}</div>
+              )}
               {fileTree ? (
                 renderNode(fileTree)
               ) : (
