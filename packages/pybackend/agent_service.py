@@ -237,7 +237,15 @@ def export_chat_history(
 
     # Use typed interface
     agent_cli = get_agent_cli()
+    start_time = time.monotonic()
     result = agent_cli.export_session(session_id, working_dir)
+    duration_seconds = time.monotonic() - start_time
+    logger.info(
+        "Agent CLI export completed (channel: %s, session: %s, duration=%.3fs)",
+        channel or "<unspecified>",
+        session_id,
+        duration_seconds,
+    )
 
     if not result.success:
         logger.error(
@@ -275,7 +283,14 @@ def list_chat_sessions(
     )
 
     agent_cli = get_agent_cli()
+    start_time = time.monotonic()
     result = agent_cli.list_sessions(working_dir)
+    duration_seconds = time.monotonic() - start_time
+    logger.info(
+        "Agent CLI list sessions completed (channel: %s, duration=%.3fs)",
+        channel or "<unspecified>",
+        duration_seconds,
+    )
 
     if not result.success:
         logger.error(
@@ -297,7 +312,12 @@ def list_agents() -> list[dict[str, object]]:
     logger.info("Listing available %s agents", AGENT_CLI.cli_name)
 
     agent_cli = get_agent_cli()
+    start_time = time.monotonic()
     result = agent_cli.list_agents()
+    duration_seconds = time.monotonic() - start_time
+    logger.info(
+        "Agent CLI list agents completed (duration=%.3fs)", duration_seconds
+    )
 
     if not result.success:
         logger.error("Listing agents failed: %s", result.error_message)
