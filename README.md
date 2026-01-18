@@ -151,6 +151,19 @@ make test-coverage
 make qa
 ```
 
+### CI/CD Notes for Python Tests
+
+If your CI/CD environment runs `python -m pytest packages/pybackend/tests/unit` directly, make sure to install the backend dependencies first. Otherwise, collection can fail with missing imports like `fastapi` or `frontmatter`.
+
+```bash
+# Option A: use uv (recommended)
+cd packages/pybackend
+uv sync
+
+# Option B: use pip
+python -m pip install -e packages/pybackend
+```
+
 ### Testing Execution Patterns
 
 **For Unit Tests (Jest):**

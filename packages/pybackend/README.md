@@ -18,3 +18,16 @@ A FastAPI implementation of the MADE backend, providing a modern Python-based AP
 - `MADE_WORKSPACE_HOME` – overrides the workspace directory scanned for repositories (defaults to the current working directory).
 
 The endpoints, payloads, and responses provide a clean REST API for the frontend to interact with the backend services.
+
+## CI/CD
+
+When running tests directly in CI/CD (for example, `python -m pytest packages/pybackend/tests/unit`), install backend dependencies first to avoid import errors for `fastapi` or `frontmatter`:
+
+```bash
+# Option A: use uv (recommended)
+cd packages/pybackend
+uv sync
+
+# Option B: use pip
+python -m pip install -e packages/pybackend
+```
