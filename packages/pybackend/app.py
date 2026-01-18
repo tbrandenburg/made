@@ -300,10 +300,10 @@ def create_repository_file_endpoint(name: str, payload: dict = Body(...)):
 @app.post("/api/repositories/{name}/file/upload", status_code=status.HTTP_201_CREATED)
 async def upload_repository_file_endpoint(
     name: str,
-    path: str = Form(...),
+    path: str | None = Form(None),
     file: UploadFile = File(...),
 ):
-    if not path:
+    if not path or not path.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="File path is required"
         )
