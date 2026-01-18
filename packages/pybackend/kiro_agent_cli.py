@@ -119,39 +119,46 @@ class KiroAgentCLI(AgentCLI):
                     error_message="Agent request cancelled.",
                 )
 
-            process = subprocess.Popen(
-                command,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                cwd=cwd,
-            )
-            if on_process:
-                on_process(process)
+            if cancel_event is None and on_process is None:
+                process = subprocess.run(
+                    command, input=message, capture_output=True, text=True, cwd=cwd
+                )
+                stdout = process.stdout
+                stderr = process.stderr
+            else:
+                process = subprocess.Popen(
+                    command,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    cwd=cwd,
+                )
+                if on_process:
+                    on_process(process)
 
-            input_data: str | None = message
-            while True:
-                try:
-                    stdout, stderr = process.communicate(
-                        input=input_data, timeout=0.1
-                    )
-                    break
-                except subprocess.TimeoutExpired:
-                    input_data = None
-                    if cancel_event and cancel_event.is_set():
-                        process.terminate()
-                        try:
-                            stdout, stderr = process.communicate(timeout=1)
-                        except subprocess.TimeoutExpired:
-                            process.kill()
-                            stdout, stderr = process.communicate()
-                        return RunResult(
-                            success=False,
-                            session_id=session_id,
-                            response_parts=[],
-                            error_message="Agent request cancelled.",
+                input_data: str | None = message
+                while True:
+                    try:
+                        stdout, stderr = process.communicate(
+                            input=input_data, timeout=0.1
                         )
+                        break
+                    except subprocess.TimeoutExpired:
+                        input_data = None
+                        if cancel_event and cancel_event.is_set():
+                            process.terminate()
+                            try:
+                                stdout, stderr = process.communicate(timeout=1)
+                            except subprocess.TimeoutExpired:
+                                process.kill()
+                                stdout, stderr = process.communicate()
+                            return RunResult(
+                                success=False,
+                                session_id=session_id,
+                                response_parts=[],
+                                error_message="Agent request cancelled.",
+                            )
 
             if process.returncode == 0:
                 # Parse kiro-cli output - strip ANSI codes for clean display
