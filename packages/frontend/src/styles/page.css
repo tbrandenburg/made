@@ -123,14 +123,27 @@
 .file-name {
   min-width: 0;
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .file-actions {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.15rem;
   margin-left: auto;
   align-items: center;
   justify-self: end;
+}
+
+.file-action-button {
+  width: 24px;
+  height: 24px;
+}
+
+.file-action-button svg {
+  width: 16px;
+  height: 16px;
 }
 
 .editor-grid,

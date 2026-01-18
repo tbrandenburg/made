@@ -36,6 +36,10 @@ import {
 import { ClearSessionModal } from "../components/ClearSessionModal";
 import { ArrowDownIcon } from "../components/icons/ArrowDownIcon";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
+import { EditIcon } from "../components/icons/EditIcon";
+import { MoveIcon } from "../components/icons/MoveIcon";
+import { TagIcon } from "../components/icons/TagIcon";
+import { TrashIcon } from "../components/icons/TrashIcon";
 
 const stripCommandFrontmatter = (content: string) => {
   const delimiterPattern =
@@ -1096,35 +1100,47 @@ export const RepositoryPage: React.FC = () => {
           <div className="file-actions">
             {!isFolder && (
               <button
-                className="link-button"
+                type="button"
+                className="copy-button file-action-button"
                 onClick={() => openFile(node.path)}
+                aria-label={`Edit ${node.name}`}
+                title={`Edit ${node.name}`}
               >
-                📝
+                <EditIcon />
               </button>
             )}
             <button
-              className="link-button"
+              type="button"
+              className="copy-button file-action-button"
               onClick={() => {
                 setRenamePath(node.path);
                 setRenameModal({ open: true, from: node.path });
               }}
+              aria-label={`Rename ${node.name}`}
+              title={`Rename ${node.name}`}
             >
-              🏷️
+              <TagIcon />
             </button>
             <button
-              className="link-button"
+              type="button"
+              className="copy-button file-action-button"
               onClick={() => {
                 setMovePath(node.path);
                 setMoveModal({ open: true, from: node.path });
               }}
+              aria-label={`Move ${node.name}`}
+              title={`Move ${node.name}`}
             >
-              ↔️
+              <MoveIcon />
             </button>
             <button
-              className="link-button"
+              type="button"
+              className="copy-button file-action-button"
               onClick={() => setDeleteModal({ open: true, target: node.path })}
+              aria-label={`Delete ${node.name}`}
+              title={`Delete ${node.name}`}
             >
-              🗑
+              <TrashIcon />
             </button>
           </div>
         </div>
