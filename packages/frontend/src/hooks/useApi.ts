@@ -69,6 +69,73 @@ async function request<T>(
   throw new Error("Maximum retry attempts exceeded");
 }
 
+async function requestForm<T>(
+  endpoint: string,
+  formData: FormData,
+  options: RequestInit = {},
+): Promise<T> {
+  const maxRetries = 3;
+  const retryDelay = 1000;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let message = await response.text();
+        try {
+          const parsed = JSON.parse(message);
+          if (parsed?.detail) {
+            message =
+              typeof parsed.detail === "string"
+                ? parsed.detail
+                : JSON.stringify(parsed.detail);
+          }
+        } catch {
+          // Ignore JSON parse errors and keep the raw message
+        }
+
+        if (response.status >= 500 && attempt < maxRetries) {
+          console.log(
+            `API attempt ${attempt} failed with status ${response.status}, retrying in ${retryDelay}ms...`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
+          continue;
+        }
+
+        throw new Error(message || "Request failed");
+      }
+
+      if (response.status === 204) {
+        return {} as T;
+      }
+
+      return (await response.json()) as T;
+    } catch (error) {
+      const isNetworkError =
+        error instanceof TypeError ||
+        (error instanceof Error &&
+          (error.message.includes("fetch") ||
+            error.message.includes("Failed to fetch")));
+
+      if (attempt < maxRetries && isNetworkError) {
+        console.log(
+          `API attempt ${attempt} failed due to network error, retrying in ${retryDelay}ms...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error("Maximum retry attempts exceeded");
+}
+
 export type AgentResponsePart = {
   text: string;
   timestamp?: string;
@@ -182,6 +249,14 @@ export const api = {
       method: "DELETE",
       body: JSON.stringify({ path: filePath }),
     }),
+  uploadRepositoryFile: (name: string, filePath: string, file: File) => {
+    const formData = new FormData();
+    formData.append("path", filePath);
+    formData.append("file", file);
+    return requestForm(`/repositories/${name}/file/upload`, formData, {
+      method: "POST",
+    });
+  },
   sendAgentMessage: (name: string, message: string, sessionId?: string) =>
     request<AgentReply>(`/repositories/${name}/agent`, {
       method: "POST",
