@@ -13,7 +13,17 @@ from pathlib import Path
 
 from uvicorn.config import LOGGING_CONFIG
 
-from fastapi import Body, FastAPI, HTTPException, Query, WebSocket, status
+from fastapi import (
+    Body,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    WebSocket,
+    status,
+)
 from fastapi.websockets import WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -50,6 +60,7 @@ from repository_service import (
     read_repository_file,
     rename_repository_file,
     write_repository_file,
+    write_repository_file_bytes,
 )
 from settings_service import read_settings, write_settings
 from config import (
@@ -282,6 +293,28 @@ def create_repository_file_endpoint(name: str, payload: dict = Body(...)):
     except Exception as exc:
         logger.exception(
             "Failed to create file '%s' in repository '%s'", file_path, name
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@app.post("/api/repositories/{name}/file/upload", status_code=status.HTTP_201_CREATED)
+async def upload_repository_file_endpoint(
+    name: str,
+    path: str | None = Form(None),
+    file: UploadFile = File(...),
+):
+    if not path or not path.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File path is required"
+        )
+    try:
+        logger.info("Uploading file '%s' to repository '%s'", path, name)
+        content = await file.read()
+        write_repository_file_bytes(name, path, content)
+        return {"success": True}
+    except Exception as exc:
+        logger.exception(
+            "Failed to upload file '%s' in repository '%s'", path, name
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 

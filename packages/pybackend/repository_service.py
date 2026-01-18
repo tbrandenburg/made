@@ -270,6 +270,14 @@ def create_repository_file(repo_name: str, file_path: str, content: str = "") ->
     target.write_text(content, encoding="utf-8")
 
 
+def write_repository_file_bytes(repo_name: str, file_path: str, content: bytes) -> None:
+    workspace = get_workspace_home()
+    target = workspace / repo_name / file_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    logger.info("Uploading repository file '%s' in '%s'", file_path, repo_name)
+    target.write_bytes(content)
+
+
 def rename_repository_file(repo_name: str, old_path: str, new_path: str) -> None:
     workspace = get_workspace_home()
     logger.info(

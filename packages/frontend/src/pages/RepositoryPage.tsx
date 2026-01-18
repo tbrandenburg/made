@@ -337,6 +337,7 @@ export const RepositoryPage: React.FC = () => {
   const [editorContent, setEditorContent] = useState("");
   const [editorStatus, setEditorStatus] = useState<string | null>(null);
   const [createModal, setCreateModal] = useState(false);
+  const [uploadModal, setUploadModal] = useState(false);
   const [renameModal, setRenameModal] = useState<{
     open: boolean;
     from: string | null;
@@ -350,6 +351,10 @@ export const RepositoryPage: React.FC = () => {
     target: string | null;
   }>({ open: false, target: null });
   const [newFilePath, setNewFilePath] = useState("");
+  const [uploadPath, setUploadPath] = useState("");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const [renamePath, setRenamePath] = useState("");
   const [movePath, setMovePath] = useState("");
   const [loadingFile, setLoadingFile] = useState(false);
@@ -938,6 +943,47 @@ export const RepositoryPage: React.FC = () => {
     }
   };
 
+  const openUploadModal = () => {
+    setUploadModal(true);
+    setUploadError(null);
+  };
+
+  const closeUploadModal = () => {
+    setUploadModal(false);
+    setUploadError(null);
+    setUploadingFile(false);
+    setUploadPath("");
+    setUploadFile(null);
+  };
+
+  const handleUploadFile = async () => {
+    if (!name) return;
+    const trimmedPath = uploadPath.trim();
+    if (!trimmedPath) {
+      setUploadError("File path is required.");
+      return;
+    }
+    if (!uploadFile) {
+      setUploadError("Select a file to upload.");
+      return;
+    }
+    setUploadingFile(true);
+    setUploadError(null);
+    try {
+      await api.uploadRepositoryFile(name, trimmedPath, uploadFile);
+      setUploadModal(false);
+      setUploadPath("");
+      setUploadFile(null);
+      refreshFiles();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to upload file";
+      setUploadError(message);
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
   const handleRenameFile = async () => {
     if (!name || !renameModal.from || !renamePath.trim()) return;
     try {
@@ -1299,11 +1345,14 @@ export const RepositoryPage: React.FC = () => {
     {
       id: "files",
       label: "File Browser",
-      content: (
+          content: (
         <>
           <div className="button-bar">
             <button className="primary" onClick={() => setCreateModal(true)}>
               Create File
+            </button>
+            <button className="secondary" onClick={openUploadModal}>
+              Upload File
             </button>
             <button className="secondary" onClick={refreshFiles}>
               Refresh
@@ -1620,6 +1669,53 @@ export const RepositoryPage: React.FC = () => {
           </button>
           <button className="primary" onClick={handleCreateFile}>
             Create
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={uploadModal}
+        title="Upload File"
+        onClose={closeUploadModal}
+      >
+        {uploadError && <div className="alert error">{uploadError}</div>}
+        <div className="form-group">
+          <label htmlFor="upload-file">Select file</label>
+          <input
+            id="upload-file"
+            type="file"
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              setUploadFile(file);
+              setUploadError(null);
+              if (file && !uploadPath.trim()) {
+                setUploadPath(file.name);
+              }
+            }}
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor="upload-path">File path</label>
+          <input
+            id="upload-path"
+            value={uploadPath}
+            onChange={(event) => {
+              setUploadPath(event.target.value);
+              setUploadError(null);
+            }}
+            placeholder="src/assets/logo.png"
+          />
+        </div>
+        <div className="modal-actions">
+          <button className="secondary" onClick={closeUploadModal}>
+            Cancel
+          </button>
+          <button
+            className="primary"
+            onClick={handleUploadFile}
+            disabled={uploadingFile}
+          >
+            Upload
           </button>
         </div>
       </Modal>

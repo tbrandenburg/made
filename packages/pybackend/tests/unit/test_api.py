@@ -527,6 +527,42 @@ class TestRepositoryEndpoints:
         data = response.json()
         assert data["success"] is True
 
+    @patch('app.write_repository_file_bytes')
+    def test_upload_repository_file_success(self, mock_upload):
+        """Test successful repository file upload."""
+        files = {"file": ("logo.png", b"binary", "image/png")}
+        data = {"path": "assets/logo.png"}
+
+        response = client.post(
+            "/api/repositories/test-repo/file/upload",
+            data=data,
+            files=files,
+        )
+
+        assert response.status_code == 201
+        payload = response.json()
+        assert payload["success"] is True
+        mock_upload.assert_called_once_with(
+            "test-repo",
+            "assets/logo.png",
+            b"binary",
+        )
+
+    @patch('app.write_repository_file_bytes')
+    def test_upload_repository_file_missing_path(self, mock_upload):
+        """Test uploading repository file without a path."""
+        files = {"file": ("logo.png", b"binary", "image/png")}
+
+        response = client.post(
+            "/api/repositories/test-repo/file/upload",
+            data={"path": ""},
+            files=files,
+        )
+
+        assert response.status_code == 400
+        assert "File path is required" in response.json()["detail"]
+        mock_upload.assert_not_called()
+
     @patch('app.rename_repository_file')
     def test_rename_repository_file_success(self, mock_rename):
         """Test successful repository file renaming."""
