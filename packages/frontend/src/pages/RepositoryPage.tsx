@@ -329,6 +329,10 @@ export const RepositoryPage: React.FC = () => {
     const parsed = Date.parse(chat[chat.length - 1].timestamp);
     return Number.isFinite(parsed) ? parsed : undefined;
   }, [chat]);
+  const lastKnownTimestampRef = useRef<number | undefined>(lastKnownTimestamp);
+  useEffect(() => {
+    lastKnownTimestampRef.current = lastKnownTimestamp;
+  }, [lastKnownTimestamp]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [editorContent, setEditorContent] = useState("");
   const [editorStatus, setEditorStatus] = useState<string | null>(null);
@@ -620,8 +624,9 @@ export const RepositoryPage: React.FC = () => {
       if (!name || !sessionId) return;
       console.info("[ChatHistory] Request started");
       try {
-        const startTimestamp = lastKnownTimestamp
-          ? lastKnownTimestamp + 1
+        const currentTimestamp = lastKnownTimestampRef.current;
+        const startTimestamp = currentTimestamp
+          ? currentTimestamp + 1
           : undefined;
         const history = await api.getRepositoryAgentHistory(
           name,
@@ -647,14 +652,15 @@ export const RepositoryPage: React.FC = () => {
         console.error("Failed to load chat history", error);
       }
     },
-    [lastKnownTimestamp, name, sessionId, setChat],
+    [name, sessionId, setChat],
   );
 
   useEffect(() => {
+    if (chatLoading || !name || !sessionId) return;
     const controller = new AbortController();
     syncChatHistory(controller.signal);
     return () => controller.abort();
-  }, [syncChatHistory]);
+  }, [chatLoading, name, sessionId, syncChatHistory]);
 
   useEffect(() => {
     if (!chatLoading || !name || !sessionId) return;
