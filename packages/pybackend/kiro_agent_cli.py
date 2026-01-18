@@ -6,7 +6,8 @@ import re
 import sqlite3
 import subprocess
 from pathlib import Path
-from typing import Any
+from threading import Event
+from typing import Any, Callable
 
 from agent_cli import AgentCLI
 from agent_results import (
@@ -93,7 +94,13 @@ class KiroAgentCLI(AgentCLI):
             return False
 
     def run_agent(
-        self, message: str, session_id: str | None, agent: str | None, cwd: Path
+        self,
+        message: str,
+        session_id: str | None,
+        agent: str | None,
+        cwd: Path,
+        cancel_event: Event | None = None,
+        on_process: Callable[[subprocess.Popen[str]], None] | None = None,
     ) -> RunResult:
         """Run agent with message and return structured result."""
         try:
@@ -104,13 +111,58 @@ class KiroAgentCLI(AgentCLI):
             if agent:
                 command.extend(["--agent", agent])
 
-            process = subprocess.run(
-                command, input=message, capture_output=True, text=True, cwd=cwd
-            )
+            if cancel_event and cancel_event.is_set():
+                return RunResult(
+                    success=False,
+                    session_id=session_id,
+                    response_parts=[],
+                    error_message="Agent request cancelled.",
+                )
+
+            if cancel_event is None and on_process is None:
+                process = subprocess.run(
+                    command, input=message, capture_output=True, text=True, cwd=cwd
+                )
+                stdout = process.stdout
+                stderr = process.stderr
+            else:
+                process = subprocess.Popen(
+                    command,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    cwd=cwd,
+                )
+                if on_process:
+                    on_process(process)
+
+                input_data: str | None = message
+                while True:
+                    try:
+                        stdout, stderr = process.communicate(
+                            input=input_data, timeout=0.1
+                        )
+                        break
+                    except subprocess.TimeoutExpired:
+                        input_data = None
+                        if cancel_event and cancel_event.is_set():
+                            process.terminate()
+                            try:
+                                stdout, stderr = process.communicate(timeout=1)
+                            except subprocess.TimeoutExpired:
+                                process.kill()
+                                stdout, stderr = process.communicate()
+                            return RunResult(
+                                success=False,
+                                session_id=session_id,
+                                response_parts=[],
+                                error_message="Agent request cancelled.",
+                            )
 
             if process.returncode == 0:
                 # Parse kiro-cli output - strip ANSI codes for clean display
-                response_text = self._clean_response_text(process.stdout or "")
+                response_text = self._clean_response_text(stdout or "")
                 response_parts = (
                     [
                         ResponsePart(
@@ -127,8 +179,15 @@ class KiroAgentCLI(AgentCLI):
                     response_parts=response_parts,
                 )
             else:
+                if cancel_event and cancel_event.is_set():
+                    return RunResult(
+                        success=False,
+                        session_id=session_id,
+                        response_parts=[],
+                        error_message="Agent request cancelled.",
+                    )
                 error_msg = (
-                    process.stderr or ""
+                    stderr or ""
                 ).strip() or "Command failed with no output"
                 return RunResult(
                     success=False,

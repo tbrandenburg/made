@@ -1,8 +1,9 @@
 import logging
+import subprocess
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from threading import Lock
+from threading import Event, Lock
 
 from agent_cli import OpenCodeAgentCLI
 from kiro_agent_cli import KiroAgentCLI
@@ -14,6 +15,8 @@ logger = logging.getLogger(__name__)
 _processing_lock = Lock()
 _processing_channels: dict[str, datetime] = {}
 _cancelled_channels: set[str] = set()
+_active_processes: dict[str, subprocess.Popen[str]] = {}
+_cancel_events: dict[str, Event] = {}
 _conversation_sessions: dict[str, str] = {}
 
 
@@ -129,11 +132,27 @@ def _clear_channel_processing(channel: str) -> None:
     with _processing_lock:
         _processing_channels.pop(channel, None)
         _cancelled_channels.discard(channel)
+        _active_processes.pop(channel, None)
+        _cancel_events.pop(channel, None)
 
 
 def _mark_channel_cancelled(channel: str) -> None:
     with _processing_lock:
         _cancelled_channels.add(channel)
+
+
+def _register_cancel_event(channel: str) -> Event:
+    cancel_event = Event()
+    with _processing_lock:
+        _cancel_events[channel] = cancel_event
+    return cancel_event
+
+
+def _register_active_process(
+    channel: str, process: subprocess.Popen[str]
+) -> None:
+    with _processing_lock:
+        _active_processes[channel] = process
 
 
 def _was_channel_cancelled(channel: str) -> bool:
@@ -147,7 +166,18 @@ def cancel_agent_message(channel: str) -> bool:
         if channel not in _processing_channels:
             return False
         _cancelled_channels.add(channel)
+        cancel_event = _cancel_events.get(channel)
+        process = _active_processes.get(channel)
         _processing_channels.pop(channel, None)
+
+    if cancel_event:
+        cancel_event.set()
+    if process and process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            process.kill()
     return True
 
 
@@ -326,6 +356,8 @@ def send_agent_message(
             "Agent is still processing a previous message for this chat."
         )
 
+    cancel_event = _register_cancel_event(channel)
+
     working_dir = _get_working_directory(channel)
     active_session = session_id
 
@@ -346,7 +378,14 @@ def send_agent_message(
         else:
             # Use typed interface
             agent_cli = get_agent_cli()
-            result = agent_cli.run_agent(message, active_session, agent, working_dir)
+            result = agent_cli.run_agent(
+                message,
+                active_session,
+                agent,
+                working_dir,
+                cancel_event=cancel_event,
+                on_process=lambda process: _register_active_process(channel, process),
+            )
 
             if result.success:
                 # Update session if we got a new one
