@@ -153,15 +153,22 @@ make qa
 
 ### CI/CD Notes for Python Tests
 
-If your CI/CD environment runs `python -m pytest packages/pybackend/tests/unit` directly, make sure to install the backend dependencies first. Otherwise, collection can fail with missing imports like `fastapi` or `frontmatter`.
+If your CI/CD environment runs `python -m pytest packages/pybackend/tests/unit` directly, make sure to install the backend dependencies first and run pytest inside the `uv` environment. Otherwise, collection can fail with missing imports like `fastapi` or `frontmatter`.
 
 ```bash
 # Option A: use uv (recommended)
 cd packages/pybackend
 uv sync
+uv run python -m pytest tests/unit
 
 # Option B: use pip
 python -m pip install -e packages/pybackend
+```
+
+If you run tests from the repo root, use `uv run` with the backend project so `pytest` sees the `uv` environment:
+
+```bash
+uv run --project packages/pybackend python -m pytest packages/pybackend/tests/unit
 ```
 
 ### Testing Execution Patterns

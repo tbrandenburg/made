@@ -34,6 +34,7 @@ Focus on lightweight, fast feedback — only essential tests are included.
 
 ### CI/CD Note for Backend Pytest
 - If CI runs `python -m pytest packages/pybackend/tests/unit` directly, install backend dependencies first (e.g., `cd packages/pybackend && uv sync` or `python -m pip install -e packages/pybackend`) to avoid missing-import collection errors.
+- If CI runs `python -m pytest` outside the `uv` environment, dependencies like `fastapi` can be missing. Prefer running tests with `uv run` (for example: `uv run --project packages/pybackend python -m pytest packages/pybackend/tests/unit`) or activate the `.venv` created by `uv sync` before executing pytest.
 
 ### ⚙️ Frontend Testing Checklist
 - [ ] **Unit Tests** — Cover core React components and utilities.
