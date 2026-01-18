@@ -378,6 +378,7 @@ def send_agent_message(
         else:
             # Use typed interface
             agent_cli = get_agent_cli()
+            start_time = time.monotonic()
             result = agent_cli.run_agent(
                 message,
                 active_session,
@@ -385,6 +386,13 @@ def send_agent_message(
                 working_dir,
                 cancel_event=cancel_event,
                 on_process=lambda process: _register_active_process(channel, process),
+            )
+            duration_seconds = time.monotonic() - start_time
+            logger.info(
+                "Agent CLI run completed (channel: %s, session: %s, duration=%.3fs)",
+                channel,
+                active_session,
+                duration_seconds,
             )
 
             if result.success:
