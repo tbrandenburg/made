@@ -68,7 +68,7 @@ class KiroAgentCLI(AgentCLI):
         """Get the directory key for database queries."""
         return str(cwd.resolve())
 
-    def _to_milliseconds(self, raw_value: object) -> int | None:
+    def _to_milliseconds(self, raw_value: Any) -> int | None:
         """Convert value to milliseconds timestamp."""
         try:
             return int(float(raw_value))
@@ -186,9 +186,7 @@ class KiroAgentCLI(AgentCLI):
                         response_parts=[],
                         error_message="Agent request cancelled.",
                     )
-                error_msg = (
-                    stderr or ""
-                ).strip() or "Command failed with no output"
+                error_msg = (stderr or "").strip() or "Command failed with no output"
                 return RunResult(
                     success=False,
                     session_id=session_id,
@@ -267,7 +265,9 @@ class KiroAgentCLI(AgentCLI):
         for exchange in history:
             user_msg = exchange.get("user", {})
             assistant_msg = exchange.get("assistant", {})
-            metadata = exchange.get("request_metadata", {})
+            metadata = exchange.get("request_metadata") or {}
+            if not isinstance(metadata, dict):
+                metadata = {}
 
             # Extract timestamp from metadata
             assistant_timestamp_ms = metadata.get("stream_end_timestamp_ms")
@@ -315,7 +315,7 @@ class KiroAgentCLI(AgentCLI):
             elif "ToolUse" in assistant_msg:
                 tool_data = assistant_msg["ToolUse"]
                 tool_uses = tool_data.get("tool_uses", [])
-                
+
                 # Format tool usage information
                 content_parts = [tool_data.get("content", "")]
                 if tool_uses:
@@ -330,7 +330,7 @@ class KiroAgentCLI(AgentCLI):
                                 value_str = value_str[:200] + "..."
                             tool_info.append(f"  {key}: {value_str}")
                     content_parts.append("\n".join(tool_info))
-                
+
                 messages.append(
                     HistoryMessage(
                         message_id=tool_data.get("message_id"),
