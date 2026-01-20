@@ -52,6 +52,8 @@ const stripCommandFrontmatter = (content: string) => {
 
 const ARGUMENT_SPECIFIER_PATTERN = /\[([^\]]+)\]|<([^>]+)>/g;
 const PARENTHETICAL_COMMENT_PATTERN = /\s*\([^()]*\)\s*$/g;
+const CODE_BLOCK_PATTERN = /```[\s\S]*?```/g;
+const INLINE_CODE_PATTERN = /`[^`]*`/g;
 
 type HarnessRun = {
   pid: number;
@@ -84,6 +86,9 @@ const extractArgumentLabels = (argumentHint?: ArgumentHint) => {
         .filter(Boolean)
     : [];
 };
+
+const stripCodeBlocks = (content: string) =>
+  content.replace(CODE_BLOCK_PATTERN, "").replace(INLINE_CODE_PATTERN, "");
 
 const formatArgumentHint = (argumentHint?: ArgumentHint) => {
   const normalizedHint = normalizeArgumentHint(argumentHint);
@@ -797,9 +802,10 @@ export const RepositoryPage: React.FC = () => {
       };
     }
 
+    const contentWithoutCode = stripCodeBlocks(command.content);
     const numericPlaceholders = Array.from(
       new Set(
-        Array.from(command.content.matchAll(/\$([1-9]\d*)/g)).map(
+        Array.from(contentWithoutCode.matchAll(/\$([1-9]\d*)/g)).map(
           (match) => match[1],
         ),
       ),
@@ -812,7 +818,7 @@ export const RepositoryPage: React.FC = () => {
       };
     }
 
-    if (command.content.includes("$ARGUMENTS")) {
+    if (contentWithoutCode.includes("$ARGUMENTS")) {
       return { labels: ["Arguments"], placeholders: ["$ARGUMENTS"] };
     }
 

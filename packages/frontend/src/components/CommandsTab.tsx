@@ -14,6 +14,11 @@ const stripCommandFrontmatter = (content: string) => {
 
 const ARGUMENT_SPECIFIER_PATTERN = /\[([^\]]+)\]|<([^>]+)>/g;
 const PARENTHETICAL_COMMENT_PATTERN = /\s*\([^()]*\)\s*$/g;
+const CODE_BLOCK_PATTERN = /```[\s\S]*?```/g;
+const INLINE_CODE_PATTERN = /`[^`]*`/g;
+
+const stripCodeBlocks = (content: string) =>
+  content.replace(CODE_BLOCK_PATTERN, "").replace(INLINE_CODE_PATTERN, "");
 
 const normalizeArgumentHint = (argumentHint?: string | string[] | null) => {
   if (!argumentHint) return "";
@@ -187,9 +192,10 @@ export const CommandsTab: React.FC<CommandsTabProps> = ({
       };
     }
 
+    const contentWithoutCode = stripCodeBlocks(command.content);
     const numericPlaceholders = Array.from(
       new Set(
-        Array.from(command.content.matchAll(/\$([1-9]\d*)/g)).map(
+        Array.from(contentWithoutCode.matchAll(/\$([1-9]\d*)/g)).map(
           (match) => match[1],
         ),
       ),
@@ -202,7 +208,7 @@ export const CommandsTab: React.FC<CommandsTabProps> = ({
       };
     }
 
-    if (command.content.includes("$ARGUMENTS")) {
+    if (contentWithoutCode.includes("$ARGUMENTS")) {
       return { labels: ["Arguments"], placeholders: ["$ARGUMENTS"] };
     }
 
