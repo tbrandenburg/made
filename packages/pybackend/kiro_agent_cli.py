@@ -315,9 +315,9 @@ class KiroAgentCLI(AgentCLI):
             elif "ToolUse" in assistant_msg:
                 tool_data = assistant_msg["ToolUse"]
                 tool_uses = tool_data.get("tool_uses", [])
+                base_message_id = tool_data.get("message_id", "unknown")
 
-                # Format tool usage information
-                content_parts = [tool_data.get("content", "")]
+                # Add separate tool usage message
                 if tool_uses:
                     tool_info = []
                     for tool in tool_uses:
@@ -329,17 +329,29 @@ class KiroAgentCLI(AgentCLI):
                             if len(value_str) > 200:
                                 value_str = value_str[:200] + "..."
                             tool_info.append(f"  {key}: {value_str}")
-                    content_parts.append("\n".join(tool_info))
-
-                messages.append(
-                    HistoryMessage(
-                        message_id=tool_data.get("message_id"),
-                        role="assistant",
-                        content_type="tool_use",
-                        content="\n\n".join(filter(None, content_parts)),
-                        timestamp=assistant_timestamp_ms,
+                    
+                    messages.append(
+                        HistoryMessage(
+                            message_id=f"{base_message_id}-tool",
+                            role="assistant",
+                            content_type="tool_use",
+                            content="\n".join(tool_info),
+                            timestamp=assistant_timestamp_ms,
+                        )
                     )
-                )
+
+                # Add separate response message if there's content
+                response_content = tool_data.get("content", "").strip()
+                if response_content:
+                    messages.append(
+                        HistoryMessage(
+                            message_id=f"{base_message_id}-response",
+                            role="assistant",
+                            content_type="text",
+                            content=self._clean_response_text(response_content),
+                            timestamp=assistant_timestamp_ms,
+                        )
+                    )
 
         return messages
 
