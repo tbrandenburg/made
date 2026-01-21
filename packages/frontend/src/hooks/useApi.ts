@@ -257,10 +257,15 @@ export const api = {
       method: "POST",
     });
   },
-  sendAgentMessage: (name: string, message: string, sessionId?: string) =>
+  sendAgentMessage: (
+    name: string,
+    message: string,
+    sessionId?: string,
+    model?: string,
+  ) =>
     request<AgentReply>(`/repositories/${name}/agent`, {
       method: "POST",
-      body: JSON.stringify({ message, sessionId }),
+      body: JSON.stringify({ message, sessionId, model }),
     }),
   getRepositoryAgentStatus: (name: string) =>
     request<AgentStatus>(`/repositories/${name}/agent/status`),

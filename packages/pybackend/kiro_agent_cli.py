@@ -98,6 +98,7 @@ class KiroAgentCLI(AgentCLI):
         message: str,
         session_id: str | None,
         agent: str | None,
+        model: str | None,
         cwd: Path,
         cancel_event: Event | None = None,
         on_process: Callable[[subprocess.Popen[str]], None] | None = None,
@@ -110,6 +111,8 @@ class KiroAgentCLI(AgentCLI):
                 command.append("--resume")
             if agent:
                 command.extend(["--agent", agent])
+            if model:
+                command.extend(["--model", model])
 
             if cancel_event and cancel_event.is_set():
                 return RunResult(

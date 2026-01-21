@@ -223,9 +223,65 @@ class TestAgentService:
         assert (
             call_args[0][1] == "existing_session_456"
         )  # session_id is second positional arg
+        assert call_args[0][3] is None  # model should default to None
 
     def test_parse_opencode_output_single_text_is_final(self):
         pass
+
+    @patch("agent_service.get_agent_cli")
+    def test_send_agent_message_with_model(self, mock_get_cli):
+        """Test agent message sending with explicit model selection."""
+        from agent_service import send_agent_message
+        from agent_results import RunResult
+
+        mock_cli = Mock()
+        mock_get_cli.return_value = mock_cli
+
+        mock_result = RunResult(
+            success=True,
+            session_id="model_session_789",
+            response_parts=[],
+        )
+        mock_cli.run_agent.return_value = mock_result
+
+        result = send_agent_message(
+            "test-repo",
+            "Hello agent",
+            session_id="model_session_789",
+            model="opencode/gpt-5-nano",
+        )
+
+        assert result["sessionId"] == "model_session_789"
+        mock_cli.run_agent.assert_called_once()
+        call_args = mock_cli.run_agent.call_args
+        assert call_args[0][3] == "opencode/gpt-5-nano"
+
+    @patch("agent_service.get_agent_cli")
+    def test_send_agent_message_with_default_model(self, mock_get_cli):
+        """Test agent message sending with default model skips flag."""
+        from agent_service import send_agent_message
+        from agent_results import RunResult
+
+        mock_cli = Mock()
+        mock_get_cli.return_value = mock_cli
+
+        mock_result = RunResult(
+            success=True,
+            session_id="default_model_session",
+            response_parts=[],
+        )
+        mock_cli.run_agent.return_value = mock_result
+
+        send_agent_message(
+            "test-repo",
+            "Hello agent",
+            session_id="default_model_session",
+            model="default",
+        )
+
+        mock_cli.run_agent.assert_called_once()
+        call_args = mock_cli.run_agent.call_args
+        assert call_args[0][3] is None
 
     @patch("agent_service.get_agent_cli")
     def test_send_agent_message_error_handling(self, mock_get_cli):

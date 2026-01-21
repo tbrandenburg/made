@@ -114,7 +114,9 @@ class TestOpenCodeIntegration:
         cli = OpenCodeAgentCLI()
         
         # Test with a simple message
-        result = cli.run_agent("Hello, can you respond with 'test successful'?", None, None, Path.cwd())
+        result = cli.run_agent(
+            "Hello, can you respond with 'test successful'?", None, None, None, Path.cwd()
+        )
         
         assert isinstance(result, RunResult)
         
@@ -198,7 +200,7 @@ class TestOpenCodeIntegration:
         cli = OpenCodeAgentCLI()
         
         # Test with a simple message that should produce JSON output
-        result = cli.run_agent("Say hello", None, None, Path.cwd())
+        result = cli.run_agent("Say hello", None, None, None, Path.cwd())
         
         assert isinstance(result, RunResult)
         
@@ -224,7 +226,7 @@ class TestOpenCodeIntegration:
         cli = OpenCodeAgentCLI()
         
         # First message without session ID
-        result1 = cli.run_agent("Start a conversation", None, None, Path.cwd())
+        result1 = cli.run_agent("Start a conversation", None, None, None, Path.cwd())
         
         if not result1.success:
             pytest.skip("OpenCode not available or not working")
@@ -234,7 +236,9 @@ class TestOpenCodeIntegration:
         
         if session_id:
             # Second message with the session ID
-            result2 = cli.run_agent("Continue the conversation", session_id, None, Path.cwd())
+            result2 = cli.run_agent(
+                "Continue the conversation", session_id, None, None, Path.cwd()
+            )
             
             if result2.success:
                 # Should maintain the same session
@@ -251,7 +255,7 @@ class TestOpenCodeIntegration:
             # Use the first available agent
             agent_name = agents_result.agents[0].name
             
-            result = cli.run_agent("Hello", None, agent_name, Path.cwd())
+            result = cli.run_agent("Hello", None, agent_name, None, Path.cwd())
             
             assert isinstance(result, RunResult)
             # Should either succeed or fail gracefully

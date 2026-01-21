@@ -281,6 +281,34 @@ textarea {
   margin-bottom: 1.5rem;
 }
 
+.chat-controls {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-controls__left {
+  flex: 1;
+  max-width: 360px;
+}
+
+.chat-controls__right {
+  display: flex;
+  flex: 1;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.model-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.model-select span {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 .form-group {
   display: flex;
   flex-direction: column;

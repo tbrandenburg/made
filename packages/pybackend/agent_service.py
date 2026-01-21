@@ -370,6 +370,7 @@ def send_agent_message(
     message: str,
     session_id: str | None = None,
     agent: str | None = None,
+    model: str | None = None,
 ):
     if not _mark_channel_processing(channel):
         raise ChannelBusyError(
@@ -399,10 +400,12 @@ def send_agent_message(
             # Use typed interface
             agent_cli = get_agent_cli()
             start_time = time.monotonic()
+            resolved_model = model if model and model != "default" else None
             result = agent_cli.run_agent(
                 message,
                 active_session,
                 agent,
+                resolved_model,
                 working_dir,
                 cancel_event=cancel_event,
                 on_process=lambda process: _register_active_process(channel, process),

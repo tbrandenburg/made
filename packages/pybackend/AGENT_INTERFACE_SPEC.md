@@ -232,7 +232,8 @@ class AgentCLI(ABC):
         self, 
         message: str, 
         session_id: str | None, 
-        agent: str | None, 
+        agent: str | None,
+        model: str | None,
         cwd: Path
     ) -> RunResult:
         """Run agent with message and return structured result."""
