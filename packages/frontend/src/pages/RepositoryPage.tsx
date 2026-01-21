@@ -54,6 +54,93 @@ const ARGUMENT_SPECIFIER_PATTERN = /\[([^\]]+)\]|<([^>]+)>/g;
 const PARENTHETICAL_COMMENT_PATTERN = /\s*\([^()]*\)\s*$/g;
 const CODE_BLOCK_PATTERN = /```[\s\S]*?```/g;
 const INLINE_CODE_PATTERN = /`[^`]*`/g;
+const MODEL_OPTIONS = [
+  { value: "default", label: "default" },
+  { value: "", label: "------ kiro ------", disabled: true },
+  { value: "claude-haiku-4.5", label: "claude-haiku-4.5" },
+  { value: "claude-opus-4.5", label: "claude-opus-4.5" },
+  { value: "claude-sonnet-4", label: "claude-sonnet-4" },
+  { value: "claude-sonnet-4.5", label: "claude-sonnet-4.5" },
+  { value: "", label: "------ opencode ------", disabled: true },
+  { value: "opencode/big-pickle", label: "opencode/big-pickle" },
+  { value: "opencode/glm-4.7-free", label: "opencode/glm-4.7-free" },
+  { value: "opencode/gpt-5-nano", label: "opencode/gpt-5-nano" },
+  { value: "opencode/grok-code", label: "opencode/grok-code" },
+  {
+    value: "github-copilot/claude-haiku-4.5",
+    label: "github-copilot/claude-haiku-4.5",
+  },
+  {
+    value: "github-copilot/claude-opus-4.5",
+    label: "github-copilot/claude-opus-4.5",
+  },
+  {
+    value: "github-copilot/claude-sonnet-4",
+    label: "github-copilot/claude-sonnet-4",
+  },
+  {
+    value: "github-copilot/claude-sonnet-4.5",
+    label: "github-copilot/claude-sonnet-4.5",
+  },
+  {
+    value: "github-copilot/gemini-2.5-pro",
+    label: "github-copilot/gemini-2.5-pro",
+  },
+  {
+    value: "github-copilot/gemini-3-flash-preview",
+    label: "github-copilot/gemini-3-flash-preview",
+  },
+  {
+    value: "github-copilot/gemini-3-pro-preview",
+    label: "github-copilot/gemini-3-pro-preview",
+  },
+  { value: "github-copilot/gpt-4.1", label: "github-copilot/gpt-4.1" },
+  { value: "github-copilot/gpt-4o", label: "github-copilot/gpt-4o" },
+  { value: "github-copilot/gpt-5", label: "github-copilot/gpt-5" },
+  {
+    value: "github-copilot/gpt-5-codex",
+    label: "github-copilot/gpt-5-codex",
+  },
+  {
+    value: "github-copilot/gpt-5-mini",
+    label: "github-copilot/gpt-5-mini",
+  },
+  { value: "github-copilot/gpt-5.1", label: "github-copilot/gpt-5.1" },
+  {
+    value: "github-copilot/gpt-5.1-codex",
+    label: "github-copilot/gpt-5.1-codex",
+  },
+  {
+    value: "github-copilot/gpt-5.1-codex-max",
+    label: "github-copilot/gpt-5.1-codex-max",
+  },
+  {
+    value: "github-copilot/gpt-5.1-codex-mini",
+    label: "github-copilot/gpt-5.1-codex-mini",
+  },
+  { value: "github-copilot/gpt-5.2", label: "github-copilot/gpt-5.2" },
+  {
+    value: "github-copilot/gpt-5.2-codex",
+    label: "github-copilot/gpt-5.2-codex",
+  },
+  {
+    value: "github-copilot/grok-code-fast-1",
+    label: "github-copilot/grok-code-fast-1",
+  },
+  {
+    value: "openai/gpt-5.1-codex-max",
+    label: "openai/gpt-5.1-codex-max",
+  },
+  {
+    value: "openai/gpt-5.1-codex-mini",
+    label: "openai/gpt-5.1-codex-mini",
+  },
+  { value: "openai/gpt-5.2", label: "openai/gpt-5.2" },
+  {
+    value: "openai/gpt-5.2-codex",
+    label: "openai/gpt-5.2-codex",
+  },
+];
 
 type HarnessRun = {
   pid: number;
@@ -227,6 +314,7 @@ export const RepositoryPage: React.FC = () => {
   const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);
   const [pendingPrompt, setPendingPrompt] = useState("");
+  const [selectedModel, setSelectedModel] = useState("default");
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
@@ -716,10 +804,13 @@ export const RepositoryPage: React.FC = () => {
     setPendingPrompt("");
     setChatLoading(true);
     try {
+      const model =
+        selectedModel === "default" ? undefined : selectedModel.trim();
       const reply = await api.sendAgentMessage(
         name,
         message,
         sessionId || undefined,
+        model,
       );
       setChat((prev) => [...prev, ...mapAgentReplyToMessages(reply)]);
       if (reply.sessionId) {
@@ -1264,20 +1355,43 @@ export const RepositoryPage: React.FC = () => {
             onChange={(event) => setPendingPrompt(event.target.value)}
             placeholder="Describe the change or ask the agent..."
           />
-          <div className="button-bar">
-            {chatLoading ? (
-              <button className="danger" onClick={handleCancelAgent}>
-                Cancel
-              </button>
-            ) : (
-              <button
-                className="primary"
-                onClick={() => handleSendMessage()}
-                disabled={!pendingPrompt.trim()}
-              >
-                Send
-              </button>
-            )}
+          <div className="button-bar chat-controls">
+            <div className="chat-controls__left">
+              <label className="model-select" htmlFor="agent-model-select">
+                <span>Model</span>
+                <select
+                  id="agent-model-select"
+                  value={selectedModel}
+                  onChange={(event) => setSelectedModel(event.target.value)}
+                  disabled={chatLoading}
+                >
+                  {MODEL_OPTIONS.map((option) => (
+                    <option
+                      key={`${option.label}-${option.value}`}
+                      value={option.value}
+                      disabled={option.disabled}
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="chat-controls__right">
+              {chatLoading ? (
+                <button className="danger" onClick={handleCancelAgent}>
+                  Cancel
+                </button>
+              ) : (
+                <button
+                  className="primary"
+                  onClick={() => handleSendMessage()}
+                  disabled={!pendingPrompt.trim()}
+                >
+                  Send
+                </button>
+              )}
+            </div>
           </div>
         </Panel>
       ),

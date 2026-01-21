@@ -74,7 +74,7 @@ class TestKiroAgentCLI:
         mock_run.return_value.stderr = ""
 
         cli = KiroAgentCLI()
-        result = cli.run_agent("test message", None, None, Path("."))
+        result = cli.run_agent("test message", None, None, None, Path("."))
 
         assert isinstance(result, RunResult)
         assert result.success is True
@@ -91,7 +91,7 @@ class TestKiroAgentCLI:
         mock_run.return_value.stderr = ""
 
         cli = KiroAgentCLI()
-        result = cli.run_agent("test message", None, None, Path("."))
+        result = cli.run_agent("test message", None, None, None, Path("."))
 
         assert isinstance(result, RunResult)
         assert result.success is True
@@ -149,7 +149,9 @@ class TestKiroAgentCLI:
             ):
                 cli = KiroAgentCLI()
 
-                cli.run_agent("test message", "test-conv-123", None, Path("/test/path"))
+                cli.run_agent(
+                    "test message", "test-conv-123", None, None, Path("/test/path")
+                )
                 call_args = mock_run.call_args
                 assert call_args[0][0] == [
                     "kiro-cli",
@@ -160,7 +162,9 @@ class TestKiroAgentCLI:
                 ]
 
                 mock_run.reset_mock()
-                cli.run_agent("test message", "test-conv-123", None, Path("/other/path"))
+                cli.run_agent(
+                    "test message", "test-conv-123", None, None, Path("/other/path")
+                )
                 call_args = mock_run.call_args
                 assert call_args[0][0] == [
                     "kiro-cli",
@@ -177,7 +181,7 @@ class TestKiroAgentCLI:
         mock_run.side_effect = FileNotFoundError("kiro-cli not found")
 
         cli = KiroAgentCLI()
-        result = cli.run_agent("test message", None, None, Path("."))
+        result = cli.run_agent("test message", None, None, None, Path("."))
 
         assert isinstance(result, RunResult)
         assert result.success is False

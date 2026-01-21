@@ -36,7 +36,7 @@ class TestParsingConsistency:
         cli = OpenCodeAgentCLI()
         
         try:
-            result = cli.run_agent("Say hello", None, None, Path.cwd())
+            result = cli.run_agent("Say hello", None, None, None, Path.cwd())
             
             # Should return RunResult
             assert isinstance(result, RunResult)

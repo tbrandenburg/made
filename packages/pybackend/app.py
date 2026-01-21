@@ -367,6 +367,7 @@ def repository_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
     session_id = payload.get("sessionId")
     agent = payload.get("agent")
+    model = payload.get("model")
     if not message:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
@@ -378,7 +379,7 @@ def repository_agent(name: str, payload: dict = Body(...)):
             session_id or "new",
             agent or "default",
         )
-        return send_agent_message(name, message, session_id, agent)
+        return send_agent_message(name, message, session_id, agent, model)
     except ChannelBusyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
@@ -663,6 +664,7 @@ def knowledge_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
     session_id = payload.get("sessionId")
     agent = payload.get("agent")
+    model = payload.get("model")
     if not message:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
@@ -674,7 +676,7 @@ def knowledge_agent(name: str, payload: dict = Body(...)):
             session_id or "new",
             agent or "default",
         )
-        return send_agent_message(f"knowledge:{name}", message, session_id, agent)
+        return send_agent_message(f"knowledge:{name}", message, session_id, agent, model)
     except ChannelBusyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
@@ -790,6 +792,7 @@ def constitution_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
     session_id = payload.get("sessionId")
     agent = payload.get("agent")
+    model = payload.get("model")
     if not message:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
@@ -801,7 +804,9 @@ def constitution_agent(name: str, payload: dict = Body(...)):
             session_id or "new",
             agent or "default",
         )
-        return send_agent_message(f"constitution:{name}", message, session_id, agent)
+        return send_agent_message(
+            f"constitution:{name}", message, session_id, agent, model
+        )
     except ChannelBusyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
