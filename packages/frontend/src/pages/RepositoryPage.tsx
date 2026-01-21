@@ -1358,12 +1358,12 @@ export const RepositoryPage: React.FC = () => {
           <div className="button-bar chat-controls">
             <div className="chat-controls__left">
               <label className="model-select" htmlFor="agent-model-select">
-                <span>Model</span>
                 <select
                   id="agent-model-select"
                   value={selectedModel}
                   onChange={(event) => setSelectedModel(event.target.value)}
                   disabled={chatLoading}
+                  aria-label="Model"
                 >
                   {MODEL_OPTIONS.map((option) => (
                     <option

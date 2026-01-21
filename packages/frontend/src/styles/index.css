@@ -283,17 +283,15 @@ textarea {
 
 .chat-controls {
   align-items: center;
-  justify-content: space-between;
 }
 
 .chat-controls__left {
-  flex: 1;
-  max-width: 360px;
+  flex: 0 1 360px;
 }
 
 .chat-controls__right {
   display: flex;
-  flex: 1;
+  margin-left: auto;
   justify-content: flex-end;
   gap: 1rem;
 }
@@ -302,11 +300,6 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-}
-
-.model-select span {
-  font-size: 0.85rem;
-  color: var(--muted);
 }
 
 .form-group {
