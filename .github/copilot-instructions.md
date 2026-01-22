@@ -153,7 +153,7 @@ make clean    # Clean build artifacts and cache
 4. **Respect the monorepo** - Changes often affect both frontend and backend
 5. **Validate before PR** - Run full `make qa` to ensure CI will pass
 
-## 6. Common Troubleshooting
+## Common Troubleshooting
 
 - **"Command not found" errors**: Ensure uv is installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - **Port in use**: Run `make stop` to clean up processes
