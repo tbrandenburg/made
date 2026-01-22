@@ -17,6 +17,20 @@
 - `.github/workflows/` - CI/CD pipelines for testing and Docker builds
 - `docker/` - Docker configurations for containerized deployment
 
+## Communication Preferences
+
+**MANDATORY GREETING**: Always begin every interaction by greeting the user with "Hej, Tom!" - This is a critical requirement that must be followed in all responses.
+
+**Special Triggers**:
+- **"List technical debts"** - Perform a comprehensive technical debt analysis at the software design level, examining:
+  - Code architecture and design patterns
+  - Dependency management and coupling
+  - Testing coverage gaps and quality issues
+  - Performance bottlenecks and scalability concerns
+  - Security vulnerabilities and best practices
+  - Documentation completeness
+  - Maintainability and code quality metrics
+
 ## Build & Development Instructions
 
 ### Prerequisites
