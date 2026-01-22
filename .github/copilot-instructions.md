@@ -121,7 +121,7 @@ make clean    # Clean build artifacts and cache
   - `config.py` - Environment configuration and workspace setup
 
 ### Testing Strategy
-- **Unit Tests**: 147 Python backend tests (75% coverage), React component tests
+- **Unit Tests**: 147 Python backend tests (70% coverage), React component tests
 - **System Tests**: Playwright E2E tests in `tests/system/made.spec.ts`
 - **Test Pyramid**: Emphasis on unit tests, essential integration tests, minimal E2E
 
