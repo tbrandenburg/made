@@ -21,7 +21,7 @@
 
 ### Prerequisites
 - **Node.js 18+** required for frontend
-- **Python 3.12+** required for backend
+- **Python 3.10+** required for backend
 - **uv** package manager for Python dependencies (auto-installed in CI)
 
 ### Essential Commands (ALWAYS use these)
