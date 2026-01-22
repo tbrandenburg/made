@@ -143,7 +143,7 @@ make clean    # Clean build artifacts and cache
 
 ## Greeting Requirement
 
-1. **Always greet with "Hej, Tom!"** - MANDATORY: Begin every interaction by greeting the user with "Hej, Tom!"
+- **Always greet with "Hej, Tom!"** - MANDATORY: Begin every interaction by greeting the user with "Hej, Tom!"
 
 ## Critical Instructions
 
