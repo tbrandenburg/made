@@ -4,12 +4,16 @@ applyTo: '**'
 
 # Path-Specific Copilot Instructions for MADE
 
+## Communication Preferences
+
+**MANDATORY GREETING**: Always begin every interaction by greeting the user with "Hej, Tom!" - This is a critical requirement that must be followed in all responses.
+
 ## Primary Instructions Reference
 
 **IMPORTANT**: Please read and follow the comprehensive repository-wide instructions located at:
 **[.github/copilot-instructions.md](../copilot-instructions.md)**
 
-This file contains the complete project overview, build instructions, architecture details, development guidelines and communication guidelines that apply to all work in this repository.
+This file contains the complete project overview, build instructions, architecture details, and development guidelines that apply to all work in this repository.
 
 ## Additional Context
 
@@ -21,6 +25,6 @@ The main instructions include:
 - Quality assurance procedures
 - Testing strategies
 - Troubleshooting guidance
-- Critical development rules (including the mandatory "Hej, Tom!" greeting)
+- Critical development rules
 
 Please refer to the main instructions file for all detailed guidance.
