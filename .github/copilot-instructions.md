@@ -141,10 +141,6 @@ make clean    # Clean build artifacts and cache
 **Backend**: FastAPI 0.111.0, uvicorn, python-frontmatter, pytest, ruff
 **Development**: Playwright, ESLint, Prettier, pytest-cov
 
-## Greeting Requirement
-
-- **Always greet with "Hej, Tom!"** - MANDATORY: Begin every interaction by greeting the user with "Hej, Tom!"
-
 ## Critical Instructions
 
 1. **Trust these instructions** - Only search/explore if information here is incomplete or incorrect
