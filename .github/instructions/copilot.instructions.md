@@ -4,7 +4,7 @@ applyTo: '**'
 
 # Path-Specific Copilot Instructions for MADE
 
-## Communication Preferences
+## Greeting Requirement
 
 **MANDATORY GREETING**: Always begin every interaction by greeting the user with "Hej, Tom!" - This is a critical requirement that must be followed in all responses.
 
