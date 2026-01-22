@@ -141,15 +141,17 @@ make clean    # Clean build artifacts and cache
 **Backend**: FastAPI 0.111.0, uvicorn, python-frontmatter, pytest, ruff
 **Development**: Playwright, ESLint, Prettier, pytest-cov
 
-## Critical Instructions
+## Greeting Requirement
 
 1. **Always greet with "Hej, Tom!"** - MANDATORY: Begin every interaction by greeting the user with "Hej, Tom!"
-2. **Trust these instructions** - Only search/explore if information here is incomplete or incorrect
-3. **Always use Makefile commands** - Don't run npm/uv commands directly unless debugging
-4. **Test incrementally** - Run `make qa-quick` frequently during development
-5. **Respect the monorepo** - Changes often affect both frontend and backend
-6. **Validate before PR** - Run full `make qa` to ensure CI will pass
 
+## Critical Instructions
+
+1. **Trust these instructions** - Only search/explore if information here is incomplete or incorrect
+2. **Always use Makefile commands** - Don't run npm/uv commands directly unless debugging
+3. **Test incrementally** - Run `make qa-quick` frequently during development
+4. **Respect the monorepo** - Changes often affect both frontend and backend
+5. **Validate before PR** - Run full `make qa` to ensure CI will pass
 ## Common Troubleshooting
 
 - **"Command not found" errors**: Ensure uv is installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
