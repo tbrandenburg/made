@@ -311,10 +311,18 @@ export const RepositoryPage: React.FC = () => {
         : `repository-session-${agentCli}`,
     [agentCli, name],
   );
+  const modelStorageKey = useMemo(
+    () => (name ? `repository-model-${name}` : "repository-model"),
+    [name],
+  );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);
   const [pendingPrompt, setPendingPrompt] = useState("");
-  const [selectedModel, setSelectedModel] = useState("default");
+  const [selectedModel, setSelectedModel] = usePersistentString(
+    modelStorageKey,
+    "default",
+  );
+  const normalizedSelectedModel = selectedModel ?? "default";
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
@@ -805,7 +813,9 @@ export const RepositoryPage: React.FC = () => {
     setChatLoading(true);
     try {
       const model =
-        selectedModel === "default" ? undefined : selectedModel.trim();
+        normalizedSelectedModel === "default"
+          ? undefined
+          : normalizedSelectedModel.trim();
       const reply = await api.sendAgentMessage(
         name,
         message,
@@ -1360,7 +1370,7 @@ export const RepositoryPage: React.FC = () => {
               <label className="model-select" htmlFor="agent-model-select">
                 <select
                   id="agent-model-select"
-                  value={selectedModel}
+                  value={normalizedSelectedModel}
                   onChange={(event) => setSelectedModel(event.target.value)}
                   disabled={chatLoading}
                   aria-label="Model"
