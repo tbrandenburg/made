@@ -8,6 +8,7 @@ from threading import Event, Lock
 from agent_cli import OpenCodeAgentCLI
 from copilot_agent_cli import CopilotAgentCLI
 from kiro_agent_cli import KiroAgentCLI
+from codex_agent_cli import CodexAgentCLI
 from config import ensure_directory, get_made_directory, get_workspace_home
 from settings_service import read_settings
 
@@ -31,6 +32,8 @@ def get_agent_cli():
             return KiroAgentCLI()
         elif agent_cli_setting == "copilot":
             return CopilotAgentCLI()
+        elif agent_cli_setting == "codex":
+            return CodexAgentCLI()
         else:
             # Default to OpenCode for any other value
             return OpenCodeAgentCLI()
