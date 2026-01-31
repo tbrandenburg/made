@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-01-31T19:42:21.876855",
+  "copilot_version": "0.0.395",
+  "all_passed": null,
+  "results": [
+    {
+      "test": "Create Conversation Session",
+      "success": true,
+      "details": "Success: True, Response parts: 1, Response length: 1025, Contains 'comprehension': True",
+      "duration_ms": 14855.7,
+      "timestamp": "2026-01-31T19:42:06.114538"
+    },
+    {
+      "test": "File Operations Prompt",
+      "success": true,
+      "details": "Success: True, Response length: 327, Mentions files: True",
+      "duration_ms": 15258.0,
+      "timestamp": "2026-01-31T19:42:21.872741"
+    },
+    {
+      "test": "Session Directory Contents",
+      "success": true,
+      "details": "Sessions: 16, Sample session: 79436c36-3929-49f2-8398-c5f865510a59, Has events.jsonl: True, Other files: 1 (workspace.yaml)",
+      "duration_ms": 0.86,
+      "timestamp": "2026-01-31T19:42:21.873646"
+    },
+    {
+      "test": "Parse Real Events Structure",
+      "success": true,
+      "details": "Best session events: 12, Parsed messages: 4, Event types: 9 (assistant.message, assistant.reasoning, assistant.turn_end, assistant.turn_start, session.model_change)",
+      "duration_ms": 2.72,
+      "timestamp": "2026-01-31T19:42:21.876392"
+    },
+    {
+      "test": "Helper Methods",
+      "success": false,
+      "details": "Exception: unsupported operand type(s) for /: 'PosixPath' and 'dict'",
+      "duration_ms": 0.25,
+      "timestamp": "2026-01-31T19:42:21.876669"
+    }
+  ]
+}
