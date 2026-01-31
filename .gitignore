@@ -306,3 +306,6 @@ workspace/
 
 # Agent plans and artifacts
 .agents/
+
+# Development and PoC directories
+dev/
