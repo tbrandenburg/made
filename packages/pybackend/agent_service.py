@@ -6,6 +6,7 @@ from pathlib import Path
 from threading import Event, Lock
 
 from agent_cli import OpenCodeAgentCLI
+from copilot_agent_cli import CopilotAgentCLI
 from kiro_agent_cli import KiroAgentCLI
 from config import ensure_directory, get_made_directory, get_workspace_home
 from settings_service import read_settings
@@ -28,6 +29,8 @@ def get_agent_cli():
 
         if agent_cli_setting == "kiro":
             return KiroAgentCLI()
+        elif agent_cli_setting == "copilot":
+            return CopilotAgentCLI()
         else:
             # Default to OpenCode for any other value
             return OpenCodeAgentCLI()
@@ -148,9 +151,7 @@ def _register_cancel_event(channel: str) -> Event:
     return cancel_event
 
 
-def _register_active_process(
-    channel: str, process: subprocess.Popen[str]
-) -> None:
+def _register_active_process(channel: str, process: subprocess.Popen[str]) -> None:
     with _processing_lock:
         _active_processes[channel] = process
 
@@ -315,9 +316,7 @@ def list_agents() -> list[dict[str, object]]:
     start_time = time.monotonic()
     result = agent_cli.list_agents()
     duration_seconds = time.monotonic() - start_time
-    logger.info(
-        "Agent CLI list agents completed (duration=%.3fs)", duration_seconds
-    )
+    logger.info("Agent CLI list agents completed (duration=%.3fs)", duration_seconds)
 
     if not result.success:
         logger.error("Listing agents failed: %s", result.error_message)
