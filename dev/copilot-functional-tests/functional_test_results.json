@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-01-31T19:49:40.693450",
+  "copilot_version": "0.0.395",
+  "all_passed": null,
+  "results": [
+    {
+      "test": "CLI Properties",
+      "success": true,
+      "details": "CLI name: 'copilot', Error msg contains 'copilot': True",
+      "duration_ms": 0.01,
+      "timestamp": "2026-01-31T19:49:29.320393"
+    },
+    {
+      "test": "Session Directory Detection",
+      "success": true,
+      "details": "Sessions dir found: True, Path: /home/tom/.copilot/session-state, Session directories: 19",
+      "duration_ms": 0.65,
+      "timestamp": "2026-01-31T19:49:29.321080"
+    },
+    {
+      "test": "Run Agent - Simple Prompt",
+      "success": true,
+      "details": "Success: True, Response parts: 1, Session ID: None",
+      "duration_ms": 11340.95,
+      "timestamp": "2026-01-31T19:49:40.662068"
+    },
+    {
+      "test": "List Sessions",
+      "success": true,
+      "details": "Success: True, Sessions found: 16, Test sessions found: 0/0",
+      "duration_ms": 11.54,
+      "timestamp": "2026-01-31T19:49:40.673664"
+    },
+    {
+      "test": "Export Session",
+      "success": true,
+      "details": "Success: True, Messages: 2, User msgs: 1, Assistant msgs: 1",
+      "duration_ms": 0.38,
+      "timestamp": "2026-01-31T19:49:40.674077"
+    },
+    {
+      "test": "List Agents",
+      "success": true,
+      "details": "Success: True, Agents found: 1, Sample agent: copilot",
+      "duration_ms": 0.02,
+      "timestamp": "2026-01-31T19:49:40.674112"
+    },
+    {
+      "test": "Events JSONL Parsing",
+      "success": true,
+      "details": "Events files found: 16, Total events parsed: 38",
+      "duration_ms": 12.69,
+      "timestamp": "2026-01-31T19:49:40.686829"
+    },
+    {
+      "test": "Error Handling",
+      "success": true,
+      "details": "Invalid session handled: True, Error msg provided: True, Error: Session invalid-session-id-12345 not found",
+      "duration_ms": 0.18,
+      "timestamp": "2026-01-31T19:49:40.687050"
+    }
+  ]
+}
