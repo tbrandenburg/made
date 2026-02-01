@@ -1,6 +1,7 @@
 """Copilot CLI implementation of the AgentCLI interface."""
 
 import json
+import logging
 import os
 import re
 import subprocess
@@ -20,6 +21,8 @@ from agent_results import (
     SessionInfo,
     SessionListResult,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CopilotAgentCLI(AgentCLI):
@@ -90,7 +93,46 @@ class CopilotAgentCLI(AgentCLI):
 
         # Copilot CLI session directories are named with session IDs
         session_path = sessions_dir / session_id
-        return session_path.exists()
+        if not session_path.exists():
+            return False
+
+        # Read workspace information from events.jsonl
+        events_file = session_path / "events.jsonl"
+        if not events_file.exists():
+            return False
+
+        try:
+            with open(events_file, "r", encoding="utf-8") as f:
+                # Read first line to get session.start event
+                first_line = f.readline().strip()
+                if first_line:
+                    event = json.loads(first_line)
+                    if event.get("type") == "session.start":
+                        context = event.get("data", {}).get("context", {})
+                        session_cwd = context.get("cwd")
+
+                        if session_cwd:
+                            session_cwd_path = Path(session_cwd).resolve()
+                            cwd_resolved = cwd.resolve()
+
+                            # Check if paths are related (parent/child relationship)
+                            try:
+                                cwd_resolved.relative_to(session_cwd_path)
+                                return True
+                            except ValueError:
+                                pass
+
+                            try:
+                                session_cwd_path.relative_to(cwd_resolved)
+                                return True
+                            except ValueError:
+                                pass
+
+        except (json.JSONDecodeError, OSError, AttributeError) as e:
+            logger.debug(f"Error reading session metadata for {session_id}: {e}")
+            return False
+
+        return False
 
     def run_agent(
         self,
@@ -347,6 +389,11 @@ class CopilotAgentCLI(AgentCLI):
                         continue
 
                     session_id = session_dir.name
+
+                    # Filter by workspace if cwd is provided
+                    if cwd and not self._session_matches_directory(session_id, cwd):
+                        continue
+
                     events_file = session_dir / "events.jsonl"
 
                     if not events_file.exists():

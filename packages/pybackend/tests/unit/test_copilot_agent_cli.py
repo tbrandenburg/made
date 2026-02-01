@@ -125,7 +125,19 @@ class TestCopilotAgentCLI:
             sessions_dir.mkdir()
             session_dir = sessions_dir / "test-session-123"
             session_dir.mkdir()
-            (session_dir / "events.jsonl").touch()
+
+            # Create events.jsonl with session.start event for matching workspace
+            events_file = session_dir / "events.jsonl"
+            session_start_event = {
+                "type": "session.start",
+                "data": {
+                    "sessionId": "test-session-123",
+                    "context": {"cwd": "/test/path", "gitRoot": "/test"},
+                },
+            }
+
+            with open(events_file, "w", encoding="utf-8") as f:
+                f.write(json.dumps(session_start_event) + "\n")
 
             mock_run.return_value.returncode = 0
             mock_run.return_value.stdout = "Test response from copilot"
@@ -204,9 +216,16 @@ class TestCopilotAgentCLI:
             session_dir = sessions_dir / "test-session-123"
             session_dir.mkdir()
 
-            # Create events.jsonl with test data
+            # Create events.jsonl with test data including session.start event
             events_file = session_dir / "events.jsonl"
             events_data = [
+                {
+                    "type": "session.start",
+                    "data": {
+                        "sessionId": "test-session-123",
+                        "context": {"cwd": "/test/path", "gitRoot": "/test"},
+                    },
+                },
                 {
                     "type": "user.message",
                     "data": {"content": "Test message"},
@@ -412,36 +431,214 @@ class TestCopilotAgentCLI:
         assert cli._to_milliseconds("invalid") is None
         assert cli._to_milliseconds([]) is None
 
-    def test_session_matches_directory(self):
-        """Test _session_matches_directory method."""
+    def test_session_matches_directory_with_workspace_matching(self):
+        """Test that _session_matches_directory correctly reads and compares workspace paths."""
         cli = CopilotAgentCLI()
 
         with tempfile.TemporaryDirectory() as temp_copilot_home:
             sessions_dir = Path(temp_copilot_home) / "session-state"
             sessions_dir.mkdir()
 
-            # Create existing session directory
-            existing_session = sessions_dir / "existing-session"
-            existing_session.mkdir()
+            # Test case 1: Exact workspace match
+            exact_match_session = sessions_dir / "exact-match-session"
+            exact_match_session.mkdir()
+            events_file = exact_match_session / "events.jsonl"
+
+            workspace_path = "/workspace/project"
+            session_start_event = {
+                "type": "session.start",
+                "data": {
+                    "sessionId": "exact-match-session",
+                    "context": {"cwd": workspace_path, "gitRoot": "/workspace"},
+                },
+            }
+
+            with open(events_file, "w", encoding="utf-8") as f:
+                f.write(json.dumps(session_start_event) + "\n")
+
+            # Test case 2: Subdirectory of workspace
+            subdir_session = sessions_dir / "subdir-session"
+            subdir_session.mkdir()
+            subdir_events_file = subdir_session / "events.jsonl"
+
+            subdir_start_event = {
+                "type": "session.start",
+                "data": {
+                    "sessionId": "subdir-session",
+                    "context": {
+                        "cwd": "/workspace/project/subdir",
+                        "gitRoot": "/workspace",
+                    },
+                },
+            }
+
+            with open(subdir_events_file, "w", encoding="utf-8") as f:
+                f.write(json.dumps(subdir_start_event) + "\n")
+
+            # Test case 3: Different workspace
+            different_session = sessions_dir / "different-session"
+            different_session.mkdir()
+            different_events_file = different_session / "events.jsonl"
+
+            different_start_event = {
+                "type": "session.start",
+                "data": {
+                    "sessionId": "different-session",
+                    "context": {"cwd": "/different/workspace", "gitRoot": "/different"},
+                },
+            }
+
+            with open(different_events_file, "w", encoding="utf-8") as f:
+                f.write(json.dumps(different_start_event) + "\n")
+
+            # Test case 4: Missing events.jsonl
+            no_events_session = sessions_dir / "no-events-session"
+            no_events_session.mkdir()
+
+            # Test case 5: Malformed JSON
+            malformed_session = sessions_dir / "malformed-session"
+            malformed_session.mkdir()
+            malformed_events_file = malformed_session / "events.jsonl"
+
+            with open(malformed_events_file, "w", encoding="utf-8") as f:
+                f.write("not valid json\n")
 
             with unittest.mock.patch.object(
                 CopilotAgentCLI, "_get_sessions_directory", return_value=sessions_dir
             ):
-                # Should return True for existing session
+                # Test exact workspace match
                 assert (
                     cli._session_matches_directory(
-                        "existing-session", Path("/any/path")
+                        "exact-match-session", Path(workspace_path)
                     )
                     is True
                 )
 
-                # Should return False for non-existing session
+                # Test parent directory match (current dir is subdirectory of session workspace)
                 assert (
                     cli._session_matches_directory(
-                        "nonexistent-session", Path("/any/path")
+                        "subdir-session", Path("/workspace/project")
+                    )
+                    is True
+                )
+
+                # Test subdirectory match (session dir is subdirectory of current workspace)
+                assert (
+                    cli._session_matches_directory(
+                        "exact-match-session", Path("/workspace")
+                    )
+                    is True
+                )
+
+                # Test no match - different workspace
+                assert (
+                    cli._session_matches_directory(
+                        "different-session", Path(workspace_path)
                     )
                     is False
                 )
+
+                # Test missing events.jsonl
+                assert (
+                    cli._session_matches_directory(
+                        "no-events-session", Path(workspace_path)
+                    )
+                    is False
+                )
+
+                # Test malformed JSON
+                assert (
+                    cli._session_matches_directory(
+                        "malformed-session", Path(workspace_path)
+                    )
+                    is False
+                )
+
+                # Test non-existing session
+                assert (
+                    cli._session_matches_directory(
+                        "nonexistent-session", Path(workspace_path)
+                    )
+                    is False
+                )
+
+    def test_list_sessions_filters_by_workspace(self):
+        """Test that list_sessions only returns sessions from current workspace."""
+        cli = CopilotAgentCLI()
+
+        with tempfile.TemporaryDirectory() as temp_copilot_home:
+            sessions_dir = Path(temp_copilot_home) / "session-state"
+            sessions_dir.mkdir()
+
+            # Create sessions from different workspaces
+            workspace_a_path = "/workspace/project-a"
+            workspace_b_path = "/workspace/project-b"
+
+            # Session from workspace A
+            session_a = sessions_dir / "session-a"
+            session_a.mkdir()
+            events_a = session_a / "events.jsonl"
+
+            session_a_start = {
+                "type": "session.start",
+                "data": {
+                    "sessionId": "session-a",
+                    "context": {"cwd": workspace_a_path, "gitRoot": "/workspace"},
+                },
+            }
+
+            with open(events_a, "w", encoding="utf-8") as f:
+                f.write(json.dumps(session_a_start) + "\n")
+                # Add a user message for title extraction
+                user_msg = {
+                    "type": "user.message",
+                    "data": {"content": "Test message for session A"},
+                }
+                f.write(json.dumps(user_msg) + "\n")
+
+            # Session from workspace B
+            session_b = sessions_dir / "session-b"
+            session_b.mkdir()
+            events_b = session_b / "events.jsonl"
+
+            session_b_start = {
+                "type": "session.start",
+                "data": {
+                    "sessionId": "session-b",
+                    "context": {"cwd": workspace_b_path, "gitRoot": "/workspace"},
+                },
+            }
+
+            with open(events_b, "w", encoding="utf-8") as f:
+                f.write(json.dumps(session_b_start) + "\n")
+                # Add a user message for title extraction
+                user_msg = {
+                    "type": "user.message",
+                    "data": {"content": "Test message for session B"},
+                }
+                f.write(json.dumps(user_msg) + "\n")
+
+            with unittest.mock.patch.object(
+                CopilotAgentCLI, "_get_sessions_directory", return_value=sessions_dir
+            ):
+                # List sessions from workspace A
+                result_a = cli.list_sessions(Path(workspace_a_path))
+                assert result_a.success is True
+                assert len(result_a.sessions) == 1
+                assert result_a.sessions[0].session_id == "session-a"
+
+                # List sessions from workspace B
+                result_b = cli.list_sessions(Path(workspace_b_path))
+                assert result_b.success is True
+                assert len(result_b.sessions) == 1
+                assert result_b.sessions[0].session_id == "session-b"
+
+                # List all sessions (no cwd filter)
+                result_all = cli.list_sessions(None)
+                assert result_all.success is True
+                assert len(result_all.sessions) == 2
+                session_ids = {s.session_id for s in result_all.sessions}
+                assert session_ids == {"session-a", "session-b"}
 
     def test_get_sessions_directory_environment_variable(self):
         """Test _get_sessions_directory with environment variable."""
