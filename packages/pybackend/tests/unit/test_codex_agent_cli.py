@@ -34,7 +34,7 @@ class TestCodexAgentCLI:
         """Test parsing of codex JSON event stream."""
         cli = CodexAgentCLI()
         mock_stdout = """{"type": "thread.started", "thread_id": "session-123"}
-{"type": "item.completed", "item": {"text": "Hello from codex"}, "timestamp": 1736766000000}
+{"type": "item.completed", "item": {"text": "Hello from codex"}, "timestamp": "2026-02-01T07:35:26.848Z"}
 {"type": "turn.completed", "usage": {"tokens": 150}}"""
 
         session_id, response_parts = cli._parse_codex_output(mock_stdout)
@@ -42,7 +42,7 @@ class TestCodexAgentCLI:
         assert session_id == "session-123"
         assert len(response_parts) == 1
         assert response_parts[0].text == "Hello from codex"
-        assert response_parts[0].timestamp == 1736766000000
+        assert response_parts[0].timestamp == 1769931326848
         assert response_parts[0].part_type == "final"
 
     def test_parse_codex_output_malformed(self):
@@ -323,11 +323,27 @@ invalid json line here
         assert cli._to_milliseconds(1736766000000) == 1736766000000
         assert cli._to_milliseconds("1736766000000") == 1736766000000
         assert cli._to_milliseconds(1736766000000.5) == 1736766000000
+        assert cli._to_milliseconds("2026-02-01T07:35:26.848Z") == 1769931326848
 
         # Invalid cases
         assert cli._to_milliseconds(None) is None
         assert cli._to_milliseconds("invalid") is None
         assert cli._to_milliseconds([]) is None
+
+    def test_parse_session_jsonl_filters_non_user_roles(self):
+        """Test _parse_session_jsonl skips non-user/assistant roles."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            session_file = Path(temp_dir) / "test-session.jsonl"
+            session_content = """{"type": "response_item", "payload": {"type": "message", "role": "developer", "content": [{"type": "input_text", "text": "Skip me"}]}, "timestamp": "2026-02-01T07:35:26.848Z"}
+{"type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "Keep me"}]}, "timestamp": "2026-02-01T07:35:26.848Z"}"""
+            session_file.write_text(session_content, encoding="utf-8")
+
+            cli = CodexAgentCLI()
+            messages = cli._parse_session_jsonl(session_file)
+
+            assert len(messages) == 1
+            assert messages[0].role == "user"
+            assert messages[0].content == "Keep me"
 
     def test_get_codex_sessions_directory_env_var(self):
         """Test _get_codex_sessions_directory with environment variable."""
