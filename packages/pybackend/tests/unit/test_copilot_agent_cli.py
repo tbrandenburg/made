@@ -405,6 +405,7 @@ class TestCopilotAgentCLI:
         assert cli._to_milliseconds(1000) == 1000
         assert cli._to_milliseconds("1000") == 1000
         assert cli._to_milliseconds(1000.5) == 1000
+        assert cli._to_milliseconds("2026-02-01T07:40:11.105Z") == 1769931611105
 
         # Invalid conversions
         assert cli._to_milliseconds(None) is None
