@@ -115,7 +115,7 @@ class CodexAgentCLI(AgentCLI):
     ) -> RunResult:
         """Run agent with message and return structured result."""
         try:
-            # Build command inline - following Codex CLI patterns
+            # Build command inline - using stdin pattern like other CLIs
             # Note: Removed hardcoded --sandbox flag to use codex config defaults
             command = ["codex", "exec"]
 
@@ -123,8 +123,8 @@ class CodexAgentCLI(AgentCLI):
             if session_id and self._session_matches_directory(session_id, cwd):
                 command.extend(["resume", session_id])
 
-            # Add JSON output flag and message
-            command.extend(["--json", message])
+            # Add JSON output flag (no message argument - passed via stdin)
+            command.append("--json")
 
             if cancel_event and cancel_event.is_set():
                 return RunResult(
@@ -136,7 +136,7 @@ class CodexAgentCLI(AgentCLI):
 
             if cancel_event is None and on_process is None:
                 process = subprocess.run(
-                    command, capture_output=True, text=True, cwd=cwd
+                    command, capture_output=True, text=True, cwd=cwd, input=message
                 )
                 stdout = process.stdout
                 stderr = process.stderr
@@ -152,7 +152,7 @@ class CodexAgentCLI(AgentCLI):
                 if on_process:
                     on_process(process)
 
-                input_data: str | None = None
+                input_data: str | None = message  # Pass message via stdin initially
                 while True:
                     try:
                         stdout, stderr = process.communicate(
@@ -160,7 +160,7 @@ class CodexAgentCLI(AgentCLI):
                         )
                         break
                     except subprocess.TimeoutExpired:
-                        input_data = None
+                        input_data = None  # Only send message once
                         if cancel_event and cancel_event.is_set():
                             process.terminate()
                             try:

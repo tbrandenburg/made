@@ -92,8 +92,10 @@ invalid json line here
             "codex",
             "exec",
             "--json",
-            "test message",
+            # No message argument - passed via stdin
         ]
+        # Verify stdin usage
+        assert call_args[1]["input"] == "test message"
 
     @unittest.mock.patch("subprocess.run")
     def test_run_agent_with_session_resume(self, mock_run):
@@ -132,8 +134,9 @@ invalid json line here
                     "resume",
                     "session-123",
                     "--json",
-                    "test message",
+                    # No message argument - passed via stdin
                 ]
+                assert call_args[1]["input"] == "test message"
 
                 mock_run.reset_mock()
                 # Test no resumption for non-existing session
@@ -149,8 +152,9 @@ invalid json line here
                     "codex",
                     "exec",
                     "--json",
-                    "test message",
+                    # No message argument - passed via stdin
                 ]
+                assert call_args[1]["input"] == "test message"
 
     @unittest.mock.patch("subprocess.run")
     def test_run_agent_command_not_found(self, mock_run):
