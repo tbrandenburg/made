@@ -54,7 +54,7 @@ class CodexAgentCLI(AgentCLI):
                         response_parts.append(
                             ResponsePart(
                                 text=text,
-                                timestamp=event.get("timestamp"),
+                                timestamp=self._to_milliseconds(event.get("timestamp")),
                                 part_type="final",
                             )
                         )
@@ -77,6 +77,17 @@ class CodexAgentCLI(AgentCLI):
 
     def _to_milliseconds(self, raw_value: Any) -> int | None:
         """Convert value to milliseconds timestamp."""
+        if raw_value is None:
+            return None
+        if isinstance(raw_value, str):
+            try:
+                return int(float(raw_value))
+            except ValueError:
+                try:
+                    dt = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+                except ValueError:
+                    return None
+                return int(dt.timestamp() * 1000)
         try:
             return int(float(raw_value))
         except (TypeError, ValueError):
@@ -295,6 +306,8 @@ class CodexAgentCLI(AgentCLI):
                             payload = event.get("payload", {})
                             if payload.get("type") == "message":
                                 role = payload.get("role", "assistant")
+                                if role not in {"user", "assistant"}:
+                                    continue
                                 text = ""
 
                                 # Extract text from content array
