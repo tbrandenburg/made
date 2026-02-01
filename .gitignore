@@ -306,3 +306,6 @@ workspace/
 
 # Agent plans and artifacts
 .agents/
+
+# dev files
+dev/

@@ -6,7 +6,7 @@ import "../styles/page.css";
 
 type SettingsMap = Record<string, unknown>;
 
-const agentCliOptions = ["opencode", "kiro"];
+const agentCliOptions = ["opencode", "kiro", "copilot", "codex"];
 
 export const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SettingsMap>({});
