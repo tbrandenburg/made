@@ -99,6 +99,9 @@ class CodexAgentCLI(AgentCLI):
         if not sessions_dir:
             return False
 
+        # Resolve the provided cwd to absolute path for comparison
+        target_cwd = cwd.resolve()
+
         # Scan date-based directory structure for session files
         for year_dir in sessions_dir.iterdir():
             if not year_dir.is_dir():
@@ -111,7 +114,32 @@ class CodexAgentCLI(AgentCLI):
                         continue
                     for session_file in day_dir.glob("rollout-*.jsonl"):
                         if session_id in session_file.name:
-                            return True
+                            # Found matching session file, now check workspace
+                            try:
+                                with open(session_file, "r", encoding="utf-8") as f:
+                                    # Read first line to get session metadata
+                                    first_line = f.readline().strip()
+                                    if first_line:
+                                        event = json.loads(first_line)
+                                        if event.get("type") == "session_meta":
+                                            payload = event.get("payload", {})
+                                            session_cwd = payload.get("cwd")
+                                            if session_cwd:
+                                                session_path = Path(
+                                                    session_cwd
+                                                ).resolve()
+                                                # Check if session was created in target directory or subdirectory
+                                                return (
+                                                    session_path == target_cwd
+                                                    or target_cwd
+                                                    in session_path.parents
+                                                    or session_path
+                                                    in target_cwd.parents
+                                                )
+                            except (json.JSONDecodeError, FileNotFoundError, Exception):
+                                # If we can't read the session metadata, don't include it
+                                continue
+                            return False
         return False
 
     def run_agent(
@@ -385,6 +413,12 @@ class CodexAgentCLI(AgentCLI):
                                 session_id = (
                                     session_file.stem
                                 )  # removes .jsonl extension
+
+                                # Filter by workspace if cwd provided
+                                if cwd and not self._session_matches_directory(
+                                    session_id, cwd
+                                ):
+                                    continue
 
                                 # Extract title from first message
                                 title = "New conversation"
