@@ -71,7 +71,16 @@ class CopilotAgentCLI(AgentCLI):
         try:
             return int(float(raw_value))
         except (TypeError, ValueError):
-            return None
+            pass
+
+        if isinstance(raw_value, str):
+            try:
+                parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+            return int(parsed.timestamp() * 1000)
+
+        return None
 
     def _session_matches_directory(self, session_id: str, cwd: Path) -> bool:
         """Check whether a session belongs to the provided working directory."""
