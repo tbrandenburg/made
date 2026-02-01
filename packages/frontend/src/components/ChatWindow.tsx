@@ -19,7 +19,7 @@ const formatTimestamp = (message: ChatMessage) => {
         : message.messageType === "tool"
           ? "🛠️ "
           : message.messageType === "final"
-            ? "🎯 "
+            ? "🤖 "
             : ""
       : "";
 
