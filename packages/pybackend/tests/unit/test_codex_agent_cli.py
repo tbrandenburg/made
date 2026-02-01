@@ -1,6 +1,5 @@
 """Unit tests for CodexAgentCLI implementation."""
 
-import json
 import tempfile
 import unittest.mock
 from pathlib import Path
@@ -108,7 +107,10 @@ invalid json line here
             day_dir = month_dir / "31"
             day_dir.mkdir(parents=True)
             session_file = day_dir / "rollout-session-123.jsonl"
-            session_file.touch()
+            # Create session file with metadata matching the test path
+            session_content = """{"type": "session_meta", "payload": {"cwd": "/test/path"}}
+{"type": "response_item", "content": "Previous session content"}"""
+            session_file.write_text(session_content, encoding="utf-8")
 
             mock_run.return_value.returncode = 0
             mock_run.return_value.stdout = (
@@ -206,15 +208,17 @@ invalid json line here
             day_dir = month_dir / "31"
             day_dir.mkdir(parents=True)
 
-            # Create session files with test content
+            # Create session files with test content (include session metadata)
             session_file1 = day_dir / "rollout-session-123.jsonl"
-            session_content = """{"type": "item.completed", "item": {"text": "First message content"}}
+            session_content = """{"type": "session_meta", "payload": {"cwd": "/test/workspace"}}
+{"type": "item.completed", "item": {"text": "First message content"}}
 {"type": "response_item", "content": {"parts": [{"type": "text", "text": "Response content"}]}}"""
             session_file1.write_text(session_content, encoding="utf-8")
 
             session_file2 = day_dir / "rollout-session-456.jsonl"
             session_file2.write_text(
-                '{"type": "item.completed", "item": {"text": "Second session"}}',
+                """{"type": "session_meta", "payload": {"cwd": "/test/workspace"}}
+{"type": "item.completed", "item": {"text": "Second session"}}""",
                 encoding="utf-8",
             )
 
@@ -224,7 +228,7 @@ invalid json line here
                 return_value=sessions_dir,
             ):
                 cli = CodexAgentCLI()
-                result = cli.list_sessions(Path("."))
+                result = cli.list_sessions(Path("/test/workspace"))
 
                 assert isinstance(result, SessionListResult)
                 assert result.success is True
@@ -465,3 +469,150 @@ invalid json line here
 
             # Should not raise exception but handle gracefully
             assert isinstance(result, AgentListResult)
+
+    def test_session_matches_directory_reads_metadata(self):
+        """Test that _session_matches_directory actually reads session metadata."""
+        cli = CodexAgentCLI()
+
+        # Create mock session file with metadata
+        session_content = """{"timestamp":"2026-02-01T08:15:19.387Z","type":"session_meta","payload":{"cwd":"/test/workspace"}}
+{"timestamp":"2026-02-01T08:15:19.387Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Hello"}]}}"""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            sessions_base = Path(temp_dir) / "sessions"
+            year_dir = sessions_base / "2026" / "02" / "01"
+            year_dir.mkdir(parents=True)
+
+            session_file = year_dir / "rollout-test-session.jsonl"
+            session_file.write_text(session_content, encoding="utf-8")
+
+            with unittest.mock.patch.object(
+                cli, "_get_codex_sessions_directory", return_value=sessions_base
+            ):
+                # Should match when paths are same
+                result = cli._session_matches_directory(
+                    "test-session", Path("/test/workspace")
+                )
+                assert result is True
+
+                # Should not match when paths are different
+                result = cli._session_matches_directory(
+                    "test-session", Path("/other/workspace")
+                )
+                assert result is False
+
+    def test_session_matches_directory_missing_metadata(self):
+        """Test _session_matches_directory with session missing metadata."""
+        cli = CodexAgentCLI()
+
+        # Create session file without session_meta
+        session_content = """{"timestamp":"2026-02-01T08:15:19.387Z","type":"response_item","content":"Hello"}"""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            sessions_base = Path(temp_dir) / "sessions"
+            year_dir = sessions_base / "2026" / "02" / "01"
+            year_dir.mkdir(parents=True)
+
+            session_file = year_dir / "rollout-test-session.jsonl"
+            session_file.write_text(session_content, encoding="utf-8")
+
+            with unittest.mock.patch.object(
+                cli, "_get_codex_sessions_directory", return_value=sessions_base
+            ):
+                # Should return False when no metadata found
+                result = cli._session_matches_directory(
+                    "test-session", Path("/any/workspace")
+                )
+                assert result is False
+
+    def test_session_matches_directory_malformed_json(self):
+        """Test _session_matches_directory with malformed JSON."""
+        cli = CodexAgentCLI()
+
+        # Create session file with malformed JSON
+        session_content = """{"invalid json here"""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            sessions_base = Path(temp_dir) / "sessions"
+            year_dir = sessions_base / "2026" / "02" / "01"
+            year_dir.mkdir(parents=True)
+
+            session_file = year_dir / "rollout-test-session.jsonl"
+            session_file.write_text(session_content, encoding="utf-8")
+
+            with unittest.mock.patch.object(
+                cli, "_get_codex_sessions_directory", return_value=sessions_base
+            ):
+                # Should handle gracefully and return False
+                result = cli._session_matches_directory(
+                    "test-session", Path("/any/workspace")
+                )
+                assert result is False
+
+    def test_list_sessions_filters_by_workspace(self):
+        """Test that list_sessions filters sessions by current workspace."""
+        cli = CodexAgentCLI()
+
+        # Create two session files in different workspaces
+        session1_content = """{"timestamp":"2026-02-01T08:15:19.387Z","type":"session_meta","payload":{"cwd":"/workspace1"}}
+{"timestamp":"2026-02-01T08:15:19.387Z","type":"response_item","content":"Session 1"}"""
+
+        session2_content = """{"timestamp":"2026-02-01T08:15:19.387Z","type":"session_meta","payload":{"cwd":"/workspace2"}}
+{"timestamp":"2026-02-01T08:15:19.387Z","type":"response_item","content":"Session 2"}"""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            sessions_base = Path(temp_dir) / "sessions"
+            year_dir = sessions_base / "2026" / "02" / "01"
+            year_dir.mkdir(parents=True)
+
+            # Create first session file
+            session1_file = year_dir / "rollout-session1.jsonl"
+            session1_file.write_text(session1_content, encoding="utf-8")
+
+            # Create second session file
+            session2_file = year_dir / "rollout-session2.jsonl"
+            session2_file.write_text(session2_content, encoding="utf-8")
+
+            with unittest.mock.patch.object(
+                cli, "_get_codex_sessions_directory", return_value=sessions_base
+            ):
+                # Should only return sessions from workspace1
+                result = cli.list_sessions(Path("/workspace1"))
+                assert result.success is True
+                assert len(result.sessions) == 1
+                assert "session1" in result.sessions[0].session_id
+
+                # Should only return sessions from workspace2
+                result = cli.list_sessions(Path("/workspace2"))
+                assert result.success is True
+                assert len(result.sessions) == 1
+                assert "session2" in result.sessions[0].session_id
+
+                # Should return empty list for different workspace
+                result = cli.list_sessions(Path("/workspace3"))
+                assert result.success is True
+                assert len(result.sessions) == 0
+
+    def test_list_sessions_no_cwd_returns_all(self):
+        """Test that list_sessions returns all sessions when no cwd provided."""
+        cli = CodexAgentCLI()
+
+        session_content = """{"timestamp":"2026-02-01T08:15:19.387Z","type":"session_meta","payload":{"cwd":"/any/workspace"}}
+{"timestamp":"2026-02-01T08:15:19.387Z","type":"response_item","content":"Session"}"""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            sessions_base = Path(temp_dir) / "sessions"
+            year_dir = sessions_base / "2026" / "02" / "01"
+            year_dir.mkdir(parents=True)
+
+            session_file = year_dir / "rollout-test-session.jsonl"
+            session_file.write_text(session_content, encoding="utf-8")
+
+            with unittest.mock.patch.object(
+                cli, "_get_codex_sessions_directory", return_value=sessions_base
+            ):
+                # Should return all sessions when no cwd provided
+                result = cli.list_sessions(None)
+                assert result.success is True
+                assert len(result.sessions) == 1
+                assert "test-session" in result.sessions[0].session_id
