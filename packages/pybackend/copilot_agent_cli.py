@@ -319,6 +319,18 @@ class CopilotAgentCLI(AgentCLI):
                             )
                         elif event_type == "assistant.message":
                             content = event_data.get("content", "")
+
+                            # If content is empty, try to extract tool call information
+                            if not content and "toolRequests" in event_data:
+                                tool_requests = event_data["toolRequests"]
+                                if tool_requests:
+                                    # Generate a summary of tool calls
+                                    tool_names = [
+                                        tr.get("name", "unknown")
+                                        for tr in tool_requests
+                                    ]
+                                    content = f"Calling {len(tool_names)} tool(s): {', '.join(tool_names)}"
+
                             messages.append(
                                 HistoryMessage(
                                     message_id=f"assistant-{line_num}",

@@ -405,6 +405,41 @@ class TestCopilotAgentCLI:
         # Clean up
         events_file.unlink()
 
+    def test_parse_events_jsonl_empty_content_with_tool_requests(self):
+        """Test _parse_events_jsonl extracts tool call info when content is empty."""
+        cli = CopilotAgentCLI()
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            # Assistant message with text content
+            f.write(
+                '{"type": "assistant.message", "data": {"content": "Let me check that file:"}, "timestamp": "2026-02-02T10:00:00.000Z"}\n'
+            )
+            # Assistant message with empty content but tool requests
+            f.write(
+                '{"type": "assistant.message", "data": {"content": "", "toolRequests": [{"name": "view", "toolCallId": "123"}, {"name": "bash", "toolCallId": "456"}]}, "timestamp": "2026-02-02T10:00:01.000Z"}\n'
+            )
+            # Another with single tool request
+            f.write(
+                '{"type": "assistant.message", "data": {"content": "", "toolRequests": [{"name": "edit", "toolCallId": "789"}]}, "timestamp": "2026-02-02T10:00:02.000Z"}\n'
+            )
+            events_file = Path(f.name)
+
+        messages = cli._parse_events_jsonl(events_file)
+
+        assert len(messages) == 3
+
+        # First message has regular content
+        assert messages[0].content == "Let me check that file:"
+
+        # Second message should have tool call summary
+        assert messages[1].content == "Calling 2 tool(s): view, bash"
+
+        # Third message should have single tool call summary
+        assert messages[2].content == "Calling 1 tool(s): edit"
+
+        # Clean up
+        events_file.unlink()
+
     def test_get_directory_key(self):
         """Test _get_directory_key method."""
         cli = CopilotAgentCLI()
