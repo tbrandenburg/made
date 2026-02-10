@@ -140,6 +140,10 @@ const MODEL_OPTIONS = [
     value: "openai/gpt-5.2-codex",
     label: "openai/gpt-5.2-codex",
   },
+  {
+    value: "openai/gpt-5.3-codex",
+    label: "openai/gpt-5.3-codex",
+  },
 ];
 
 type HarnessRun = {
