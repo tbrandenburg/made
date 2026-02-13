@@ -12,6 +12,7 @@ import { KnowledgeArtefactPage } from "./pages/KnowledgeArtefactPage";
 import { ConstitutionsPage } from "./pages/ConstitutionsPage";
 import { ConstitutionPage } from "./pages/ConstitutionPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { TasksPage } from "./pages/TasksPage";
 import "./styles/layout.css";
 
 const AppShell: React.FC = () => {
@@ -53,6 +54,7 @@ const AppShell: React.FC = () => {
           <Route path="/knowledge/:name" element={<KnowledgeArtefactPage />} />
           <Route path="/constitutions" element={<ConstitutionsPage />} />
           <Route path="/constitutions/:name" element={<ConstitutionPage />} />
+          <Route path="/tasks" element={<TasksPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>
