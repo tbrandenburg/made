@@ -23,6 +23,7 @@ def ensure_made_structure() -> Path:
     made_dir = ensure_directory(get_made_directory())
     ensure_directory(made_dir / "knowledge")
     ensure_directory(made_dir / "constitutions")
+    ensure_directory(made_dir / "tasks")
     return made_dir
 
 
