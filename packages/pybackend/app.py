@@ -41,6 +41,7 @@ from constitution_service import (
     read_constitution,
     write_constitution,
 )
+from task_service import list_tasks, read_task, write_task
 from dashboard_service import get_dashboard_summary
 from knowledge_service import (
     list_knowledge_artefacts,
@@ -881,6 +882,38 @@ def constitution_agent_sessions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
+
+
+@app.get("/api/tasks")
+def tasks():
+    try:
+        logger.info("Listing tasks")
+        return {"tasks": list_tasks()}
+    except Exception as exc:
+        logger.exception("Failed to list tasks")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/tasks/{name}")
+def task_item(name: str):
+    try:
+        logger.info("Reading task '%s'", name)
+        return read_task(name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@app.put("/api/tasks/{name}")
+def task_write(name: str, payload: dict = Body(...)):
+    try:
+        logger.info("Updating task '%s'", name)
+        write_task(name, payload.get("frontmatter", {}), payload.get("content", ""))
+        return {"success": True}
+    except Exception as exc:
+        logger.exception("Failed to update task '%s'", name)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
 @app.get("/api/repositories/{name}/agent/history")

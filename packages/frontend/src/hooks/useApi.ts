@@ -396,6 +396,13 @@ export const api = {
     request<AgentStatus>(`/constitutions/${name}/agent/status`),
   cancelConstitutionAgent: (name: string) =>
     request(`/constitutions/${name}/agent/cancel`, { method: "POST" }),
+  listTasks: () => request<{ tasks: ArtefactSummary[] }>("/tasks"),
+  getTask: (name: string) => request<MatterFile>(`/tasks/${name}`),
+  saveTask: (name: string, payload: MatterFile) =>
+    request(`/tasks/${name}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
   getSettings: () => request<Record<string, unknown>>("/settings"),
   saveSettings: (settings: Record<string, unknown>) =>
     request("/settings", {

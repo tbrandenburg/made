@@ -781,6 +781,41 @@ class TestConstitutionEndpoints:
         )
 
 
+class TestTaskEndpoints:
+    """Test task-related endpoints."""
+
+    @patch('app.list_tasks')
+    def test_list_tasks_success(self, mock_list):
+        mock_tasks = ["task1.md", "task2.md"]
+        mock_list.return_value = mock_tasks
+
+        response = client.get("/api/tasks")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["tasks"] == mock_tasks
+
+    @patch('app.read_task')
+    def test_read_task_success(self, mock_read):
+        mock_data = {"frontmatter": {"type": "task"}, "content": "- [ ] Item"}
+        mock_read.return_value = mock_data
+
+        response = client.get("/api/tasks/test-task")
+
+        assert response.status_code == 200
+        assert response.json() == mock_data
+
+    @patch('app.write_task')
+    def test_write_task_success(self, mock_write):
+        payload = {"frontmatter": {"type": "task"}, "content": "- [x] Done"}
+
+        response = client.put("/api/tasks/test-task", json=payload)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+
+
 class TestSettingsEndpoints:
     """Test settings-related endpoints."""
 
