@@ -136,6 +136,7 @@ const MODEL_OPTIONS = [
     label: "openai/gpt-5.1-codex-mini",
   },
   { value: "openai/gpt-5.2", label: "openai/gpt-5.2" },
+  { value: "openai/gpt-5.3", label: "openai/gpt-5.3" },
   {
     value: "openai/gpt-5.2-codex",
     label: "openai/gpt-5.2-codex",
