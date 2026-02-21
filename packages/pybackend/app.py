@@ -916,6 +916,98 @@ def task_write(name: str, payload: dict = Body(...)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
+@app.post("/api/tasks/{name}/agent")
+def task_agent(name: str, payload: dict = Body(...)):
+    message = payload.get("message")
+    session_id = payload.get("sessionId")
+    agent = payload.get("agent")
+    model = payload.get("model")
+    if not message:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
+        )
+    try:
+        logger.info(
+            "Forwarding agent message for task '%s' (session: %s, agent: %s)",
+            name,
+            session_id or "new",
+            agent or "default",
+        )
+        return send_agent_message(f"task:{name}", message, session_id, agent, model)
+    except ChannelBusyError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+@app.get("/api/tasks/{name}/agent/status")
+def task_agent_status(name: str):
+    return get_channel_status(f"task:{name}")
+
+
+@app.post("/api/tasks/{name}/agent/cancel")
+def task_agent_cancel(name: str):
+    if not cancel_agent_message(f"task:{name}"):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active agent process to cancel",
+        )
+    return {"success": True}
+
+
+@app.get("/api/tasks/{name}/agent/history")
+def task_agent_history(
+    name: str,
+    session_id: str | None = Query(default=None),
+    start: int | str | None = Query(default=None),
+):
+    try:
+        normalized_start = int(start) if start is not None else None
+        logger.info(
+            "Exporting agent history for task '%s' (session: %s, start: %s)",
+            name,
+            session_id or "current",
+            start,
+        )
+        return export_chat_history(session_id, normalized_start, f"task:{name}")
+    except ValueError as exc:
+        logger.warning(
+            "Bad request exporting agent history for task '%s' (session: %s, start: %s): %s",
+            name,
+            session_id or "current",
+            start,
+            exc,
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        logger.exception(
+            "Unexpected error exporting history for task '%s' (session: %s, start: %s)",
+            name,
+            session_id or "current",
+            start,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/tasks/{name}/agent/sessions")
+def task_agent_sessions(
+    name: str,
+    limit: int = Query(default=10, ge=1, le=50),
+):
+    try:
+        logger.info("Listing agent sessions for task '%s' (limit: %s)", name, limit)
+        return {"sessions": list_chat_sessions(f"task:{name}", limit)}
+    except Exception as exc:  # pragma: no cover - passthrough errors
+        logger.exception(
+            "Unexpected error listing sessions for task '%s' (limit: %s)",
+            name,
+            limit,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
 @app.get("/api/repositories/{name}/agent/history")
 def repository_agent_history(
     name: str,

@@ -12,6 +12,17 @@ export const TasksPage: React.FC = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const navigate = useNavigate();
+  const isTemplate = (task: ArtefactSummary) => {
+    if (typeof task.type === "string") {
+      return task.type === "template";
+    }
+    const frontmatterType = task.frontmatter?.type;
+    return typeof frontmatterType === "string" && frontmatterType === "template";
+  };
+  const templateTasks = tasks.filter(isTemplate);
+  const documentTasks = tasks.filter(
+    (task) => !isTemplate(task),
+  );
 
   const loadTasks = () => {
     api
@@ -29,12 +40,10 @@ export const TasksPage: React.FC = () => {
     const filename = newName.trim().endsWith(".md")
       ? newName.trim()
       : `${newName.trim()}.md`;
-
     await api.saveTask(filename, {
       content: "# New Task\n\n- [ ] Define work\n",
       frontmatter: { type: "task" },
     });
-
     setCreateOpen(false);
     setNewName("");
     loadTasks();
@@ -59,24 +68,55 @@ export const TasksPage: React.FC = () => {
                     Create Task
                   </button>
                 </div>
-                <Panel title="Tasks">
-                  <div className="panel-column">
-                    {tasks.map((task) => (
-                      <Panel
-                        key={task.name}
-                        title={task.name}
-                        to={`/tasks/${task.name}`}
-                      >
-                        <div className="metadata">
-                          <span className="badge">task</span>
-                        </div>
-                      </Panel>
-                    ))}
-                  </div>
-                </Panel>
-                {tasks.length === 0 && (
-                  <div className="empty">No tasks available.</div>
-                )}
+                <div className="panel-column">
+                  {templateTasks.length > 0 && (
+                    <Panel title="Templates">
+                      <div className="panel-column">
+                        {templateTasks.map((task) => (
+                          <Panel
+                            key={task.name}
+                            title={task.name}
+                            to={`/tasks/${task.name}`}
+                          >
+                            <div className="metadata">
+                              {typeof task.frontmatter?.type ===
+                                "string" && (
+                                <span className="badge">
+                                  {String(task.frontmatter.type)}
+                                </span>
+                              )}
+                            </div>
+                          </Panel>
+                        ))}
+                      </div>
+                    </Panel>
+                  )}
+                  {documentTasks.length > 0 && (
+                    <Panel title="Documents">
+                      <div className="panel-column">
+                        {documentTasks.map((task) => (
+                          <Panel
+                            key={task.name}
+                            title={task.name}
+                            to={`/tasks/${task.name}`}
+                          >
+                            <div className="metadata">
+                              {typeof task.frontmatter?.type ===
+                                "string" && (
+                                <span className="badge">
+                                  {String(task.frontmatter.type)}
+                                </span>
+                              )}
+                            </div>
+                          </Panel>
+                        ))}
+                      </div>
+                    </Panel>
+                  )}
+                  {tasks.length === 0 && (
+                    <div className="empty">No tasks available.</div>
+                  )}
+                </div>
               </>
             ),
           },
@@ -85,7 +125,11 @@ export const TasksPage: React.FC = () => {
         onTabChange={setActiveTab}
       />
 
-      <Modal open={createOpen} title="Create Task" onClose={() => setCreateOpen(false)}>
+      <Modal
+        open={createOpen}
+        title="Create Task"
+        onClose={() => setCreateOpen(false)}
+      >
         <div className="form-group">
           <label htmlFor="task-name">File name</label>
           <input
