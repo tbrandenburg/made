@@ -265,11 +265,38 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                         # If there are parts, combine them
                         content_parts = []
                         for part in parts:
-                            part_content = part["json"].get("content", "")
+                            part_data = part["json"]
+                            part_type = part_data.get("type", "")
+
+                            # Extract content from different OpenCode part types
+                            part_content = ""
+                            if part_type == "text":
+                                # User input or initial text content
+                                part_content = part_data.get("text", "")
+                            elif part_type == "reasoning":
+                                # Assistant reasoning steps
+                                part_content = part_data.get("text", "")
+                            elif part_type == "tool":
+                                # Tool invocations - show tool name
+                                tool_name = part_data.get("tool", "")
+                                if tool_name:
+                                    part_content = f"[Tool: {tool_name}]"
+                            elif part_type in ["step-start", "step-finish"]:
+                                # Skip metadata-only parts
+                                continue
+                            else:
+                                # Fallback: check text, content, or other fields
+                                part_content = (
+                                    part_data.get("text", "")
+                                    or part_data.get("content", "")
+                                    or part_data.get("tool", "")
+                                )
+
                             if part_content:
                                 content_parts.append(part_content)
+
                         content = (
-                            "\n".join(content_parts)
+                            "\n\n".join(content_parts)
                             if content_parts
                             else msg_json.get("content", "")
                         )
