@@ -80,6 +80,41 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
         except sqlite3.Error:
             return False
 
+    def _normalize_epoch_milliseconds(self, raw_value: Any) -> int | None:
+        """Normalize epoch timestamps in seconds/ms/us/ns to milliseconds."""
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            return None
+
+        magnitude = abs(value)
+        seconds = value
+
+        if magnitude >= 1e17:
+            # Nanoseconds
+            seconds = value / 1_000_000_000
+        elif magnitude >= 1e14:
+            # Microseconds
+            seconds = value / 1_000_000
+        elif magnitude >= 1e11:
+            # Milliseconds
+            seconds = value / 1_000
+
+        return int(seconds * 1000)
+
+    def _format_session_updated(self, raw_value: Any) -> str:
+        """Format session update timestamp safely for display."""
+        normalized = self._normalize_epoch_milliseconds(raw_value)
+        if normalized is None:
+            return "Unknown"
+
+        try:
+            return datetime.fromtimestamp(normalized / 1000).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+        except (OverflowError, OSError, ValueError):
+            return "Unknown"
+
     def list_sessions(self, cwd: Path | None) -> SessionListResult:
         """List available sessions and return structured result."""
         try:
@@ -114,17 +149,7 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                     )
 
                 for row in cursor.fetchall():
-                    # Convert timestamp to human-readable format
-                    try:
-                        if row["time_updated"]:
-                            timestamp = float(row["time_updated"])
-                            updated = datetime.fromtimestamp(timestamp).strftime(
-                                "%Y-%m-%d %H:%M:%S"
-                            )
-                        else:
-                            updated = "Unknown"
-                    except (TypeError, ValueError):
-                        updated = "Unknown"
+                    updated = self._format_session_updated(row["time_updated"])
 
                     sessions.append(
                         SessionInfo(
@@ -254,12 +279,9 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                     # Convert timestamp
                     timestamp = None
                     if data["timestamp"]:
-                        try:
-                            timestamp = int(
-                                float(data["timestamp"]) * 1000
-                            )  # Convert to milliseconds
-                        except (TypeError, ValueError):
-                            timestamp = None
+                        timestamp = self._normalize_epoch_milliseconds(
+                            data["timestamp"]
+                        )
 
                     messages.append(
                         HistoryMessage(

@@ -173,6 +173,39 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
         finally:
             temp_db_path.unlink(missing_ok=True)
 
+    def test_list_sessions_with_millisecond_timestamp(self):
+        """Test session listing handles millisecond epoch timestamps."""
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as temp_db:
+            temp_db_path = Path(temp_db.name)
+
+        try:
+            with sqlite3.connect(temp_db_path) as conn:
+                conn.execute("""
+                    CREATE TABLE session (
+                        id TEXT PRIMARY KEY,
+                        title TEXT,
+                        directory TEXT,
+                        time_updated REAL
+                    )
+                """)
+                conn.execute("""
+                    INSERT INTO session (id, title, directory, time_updated)
+                    VALUES ('session_ms', 'Millisecond Session', '/test/dir', 1763729204675)
+                """)
+                conn.commit()
+
+            with patch.object(
+                self.cli, "_get_database_path", return_value=temp_db_path
+            ):
+                result = self.cli.list_sessions(Path("/test/dir"))
+
+            self.assertTrue(result.success)
+            self.assertEqual(len(result.sessions), 1)
+            self.assertNotEqual(result.sessions[0].updated, "Unknown")
+
+        finally:
+            temp_db_path.unlink(missing_ok=True)
+
     def test_export_session_database_not_found(self):
         """Test export_session when database doesn't exist."""
         with patch.object(self.cli, "_get_database_path", return_value=None):
@@ -251,6 +284,64 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
             self.assertEqual(len(result.messages), 1)
             self.assertEqual(result.messages[0].role, "user")
             self.assertEqual(result.messages[0].content, "Hello, world!")
+
+        finally:
+            temp_db_path.unlink(missing_ok=True)
+
+    def test_export_session_preserves_millisecond_timestamp(self):
+        """Test export_session keeps millisecond timestamps stable."""
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as temp_db:
+            temp_db_path = Path(temp_db.name)
+
+        try:
+            with sqlite3.connect(temp_db_path) as conn:
+                conn.execute("""
+                    CREATE TABLE session (
+                        id TEXT PRIMARY KEY,
+                        title TEXT,
+                        directory TEXT,
+                        time_updated REAL
+                    )
+                """)
+                conn.execute("""
+                    CREATE TABLE message (
+                        id TEXT PRIMARY KEY,
+                        session_id TEXT,
+                        time_created REAL,
+                        data TEXT
+                    )
+                """)
+                conn.execute("""
+                    CREATE TABLE part (
+                        id TEXT PRIMARY KEY,
+                        message_id TEXT,
+                        time_created REAL,
+                        data TEXT
+                    )
+                """)
+                conn.execute("""
+                    INSERT INTO session (id, title, directory, time_updated)
+                    VALUES ('session1', 'Test Session', '/test/dir', 1763729204675)
+                """)
+
+                message_data = json.dumps({"role": "user", "content": "Hello"})
+                conn.execute(
+                    """
+                    INSERT INTO message (id, session_id, time_created, data)
+                    VALUES ('msg1', 'session1', 1763729204675, ?)
+                """,
+                    (message_data,),
+                )
+                conn.commit()
+
+            with patch.object(
+                self.cli, "_get_database_path", return_value=temp_db_path
+            ):
+                result = self.cli.export_session("session1", None)
+
+            self.assertTrue(result.success)
+            self.assertEqual(len(result.messages), 1)
+            self.assertEqual(result.messages[0].timestamp, 1763729204675)
 
         finally:
             temp_db_path.unlink(missing_ok=True)
