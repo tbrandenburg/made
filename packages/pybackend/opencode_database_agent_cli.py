@@ -427,7 +427,7 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                 part_type = "final"
             elif part_type_raw in ["tool", "tool_use"]:
                 part_type = "tool"
-            elif part_type_raw == "thinking":
+            elif part_type_raw in ["thinking", "reasoning"]:
                 part_type = "thinking"
             else:
                 part_type = "final"  # default fallback
