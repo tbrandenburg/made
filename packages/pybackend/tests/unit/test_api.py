@@ -815,6 +815,69 @@ class TestTaskEndpoints:
         data = response.json()
         assert data["success"] is True
 
+    @patch('app.send_agent_message')
+    def test_task_agent_success(self, mock_agent):
+        mock_agent.return_value = {"response": "Agent response"}
+
+        response = client.post("/api/tasks/test-task/agent", json={"message": "Plan next step"})
+
+        assert response.status_code == 200
+        mock_agent.assert_called_once_with(
+            "task:test-task",
+            "Plan next step",
+            None,
+            None,
+            None,
+        )
+
+    @patch('app.get_channel_status')
+    def test_task_agent_status(self, mock_status):
+        mock_status.return_value = {"processing": False}
+
+        response = client.get("/api/tasks/test-task/agent/status")
+
+        assert response.status_code == 200
+        assert response.json() == {"processing": False}
+
+    @patch('app.cancel_agent_message')
+    def test_task_agent_cancel_success(self, mock_cancel):
+        mock_cancel.return_value = True
+
+        response = client.post("/api/tasks/test-task/agent/cancel")
+
+        assert response.status_code == 200
+        assert response.json() == {"success": True}
+
+    @patch('app.cancel_agent_message')
+    def test_task_agent_cancel_not_found(self, mock_cancel):
+        mock_cancel.return_value = False
+
+        response = client.post("/api/tasks/test-task/agent/cancel")
+
+        assert response.status_code == 404
+
+    @patch('app.export_chat_history')
+    def test_task_agent_history_success(self, mock_export):
+        mock_export.return_value = {"sessionId": "ses_t", "messages": []}
+
+        response = client.get(
+            "/api/tasks/test-task/agent/history",
+            params={"session_id": "ses_t", "start": 50},
+        )
+
+        assert response.status_code == 200
+        mock_export.assert_called_once_with("ses_t", 50, "task:test-task")
+
+    @patch('app.list_chat_sessions')
+    def test_task_agent_sessions_success(self, mock_sessions):
+        sessions = [{"id": "ses_t", "title": "Task Session", "updated": "2024-01-01T00:00:00Z"}]
+        mock_sessions.return_value = sessions
+
+        response = client.get("/api/tasks/test-task/agent/sessions", params={"limit": 5})
+
+        assert response.status_code == 200
+        assert response.json() == {"sessions": sessions}
+
 
 class TestSettingsEndpoints:
     """Test settings-related endpoints."""
@@ -887,5 +950,12 @@ class TestAgentMessageValidation:
         """Test constitution agent without message."""
         response = client.post("/api/constitutions/test-const/agent", json={})
         
+        assert response.status_code == 400
+        assert "Message is required" in response.json()["detail"]
+
+    def test_task_agent_no_message(self):
+        """Test task agent without message."""
+        response = client.post("/api/tasks/test-task/agent", json={})
+
         assert response.status_code == 400
         assert "Message is required" in response.json()["detail"]

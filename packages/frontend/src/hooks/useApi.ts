@@ -403,6 +403,37 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
+  sendTaskAgent: (name: string, message: string, sessionId?: string) =>
+    request<AgentReply>(`/tasks/${name}/agent`, {
+      method: "POST",
+      body: JSON.stringify({ message, sessionId }),
+    }),
+  getTaskAgentStatus: (name: string) =>
+    request<AgentStatus>(`/tasks/${name}/agent/status`),
+  cancelTaskAgent: (name: string) =>
+    request(`/tasks/${name}/agent/cancel`, { method: "POST" }),
+  getTaskAgentHistory: (
+    name: string,
+    sessionId: string,
+    startTimestamp?: number,
+    signal?: AbortSignal,
+  ) => {
+    const params = new URLSearchParams({ session_id: sessionId });
+    if (typeof startTimestamp === "number" && Number.isFinite(startTimestamp)) {
+      params.append("start", Math.floor(startTimestamp).toString());
+    }
+
+    return request<ChatHistoryResponse>(
+      `/tasks/${name}/agent/history?${params.toString()}`,
+      { signal },
+    );
+  },
+  getTaskAgentSessions: (name: string, limit = 10) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    return request<{ sessions: ChatSession[] }>(
+      `/tasks/${name}/agent/sessions?${params.toString()}`,
+    );
+  },
   getSettings: () => request<Record<string, unknown>>("/settings"),
   saveSettings: (settings: Record<string, unknown>) =>
     request("/settings", {
