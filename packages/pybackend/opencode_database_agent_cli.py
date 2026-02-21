@@ -381,12 +381,23 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
         """Extract content from a response part."""
         if part_type in {"text"}:
             return str(part.get("text") or "")
-        if part_type in {"tool_use", "tool"}:
+        elif part_type == "reasoning":
+            # Assistant reasoning steps - check reasoning field first, then text
+            return str(part.get("reasoning") or part.get("text") or "")
+        elif part_type in {"tool_use", "tool"}:
             for key in ("tool", "name", "id"):
                 if part.get(key):
                     return str(part[key])
             return ""
-        return ""
+        elif part_type in ["step-start", "step-finish"]:
+            # Skip metadata-only parts
+            return ""
+        else:
+            # Fallback: check text, content, or other fields (matches export_session logic)
+            content = (
+                part.get("text", "") or part.get("content", "") or part.get("tool", "")
+            )
+            return str(content) if content else ""
 
     def _parse_opencode_output(
         self, stdout: str
@@ -424,13 +435,15 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
             content = self._extract_part_content(part, part_type_raw)
             timestamp = self._to_milliseconds(part.get("timestamp"))
 
-            response_parts.append(
-                ResponsePart(
-                    text=content,
-                    part_type=part_type,
-                    timestamp=timestamp,
+            # Only create ResponsePart if we have actual content (matches export_session behavior)
+            if content:
+                response_parts.append(
+                    ResponsePart(
+                        text=content,
+                        part_type=part_type,
+                        timestamp=timestamp,
+                    )
                 )
-            )
 
         return session_id, response_parts
 
