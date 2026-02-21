@@ -261,29 +261,59 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                     # Determine role and content from message data
                     role = msg_json.get("role", "assistant")
 
+                    # Convert message timestamp
+                    base_timestamp = None
+                    if data["timestamp"]:
+                        base_timestamp = self._normalize_epoch_milliseconds(
+                            data["timestamp"]
+                        )
+
                     if parts:
-                        # If there are parts, combine them
-                        content_parts = []
+                        # Create separate messages for different part types
+                        text_parts = []
+
                         for part in parts:
                             part_data = part["json"]
                             part_type = part_data.get("type", "")
 
-                            # Extract content from different OpenCode part types
-                            part_content = ""
+                            # Get part-specific timestamp or use message timestamp
+                            part_timestamp = None
+                            if part["timestamp"]:
+                                part_timestamp = self._normalize_epoch_milliseconds(
+                                    part["timestamp"]
+                                )
+                            part_timestamp = part_timestamp or base_timestamp
+
                             if part_type == "text":
-                                # User input or initial text content
+                                # User input or assistant text content
                                 part_content = part_data.get("text", "")
+                                if part_content:
+                                    text_parts.append(part_content)
+
                             elif part_type == "reasoning":
-                                # Assistant reasoning steps
+                                # Assistant reasoning steps - add as text content
                                 part_content = part_data.get("text", "")
+                                if part_content:
+                                    text_parts.append(part_content)
+
                             elif part_type == "tool":
-                                # Tool invocations - show tool name
+                                # Tool invocations - create separate tool message
                                 tool_name = part_data.get("tool", "")
                                 if tool_name:
-                                    part_content = f"[Tool: {tool_name}]"
+                                    messages.append(
+                                        HistoryMessage(
+                                            message_id=f"{msg_id}_tool_{part['id']}",
+                                            role=role,
+                                            content_type="tool_use",
+                                            content=tool_name,
+                                            timestamp=part_timestamp,
+                                        )
+                                    )
+
                             elif part_type in ["step-start", "step-finish"]:
                                 # Skip metadata-only parts
                                 continue
+
                             else:
                                 # Fallback: check text, content, or other fields
                                 part_content = (
@@ -291,34 +321,34 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                                     or part_data.get("content", "")
                                     or part_data.get("tool", "")
                                 )
+                                if part_content:
+                                    text_parts.append(part_content)
 
-                            if part_content:
-                                content_parts.append(part_content)
-
-                        content = (
-                            "\n\n".join(content_parts)
-                            if content_parts
-                            else msg_json.get("content", "")
-                        )
+                        # Create main text message if we have text content
+                        if text_parts:
+                            content = "\n\n".join(text_parts)
+                            messages.append(
+                                HistoryMessage(
+                                    message_id=msg_id,
+                                    role=role,
+                                    content_type="text",
+                                    content=content,
+                                    timestamp=base_timestamp,
+                                )
+                            )
                     else:
+                        # No parts - use message content directly
                         content = msg_json.get("content", "")
-
-                    # Convert timestamp
-                    timestamp = None
-                    if data["timestamp"]:
-                        timestamp = self._normalize_epoch_milliseconds(
-                            data["timestamp"]
-                        )
-
-                    messages.append(
-                        HistoryMessage(
-                            message_id=msg_id,
-                            role=role,
-                            content_type="text",
-                            content=content,
-                            timestamp=timestamp,
-                        )
-                    )
+                        if content:  # Only create message if there's content
+                            messages.append(
+                                HistoryMessage(
+                                    message_id=msg_id,
+                                    role=role,
+                                    content_type="text",
+                                    content=content,
+                                    timestamp=base_timestamp,
+                                )
+                            )
 
             logger.info(f"Exported {len(messages)} messages from session {session_id}")
             return ExportResult(success=True, session_id=session_id, messages=messages)
