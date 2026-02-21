@@ -6,6 +6,7 @@ from pathlib import Path
 from threading import Event, Lock
 
 from agent_cli import OpenCodeAgentCLI
+from opencode_database_agent_cli import OpenCodeDatabaseAgentCLI
 from copilot_agent_cli import CopilotAgentCLI
 from kiro_agent_cli import KiroAgentCLI
 from codex_agent_cli import CodexAgentCLI
@@ -34,12 +35,16 @@ def get_agent_cli():
             return CopilotAgentCLI()
         elif agent_cli_setting == "codex":
             return CodexAgentCLI()
-        else:
-            # Default to OpenCode for any other value
+        elif agent_cli_setting == "opencode":
+            return OpenCodeDatabaseAgentCLI()
+        elif agent_cli_setting == "opencode-legacy":
             return OpenCodeAgentCLI()
+        else:
+            # Default to hybrid OpenCode for any other value
+            return OpenCodeDatabaseAgentCLI()
     except Exception:
-        # Fallback to OpenCode if settings can't be read
-        return OpenCodeAgentCLI()
+        # Fallback to hybrid OpenCode if settings can't be read
+        return OpenCodeDatabaseAgentCLI()
 
 
 # Backward compatibility for tests
