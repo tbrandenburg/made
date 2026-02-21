@@ -339,16 +339,17 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                     else:
                         # No parts - use message content directly
                         content = msg_json.get("content", "")
-                        if content:  # Only create message if there's content
-                            messages.append(
-                                HistoryMessage(
-                                    message_id=msg_id,
-                                    role=role,
-                                    content_type="text",
-                                    content=content,
-                                    timestamp=base_timestamp,
-                                )
+                        # Always create message for database records, even with empty content
+                        # This handles cases like malformed JSON gracefully
+                        messages.append(
+                            HistoryMessage(
+                                message_id=msg_id,
+                                role=role,
+                                content_type="text",
+                                content=content,
+                                timestamp=base_timestamp,
                             )
+                        )
 
             logger.info(f"Exported {len(messages)} messages from session {session_id}")
             return ExportResult(success=True, session_id=session_id, messages=messages)
