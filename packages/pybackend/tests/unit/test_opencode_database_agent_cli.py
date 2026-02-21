@@ -647,6 +647,44 @@ custom_agent (Custom)
         self.assertEqual(parts[1].text, "calculator")
         self.assertEqual(parts[1].part_type, "tool")
 
+    def test_parse_opencode_output_with_reasoning(self):
+        """Test parsing opencode output with reasoning parts (fixes empty [agent:final] issue)."""
+        output = """{"session_id": "ses_456"}
+{"part": {"type": "reasoning", "text": "I need to analyze this problem", "timestamp": 1640995100000}}
+{"part": {"type": "text", "text": "Here's my final answer", "timestamp": 1640995200000}}"""
+
+        session_id, parts = self.cli._parse_opencode_output(output)
+
+        self.assertEqual(session_id, "ses_456")
+        self.assertEqual(len(parts), 2)
+        self.assertEqual(parts[0].text, "I need to analyze this problem")
+        self.assertEqual(
+            parts[0].part_type, "thinking"
+        )  # reasoning should be mapped to thinking
+        self.assertEqual(parts[1].text, "Here's my final answer")
+        self.assertEqual(parts[1].part_type, "final")
+
+    def test_extract_part_content_reasoning(self):
+        """Test extracting content from reasoning parts."""
+        part: dict[str, object] = {
+            "type": "reasoning",
+            "text": "Let me think about this",
+        }
+        result = self.cli._extract_part_content(part, "reasoning")
+        self.assertEqual(result, "Let me think about this")
+
+    def test_extract_part_content_fallback(self):
+        """Test extracting content using fallback logic."""
+        # Test content field fallback
+        part: dict[str, object] = {"content": "Some content"}
+        result = self.cli._extract_part_content(part, "unknown_type")
+        self.assertEqual(result, "Some content")
+
+        # Test empty content filtering
+        part_empty: dict[str, object] = {"type": "unknown"}
+        result_empty = self.cli._extract_part_content(part_empty, "unknown_type")
+        self.assertEqual(result_empty, "")
+
     def test_extract_part_content_text(self):
         """Test extracting content from text parts."""
         part: dict[str, object] = {"text": "Hello, world!"}

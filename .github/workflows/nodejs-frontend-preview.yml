@@ -121,19 +121,79 @@ jobs:
       - name: Install opencode
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         run: |
-          set -euo pipefail
-          INSTALL_DIR="$HOME/.opencode/bin"
-          mkdir -p "$INSTALL_DIR"
+           set -euo pipefail
+           INSTALL_DIR="$HOME/.opencode/bin"
+           mkdir -p "$INSTALL_DIR"
 
-          TMPDIR="$(mktemp -d)"
-          trap 'rm -rf "$TMPDIR"' EXIT
-          ARCHIVE_PATH="$TMPDIR/opencode.tar.gz"
+           TMPDIR="$(mktemp -d)"
+           trap 'rm -rf "$TMPDIR"' EXIT
+           ARCHIVE_PATH="$TMPDIR/opencode.tar.gz"
+           DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-x64.tar.gz"
 
-          curl -fsSL "https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-x64.tar.gz" -o "$ARCHIVE_PATH"
-          tar -xzf "$ARCHIVE_PATH" -C "$TMPDIR"
-          install "$TMPDIR/opencode" "$INSTALL_DIR/opencode"
+           # Robust download function with retry logic and fallback
+           download_with_retry() {
+             local url="$1"
+             local output="$2"
+             local max_attempts=3
+             
+             echo "🔄 Downloading OpenCode CLI from GitHub releases..."
+             
+             # Try curl with retries
+             for attempt in $(seq 1 $max_attempts); do
+               echo "📥 Attempt $attempt/$max_attempts using curl..."
+               if curl --connect-timeout 30 --max-time 120 --retry-connrefused \
+                       --fail --silent --show-error --location \
+                       "$url" -o "$output"; then
+                 echo "✅ Download successful with curl on attempt $attempt"
+                 return 0
+               else
+                 local exit_code=$?
+                 echo "❌ curl attempt $attempt failed (exit code: $exit_code)"
+                 if [ $attempt -lt $max_attempts ]; then
+                   local delay=$((attempt * 5))
+                   echo "⏳ Waiting ${delay}s before retry..."
+                   sleep $delay
+                 fi
+               fi
+             done
+             
+             # Fallback to wget if curl failed
+             echo "🔄 Trying fallback method with wget..."
+             if wget --timeout=30 --tries=2 --waitretry=5 -q "$url" -O "$output"; then
+               echo "✅ Download successful with wget fallback"
+               return 0
+             else
+               echo "❌ wget fallback also failed"
+               return 1
+             fi
+           }
 
-          echo "$INSTALL_DIR" >> "$GITHUB_PATH"
+           # Download with robust retry logic
+           if ! download_with_retry "$DOWNLOAD_URL" "$ARCHIVE_PATH"; then
+             echo "💥 Failed to download OpenCode CLI after all retry attempts and fallbacks"
+             echo "🔍 This is likely a temporary CDN issue. Please retry the workflow."
+             exit 1
+           fi
+
+           # Validate download
+           if [ ! -f "$ARCHIVE_PATH" ] || [ ! -s "$ARCHIVE_PATH" ]; then
+             echo "❌ Downloaded file is missing or empty"
+             exit 1
+           fi
+           
+           file_size=$(stat -f%z "$ARCHIVE_PATH" 2>/dev/null || stat -c%s "$ARCHIVE_PATH" 2>/dev/null || echo "0")
+           if [ "$file_size" -lt 100000 ]; then
+             echo "❌ Downloaded file seems too small ($file_size bytes), likely corrupted"
+             exit 1
+           fi
+           
+           echo "✅ Downloaded file validated ($file_size bytes)"
+
+           # Extract and install
+           tar -xzf "$ARCHIVE_PATH" -C "$TMPDIR"
+           install "$TMPDIR/opencode" "$INSTALL_DIR/opencode"
+
+           echo "$INSTALL_DIR" >> "$GITHUB_PATH"
 
       # ------------------------------------------------------
       # Configure OpenCode
