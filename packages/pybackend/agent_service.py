@@ -402,7 +402,6 @@ def send_agent_message(
         # Check if cancelled before running
         if _was_channel_cancelled(channel):
             response = "Agent request cancelled."
-            parsed_responses = []
         else:
             # Use typed interface
             agent_cli = get_agent_cli()
@@ -437,7 +436,6 @@ def send_agent_message(
                 )
             else:
                 response = result.error_message or "Command failed with no output"
-                parsed_responses = []
 
                 logger.error(
                     "Agent command failed (channel: %s, session: %s): %s",

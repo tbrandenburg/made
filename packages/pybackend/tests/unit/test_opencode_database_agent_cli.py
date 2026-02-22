@@ -5,17 +5,9 @@ import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from opencode_database_agent_cli import OpenCodeDatabaseAgentCLI
-from agent_results import (
-    SessionListResult,
-    ExportResult,
-    AgentListResult,
-    RunResult,
-    AgentInfo,
-    ResponsePart,
-)
 
 
 class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
