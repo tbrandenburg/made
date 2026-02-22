@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import time
 from pathlib import Path
 from typing import Any, Callable
 from threading import Event
@@ -25,7 +26,6 @@ from agent_results import (
     AgentListResult,
     AgentInfo,
     RunResult,
-    ResponsePart,
 )
 
 logger = logging.getLogger(__name__)
@@ -399,54 +399,6 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
             )
             return str(content) if content else ""
 
-    def _parse_opencode_output(
-        self, stdout: str
-    ) -> tuple[str | None, list[ResponsePart]]:
-        """Parse opencode JSON output into structured response parts."""
-        session_id = None
-        parts: list[dict[str, object]] = []
-
-        for line in stdout.strip().split("\n"):
-            if not line:
-                continue
-            try:
-                data = json.loads(line)
-                if isinstance(data, dict):
-                    if "session_id" in data and session_id is None:
-                        session_id = str(data["session_id"])
-                    if "part" in data:
-                        parts.append(data["part"])
-            except json.JSONDecodeError:
-                continue
-
-        response_parts = []
-        for part in parts:
-            part_type_raw = str(part.get("type", ""))
-            # Map opencode part types to ResponsePart types
-            if part_type_raw in ["text", "final"]:
-                part_type = "final"
-            elif part_type_raw in ["tool", "tool_use"]:
-                part_type = "tool"
-            elif part_type_raw in ["thinking", "reasoning"]:
-                part_type = "thinking"
-            else:
-                part_type = "final"  # default fallback
-
-            content = self._extract_part_content(part, part_type_raw)
-            timestamp = self._to_milliseconds(part.get("timestamp"))
-
-            # Only create ResponsePart if we have actual content (matches export_session behavior)
-            if content:
-                response_parts.append(
-                    ResponsePart(
-                        text=content,
-                        part_type=part_type,
-                        timestamp=timestamp,
-                    )
-                )
-
-        return session_id, response_parts
-
     def _parse_agent_list(self, output: str) -> list[AgentInfo]:
         """Parse agent list output."""
         agents: list[AgentInfo] = []
@@ -573,13 +525,27 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                             )
 
             if process.returncode == 0:
-                parsed_session_id, response_parts = self._parse_opencode_output(
-                    stdout or ""
-                )
+                # Extract only session_id from output, no response parsing
+                extracted_session_id = session_id  # Default to input session_id
+                if stdout:
+                    for line in stdout.strip().split("\n"):
+                        if line:
+                            try:
+                                data = json.loads(line)
+                                if isinstance(data, dict) and "session_id" in data:
+                                    extracted_session_id = str(data["session_id"])
+                                    break
+                            except json.JSONDecodeError:
+                                continue
+
+                # Generate session_id if none provided and none extracted
+                if not extracted_session_id:
+                    extracted_session_id = f"opencode-{int(time.time())}"
+
                 return RunResult(
                     success=True,
-                    session_id=parsed_session_id or session_id,
-                    response_parts=response_parts,
+                    session_id=extracted_session_id,
+                    response_parts=[],  # No response parsing - export API handles content
                 )
             else:
                 if cancel_event and cancel_event.is_set():

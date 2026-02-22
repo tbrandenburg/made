@@ -29,7 +29,6 @@ import "../styles/page.css";
 import {
   formatChatMessageLabel,
   formatChatMessageTimestamp,
-  mapAgentReplyToMessages,
   mapHistoryToMessages,
   mergeChatMessages,
 } from "../utils/chat";
@@ -827,13 +826,17 @@ export const RepositoryPage: React.FC = () => {
         sessionId || undefined,
         model,
       );
-      setChat((prev) => [...prev, ...mapAgentReplyToMessages(reply)]);
+      
+      // No immediate message processing - polling handles everything
       if (reply.sessionId) {
         setSessionId(reply.sessionId);
       }
+      
       setChatError(null);
       setActiveTab("agent");
-      setChatLoading(false);
+      
+      // Keep chatLoading=true if processing (triggers existing polling)
+      if (!reply.processing) setChatLoading(false);
     } catch (error) {
       const messageText = error instanceof Error ? error.message : "";
       const agentBusy = messageText.toLowerCase().includes("processing");

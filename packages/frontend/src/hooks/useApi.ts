@@ -136,21 +136,13 @@ async function requestForm<T>(
   throw new Error("Maximum retry attempts exceeded");
 }
 
-export type AgentResponsePart = {
-  text: string;
-  timestamp?: string;
-  type?: "thinking" | "tool" | "final";
-  partId?: string;
-  callId?: string;
-};
-
 export type AgentReply = {
   messageId: string;
   sent: string;
-  response: string;
+  response: string;                 // Status message only
   prompt?: string;
-  responses?: AgentResponsePart[];
   sessionId?: string;
+  processing?: boolean;             // NEW: indicates polling needed
 };
 
 type AgentStatus = {

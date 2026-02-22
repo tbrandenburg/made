@@ -215,15 +215,27 @@ class CodexAgentCLI(AgentCLI):
                             )
 
             if process.returncode == 0:
-                # Parse codex CLI output - JSON event stream
-                parsed_session_id, response_parts = self._parse_codex_output(
-                    stdout or ""
-                )
+                # Process management only - extract session_id but no parsing
+                extracted_session_id = session_id  # Default to input session_id
+                if stdout:
+                    for line in stdout.strip().split("\n"):
+                        if line:
+                            try:
+                                data = json.loads(line)
+                                if isinstance(data, dict) and "sessionId" in data:
+                                    extracted_session_id = str(data["sessionId"])
+                                    break
+                            except json.JSONDecodeError:
+                                continue
+
+                # Generate session_id if none provided and none extracted
+                if not extracted_session_id:
+                    extracted_session_id = f"codex-{int(datetime.now().timestamp())}"
 
                 return RunResult(
                     success=True,
-                    session_id=parsed_session_id or session_id,
-                    response_parts=response_parts,
+                    session_id=extracted_session_id,
+                    response_parts=[],  # No response parsing - export API handles content
                 )
             else:
                 if cancel_event and cancel_event.is_set():

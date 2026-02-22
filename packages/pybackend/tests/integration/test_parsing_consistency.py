@@ -198,9 +198,9 @@ class TestParsingConsistency:
         cli = OpenCodeDatabaseAgentCLI()
 
         # Test live parsing with reasoning content
-        live_output = """{"session_id": "test_session"}
-{"part": {"type": "reasoning", "text": "Let me analyze this step by step", "timestamp": 1640995100000}}
-{"part": {"type": "text", "text": "Based on my analysis, the answer is 42", "timestamp": 1640995200000}}"""
+        live_output = """{"sessionID": "test_session"}
+{"type": "reasoning", "timestamp": 1640995100000, "part": {"type": "reasoning", "text": "Let me analyze this step by step"}}
+{"type": "text", "timestamp": 1640995200000, "part": {"type": "text", "text": "Based on my analysis, the answer is 42"}}"""
 
         session_id, response_parts = cli._parse_opencode_output(live_output)
 

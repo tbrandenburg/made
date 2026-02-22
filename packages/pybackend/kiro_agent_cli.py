@@ -5,6 +5,7 @@ import os
 import re
 import sqlite3
 import subprocess
+from datetime import datetime
 from pathlib import Path
 from threading import Event
 from typing import Any, Callable
@@ -15,7 +16,6 @@ from agent_results import (
     AgentListResult,
     ExportResult,
     HistoryMessage,
-    ResponsePart,
     RunResult,
     SessionInfo,
     SessionListResult,
@@ -164,22 +164,15 @@ class KiroAgentCLI(AgentCLI):
                             )
 
             if process.returncode == 0:
-                # Parse kiro-cli output - strip ANSI codes for clean display
-                response_text = self._clean_response_text(stdout or "")
-                response_parts = (
-                    [
-                        ResponsePart(
-                            text=response_text, timestamp=None, part_type="final"
-                        )
-                    ]
-                    if response_text
-                    else []
+                # Process management only - generate session_id if needed
+                final_session_id = (
+                    session_id or f"kiro-{int(datetime.now().timestamp())}"
                 )
 
                 return RunResult(
                     success=True,
-                    session_id=session_id,  # Kiro doesn't return session ID in output
-                    response_parts=response_parts,
+                    session_id=final_session_id,
+                    response_parts=[],  # No response parsing - export API handles content
                 )
             else:
                 if cancel_event and cancel_event.is_set():
@@ -332,7 +325,7 @@ class KiroAgentCLI(AgentCLI):
                             if len(value_str) > 200:
                                 value_str = value_str[:200] + "..."
                             tool_info.append(f"  {key}: {value_str}")
-                    
+
                     messages.append(
                         HistoryMessage(
                             message_id=f"{base_message_id}-tool",

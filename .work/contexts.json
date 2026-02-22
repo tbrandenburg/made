@@ -1,0 +1,15 @@
+{
+  "contexts": [
+    [
+      "default",
+      {
+        "name": "default",
+        "tool": "local-fs",
+        "path": "/home/tom/workspace/ai/made/workspace/made",
+        "authState": "authenticated",
+        "isActive": true
+      }
+    ]
+  ],
+  "activeContext": "default"
+}

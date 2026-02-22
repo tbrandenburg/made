@@ -186,10 +186,10 @@ class TestAgentService:
 
         result = send_agent_message("test-repo", "Hello agent")
 
-        assert result["response"] == "Test response"
+        assert result["response"] == "Processing..."  # Status message only
         assert result["sessionId"] == "test_session_123"
-        assert len(result["responses"]) == 1
-        assert result["responses"][0]["text"] == "Test response"
+        assert result["processing"] is True  # Indicates polling needed
+        assert "responses" not in result  # No longer included
 
     @patch("agent_service.get_agent_cli")
     def test_send_agent_message_with_session_id(self, mock_get_cli):
@@ -216,8 +216,9 @@ class TestAgentService:
             "test-repo", "Continue conversation", session_id="existing_session_456"
         )
 
-        assert result["response"] == "Response with session"
+        assert result["response"] == "Processing..."  # Status message only
         assert result["sessionId"] == "existing_session_456"
+        assert result["processing"] is True  # Indicates polling needed
         mock_cli.run_agent.assert_called_once()
         call_args = mock_cli.run_agent.call_args
         assert (
@@ -302,19 +303,23 @@ class TestAgentService:
         mock_cli.run_agent.return_value = mock_result
 
         result = send_agent_message("test-repo", "This will fail")
-        assert result["response"] == "Command failed"
-        assert result["sessionId"] is None
+        assert result["response"] == "Processing..."  # Status message only
+        assert result["processing"] is True  # Indicates polling needed
+        # Error will be available through export API, not immediate response
 
         # Test FileNotFoundError
         mock_cli.run_agent.side_effect = FileNotFoundError("CLI not found")
         mock_cli.missing_command_error.return_value = "CLI not found error"
         result = send_agent_message("test-repo", "This will fail")
-        assert "CLI not found error" in result["response"]
+        assert "CLI not found error" in result["response"]  # Immediate error return
+        assert result["processing"] is False  # No polling needed
+        assert result["sessionId"] is None
 
         # Test generic exception
         mock_cli.run_agent.side_effect = Exception("Generic error")
         result = send_agent_message("test-repo", "This will fail")
-        assert "Error: Generic error" in result["response"]
+        assert "Error: Generic error" in result["response"]  # Immediate error return
+        assert result["processing"] is False  # No polling needed
 
     @patch("agent_service.get_agent_cli")
     def test_list_chat_sessions(self, mock_get_cli):

@@ -35,26 +35,30 @@ class TestKiroAgentCLI:
     def test_strip_ansi_codes(self):
         """Test _strip_ansi_codes removes ANSI escape sequences."""
         cli = KiroAgentCLI()
-        
+
         # Test basic color codes
         text_with_ansi = "\x1b[38;5;141m> \x1b[0mHere's a poem\x1b[0m\x1b[0m"
         expected = "> Here's a poem"
         assert cli._strip_ansi_codes(text_with_ansi) == expected
-        
+
         # Test multiple color codes
-        text_with_multiple = "\x1b[38;5;10m.made\x1b[0m directory\x1b[38;5;141m test\x1b[0m"
+        text_with_multiple = (
+            "\x1b[38;5;10m.made\x1b[0m directory\x1b[38;5;141m test\x1b[0m"
+        )
         expected_multiple = ".made directory test"
         assert cli._strip_ansi_codes(text_with_multiple) == expected_multiple
-        
+
         # Test text without ANSI codes (should be unchanged)
         plain_text = "This is plain text"
         assert cli._strip_ansi_codes(plain_text) == plain_text
-        
+
         # Test empty string
         assert cli._strip_ansi_codes("") == ""
-        
+
         # Test complex ANSI sequence
-        complex_ansi = "\x1b[38;5;141m\x1b[1m\x1b[4mBold underlined colored\x1b[0m\x1b[0m\x1b[0m"
+        complex_ansi = (
+            "\x1b[38;5;141m\x1b[1m\x1b[4mBold underlined colored\x1b[0m\x1b[0m\x1b[0m"
+        )
         expected_complex = "Bold underlined colored"
         assert cli._strip_ansi_codes(complex_ansi) == expected_complex
 
@@ -78,16 +82,19 @@ class TestKiroAgentCLI:
 
         assert isinstance(result, RunResult)
         assert result.success is True
-        assert len(result.response_parts) == 1
-        assert result.response_parts[0].text == "Test response from kiro-cli"
-        assert result.response_parts[0].part_type == "final"
+        assert (
+            len(result.response_parts) == 0
+        )  # No response parsing - export API handles content
+        assert result.session_id is not None  # Process management generates session_id
 
     @unittest.mock.patch("subprocess.run")
     def test_run_agent_strips_ansi_codes(self, mock_run):
         """Test run_agent strips ANSI escape sequences and prompt markers."""
         # Mock kiro-cli response with ANSI codes
         mock_run.return_value.returncode = 0
-        mock_run.return_value.stdout = "\x1b[38;5;141m> \x1b[0mHere's a poem\x1b[0m\x1b[0m"
+        mock_run.return_value.stdout = (
+            "\x1b[38;5;141m> \x1b[0mHere's a poem\x1b[0m\x1b[0m"
+        )
         mock_run.return_value.stderr = ""
 
         cli = KiroAgentCLI()
@@ -95,10 +102,10 @@ class TestKiroAgentCLI:
 
         assert isinstance(result, RunResult)
         assert result.success is True
-        assert len(result.response_parts) == 1
-        # Verify ANSI codes and prompt markers are stripped
-        assert result.response_parts[0].text == "Here's a poem"
-        assert "\x1b[" not in result.response_parts[0].text
+        assert (
+            len(result.response_parts) == 0
+        )  # No response parsing - export API handles content
+        assert result.session_id is not None  # Process management generates session_id
 
         # Verify subprocess was called correctly
         mock_run.assert_called_once()
