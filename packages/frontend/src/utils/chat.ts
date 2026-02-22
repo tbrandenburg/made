@@ -76,6 +76,7 @@ const normalizeHistoryMessageType = (
 ): ChatMessage["messageType"] => {
   if (rawType === "tool" || rawType === "tool_use") return "tool";
   if (rawType === "text") return "final";
+  if (rawType === "reasoning") return "thinking";
   return undefined;
 };
 

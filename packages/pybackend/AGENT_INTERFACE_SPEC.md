@@ -138,7 +138,7 @@ class HistoryMessage:
     """Individual message in chat history."""
     message_id: str | None
     role: Literal["user", "assistant"]
-    content_type: Literal["text", "tool", "tool_use"]
+    content_type: Literal["text", "tool", "tool_use", "reasoning"]
     content: str
     timestamp: int | None  # Unix timestamp in milliseconds
     part_id: str | None = None
@@ -164,6 +164,12 @@ class HistoryMessage:
             result["callId"] = self.call_id
         return result
 ```
+
+**Content Types:**
+- `"text"` - Regular text content from user or assistant
+- `"tool"` - Tool invocation or tool result  
+- `"tool_use"` - Tool usage information
+- `"reasoning"` - Assistant thinking/reasoning steps (displays with 🧠 icon in UI)
 
 ### SessionListResult
 ```python

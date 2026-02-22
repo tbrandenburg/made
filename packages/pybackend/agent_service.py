@@ -59,7 +59,7 @@ class ChannelBusyError(RuntimeError):
 def _to_milliseconds(raw_value: object) -> int | None:
     """Convert value to milliseconds timestamp."""
     try:
-        return int(float(raw_value))
+        return int(float(raw_value))  # type: ignore
     except (TypeError, ValueError):
         return None
 
@@ -283,7 +283,7 @@ def export_chat_history(
 
 def list_chat_sessions(
     channel: str | None = None, limit: int = 10
-) -> list[dict[str, str]]:
+) -> list[dict[str, object]]:
     working_dir = _get_working_directory(channel) if channel else None
     logger.info(
         "Listing chat sessions (channel: %s, limit: %s)",
