@@ -132,7 +132,12 @@ class TestParsingConsistency:
                     assert hasattr(message, "content_type")
                     assert hasattr(message, "content")
                     assert message.role in ["user", "assistant"]
-                    assert message.content_type in ["text", "tool", "tool_use"]
+                    assert message.content_type in [
+                        "text",
+                        "tool",
+                        "tool_use",
+                        "reasoning",
+                    ]
 
         except FileNotFoundError:
             pytest.skip("OpenCode CLI not available")

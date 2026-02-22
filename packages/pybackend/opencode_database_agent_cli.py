@@ -291,10 +291,18 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                                     text_parts.append(part_content)
 
                             elif part_type == "reasoning":
-                                # Assistant reasoning steps - add as text content
+                                # Assistant reasoning steps - create separate reasoning message
                                 part_content = part_data.get("text", "")
                                 if part_content:
-                                    text_parts.append(part_content)
+                                    messages.append(
+                                        HistoryMessage(
+                                            message_id=f"{msg_id}_reasoning_{part['id']}",
+                                            role=role,
+                                            content_type="reasoning",
+                                            content=part_content,
+                                            timestamp=part_timestamp,
+                                        )
+                                    )
 
                             elif part_type == "tool":
                                 # Tool invocations - create separate tool message
@@ -339,9 +347,11 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                     else:
                         # No parts - use message content directly
                         content = msg_json.get("content", "")
-                        # Only create message if there's actual text content
-                        # This prevents empty messages from timing/atomicity issues
-                        if content and content.strip():
+                        # Always create message for malformed JSON or when there's content
+                        # This prevents empty messages from timing/atomicity issues but preserves malformed data
+                        if (
+                            content or not msg_json
+                        ):  # msg_json is empty dict {} for malformed JSON
                             messages.append(
                                 HistoryMessage(
                                     message_id=msg_id,

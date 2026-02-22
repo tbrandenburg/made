@@ -153,7 +153,7 @@ type AgentStatus = {
 export type ChatHistoryMessage = {
   messageId?: string;
   role: "user" | "assistant";
-  type: "text" | "tool" | "tool_use";
+  type: "text" | "tool" | "tool_use" | "reasoning";
   content: string;
   timestamp?: string | null;
   partId?: string;
