@@ -68,6 +68,126 @@ class AgentCLI(ABC):
         """List available agents and return structured result."""
         raise NotImplementedError
 
+    def _to_milliseconds(self, raw_value: object) -> int | None:
+        """Convert value to milliseconds timestamp."""
+        try:
+            return int(float(raw_value))
+        except (TypeError, ValueError):
+            return None
+
+    def _extract_part_content(self, part: dict[str, object], part_type: str) -> str:
+        """Extract content from a response part."""
+        if part_type in {"text"}:
+            return str(part.get("text") or "")
+        if part_type in {"reasoning"}:
+            return str(part.get("text") or "")
+        if part_type in {"tool_use", "tool"}:
+            for key in ("tool", "name", "id"):
+                if part.get(key):
+                    return str(part[key])
+            return ""
+        return ""
+
+    def _parse_opencode_output(
+        self, stdout: str
+    ) -> tuple[str | None, list[ResponsePart]]:
+        """Parse opencode JSON output into structured response parts."""
+        session_id = None
+        parts: list[dict[str, object]] = []
+
+        for line in stdout.splitlines():
+            if not line.strip():
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            payload_session_id = payload.get("sessionID")
+            if payload_session_id:
+                session_id = payload_session_id
+
+            payload_type = payload.get("type")
+            payload_timestamp = payload.get("timestamp")
+            part = payload.get("part") or {}
+
+            part_id = part.get("id")
+            call_id = part.get("callID") or part.get("callId")
+
+            if payload_type == "text":
+                text = self._extract_part_content(part, "text")
+                # Include all text parts, even empty ones, to maintain conversation flow
+                parts.append(
+                    {
+                        "kind": "text",
+                        "content": text,
+                        "timestamp": payload_timestamp,
+                        "part_id": part_id,
+                        "call_id": call_id,
+                    }
+                )
+            elif payload_type == "reasoning":
+                reasoning_text = self._extract_part_content(part, "reasoning")
+                # Reasoning content should be treated as thinking
+                parts.append(
+                    {
+                        "kind": "reasoning",
+                        "content": reasoning_text,
+                        "timestamp": payload_timestamp,
+                        "part_id": part_id,
+                        "call_id": call_id,
+                    }
+                )
+            elif payload_type in {"tool_use", "tool"}:
+                tool_name = self._extract_part_content(part, payload_type)
+                if tool_name:  # Only include tools if they have content
+                    parts.append(
+                        {
+                            "kind": "tool",
+                            "content": tool_name,
+                            "timestamp": payload_timestamp,
+                            "part_id": part_id,
+                            "call_id": call_id,
+                        }
+                    )
+
+        if not parts:
+            return session_id, []
+
+        response_parts: list[ResponsePart] = []
+        text_indices = [
+            index for index, part in enumerate(parts) if part.get("kind") == "text"
+        ]
+
+        for index, part in enumerate(parts):
+            kind = part.get("kind")
+            content = str(part.get("content", ""))
+            raw_timestamp = part.get("timestamp")
+            timestamp = self._to_milliseconds(raw_timestamp)
+
+            if kind == "text":
+                part_type = (
+                    "final"
+                    if text_indices and index == text_indices[-1]
+                    else "thinking"
+                )
+            elif kind == "reasoning":
+                part_type = "thinking"
+            else:
+                part_type = "tool"
+
+            response_parts.append(
+                ResponsePart(
+                    text=content,
+                    timestamp=timestamp,
+                    part_type=part_type,
+                    part_id=part.get("part_id"),
+                    call_id=part.get("call_id"),
+                )
+            )
+
+        return session_id, response_parts
+
 
 class OpenCodeAgentCLI(AgentCLI):
     @property
