@@ -232,7 +232,9 @@ class OpenCodeAgentCLI(AgentCLI):
 
         return agents
 
-    def _parse_export_messages(self, messages: list[dict[str, object]], start_timestamp: int | None) -> list[HistoryMessage]:
+    def _parse_export_messages(
+        self, messages: list[dict[str, object]], start_timestamp: int | None
+    ) -> list[HistoryMessage]:
         """Parse exported messages into structured history."""
         history: list[HistoryMessage] = []
 
@@ -254,15 +256,17 @@ class OpenCodeAgentCLI(AgentCLI):
                     if part_timestamp < start_timestamp:
                         continue
 
-                history.append(HistoryMessage(
-                    message_id=message_info.get("id"),
-                    role=role,
-                    content_type=part_type,
-                    content=self._extract_part_content(part, part_type),
-                    timestamp=part_timestamp,
-                    part_id=part.get("id"),
-                    call_id=part.get("callID") or part.get("callId"),
-                ))
+                history.append(
+                    HistoryMessage(
+                        message_id=message_info.get("id"),
+                        role=role,
+                        content_type=part_type,
+                        content=self._extract_part_content(part, part_type),
+                        timestamp=part_timestamp,
+                        part_id=part.get("id"),
+                        call_id=part.get("callID") or part.get("callId"),
+                    )
+                )
 
         return history
 
@@ -419,13 +423,29 @@ class OpenCodeAgentCLI(AgentCLI):
                             )
 
             if process.returncode == 0:
-                parsed_session_id, response_parts = self._parse_opencode_output(
-                    stdout or ""
-                )
+                # Process management only - extract session_id but no parsing
+                extracted_session_id = session_id  # Default to input session_id
+                if stdout:
+                    for line in stdout.strip().split("\n"):
+                        if line:
+                            try:
+                                data = json.loads(line)
+                                if isinstance(data, dict) and "session_id" in data:
+                                    extracted_session_id = str(data["session_id"])
+                                    break
+                            except json.JSONDecodeError:
+                                continue
+
+                # Generate session_id if none provided and none extracted
+                if not extracted_session_id:
+                    import time
+
+                    extracted_session_id = f"opencode-{int(time.time())}"
+
                 return RunResult(
                     success=True,
-                    session_id=parsed_session_id or session_id,
-                    response_parts=response_parts,
+                    session_id=extracted_session_id,
+                    response_parts=[],  # No response parsing - export API handles content
                 )
             else:
                 if cancel_event and cancel_event.is_set():
@@ -467,86 +487,6 @@ class OpenCodeAgentCLI(AgentCLI):
                     return str(part[key])
             return ""
         return ""
-
-    def _parse_opencode_output(self, stdout: str) -> tuple[str | None, list[ResponsePart]]:
-        """Parse OpenCode JSON output into structured response parts."""
-        import json
-        
-        session_id = None
-        parts: list[dict[str, object]] = []
-
-        for line in stdout.splitlines():
-            if not line.strip():
-                continue
-
-            try:
-                payload = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-
-            payload_session_id = payload.get("sessionID")
-            if payload_session_id:
-                session_id = payload_session_id
-
-            payload_type = payload.get("type")
-            payload_timestamp = payload.get("timestamp")
-            part = payload.get("part") or {}
-
-            part_id = part.get("id")
-            call_id = part.get("callID") or part.get("callId")
-
-            if payload_type == "text":
-                text = self._extract_part_content(part, "text")
-                # Include all text parts, even empty ones, to maintain conversation flow
-                parts.append({
-                    "kind": "text",
-                    "content": text,
-                    "timestamp": payload_timestamp,
-                    "part_id": part_id,
-                    "call_id": call_id,
-                })
-            elif payload_type in {"tool_use", "tool"}:
-                tool_name = self._extract_part_content(part, payload_type)
-                if tool_name:  # Only include tools if they have content
-                    parts.append({
-                        "kind": "tool",
-                        "content": tool_name,
-                        "timestamp": payload_timestamp,
-                        "part_id": part_id,
-                        "call_id": call_id,
-                    })
-
-        if not parts:
-            return session_id, []
-
-        response_parts: list[ResponsePart] = []
-        text_indices = [
-            index for index, part in enumerate(parts) if part.get("kind") == "text"
-        ]
-
-        for index, part in enumerate(parts):
-            kind = part.get("kind")
-            content = str(part.get("content", ""))
-            raw_timestamp = part.get("timestamp")
-
-            if kind == "text":
-                message_type = (
-                    "final" if text_indices and index == text_indices[-1] else "thinking"
-                )
-            else:
-                message_type = "tool"
-
-            response_parts.append(
-                ResponsePart(
-                    text=content,
-                    timestamp=raw_timestamp,
-                    part_type=message_type,
-                    part_id=part.get("part_id"),
-                    call_id=part.get("call_id"),
-                )
-            )
-
-        return session_id, response_parts
 
     def export_session(self, session_id: str, cwd: Path | None) -> ExportResult:
         """Export session history and return structured result."""

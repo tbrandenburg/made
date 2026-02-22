@@ -201,22 +201,15 @@ class CopilotAgentCLI(AgentCLI):
                             )
 
             if process.returncode == 0:
-                # Parse copilot CLI output - strip ANSI codes for clean display
-                response_text = self._clean_response_text(stdout or "")
-                response_parts = (
-                    [
-                        ResponsePart(
-                            text=response_text, timestamp=None, part_type="final"
-                        )
-                    ]
-                    if response_text
-                    else []
+                # Process management only - generate session_id if needed
+                final_session_id = (
+                    session_id or f"copilot-{int(datetime.now().timestamp())}"
                 )
 
                 return RunResult(
                     success=True,
-                    session_id=session_id,  # Copilot doesn't return session ID in stdout
-                    response_parts=response_parts,
+                    session_id=final_session_id,
+                    response_parts=[],  # No response parsing - export API handles content
                 )
             else:
                 if cancel_event and cancel_event.is_set():

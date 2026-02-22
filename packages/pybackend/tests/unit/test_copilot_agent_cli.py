@@ -81,9 +81,10 @@ class TestCopilotAgentCLI:
 
         assert isinstance(result, RunResult)
         assert result.success is True
-        assert len(result.response_parts) == 1
-        assert result.response_parts[0].text == "Test response from copilot"
-        assert result.response_parts[0].part_type == "final"
+        assert (
+            len(result.response_parts) == 0
+        )  # No response parsing - export API handles content
+        assert result.session_id is not None  # Process management generates session_id
 
     @unittest.mock.patch("subprocess.run")
     def test_run_agent_strips_ansi_codes(self, mock_run):
@@ -100,10 +101,10 @@ class TestCopilotAgentCLI:
 
         assert isinstance(result, RunResult)
         assert result.success is True
-        assert len(result.response_parts) == 1
-        # Verify ANSI codes and prompt markers are stripped
-        assert result.response_parts[0].text == "Here's a response"
-        assert "\x1b[" not in result.response_parts[0].text
+        assert (
+            len(result.response_parts) == 0
+        )  # No response parsing - export API handles content
+        assert result.session_id is not None  # Process management generates session_id
 
         # Verify subprocess was called correctly
         mock_run.assert_called_once()

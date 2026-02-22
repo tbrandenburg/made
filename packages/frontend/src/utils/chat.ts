@@ -48,43 +48,20 @@ export const buildMessageDedupKey = (message: ChatMessage) => {
   return `${message.role}:${baseKey}`;
 };
 
-const normalizeMessageType = (
-  value: string | undefined,
-): ChatMessage["messageType"] => {
-  if (value === "thinking" || value === "tool" || value === "final") {
-    return value;
-  }
-  return undefined;
-};
-
 export const mapAgentReplyToMessages = (reply: AgentReply): ChatMessage[] => {
-  const parts: AgentReply["responses"] =
-    reply.responses && reply.responses.length
-      ? reply.responses
-      : reply.response
-        ? [
-            {
-              text: reply.response,
-              timestamp: reply.sent,
-              type: "final",
-            },
-          ]
-        : [];
-
-  return (parts ?? []).map((part, index) => {
-    const stableId = part.callId || part.partId || `${reply.messageId}-${index}`;
-    const messageKey =
-      part.callId || part.partId || `${reply.messageId}-${index}`;
-
-    return {
-      id: stableId,
-      messageKey,
-      role: "agent",
-      text: part.text,
-      timestamp: part.timestamp || reply.sent,
-      messageType: normalizeMessageType(part.type),
-    };
-  });
+  if (reply.processing) {
+    return []; // Empty - polling handles content via export API
+  }
+  
+  // Fallback for error cases only
+  return reply.response ? [{
+    id: reply.messageId,
+    messageKey: reply.messageId,
+    role: "agent" as const,
+    text: reply.response,
+    timestamp: reply.sent,
+    messageType: "final" as const
+  }] : [];
 };
 
 const normalizeTimestamp = (rawTimestamp: string | null | undefined) => {

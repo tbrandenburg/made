@@ -540,9 +540,9 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
 
         self.assertTrue(result.success)
         self.assertEqual(result.session_id, "ses_123")
-        self.assertEqual(len(result.response_parts), 1)
-        self.assertEqual(result.response_parts[0].text, "Hello response")
-        self.assertEqual(result.response_parts[0].part_type, "final")
+        self.assertEqual(
+            len(result.response_parts), 0
+        )  # No response parsing - export API handles content
 
     @patch("opencode_database_agent_cli.subprocess.run")
     def test_run_agent_command_failure(self, mock_subprocess_run):
@@ -625,44 +625,6 @@ custom_agent (Custom)
         self.assertEqual(result[0].details[0], "This is a test agent")
         self.assertEqual(result[1].name, "custom_agent")
         self.assertEqual(result[1].agent_type, "Custom")
-
-    def test_parse_opencode_output_empty(self):
-        """Test parsing empty opencode output."""
-        session_id, parts = self.cli._parse_opencode_output("")
-        self.assertIsNone(session_id)
-        self.assertEqual(len(parts), 0)
-
-    def test_parse_opencode_output_with_parts(self):
-        """Test parsing opencode output with response parts."""
-        output = """{"session_id": "ses_123"}
-{"part": {"type": "text", "text": "Hello", "timestamp": 1640995200000}}
-{"part": {"type": "tool", "name": "calculator", "timestamp": 1640995300000}}"""
-
-        session_id, parts = self.cli._parse_opencode_output(output)
-
-        self.assertEqual(session_id, "ses_123")
-        self.assertEqual(len(parts), 2)
-        self.assertEqual(parts[0].text, "Hello")
-        self.assertEqual(parts[0].part_type, "final")
-        self.assertEqual(parts[1].text, "calculator")
-        self.assertEqual(parts[1].part_type, "tool")
-
-    def test_parse_opencode_output_with_reasoning(self):
-        """Test parsing opencode output with reasoning parts (fixes empty [agent:final] issue)."""
-        output = """{"session_id": "ses_456"}
-{"part": {"type": "reasoning", "text": "I need to analyze this problem", "timestamp": 1640995100000}}
-{"part": {"type": "text", "text": "Here's my final answer", "timestamp": 1640995200000}}"""
-
-        session_id, parts = self.cli._parse_opencode_output(output)
-
-        self.assertEqual(session_id, "ses_456")
-        self.assertEqual(len(parts), 2)
-        self.assertEqual(parts[0].text, "I need to analyze this problem")
-        self.assertEqual(
-            parts[0].part_type, "thinking"
-        )  # reasoning should be mapped to thinking
-        self.assertEqual(parts[1].text, "Here's my final answer")
-        self.assertEqual(parts[1].part_type, "final")
 
     def test_extract_part_content_reasoning(self):
         """Test extracting content from reasoning parts."""

@@ -81,8 +81,10 @@ invalid json line here
 
         assert isinstance(result, RunResult)
         assert result.success is True
-        assert len(result.response_parts) == 1
-        assert result.response_parts[0].text == "Test response"
+        assert (
+            len(result.response_parts) == 0
+        )  # No response parsing - export API handles content
+        assert result.session_id is not None  # Process management extracts session_id
 
         # Verify subprocess was called correctly
         mock_run.assert_called_once()

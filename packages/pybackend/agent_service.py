@@ -430,11 +430,6 @@ def send_agent_message(
                 if result.session_id:
                     _conversation_sessions[channel] = result.session_id
 
-                response = result.combined_response
-                parsed_responses = [
-                    part.to_frontend_format() for part in result.response_parts
-                ]
-
                 logger.info(
                     "Agent message processed (channel: %s, session: %s)",
                     channel,
@@ -452,15 +447,35 @@ def send_agent_message(
                 )
 
     except FileNotFoundError:
-        parsed_responses = []
         response = get_agent_cli().missing_command_error()
         logger.error("Agent command not found for channel %s", channel)
+
+        # Return error immediately - no process to poll
+        sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        return {
+            "messageId": str(int(time.time() * 1000)),
+            "sent": sent_at,
+            "prompt": message,
+            "response": response,
+            "sessionId": None,
+            "processing": False,
+        }
     except Exception as e:
-        parsed_responses = []
         response = f"Error: {str(e)}"
         logger.exception(
             "Unexpected error sending agent message on channel %s", channel
         )
+
+        # Return error immediately - no process to poll
+        sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        return {
+            "messageId": str(int(time.time() * 1000)),
+            "sent": sent_at,
+            "prompt": message,
+            "response": response,
+            "sessionId": _conversation_sessions.get(channel),
+            "processing": False,
+        }
     finally:
         _clear_channel_processing(channel)
 
@@ -470,7 +485,7 @@ def send_agent_message(
         "messageId": str(int(time.time() * 1000)),
         "sent": sent_at,
         "prompt": message,
-        "response": response,
-        "responses": parsed_responses,
+        "response": "Processing...",  # Status message only
         "sessionId": _conversation_sessions.get(channel),
+        "processing": True,  # Indicates polling needed
     }

@@ -21,7 +21,6 @@ import "../styles/page.css";
 import {
   formatChatMessageLabel,
   formatChatMessageTimestamp,
-  mapAgentReplyToMessages,
   mapHistoryToMessages,
 } from "../utils/chat";
 import { appendRestrictedAccessPolicy } from "../utils/agentPrompt";
@@ -191,13 +190,16 @@ export const ConstitutionPage: React.FC = () => {
           promptWithPolicy,
           sessionId || undefined,
         );
-        setChat((prev) => [...prev, ...mapAgentReplyToMessages(reply)]);
+        
+        // No immediate message processing - polling handles everything
         if (reply.sessionId) {
           setSessionId(reply.sessionId);
         }
         setActiveTab("agent");
         setAgentStatus(null);
-        setChatLoading(false);
+        
+        // Keep chatLoading=true if processing (triggers existing polling)
+        if (!reply.processing) setChatLoading(false);
       } catch (error) {
         console.error("Failed to contact agent", error);
         const errorMessage = error instanceof Error ? error.message : "";
