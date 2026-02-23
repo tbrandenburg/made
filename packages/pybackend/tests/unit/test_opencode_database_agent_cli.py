@@ -229,6 +229,7 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
                         id TEXT PRIMARY KEY,
                         session_id TEXT,
                         time_created REAL,
+                        time_updated REAL,
                         data TEXT
                     )
                 """)
@@ -237,6 +238,7 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
                         id TEXT PRIMARY KEY,
                         message_id TEXT,
                         time_created REAL,
+                        time_updated REAL,
                         data TEXT
                     )
                 """)
@@ -300,6 +302,7 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
                         id TEXT PRIMARY KEY,
                         session_id TEXT,
                         time_created REAL,
+                        time_updated REAL,
                         data TEXT
                     )
                 """)
@@ -308,6 +311,7 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
                         id TEXT PRIMARY KEY,
                         message_id TEXT,
                         time_created REAL,
+                        time_updated REAL,
                         data TEXT
                     )
                 """)
@@ -360,6 +364,7 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
                         id TEXT PRIMARY KEY,
                         session_id TEXT,
                         time_created REAL,
+                        time_updated REAL,
                         data TEXT
                     )
                 """)
@@ -368,6 +373,7 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
                         id TEXT PRIMARY KEY,
                         message_id TEXT,
                         time_created REAL,
+                        time_updated REAL,
                         data TEXT
                     )
                 """)
@@ -498,7 +504,7 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
         # Mock successful subprocess output
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_result.stdout = '{"session_id": "ses_123"}\n{"part": {"type": "text", "text": "Hello response", "timestamp": 1640995200000}}\n'
+        mock_result.stdout = '{"sessionID": "ses_123"}\n{"part": {"type": "text", "text": "Hello response", "timestamp": 1640995200000}}\n'
         mock_result.stderr = ""
         mock_subprocess_run.return_value = mock_result
 
