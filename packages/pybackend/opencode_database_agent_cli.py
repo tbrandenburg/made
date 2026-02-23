@@ -205,8 +205,8 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                 # Query messages and their parts
                 cursor.execute(
                     """
-                    SELECT m.id as message_id, m.time_created as message_time, m.data as message_data,
-                           p.id as part_id, p.time_created as part_time, p.data as part_data
+                    SELECT m.id as message_id, m.time_created as message_time, m.time_updated as message_time_updated, m.data as message_data,
+                           p.id as part_id, p.time_created as part_time, p.time_updated as part_time_updated, p.data as part_data
                     FROM message m LEFT JOIN part p ON m.id = p.message_id  
                     WHERE m.session_id = ? ORDER BY m.time_created, p.time_created
                 """,
@@ -233,7 +233,8 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
 
                         message_data[msg_id] = {
                             "json": msg_json,
-                            "timestamp": row["message_time"],
+                            "timestamp": row["message_time_updated"]
+                            or row["message_time"],
                         }
 
                     # Add part data if exists
@@ -249,7 +250,8 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                             {
                                 "id": row["part_id"],
                                 "json": part_json,
-                                "timestamp": row["part_time"],
+                                "timestamp": row["part_time_updated"]
+                                or row["part_time"],
                             }
                         )
 
@@ -543,8 +545,8 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                         if line:
                             try:
                                 data = json.loads(line)
-                                if isinstance(data, dict) and "session_id" in data:
-                                    extracted_session_id = str(data["session_id"])
+                                if isinstance(data, dict) and "sessionID" in data:
+                                    extracted_session_id = str(data["sessionID"])
                                     break
                             except json.JSONDecodeError:
                                 continue
