@@ -42,7 +42,7 @@ export const TasksPage: React.FC = () => {
       : `${newName.trim()}.md`;
     await api.saveTask(filename, {
       content: "# New Task\n\n- [ ] Define work\n",
-      frontmatter: { type: "task" },
+      frontmatter: { type: "task", schedule: "" },
     });
     setCreateOpen(false);
     setNewName("");
@@ -79,6 +79,12 @@ export const TasksPage: React.FC = () => {
                             to={`/tasks/${task.name}`}
                           >
                             <div className="metadata">
+                              {typeof task.frontmatter?.schedule === "string" &&
+                                task.frontmatter.schedule.trim() && (
+                                  <span className="badge success">
+                                    {String(task.frontmatter.schedule)}
+                                  </span>
+                                )}
                               {typeof task.frontmatter?.type ===
                                 "string" && (
                                 <span className="badge">
@@ -101,6 +107,12 @@ export const TasksPage: React.FC = () => {
                             to={`/tasks/${task.name}`}
                           >
                             <div className="metadata">
+                              {typeof task.frontmatter?.schedule === "string" &&
+                                task.frontmatter.schedule.trim() && (
+                                  <span className="badge success">
+                                    {String(task.frontmatter.schedule)}
+                                  </span>
+                                )}
                               {typeof task.frontmatter?.type ===
                                 "string" && (
                                 <span className="badge">

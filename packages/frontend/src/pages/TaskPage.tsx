@@ -336,6 +336,20 @@ export const TaskPage: React.FC = () => {
                   }
                 >
                   <div className="form-group">
+                    <label htmlFor="task-schedule">Schedule (cron)</label>
+                    <input
+                      id="task-schedule"
+                      value={(frontmatter.schedule as string) || ""}
+                      onChange={(event) =>
+                        setFrontmatter({
+                          ...frontmatter,
+                          schedule: event.target.value,
+                        })
+                      }
+                      placeholder="0 9 * * 1-5"
+                    />
+                  </div>
+                  <div className="form-group">
                     <label htmlFor="task-type">Type</label>
                     <select
                       id="task-type"
