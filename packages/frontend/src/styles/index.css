@@ -554,3 +554,16 @@ textarea {
     margin-bottom: 1rem;
   }
 }
+
+
+.git-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.git-table th,
+.git-table td {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}

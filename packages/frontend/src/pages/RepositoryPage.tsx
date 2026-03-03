@@ -11,6 +11,7 @@ import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
 import { TerminalTab } from "../components/TerminalTab";
+import { GitTab } from "../components/GitTab";
 import { ChatWindow } from "../components/ChatWindow";
 import { SessionPickerModal } from "../components/SessionPickerModal";
 import { usePersistentChat } from "../hooks/usePersistentChat";
@@ -23,6 +24,7 @@ import {
   FileNode,
   HarnessDefinition,
   RepositorySummary,
+  RepositoryGitStatus,
 } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
@@ -344,6 +346,11 @@ export const RepositoryPage: React.FC = () => {
   const [harnessError, setHarnessError] = useState<string | null>(null);
   const [harnessLoading, setHarnessLoading] = useState(false);
   const [harnessRunError, setHarnessRunError] = useState<string | null>(null);
+  const [gitStatus, setGitStatus] = useState<RepositoryGitStatus | null>(null);
+  const [gitStatusLoading, setGitStatusLoading] = useState(false);
+  const [gitStatusError, setGitStatusError] = useState<string | null>(null);
+  const [pullingRepository, setPullingRepository] = useState(false);
+  const [creatingWorktree, setCreatingWorktree] = useState(false);
   const [harnessStatuses, setHarnessStatuses] = useState<
     Record<number, boolean | undefined>
   >({});
@@ -531,6 +538,24 @@ export const RepositoryPage: React.FC = () => {
       .finally(() => setHarnessLoading(false));
   }, [name]);
 
+  const loadGitStatus = useCallback(() => {
+    if (!name || !repository?.hasGit) return;
+    setGitStatusLoading(true);
+    api
+      .getRepositoryGitStatus(name)
+      .then((response) => {
+        setGitStatus(response);
+        setGitStatusError(null);
+      })
+      .catch((error) => {
+        console.error("Failed to load git status", error);
+        const message =
+          error instanceof Error ? error.message : "Failed to load git status";
+        setGitStatusError(message);
+      })
+      .finally(() => setGitStatusLoading(false));
+  }, [name, repository?.hasGit]);
+
   const refreshHarnessStatuses = useCallback(async () => {
     if (!harnessHistory.length) return;
     const updates = await Promise.all(
@@ -558,6 +583,10 @@ export const RepositoryPage: React.FC = () => {
   useEffect(() => {
     loadHarnesses();
   }, [loadHarnesses]);
+
+  useEffect(() => {
+    loadGitStatus();
+  }, [loadGitStatus]);
 
   useEffect(() => {
     skipHarnessHistoryPersist.current = true;
@@ -712,6 +741,40 @@ export const RepositoryPage: React.FC = () => {
       .getRepositoryFiles(name, ".")
       .then((tree) => setFileTree(tree))
       .catch((error) => console.error("Failed to load file tree", error));
+  };
+
+  const handleGitPull = async () => {
+    if (!name) return;
+    setPullingRepository(true);
+    try {
+      await api.pullRepository(name);
+      setGitStatusError(null);
+      loadGitStatus();
+    } catch (error) {
+      console.error("Failed to pull repository", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to pull repository";
+      setGitStatusError(message);
+    } finally {
+      setPullingRepository(false);
+    }
+  };
+
+  const handleCreateWorktree = async (directoryName: string, branchName: string) => {
+    if (!name) return;
+    setCreatingWorktree(true);
+    try {
+      await api.createRepositoryWorktree(name, directoryName, branchName);
+      setGitStatusError(null);
+      loadGitStatus();
+    } catch (error) {
+      console.error("Failed to create worktree", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to create worktree";
+      setGitStatusError(message);
+    } finally {
+      setCreatingWorktree(false);
+    }
   };
 
   const refreshAgentStatus = useCallback(async () => {
@@ -1414,6 +1477,27 @@ export const RepositoryPage: React.FC = () => {
         </Panel>
       ),
     },
+    ...(repository?.hasGit
+      ? [
+          {
+            id: "git",
+            label: "Git",
+            content: (
+              <GitTab
+                status={gitStatus}
+                loading={gitStatusLoading}
+                error={gitStatusError}
+                pulling={pullingRepository}
+                creatingWorktree={creatingWorktree}
+                onRefresh={loadGitStatus}
+                onPull={handleGitPull}
+                onCreateWorktree={handleCreateWorktree}
+                onOpenFile={openFile}
+              />
+            ),
+          },
+        ]
+      : []),
     {
       id: "harnesses",
       label: "Harnesses",

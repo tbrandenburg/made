@@ -16,15 +16,15 @@ client = TestClient(app)
 class TestHealthEndpoint:
     """Test the health check endpoint."""
 
-    @patch('app.get_workspace_home')
-    @patch('app.get_made_directory')
+    @patch("app.get_workspace_home")
+    @patch("app.get_made_directory")
     def test_health_check_success(self, mock_made_dir, mock_workspace_home):
         """Test successful health check."""
         mock_workspace_home.return_value = "/test/workspace"
         mock_made_dir.return_value = "/test/made"
-        
+
         response = client.get("/api/health")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "ok"
@@ -35,24 +35,24 @@ class TestHealthEndpoint:
 class TestDashboardEndpoint:
     """Test the dashboard endpoint."""
 
-    @patch('app.get_dashboard_summary')
+    @patch("app.get_dashboard_summary")
     def test_dashboard_success(self, mock_dashboard):
         """Test successful dashboard retrieval."""
         mock_data = {"repositories": 5, "knowledge": 3, "constitutions": 2}
         mock_dashboard.return_value = mock_data
-        
+
         response = client.get("/api/dashboard")
-        
+
         assert response.status_code == 200
         assert response.json() == mock_data
 
-    @patch('app.get_dashboard_summary')
+    @patch("app.get_dashboard_summary")
     def test_dashboard_error(self, mock_dashboard):
         """Test dashboard error handling."""
         mock_dashboard.side_effect = Exception("Dashboard error")
-        
+
         response = client.get("/api/dashboard")
-        
+
         assert response.status_code == 500
         assert "Dashboard error" in response.json()["detail"]
 
@@ -60,7 +60,7 @@ class TestDashboardEndpoint:
 class TestAgentsEndpoint:
     """Test the agents endpoint."""
 
-    @patch('app.list_agents')
+    @patch("app.list_agents")
     def test_list_agents_success(self, mock_list):
         mock_list.return_value = [
             {"name": "build", "type": "primary", "details": ["allow: read"]},
@@ -72,7 +72,7 @@ class TestAgentsEndpoint:
         assert response.status_code == 200
         assert response.json() == {"agents": mock_list.return_value}
 
-    @patch('app.list_agents')
+    @patch("app.list_agents")
     def test_list_agents_error(self, mock_list):
         mock_list.side_effect = Exception("Agent error")
 
@@ -83,7 +83,7 @@ class TestAgentsEndpoint:
 
 
 class TestChatHistoryEndpoint:
-    @patch('app.export_chat_history')
+    @patch("app.export_chat_history")
     def test_repository_history_success(self, mock_export):
         mock_export.return_value = {"sessionId": "ses_1", "messages": []}
 
@@ -95,7 +95,7 @@ class TestChatHistoryEndpoint:
         assert response.status_code == 200
         mock_export.assert_called_once_with("ses_1", 123, "sample")
 
-    @patch('app.export_chat_history')
+    @patch("app.export_chat_history")
     def test_repository_history_bad_request(self, mock_export):
         mock_export.side_effect = ValueError("bad")
 
@@ -106,7 +106,7 @@ class TestChatHistoryEndpoint:
 
         assert response.status_code == 400
 
-    @patch('app.export_chat_history')
+    @patch("app.export_chat_history")
     def test_repository_history_not_found(self, mock_export):
         mock_export.side_effect = FileNotFoundError("missing")
 
@@ -117,7 +117,7 @@ class TestChatHistoryEndpoint:
 
         assert response.status_code == 404
 
-    @patch('app.export_chat_history')
+    @patch("app.export_chat_history")
     def test_repository_history_server_error(self, mock_export):
         mock_export.side_effect = RuntimeError("boom")
 
@@ -130,7 +130,7 @@ class TestChatHistoryEndpoint:
 
 
 class TestRepositoryAgentSessions:
-    @patch('app.list_chat_sessions')
+    @patch("app.list_chat_sessions")
     def test_repository_sessions_success(self, mock_list):
         mock_list.return_value = [{"id": "ses_1", "title": "Hello", "updated": "Today"}]
 
@@ -143,7 +143,7 @@ class TestRepositoryAgentSessions:
         mock_list.assert_called_once_with("sample", 5)
         assert response.json()["sessions"][0]["id"] == "ses_1"
 
-    @patch('app.list_chat_sessions')
+    @patch("app.list_chat_sessions")
     def test_repository_sessions_error(self, mock_list):
         mock_list.side_effect = RuntimeError("bad")
 
@@ -153,7 +153,7 @@ class TestRepositoryAgentSessions:
 
 
 class TestKnowledgeAgentHistory:
-    @patch('app.export_chat_history')
+    @patch("app.export_chat_history")
     def test_knowledge_history_success(self, mock_export):
         mock_export.return_value = {"sessionId": "ses_1", "messages": []}
 
@@ -165,7 +165,7 @@ class TestKnowledgeAgentHistory:
         assert response.status_code == 200
         mock_export.assert_called_once_with("ses_1", 123, "knowledge:sample")
 
-    @patch('app.export_chat_history')
+    @patch("app.export_chat_history")
     def test_knowledge_history_bad_request(self, mock_export):
         mock_export.side_effect = ValueError("bad")
 
@@ -176,7 +176,7 @@ class TestKnowledgeAgentHistory:
 
         assert response.status_code == 400
 
-    @patch('app.export_chat_history')
+    @patch("app.export_chat_history")
     def test_knowledge_history_server_error(self, mock_export):
         mock_export.side_effect = RuntimeError("boom")
 
@@ -189,7 +189,7 @@ class TestKnowledgeAgentHistory:
 
 
 class TestKnowledgeAgentSessions:
-    @patch('app.list_chat_sessions')
+    @patch("app.list_chat_sessions")
     def test_knowledge_sessions_success(self, mock_list):
         mock_list.return_value = [{"id": "ses_1"}]
 
@@ -201,7 +201,7 @@ class TestKnowledgeAgentSessions:
         assert response.status_code == 200
         mock_list.assert_called_once_with("knowledge:sample", 5)
 
-    @patch('app.list_chat_sessions')
+    @patch("app.list_chat_sessions")
     def test_knowledge_sessions_error(self, mock_list):
         mock_list.side_effect = RuntimeError("boom")
 
@@ -211,7 +211,7 @@ class TestKnowledgeAgentSessions:
 
 
 class TestKnowledgeAgentCancel:
-    @patch('app.cancel_agent_message')
+    @patch("app.cancel_agent_message")
     def test_knowledge_agent_cancel_success(self, mock_cancel):
         mock_cancel.return_value = True
 
@@ -221,7 +221,7 @@ class TestKnowledgeAgentCancel:
         assert response.json() == {"success": True}
         mock_cancel.assert_called_once_with("knowledge:sample")
 
-    @patch('app.cancel_agent_message')
+    @patch("app.cancel_agent_message")
     def test_knowledge_agent_cancel_not_found(self, mock_cancel):
         mock_cancel.return_value = False
 
@@ -232,7 +232,7 @@ class TestKnowledgeAgentCancel:
 
 
 class TestConstitutionAgentHistory:
-    @patch('app.export_chat_history')
+    @patch("app.export_chat_history")
     def test_constitution_history_success(self, mock_export):
         mock_export.return_value = {"sessionId": "ses_1", "messages": []}
 
@@ -244,7 +244,7 @@ class TestConstitutionAgentHistory:
         assert response.status_code == 200
         mock_export.assert_called_once_with("ses_1", 123, "constitution:sample")
 
-    @patch('app.export_chat_history')
+    @patch("app.export_chat_history")
     def test_constitution_history_bad_request(self, mock_export):
         mock_export.side_effect = ValueError("bad")
 
@@ -255,7 +255,7 @@ class TestConstitutionAgentHistory:
 
         assert response.status_code == 400
 
-    @patch('app.export_chat_history')
+    @patch("app.export_chat_history")
     def test_constitution_history_server_error(self, mock_export):
         mock_export.side_effect = RuntimeError("boom")
 
@@ -268,7 +268,7 @@ class TestConstitutionAgentHistory:
 
 
 class TestConstitutionAgentCancel:
-    @patch('app.cancel_agent_message')
+    @patch("app.cancel_agent_message")
     def test_constitution_agent_cancel_success(self, mock_cancel):
         mock_cancel.return_value = True
 
@@ -278,7 +278,7 @@ class TestConstitutionAgentCancel:
         assert response.json() == {"success": True}
         mock_cancel.assert_called_once_with("constitution:sample")
 
-    @patch('app.cancel_agent_message')
+    @patch("app.cancel_agent_message")
     def test_constitution_agent_cancel_not_found(self, mock_cancel):
         mock_cancel.return_value = False
 
@@ -289,7 +289,7 @@ class TestConstitutionAgentCancel:
 
 
 class TestConstitutionAgentSessions:
-    @patch('app.list_chat_sessions')
+    @patch("app.list_chat_sessions")
     def test_constitution_sessions_success(self, mock_list):
         mock_list.return_value = [{"id": "ses_1"}]
 
@@ -301,7 +301,7 @@ class TestConstitutionAgentSessions:
         assert response.status_code == 200
         mock_list.assert_called_once_with("constitution:sample", 5)
 
-    @patch('app.list_chat_sessions')
+    @patch("app.list_chat_sessions")
     def test_constitution_sessions_error(self, mock_list):
         mock_list.side_effect = RuntimeError("boom")
 
@@ -313,45 +313,45 @@ class TestConstitutionAgentSessions:
 class TestRepositoryEndpoints:
     """Test repository-related endpoints."""
 
-    @patch('app.list_repositories')
+    @patch("app.list_repositories")
     def test_list_repositories_success(self, mock_list):
         """Test successful repository listing."""
         mock_repos = ["repo1", "repo2", "repo3"]
         mock_list.return_value = mock_repos
-        
+
         response = client.get("/api/repositories")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["repositories"] == mock_repos
 
-    @patch('app.list_repositories')
+    @patch("app.list_repositories")
     def test_list_repositories_error(self, mock_list):
         """Test repository listing error."""
         mock_list.side_effect = Exception("List error")
-        
+
         response = client.get("/api/repositories")
-        
+
         assert response.status_code == 500
 
-    @patch('app.create_repository')
+    @patch("app.create_repository")
     def test_create_repository_success(self, mock_create):
         """Test successful repository creation."""
         mock_create.return_value = {"name": "test-repo", "created": True}
-        
+
         response = client.post("/api/repositories", json={"name": "test-repo"})
-        
+
         assert response.status_code == 201
         mock_create.assert_called_once_with("test-repo")
 
     def test_create_repository_no_name(self):
         """Test repository creation without name."""
         response = client.post("/api/repositories", json={})
-        
+
         assert response.status_code == 400
         assert "Repository name is required" in response.json()["detail"]
 
-    @patch('app.create_repository')
+    @patch("app.create_repository")
     def test_create_repository_invalid_name(self, mock_create):
         """Test repository creation with invalid name."""
         mock_create.side_effect = ValueError("Invalid repository name")
@@ -361,7 +361,7 @@ class TestRepositoryEndpoints:
         assert response.status_code == 400
         assert "Invalid repository name" in response.json()["detail"]
 
-    @patch('app.clone_repository')
+    @patch("app.clone_repository")
     def test_clone_repository_success(self, mock_clone):
         """Test successful repository cloning."""
         mock_clone.return_value = {"name": "cloned-repo"}
@@ -387,7 +387,7 @@ class TestRepositoryEndpoints:
         assert response.status_code == 400
         assert "Repository URL is required" in response.json()["detail"]
 
-    @patch('app.clone_repository')
+    @patch("app.clone_repository")
     def test_clone_repository_failure(self, mock_clone):
         """Test cloning failure handling."""
         mock_clone.side_effect = ValueError("Failed to clone repository")
@@ -400,7 +400,7 @@ class TestRepositoryEndpoints:
         assert response.status_code == 400
         assert "Failed to clone repository" in response.json()["detail"]
 
-    @patch('app.send_agent_message')
+    @patch("app.send_agent_message")
     def test_repository_agent_busy(self, mock_send):
         mock_send.side_effect = ChannelBusyError("busy")
 
@@ -411,7 +411,7 @@ class TestRepositoryEndpoints:
         assert response.status_code == 409
         assert "busy" in response.json()["detail"]
 
-    @patch('app.get_channel_status')
+    @patch("app.get_channel_status")
     def test_repository_agent_status(self, mock_status):
         payload = {"processing": True, "startedAt": "2024-01-01T00:00:00Z"}
         mock_status.return_value = payload
@@ -421,7 +421,7 @@ class TestRepositoryEndpoints:
         assert response.status_code == 200
         assert response.json() == payload
 
-    @patch('app.cancel_agent_message')
+    @patch("app.cancel_agent_message")
     def test_repository_agent_cancel_success(self, mock_cancel):
         mock_cancel.return_value = True
 
@@ -431,7 +431,7 @@ class TestRepositoryEndpoints:
         assert response.json() == {"success": True}
         mock_cancel.assert_called_once_with("sample")
 
-    @patch('app.cancel_agent_message')
+    @patch("app.cancel_agent_message")
     def test_repository_agent_cancel_not_found(self, mock_cancel):
         mock_cancel.return_value = False
 
@@ -440,27 +440,27 @@ class TestRepositoryEndpoints:
         assert response.status_code == 404
         assert "No active agent process" in response.json()["detail"]
 
-    @patch('app.get_repository_info')
+    @patch("app.get_repository_info")
     def test_get_repository_info_success(self, mock_get_info):
         """Test successful repository info retrieval."""
         mock_info = {"name": "test-repo", "files": 5}
         mock_get_info.return_value = mock_info
-        
+
         response = client.get("/api/repositories/test-repo")
-        
+
         assert response.status_code == 200
         assert response.json() == mock_info
 
-    @patch('app.get_repository_info')
+    @patch("app.get_repository_info")
     def test_get_repository_info_not_found(self, mock_get_info):
         """Test repository info for non-existent repo."""
         mock_get_info.side_effect = FileNotFoundError("Repository not found")
-        
+
         response = client.get("/api/repositories/nonexistent")
-        
+
         assert response.status_code == 404
 
-    @patch('app.list_repository_files')
+    @patch("app.list_repository_files")
     def test_list_repository_files_success(self, mock_list_files):
         """Test successful repository files listing."""
         mock_files = {
@@ -472,21 +472,21 @@ class TestRepositoryEndpoints:
             ],
         }
         mock_list_files.return_value = mock_files
-        
+
         response = client.get("/api/repositories/test-repo/files")
-        
+
         assert response.status_code == 200
         assert response.json() == mock_files
         mock_list_files.assert_called_once_with("test-repo", ".")
 
-    @patch('app.read_repository_file')
+    @patch("app.read_repository_file")
     def test_read_repository_file_success(self, mock_read):
         """Test successful repository file reading."""
         mock_content = "File content here"
         mock_read.return_value = mock_content
-        
+
         response = client.get("/api/repositories/test-repo/file?path=test.py")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["content"] == mock_content
@@ -494,16 +494,16 @@ class TestRepositoryEndpoints:
     def test_read_repository_file_no_path(self):
         """Test reading repository file without path."""
         response = client.get("/api/repositories/test-repo/file")
-        
+
         assert response.status_code == 422  # FastAPI validation error
 
-    @patch('app.write_repository_file')
+    @patch("app.write_repository_file")
     def test_write_repository_file_success(self, mock_write):
         """Test successful repository file writing."""
         payload = {"path": "test.py", "content": "print('hello')"}
-        
+
         response = client.put("/api/repositories/test-repo/file", json=payload)
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
@@ -511,23 +511,25 @@ class TestRepositoryEndpoints:
 
     def test_write_repository_file_no_path(self):
         """Test writing repository file without path."""
-        response = client.put("/api/repositories/test-repo/file", json={"content": "test"})
-        
+        response = client.put(
+            "/api/repositories/test-repo/file", json={"content": "test"}
+        )
+
         assert response.status_code == 400
         assert "File path is required" in response.json()["detail"]
 
-    @patch('app.create_repository_file')
+    @patch("app.create_repository_file")
     def test_create_repository_file_success(self, mock_create):
         """Test successful repository file creation."""
         payload = {"path": "new.py", "content": "# New file"}
-        
+
         response = client.post("/api/repositories/test-repo/file", json=payload)
-        
+
         assert response.status_code == 201
         data = response.json()
         assert data["success"] is True
 
-    @patch('app.write_repository_file_bytes')
+    @patch("app.write_repository_file_bytes")
     def test_upload_repository_file_success(self, mock_upload):
         """Test successful repository file upload."""
         files = {"file": ("logo.png", b"binary", "image/png")}
@@ -548,7 +550,7 @@ class TestRepositoryEndpoints:
             b"binary",
         )
 
-    @patch('app.write_repository_file_bytes')
+    @patch("app.write_repository_file_bytes")
     def test_upload_repository_file_missing_path(self, mock_upload):
         """Test uploading repository file without a path."""
         files = {"file": ("logo.png", b"binary", "image/png")}
@@ -563,13 +565,13 @@ class TestRepositoryEndpoints:
         assert "File path is required" in response.json()["detail"]
         mock_upload.assert_not_called()
 
-    @patch('app.rename_repository_file')
+    @patch("app.rename_repository_file")
     def test_rename_repository_file_success(self, mock_rename):
         """Test successful repository file renaming."""
         payload = {"from": "old.py", "to": "new.py"}
-        
+
         response = client.post("/api/repositories/test-repo/file/rename", json=payload)
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
@@ -577,28 +579,32 @@ class TestRepositoryEndpoints:
 
     def test_rename_repository_file_missing_params(self):
         """Test renaming repository file with missing parameters."""
-        response = client.post("/api/repositories/test-repo/file/rename", json={"from": "old.py"})
-        
+        response = client.post(
+            "/api/repositories/test-repo/file/rename", json={"from": "old.py"}
+        )
+
         assert response.status_code == 400
         assert "Both from and to paths are required" in response.json()["detail"]
 
-    @patch('app.delete_repository_file')
+    @patch("app.delete_repository_file")
     def test_delete_repository_file_success(self, mock_delete):
         """Test successful repository file deletion."""
         payload = {"path": "delete.py"}
-        
-        response = client.request("DELETE", "/api/repositories/test-repo/file", json=payload)
-        
+
+        response = client.request(
+            "DELETE", "/api/repositories/test-repo/file", json=payload
+        )
+
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
 
-    @patch('app.send_agent_message')
+    @patch("app.send_agent_message")
     def test_repository_agent_success(self, mock_agent):
         """Test successful repository agent interaction."""
         mock_agent.return_value = {"response": "Agent response"}
         payload = {"message": "Test message"}
-        
+
         response = client.post("/api/repositories/test-repo/agent", json=payload)
 
         assert response.status_code == 200
@@ -610,7 +616,7 @@ class TestRepositoryEndpoints:
             None,
         )
 
-    @patch('app.send_agent_message')
+    @patch("app.send_agent_message")
     def test_repository_agent_with_session_id(self, mock_agent):
         """Test repository agent forwards provided session ID."""
         mock_agent.return_value = {"response": "Agent response"}
@@ -627,59 +633,105 @@ class TestRepositoryEndpoints:
             None,
         )
 
+    @patch("app.get_repository_git_status")
+    def test_repository_git_status_success(self, mock_status):
+        mock_status.return_value = {"branch": "main"}
+
+        response = client.get("/api/repositories/test-repo/git")
+
+        assert response.status_code == 200
+        assert response.json() == {"branch": "main"}
+        mock_status.assert_called_once_with("test-repo")
+
+    @patch("app.pull_repository")
+    def test_repository_git_pull_success(self, mock_pull):
+        mock_pull.return_value = {"output": "ok"}
+
+        response = client.post("/api/repositories/test-repo/git/pull")
+
+        assert response.status_code == 200
+        assert response.json() == {"output": "ok"}
+        mock_pull.assert_called_once_with("test-repo")
+
+    @patch("app.create_repository_worktree")
+    def test_repository_git_worktree_success(self, mock_worktree):
+        mock_worktree.return_value = {"path": "/tmp/wt", "branch": "feature/test"}
+
+        response = client.post(
+            "/api/repositories/test-repo/git/worktree",
+            json={"directoryName": "repo-feature", "branchName": "feature/test"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["branch"] == "feature/test"
+        mock_worktree.assert_called_once_with(
+            "test-repo",
+            "repo-feature",
+            "feature/test",
+        )
+
+    def test_repository_git_worktree_missing_params(self):
+        response = client.post(
+            "/api/repositories/test-repo/git/worktree",
+            json={"directoryName": "repo-feature"},
+        )
+
+        assert response.status_code == 400
+        assert "directoryName and branchName are required" in response.json()["detail"]
+
 
 class TestKnowledgeEndpoints:
     """Test knowledge-related endpoints."""
 
-    @patch('app.list_knowledge_artefacts')
+    @patch("app.list_knowledge_artefacts")
     def test_list_knowledge_success(self, mock_list):
         """Test successful knowledge listing."""
         mock_artefacts = ["guide1.md", "guide2.md"]
         mock_list.return_value = mock_artefacts
-        
+
         response = client.get("/api/knowledge")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["artefacts"] == mock_artefacts
 
-    @patch('app.read_knowledge_artefact')
+    @patch("app.read_knowledge_artefact")
     def test_read_knowledge_success(self, mock_read):
         """Test successful knowledge reading."""
         mock_data = {"frontmatter": {"title": "Guide"}, "content": "Content here"}
         mock_read.return_value = mock_data
-        
+
         response = client.get("/api/knowledge/test-guide")
-        
+
         assert response.status_code == 200
         assert response.json() == mock_data
 
-    @patch('app.read_knowledge_artefact')
+    @patch("app.read_knowledge_artefact")
     def test_read_knowledge_not_found(self, mock_read):
         """Test reading non-existent knowledge."""
         mock_read.side_effect = FileNotFoundError("Knowledge not found")
-        
+
         response = client.get("/api/knowledge/nonexistent")
-        
+
         assert response.status_code == 404
 
-    @patch('app.write_knowledge_artefact')
+    @patch("app.write_knowledge_artefact")
     def test_write_knowledge_success(self, mock_write):
         """Test successful knowledge writing."""
         payload = {"frontmatter": {"title": "Test"}, "content": "Test content"}
-        
+
         response = client.put("/api/knowledge/test-guide", json=payload)
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
 
-    @patch('app.send_agent_message')
+    @patch("app.send_agent_message")
     def test_knowledge_agent_success(self, mock_agent):
         """Test successful knowledge agent interaction."""
         mock_agent.return_value = {"response": "Agent response"}
         payload = {"message": "Test message"}
-        
+
         response = client.post("/api/knowledge/test-guide/agent", json=payload)
 
         assert response.status_code == 200
@@ -691,7 +743,7 @@ class TestKnowledgeEndpoints:
             None,
         )
 
-    @patch('app.send_agent_message')
+    @patch("app.send_agent_message")
     def test_knowledge_agent_with_session_id(self, mock_agent):
         """Test knowledge agent forwards provided session ID."""
         mock_agent.return_value = {"response": "Agent response"}
@@ -712,46 +764,46 @@ class TestKnowledgeEndpoints:
 class TestConstitutionEndpoints:
     """Test constitution-related endpoints."""
 
-    @patch('app.list_constitutions')
+    @patch("app.list_constitutions")
     def test_list_constitutions_success(self, mock_list):
         """Test successful constitution listing."""
         mock_constitutions = ["const1.md", "const2.md"]
         mock_list.return_value = mock_constitutions
-        
+
         response = client.get("/api/constitutions")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["constitutions"] == mock_constitutions
 
-    @patch('app.read_constitution')
+    @patch("app.read_constitution")
     def test_read_constitution_success(self, mock_read):
         """Test successful constitution reading."""
         mock_data = {"frontmatter": {"title": "Rules"}, "content": "Rules here"}
         mock_read.return_value = mock_data
-        
+
         response = client.get("/api/constitutions/test-const")
-        
+
         assert response.status_code == 200
         assert response.json() == mock_data
 
-    @patch('app.write_constitution')
+    @patch("app.write_constitution")
     def test_write_constitution_success(self, mock_write):
         """Test successful constitution writing."""
         payload = {"frontmatter": {"title": "Rules"}, "content": "New rules"}
-        
+
         response = client.put("/api/constitutions/test-const", json=payload)
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
 
-    @patch('app.send_agent_message')
+    @patch("app.send_agent_message")
     def test_constitution_agent_success(self, mock_agent):
         """Test successful constitution agent interaction."""
         mock_agent.return_value = {"response": "Agent response"}
         payload = {"message": "Test message"}
-        
+
         response = client.post("/api/constitutions/test-const/agent", json=payload)
 
         assert response.status_code == 200
@@ -763,7 +815,7 @@ class TestConstitutionEndpoints:
             None,
         )
 
-    @patch('app.send_agent_message')
+    @patch("app.send_agent_message")
     def test_constitution_agent_with_session_id(self, mock_agent):
         """Test constitution agent forwards provided session ID."""
         mock_agent.return_value = {"response": "Agent response"}
@@ -784,7 +836,7 @@ class TestConstitutionEndpoints:
 class TestTaskEndpoints:
     """Test task-related endpoints."""
 
-    @patch('app.list_tasks')
+    @patch("app.list_tasks")
     def test_list_tasks_success(self, mock_list):
         mock_tasks = ["task1.md", "task2.md"]
         mock_list.return_value = mock_tasks
@@ -795,7 +847,7 @@ class TestTaskEndpoints:
         data = response.json()
         assert data["tasks"] == mock_tasks
 
-    @patch('app.read_task')
+    @patch("app.read_task")
     def test_read_task_success(self, mock_read):
         mock_data = {"frontmatter": {"type": "task"}, "content": "- [ ] Item"}
         mock_read.return_value = mock_data
@@ -805,7 +857,7 @@ class TestTaskEndpoints:
         assert response.status_code == 200
         assert response.json() == mock_data
 
-    @patch('app.write_task')
+    @patch("app.write_task")
     def test_write_task_success(self, mock_write):
         payload = {"frontmatter": {"type": "task"}, "content": "- [x] Done"}
 
@@ -815,11 +867,13 @@ class TestTaskEndpoints:
         data = response.json()
         assert data["success"] is True
 
-    @patch('app.send_agent_message')
+    @patch("app.send_agent_message")
     def test_task_agent_success(self, mock_agent):
         mock_agent.return_value = {"response": "Agent response"}
 
-        response = client.post("/api/tasks/test-task/agent", json={"message": "Plan next step"})
+        response = client.post(
+            "/api/tasks/test-task/agent", json={"message": "Plan next step"}
+        )
 
         assert response.status_code == 200
         mock_agent.assert_called_once_with(
@@ -830,7 +884,7 @@ class TestTaskEndpoints:
             None,
         )
 
-    @patch('app.get_channel_status')
+    @patch("app.get_channel_status")
     def test_task_agent_status(self, mock_status):
         mock_status.return_value = {"processing": False}
 
@@ -839,7 +893,7 @@ class TestTaskEndpoints:
         assert response.status_code == 200
         assert response.json() == {"processing": False}
 
-    @patch('app.cancel_agent_message')
+    @patch("app.cancel_agent_message")
     def test_task_agent_cancel_success(self, mock_cancel):
         mock_cancel.return_value = True
 
@@ -848,7 +902,7 @@ class TestTaskEndpoints:
         assert response.status_code == 200
         assert response.json() == {"success": True}
 
-    @patch('app.cancel_agent_message')
+    @patch("app.cancel_agent_message")
     def test_task_agent_cancel_not_found(self, mock_cancel):
         mock_cancel.return_value = False
 
@@ -856,7 +910,7 @@ class TestTaskEndpoints:
 
         assert response.status_code == 404
 
-    @patch('app.export_chat_history')
+    @patch("app.export_chat_history")
     def test_task_agent_history_success(self, mock_export):
         mock_export.return_value = {"sessionId": "ses_t", "messages": []}
 
@@ -868,12 +922,16 @@ class TestTaskEndpoints:
         assert response.status_code == 200
         mock_export.assert_called_once_with("ses_t", 50, "task:test-task")
 
-    @patch('app.list_chat_sessions')
+    @patch("app.list_chat_sessions")
     def test_task_agent_sessions_success(self, mock_sessions):
-        sessions = [{"id": "ses_t", "title": "Task Session", "updated": "2024-01-01T00:00:00Z"}]
+        sessions = [
+            {"id": "ses_t", "title": "Task Session", "updated": "2024-01-01T00:00:00Z"}
+        ]
         mock_sessions.return_value = sessions
 
-        response = client.get("/api/tasks/test-task/agent/sessions", params={"limit": 5})
+        response = client.get(
+            "/api/tasks/test-task/agent/sessions", params={"limit": 5}
+        )
 
         assert response.status_code == 200
         assert response.json() == {"sessions": sessions}
@@ -882,25 +940,25 @@ class TestTaskEndpoints:
 class TestSettingsEndpoints:
     """Test settings-related endpoints."""
 
-    @patch('app.read_settings')
+    @patch("app.read_settings")
     def test_read_settings_success(self, mock_read):
         """Test successful settings reading."""
         mock_settings = {"theme": "dark", "language": "en"}
         mock_read.return_value = mock_settings
-        
+
         response = client.get("/api/settings")
-        
+
         assert response.status_code == 200
         assert response.json() == mock_settings
 
-    @patch('app.write_settings')
+    @patch("app.write_settings")
     def test_write_settings_success(self, mock_write):
         """Test successful settings writing."""
         mock_write.return_value = {"success": True}
         payload = {"theme": "light", "language": "en"}
-        
+
         response = client.put("/api/settings", json=payload)
-        
+
         assert response.status_code == 200
         mock_write.assert_called_once_with(payload)
 
@@ -908,23 +966,23 @@ class TestSettingsEndpoints:
 class TestBootstrapEndpoint:
     """Test bootstrap endpoint."""
 
-    @patch('app.ensure_made_structure')
+    @patch("app.ensure_made_structure")
     def test_bootstrap_success(self, mock_ensure):
         """Test successful bootstrap."""
         response = client.post("/api/bootstrap")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
         mock_ensure.assert_called_once()
 
-    @patch('app.ensure_made_structure')
+    @patch("app.ensure_made_structure")
     def test_bootstrap_error(self, mock_ensure):
         """Test bootstrap error handling."""
         mock_ensure.side_effect = Exception("Bootstrap error")
-        
+
         response = client.post("/api/bootstrap")
-        
+
         assert response.status_code == 500
         assert "Bootstrap error" in response.json()["detail"]
 
@@ -935,21 +993,21 @@ class TestAgentMessageValidation:
     def test_repository_agent_no_message(self):
         """Test repository agent without message."""
         response = client.post("/api/repositories/test-repo/agent", json={})
-        
+
         assert response.status_code == 400
         assert "Message is required" in response.json()["detail"]
 
     def test_knowledge_agent_no_message(self):
         """Test knowledge agent without message."""
         response = client.post("/api/knowledge/test-guide/agent", json={})
-        
+
         assert response.status_code == 400
         assert "Message is required" in response.json()["detail"]
 
     def test_constitution_agent_no_message(self):
         """Test constitution agent without message."""
         response = client.post("/api/constitutions/test-const/agent", json={})
-        
+
         assert response.status_code == 400
         assert "Message is required" in response.json()["detail"]
 

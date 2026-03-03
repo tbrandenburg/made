@@ -182,6 +182,34 @@ export type CommandDefinition = {
   argumentHint?: string | string[] | null;
 };
 
+
+export type GitDiffEntry = {
+  path: string;
+  green: number;
+  red: number;
+};
+
+export type RepositoryGitStatus = {
+  branch: string | null;
+  aheadBehind: { ahead: number; behind: number };
+  lineStats: { green: number; red: number };
+  lastCommit: { id: string | null; date: string | null };
+  counts: {
+    issues: number | null;
+    pullRequests: number | null;
+    branches: number | null;
+    worktrees: number;
+  };
+  links: {
+    repo: string | null;
+    issues: string | null;
+    pulls: string | null;
+    branches: string | null;
+    commit: string | null;
+  };
+  diff: GitDiffEntry[];
+};
+
 export type HarnessDefinition = {
   id: string;
   name: string;
@@ -337,6 +365,22 @@ export const api = {
     request<{ harnesses: HarnessDefinition[] }>(
       `/repositories/${name}/harnesses`,
     ),
+
+  getRepositoryGitStatus: (name: string) =>
+    request<RepositoryGitStatus>(`/repositories/${name}/git`),
+  pullRepository: (name: string) =>
+    request<{ output: string }>(`/repositories/${name}/git/pull`, {
+      method: "POST",
+    }),
+  createRepositoryWorktree: (
+    name: string,
+    directoryName: string,
+    branchName: string,
+  ) =>
+    request<{ path: string; branch: string }>(`/repositories/${name}/git/worktree`, {
+      method: "POST",
+      body: JSON.stringify({ directoryName, branchName }),
+    }),
   runRepositoryHarness: (name: string, path: string, args?: string) =>
     request<{ pid: number; name: string; path: string }>(
       `/repositories/${name}/harnesses/run`,
