@@ -16,6 +16,8 @@
 
 .worktree-child-pill {
   border: 2px dashed #000;
+  width: 95%;
+  margin-left: auto;
 }
 
 :root.dark .worktree-child-pill {
