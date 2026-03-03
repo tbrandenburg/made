@@ -39,6 +39,8 @@ describe("GitTab", () => {
 
     expect(screen.getByText("Branch")).toBeInTheDocument();
     expect(screen.getByText("main")).toBeInTheDocument();
+    expect(screen.getByText("+10")).toBeInTheDocument();
+    expect(screen.getByText("-4")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "src/App.tsx" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "abcdef12" })).toBeInTheDocument();
   });

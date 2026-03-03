@@ -68,7 +68,15 @@ export const GitTab: React.FC<GitTabProps> = ({
             <tbody>
               <tr><th>Branch</th><td>{status.branch || "Unknown"}</td></tr>
               <tr><th>Commits ahead/behind</th><td>{status.aheadBehind.ahead}/{status.aheadBehind.behind}</td></tr>
-              <tr><th>Line Stats</th><td>{status.lineStats.green} / {status.lineStats.red}</td></tr>
+              <tr>
+                <th>Line Stats</th>
+                <td>
+                  <span className="git-stat-pair">
+                    <span className="git-added">+{status.lineStats.green}</span>
+                    <span className="git-removed">-{status.lineStats.red}</span>
+                  </span>
+                </td>
+              </tr>
               <tr>
                 <th>Last Commit</th>
                 <td>

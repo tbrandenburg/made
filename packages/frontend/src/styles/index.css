@@ -584,3 +584,10 @@ textarea {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+
+.git-stat-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
