@@ -8,6 +8,7 @@ interface PanelProps {
   children: React.ReactNode;
   to?: string;
   onClick?: React.MouseEventHandler<HTMLElement>;
+  className?: string;
 }
 
 export const Panel: React.FC<PanelProps> = ({
@@ -16,6 +17,7 @@ export const Panel: React.FC<PanelProps> = ({
   children,
   to,
   onClick,
+  className,
 }) => {
   const content = (
     <>
@@ -31,14 +33,21 @@ export const Panel: React.FC<PanelProps> = ({
 
   if (to) {
     return (
-      <Link to={to} className="panel panel-link" onClick={onClick}>
+      <Link
+        to={to}
+        className={`panel panel-link${className ? ` ${className}` : ""}`}
+        onClick={onClick}
+      >
         {content}
       </Link>
     );
   }
 
   return (
-    <section className="panel" onClick={onClick}>
+    <section
+      className={`panel${className ? ` ${className}` : ""}`}
+      onClick={onClick}
+    >
       {content}
     </section>
   );

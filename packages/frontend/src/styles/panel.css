@@ -13,6 +13,15 @@
     background 0.2s ease;
 }
 
+
+.worktree-child-pill {
+  border: 2px dashed #000;
+}
+
+:root.dark .worktree-child-pill {
+  border-color: #fff;
+}
+
 .panel-link {
   color: inherit;
   text-decoration: none;
