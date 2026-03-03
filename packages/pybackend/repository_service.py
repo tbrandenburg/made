@@ -131,11 +131,13 @@ def get_repository_info(repo_name: str) -> Dict[str, Union[str, bool, None]]:
         raise FileNotFoundError("Repository not found")
 
     git_dir = repo_path / ".git"
-    is_git = git_dir.exists() and git_dir.is_dir()
+    is_git = git_dir.exists() and (git_dir.is_dir() or git_dir.is_file())
+    is_worktree_child = is_git and git_dir.is_file()
     return {
         "name": repo_name,
         "path": str(repo_path),
         "hasGit": is_git,
+        "isWorktreeChild": is_worktree_child,
         "lastCommit": get_last_commit_date(repo_path) if is_git else None,
         "branch": get_branch_name(repo_path) if is_git else None,
         "technology": detect_technology(repo_path),

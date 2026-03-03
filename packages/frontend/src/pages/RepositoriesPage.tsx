@@ -126,6 +126,7 @@ export const RepositoriesPage: React.FC = () => {
                       key={repo.name}
                       title={repo.name}
                       to={`/repositories/${repo.name}`}
+                      className={repo.isWorktreeChild ? "worktree-child-pill" : undefined}
                     >
                       <div className="metadata">
                         <span

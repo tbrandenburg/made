@@ -7,6 +7,7 @@ from repository_service import (
     clone_repository,
     create_repository_worktree,
     get_repository_git_status,
+    get_repository_info,
     pull_repository,
 )
 
@@ -193,3 +194,32 @@ def test_create_repository_worktree(monkeypatch, tmp_path):
 
     assert result["branch"] == "feature/test"
     assert result["path"].endswith("repo-feature")
+
+
+def test_get_repository_info_detects_git_worktree_child(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    repo_path = workspace / "child-wt1"
+    repo_path.mkdir(parents=True)
+    (repo_path / ".git").write_text(
+        "gitdir: /tmp/parent/.git/worktrees/child-wt1\n", encoding="utf-8"
+    )
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+
+    result = get_repository_info("child-wt1")
+
+    assert result["hasGit"] is True
+    assert result["isWorktreeChild"] is True
+
+
+def test_get_repository_info_marks_non_worktree_repo(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    repo_path = workspace / "standard"
+    _init_local_repo(repo_path)
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+
+    result = get_repository_info("standard")
+
+    assert result["hasGit"] is True
+    assert result["isWorktreeChild"] is False
