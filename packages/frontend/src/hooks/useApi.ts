@@ -438,6 +438,7 @@ export type RepositorySummary = {
   name: string;
   path: string;
   hasGit: boolean;
+  isWorktreeChild?: boolean;
   lastCommit: string | null;
   branch: string | null;
   technology: string;

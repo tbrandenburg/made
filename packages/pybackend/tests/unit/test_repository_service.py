@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from repository_service import clone_repository
+from repository_service import clone_repository, get_repository_info
 
 
 def _init_local_repo(repo_path: Path) -> None:
@@ -136,3 +136,32 @@ def test_clone_repository_handles_failure(monkeypatch, tmp_path):
 
     with pytest.raises(ValueError, match="Failed to clone repository"):
         clone_repository("https://example.com/sample.git")
+
+
+def test_get_repository_info_detects_git_worktree_child(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    repo_path = workspace / "child-wt1"
+    repo_path.mkdir(parents=True)
+    (repo_path / ".git").write_text(
+        "gitdir: /tmp/parent/.git/worktrees/child-wt1\n", encoding="utf-8"
+    )
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+
+    result = get_repository_info("child-wt1")
+
+    assert result["hasGit"] is True
+    assert result["isWorktreeChild"] is True
+
+
+def test_get_repository_info_marks_non_worktree_repo(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    repo_path = workspace / "standard"
+    _init_local_repo(repo_path)
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+
+    result = get_repository_info("standard")
+
+    assert result["hasGit"] is True
+    assert result["isWorktreeChild"] is False
