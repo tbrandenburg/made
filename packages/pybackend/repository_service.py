@@ -1,8 +1,12 @@
 import os
 import subprocess
 import logging
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Union
+from urllib.parse import quote_plus
 
 from config import get_workspace_home
 
@@ -305,3 +309,226 @@ def delete_repository_file(repo_name: str, file_path: str) -> None:
         target.rmdir()
     elif target.exists():
         target.unlink()
+
+
+def _run_git(repo_path: Path, args: list[str]) -> str:
+    return subprocess.check_output(
+        ["git", "-C", str(repo_path), *args],
+        stderr=subprocess.DEVNULL,
+        text=True,
+    ).strip()
+
+
+def _github_repo(repo_path: Path) -> str | None:
+    try:
+        remote_url = _run_git(repo_path, ["remote", "get-url", "origin"])
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+    if remote_url.startswith("git@github.com:"):
+        remote_url = remote_url.replace("git@github.com:", "")
+    elif "github.com/" in remote_url:
+        remote_url = remote_url.split("github.com/", 1)[1]
+    else:
+        return None
+
+    repo = remote_url.removesuffix(".git").strip("/")
+    return repo or None
+
+
+def _github_get_json(url: str) -> dict | list | None:
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "made-app",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:  # noqa: S310
+            import json
+
+            return json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, ValueError):
+        return None
+
+
+def _github_count(url: str, field: str = "total_count") -> int | None:
+    payload = _github_get_json(url)
+    if isinstance(payload, dict):
+        value = payload.get(field)
+        if isinstance(value, int):
+            return value
+    return None
+
+
+def _ahead_behind(repo_path: Path) -> dict[str, int]:
+    try:
+        output = _run_git(
+            repo_path, ["rev-list", "--left-right", "--count", "HEAD...@{upstream}"]
+        )
+        ahead, behind = output.split()
+        return {"ahead": int(ahead), "behind": int(behind)}
+    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
+        return {"ahead": 0, "behind": 0}
+
+
+def _line_stats_from_numstat(numstat_output: str) -> dict[str, int]:
+    green = 0
+    red = 0
+    for line in numstat_output.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        added, deleted = parts[0], parts[1]
+        if added.isdigit():
+            green += int(added)
+        if deleted.isdigit():
+            red += int(deleted)
+    return {"green": green, "red": red}
+
+
+def get_repository_git_status(
+    repo_name: str,
+) -> Dict[str, Union[str, int, dict, list, None]]:
+    workspace = get_workspace_home()
+    repo_path = workspace / repo_name
+    if not repo_path.exists() or not repo_path.is_dir():
+        raise FileNotFoundError("Repository not found")
+
+    if not (repo_path / ".git").exists():
+        raise ValueError("Repository is not a git repository")
+
+    branch = get_branch_name(repo_path)
+    ahead_behind = _ahead_behind(repo_path)
+
+    diff_numstat = ""
+    try:
+        diff_numstat = _run_git(repo_path, ["diff", "--numstat", "HEAD"])
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        diff_numstat = ""
+
+    line_stats = _line_stats_from_numstat(diff_numstat)
+
+    diff_files = []
+    for line in diff_numstat.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        added, deleted, path = parts[0], parts[1], parts[2]
+        diff_files.append(
+            {
+                "path": path,
+                "green": int(added) if added.isdigit() else 0,
+                "red": int(deleted) if deleted.isdigit() else 0,
+            }
+        )
+
+    last_commit_id = None
+    last_commit_date = None
+    try:
+        raw = _run_git(repo_path, ["log", "-1", "--format=%H\t%cI"])
+        if raw:
+            commit_id, commit_date = raw.split("\t", 1)
+            last_commit_id = commit_id
+            try:
+                last_commit_date = (
+                    datetime.fromisoformat(commit_date.replace("Z", "+00:00"))
+                    .astimezone(timezone.utc)
+                    .isoformat()
+                )
+            except ValueError:
+                last_commit_date = commit_date
+    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
+        pass
+
+    try:
+        worktrees_output = _run_git(repo_path, ["worktree", "list", "--porcelain"])
+        worktree_count = worktrees_output.count("\nworktree ") + (
+            1 if worktrees_output.startswith("worktree ") else 0
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        worktree_count = 0
+
+    github_repo = _github_repo(repo_path)
+    links = {
+        "repo": None,
+        "issues": None,
+        "pulls": None,
+        "branches": None,
+        "commit": None,
+    }
+    counts = {
+        "issues": None,
+        "pullRequests": None,
+        "branches": None,
+        "worktrees": worktree_count,
+    }
+    if github_repo:
+        base = f"https://github.com/{github_repo}"
+        links = {
+            "repo": base,
+            "issues": f"{base}/issues",
+            "pulls": f"{base}/pulls",
+            "branches": f"{base}/branches",
+            "commit": f"{base}/commit/{last_commit_id}" if last_commit_id else None,
+        }
+        counts["issues"] = _github_count(
+            f"https://api.github.com/search/issues?q={quote_plus(f'repo:{github_repo} type:issue state:open')}"
+        )
+        counts["pullRequests"] = _github_count(
+            f"https://api.github.com/search/issues?q={quote_plus(f'repo:{github_repo} type:pr state:open')}"
+        )
+        branches_payload = _github_get_json(
+            f"https://api.github.com/repos/{github_repo}/branches?per_page=100"
+        )
+        if isinstance(branches_payload, list):
+            counts["branches"] = len(branches_payload)
+
+    return {
+        "branch": branch,
+        "aheadBehind": ahead_behind,
+        "lineStats": line_stats,
+        "lastCommit": {
+            "id": last_commit_id,
+            "date": last_commit_date,
+        },
+        "counts": counts,
+        "links": links,
+        "diff": diff_files,
+    }
+
+
+def pull_repository(repo_name: str) -> Dict[str, str]:
+    workspace = get_workspace_home()
+    repo_path = workspace / repo_name
+    if not repo_path.exists() or not repo_path.is_dir():
+        raise FileNotFoundError("Repository not found")
+    try:
+        output = _run_git(repo_path, ["pull"])
+        return {"output": output}
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        raise ValueError("Failed to pull repository") from exc
+
+
+def create_repository_worktree(
+    repo_name: str, directory_name: str, branch_name: str
+) -> Dict[str, str]:
+    workspace = get_workspace_home()
+    repo_path = workspace / repo_name
+    if not repo_path.exists() or not repo_path.is_dir():
+        raise FileNotFoundError("Repository not found")
+
+    target_dir = workspace / directory_name
+    if target_dir.exists():
+        raise ValueError("Target worktree directory already exists")
+
+    try:
+        _run_git(
+            repo_path,
+            ["worktree", "add", str(target_dir), "-b", branch_name],
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        raise ValueError("Failed to create worktree") from exc
+
+    return {"path": str(target_dir), "branch": branch_name}
