@@ -55,9 +55,12 @@ from repository_service import (
     create_repository_file,
     clone_repository,
     delete_repository_file,
+    create_repository_worktree,
     get_repository_info,
+    get_repository_git_status,
     list_repositories,
     list_repository_files,
+    pull_repository,
     read_repository_file,
     rename_repository_file,
     write_repository_file,
@@ -314,9 +317,7 @@ async def upload_repository_file_endpoint(
         write_repository_file_bytes(name, path, content)
         return {"success": True}
     except Exception as exc:
-        logger.exception(
-            "Failed to upload file '%s' in repository '%s'", path, name
-        )
+        logger.exception("Failed to upload file '%s' in repository '%s'", path, name)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
@@ -442,6 +443,51 @@ def repository_harness_run(name: str, payload: dict = Body(...)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
+
+
+@app.get("/api/repositories/{name}/git")
+def repository_git_status(name: str):
+    try:
+        logger.info("Retrieving git status for repository '%s'", name)
+        return get_repository_git_status(name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@app.post("/api/repositories/{name}/git/pull")
+def repository_git_pull(name: str):
+    try:
+        logger.info("Pulling repository '%s'", name)
+        return pull_repository(name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@app.post("/api/repositories/{name}/git/worktree")
+def repository_git_worktree(name: str, payload: dict = Body(...)):
+    directory_name = payload.get("directoryName")
+    branch_name = payload.get("branchName")
+    if not directory_name or not branch_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="directoryName and branchName are required",
+        )
+    try:
+        logger.info(
+            "Creating worktree for repository '%s' in '%s' with branch '%s'",
+            name,
+            directory_name,
+            branch_name,
+        )
+        return create_repository_worktree(name, directory_name, branch_name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
 @app.get("/api/commands")
@@ -677,7 +723,9 @@ def knowledge_agent(name: str, payload: dict = Body(...)):
             session_id or "new",
             agent or "default",
         )
-        return send_agent_message(f"knowledge:{name}", message, session_id, agent, model)
+        return send_agent_message(
+            f"knowledge:{name}", message, session_id, agent, model
+        )
     except ChannelBusyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 

@@ -3,7 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from repository_service import clone_repository
+from repository_service import (
+    clone_repository,
+    create_repository_worktree,
+    get_repository_git_status,
+    pull_repository,
+)
 
 
 def _init_local_repo(repo_path: Path) -> None:
@@ -136,3 +141,55 @@ def test_clone_repository_handles_failure(monkeypatch, tmp_path):
 
     with pytest.raises(ValueError, match="Failed to clone repository"):
         clone_repository("https://example.com/sample.git")
+
+
+def test_get_repository_git_status(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    repo_path = workspace / "repo"
+    _init_local_repo(repo_path)
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+    monkeypatch.setattr("repository_service._github_repo", lambda *_: "org/repo")
+    monkeypatch.setattr(
+        "repository_service._github_count",
+        lambda url, field="total_count": 7 if "type%3Aissue" in url else 2,
+    )
+    monkeypatch.setattr("repository_service._github_get_json", lambda *_: [1, 2, 3])
+
+    result = get_repository_git_status("repo")
+
+    assert result["branch"] in {"master", "main"}
+    assert result["counts"]["issues"] == 7
+    assert result["counts"]["pullRequests"] == 2
+    assert result["counts"]["branches"] == 3
+    assert "lineStats" in result
+
+
+def test_pull_repository(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    repo_path = workspace / "repo"
+    repo_path.mkdir()
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+    monkeypatch.setattr("repository_service._run_git", lambda *_: "Already up to date.")
+
+    result = pull_repository("repo")
+
+    assert result == {"output": "Already up to date."}
+
+
+def test_create_repository_worktree(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    repo_path = workspace / "repo"
+    repo_path.mkdir()
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+    monkeypatch.setattr("repository_service._run_git", lambda *_: "")
+
+    result = create_repository_worktree("repo", "repo-feature", "feature/test")
+
+    assert result["branch"] == "feature/test"
+    assert result["path"].endswith("repo-feature")
