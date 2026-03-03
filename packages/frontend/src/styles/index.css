@@ -567,3 +567,14 @@ textarea {
   padding: 0.4rem 0.5rem;
   border-bottom: 1px solid var(--border-color);
 }
+
+
+.git-added {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.git-removed {
+  color: var(--danger);
+  font-weight: 600;
+}

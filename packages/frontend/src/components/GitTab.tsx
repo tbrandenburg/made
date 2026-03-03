@@ -91,9 +91,6 @@ export const GitTab: React.FC<GitTabProps> = ({
           <div className="empty">No local changes.</div>
         ) : (
           <table className="git-table">
-            <thead>
-              <tr><th>Filename</th><th>Green</th><th>Red</th></tr>
-            </thead>
             <tbody>
               {status.diff.map((entry) => (
                 <tr key={entry.path}>
@@ -102,8 +99,8 @@ export const GitTab: React.FC<GitTabProps> = ({
                       {entry.path}
                     </button>
                   </td>
-                  <td>{entry.green}</td>
-                  <td>{entry.red}</td>
+                  <td className="git-added">+{entry.green}</td>
+                  <td className="git-removed">-{entry.red}</td>
                 </tr>
               ))}
             </tbody>
