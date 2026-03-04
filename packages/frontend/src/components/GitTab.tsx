@@ -46,6 +46,21 @@ export const GitTab: React.FC<GitTabProps> = ({
   const [worktreeModalOpen, setWorktreeModalOpen] = useState(false);
   const [directoryName, setDirectoryName] = useState("");
   const [branchName, setBranchName] = useState("");
+  const [branchManuallyEdited, setBranchManuallyEdited] = useState(false);
+
+  const closeWorktreeModal = () => {
+    setWorktreeModalOpen(false);
+    setDirectoryName("");
+    setBranchName("");
+    setBranchManuallyEdited(false);
+  };
+
+  const handleDirectoryChange = (value: string) => {
+    setDirectoryName(value);
+    if (!branchManuallyEdited) {
+      setBranchName(value ? `feature/${value}` : "");
+    }
+  };
 
   const lastCommitLabel = status?.lastCommit.id
     ? status.lastCommit.id.slice(0, 8)
@@ -128,14 +143,14 @@ export const GitTab: React.FC<GitTabProps> = ({
       <Modal
         open={worktreeModalOpen}
         title="Create Worktree"
-        onClose={() => setWorktreeModalOpen(false)}
+        onClose={closeWorktreeModal}
       >
         <div className="form-group">
           <label htmlFor="worktree-directory">Directory name</label>
           <input
             id="worktree-directory"
             value={directoryName}
-            onChange={(event) => setDirectoryName(event.target.value)}
+            onChange={(event) => handleDirectoryChange(event.target.value)}
           />
         </div>
         <div className="form-group">
@@ -143,7 +158,10 @@ export const GitTab: React.FC<GitTabProps> = ({
           <input
             id="worktree-branch"
             value={branchName}
-            onChange={(event) => setBranchName(event.target.value)}
+            onChange={(event) => {
+              setBranchName(event.target.value);
+              setBranchManuallyEdited(true);
+            }}
           />
         </div>
         <div className="button-bar">
@@ -152,9 +170,7 @@ export const GitTab: React.FC<GitTabProps> = ({
             disabled={!directoryName.trim() || !branchName.trim() || creatingWorktree}
             onClick={() => {
               onCreateWorktree(directoryName.trim(), branchName.trim());
-              setWorktreeModalOpen(false);
-              setDirectoryName("");
-              setBranchName("");
+              closeWorktreeModal();
             }}
           >
             Create

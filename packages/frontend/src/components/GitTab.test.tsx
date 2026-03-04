@@ -74,11 +74,20 @@ describe("GitTab", () => {
     fireEvent.change(screen.getByLabelText("Directory name"), {
       target: { value: "repo-worktree" },
     });
+
+    expect(screen.getByLabelText("Branch name")).toHaveValue("feature/repo-worktree");
+
     fireEvent.change(screen.getByLabelText("Branch name"), {
       target: { value: "feature/test" },
     });
+
+    fireEvent.change(screen.getByLabelText("Directory name"), {
+      target: { value: "repo-worktree-next" },
+    });
+
+    expect(screen.getByLabelText("Branch name")).toHaveValue("feature/test");
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
-    expect(onCreateWorktree).toHaveBeenCalledWith("repo-worktree", "feature/test");
+    expect(onCreateWorktree).toHaveBeenCalledWith("repo-worktree-next", "feature/test");
   });
 });
