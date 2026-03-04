@@ -56,6 +56,7 @@ from repository_service import (
     clone_repository,
     delete_repository_file,
     create_repository_worktree,
+    remove_repository_worktree,
     get_repository_info,
     get_repository_git_status,
     list_repositories,
@@ -484,6 +485,17 @@ def repository_git_worktree(name: str, payload: dict = Body(...)):
             branch_name,
         )
         return create_repository_worktree(name, directory_name, branch_name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@app.delete("/api/repositories/{name}/git/worktree")
+def repository_git_worktree_delete(name: str):
+    try:
+        logger.info("Removing worktree repository '%s'", name)
+        return remove_repository_worktree(name)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except ValueError as exc:
