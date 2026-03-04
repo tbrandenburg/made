@@ -32,7 +32,12 @@ const renderMaybeLink = (count: number | null, href: string | null, label: strin
   );
 };
 
-export const GitTab: React.FC<GitTabProps> = ({
+    .replace(/[~^:?*\[\]\s\\]+/g, "-")
+    .replace(/\.{2,}/g, "-")
+    .replace(/@\{/g, "-")
+    .replace(/\//g, "-")
+    .replace(/(^[./-]+)|([./-]+$)/g, "")
+    .replace(/\.lock$/i, "");
   status,
   loading,
   error,

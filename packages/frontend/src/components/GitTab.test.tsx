@@ -72,10 +72,10 @@ describe("GitTab", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Create worktree" }));
     fireEvent.change(screen.getByLabelText("Directory name"), {
-      target: { value: "repo-worktree" },
+      target: { value: "repo worktree@{bad}/..name.lock" },
     });
 
-    expect(screen.getByLabelText("Branch name")).toHaveValue("feature/repo-worktree");
+    expect(screen.getByLabelText("Branch name")).toHaveValue("feature/repo-worktree-bad-name");
 
     fireEvent.change(screen.getByLabelText("Branch name"), {
       target: { value: "feature/test" },
