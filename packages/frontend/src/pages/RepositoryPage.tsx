@@ -13,6 +13,7 @@ import { Modal } from "../components/Modal";
 import { TerminalTab } from "../components/TerminalTab";
 import { GitTab } from "../components/GitTab";
 import { ChatWindow } from "../components/ChatWindow";
+import { WorkflowBuilderPanel } from "../components/WorkflowBuilderPanel";
 import { SessionPickerModal } from "../components/SessionPickerModal";
 import { AgentSelector, DEFAULT_AGENT_VALUE } from "../components/AgentSelector";
 import { usePersistentChat } from "../hooks/usePersistentChat";
@@ -1526,7 +1527,15 @@ export const RepositoryPage: React.FC = () => {
       label: "Harnesses",
       content: (
         <div className="harness-center">
-          <Panel title="Harness Builder">{null}</Panel>
+          <Panel title="Harness Builder">
+            <WorkflowBuilderPanel
+              loadWorkflows={() => api.getRepositoryWorkflows(name || "")}
+              saveWorkflows={(payload) =>
+                api.saveRepositoryWorkflows(name || "", payload.workflows)
+              }
+              listAgents={() => api.getAgents()}
+            />
+          </Panel>
           <Panel
             title="Harness Scripts"
             actions={
