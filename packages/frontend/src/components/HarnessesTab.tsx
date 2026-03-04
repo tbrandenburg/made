@@ -210,6 +210,7 @@ export const HarnessesTab: React.FC<HarnessesTabProps> = ({
 
   return (
     <div className="harness-center">
+      <Panel title="Harness Builder">{null}</Panel>
       <Panel
         title="Harness Scripts"
         actions={
