@@ -381,6 +381,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ directoryName, branchName }),
     }),
+  removeRepositoryWorktree: (name: string) =>
+    request<{ removed: string }>(`/repositories/${name}/git/worktree`, {
+      method: "DELETE",
+    }),
   runRepositoryHarness: (name: string, path: string, args?: string) =>
     request<{ pid: number; name: string; path: string }>(
       `/repositories/${name}/harnesses/run`,

@@ -9,6 +9,7 @@ from repository_service import (
     get_repository_git_status,
     get_repository_info,
     pull_repository,
+    remove_repository_worktree,
 )
 
 
@@ -196,6 +197,46 @@ def test_create_repository_worktree(monkeypatch, tmp_path):
     assert result["path"].endswith("repo-feature")
 
 
+
+
+def test_remove_repository_worktree(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    worktree_path = workspace / "repo-feature"
+    worktree_path.mkdir()
+    (worktree_path / ".git").write_text(
+        "gitdir: /tmp/parent/.git/worktrees/repo-feature\n",
+        encoding="utf-8",
+    )
+
+    calls = []
+
+    def fake_run_git(repo_path, command):
+        calls.append((repo_path, command))
+        return ""
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+    monkeypatch.setattr("repository_service._run_git", fake_run_git)
+
+    result = remove_repository_worktree("repo-feature")
+
+    assert result == {"removed": "repo-feature"}
+    assert calls[0][0] == Path("/tmp/parent")
+    assert calls[0][1] == ["worktree", "remove", str(worktree_path)]
+
+
+def test_remove_repository_worktree_rejects_non_worktree(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    repo_path = workspace / "repo"
+    _init_local_repo(repo_path)
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+
+    with pytest.raises(ValueError, match="Repository is not a worktree"):
+        remove_repository_worktree("repo")
 def test_get_repository_info_detects_git_worktree_child(monkeypatch, tmp_path):
     workspace = tmp_path / "workspace"
     repo_path = workspace / "child-wt1"

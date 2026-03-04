@@ -532,3 +532,36 @@ def create_repository_worktree(
         raise ValueError("Failed to create worktree") from exc
 
     return {"path": str(target_dir), "branch": branch_name}
+
+
+def remove_repository_worktree(repo_name: str) -> Dict[str, str]:
+    workspace = get_workspace_home()
+    worktree_path = workspace / repo_name
+    if not worktree_path.exists() or not worktree_path.is_dir():
+        raise FileNotFoundError("Repository not found")
+
+    git_file = worktree_path / ".git"
+    if not git_file.exists() or not git_file.is_file():
+        raise ValueError("Repository is not a worktree")
+
+    try:
+        git_file_content = git_file.read_text(encoding="utf-8", errors="ignore")
+        gitdir_line = git_file_content.splitlines()[0].strip()
+        if not gitdir_line.startswith("gitdir:"):
+            raise ValueError("Invalid git metadata")
+
+        worktree_gitdir = Path(gitdir_line.split(":", 1)[1].strip())
+        if not worktree_gitdir.is_absolute():
+            worktree_gitdir = (worktree_path / worktree_gitdir).resolve()
+
+        main_repo_path = worktree_gitdir.parents[2]
+        _run_git(
+            main_repo_path,
+            ["worktree", "remove", str(worktree_path)],
+        )
+    except IndexError as exc:
+        raise ValueError("Invalid git metadata") from exc
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        raise ValueError("Failed to remove worktree") from exc
+
+    return {"removed": repo_name}

@@ -680,6 +680,26 @@ class TestRepositoryEndpoints:
         assert "directoryName and branchName are required" in response.json()["detail"]
 
 
+    @patch("app.remove_repository_worktree")
+    def test_repository_git_worktree_delete_success(self, mock_remove):
+        mock_remove.return_value = {"removed": "repo-feature"}
+
+        response = client.delete("/api/repositories/repo-feature/git/worktree")
+
+        assert response.status_code == 200
+        assert response.json() == {"removed": "repo-feature"}
+        mock_remove.assert_called_once_with("repo-feature")
+
+    @patch("app.remove_repository_worktree")
+    def test_repository_git_worktree_delete_value_error(self, mock_remove):
+        mock_remove.side_effect = ValueError("Repository is not a worktree")
+
+        response = client.delete("/api/repositories/repo/git/worktree")
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Repository is not a worktree"
+
+
 class TestKnowledgeEndpoints:
     """Test knowledge-related endpoints."""
 
