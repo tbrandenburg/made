@@ -342,20 +342,42 @@
 
 .workflow-builder__header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: 1rem;
 }
 
-.workflow-builder__header h3 {
-  margin: 0;
-  font-size: 0.95rem;
-  letter-spacing: 0.05em;
-}
 
 .workflow-builder__actions {
   display: flex;
   gap: 0.5rem;
+}
+
+
+.workflow-icon-button {
+  width: 30px;
+  height: 30px;
+}
+
+.workflow-icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.workflow-icon-button--danger {
+  color: #ef4444;
+}
+
+.workflow-icon {
+  display: inline-flex;
+}
+
+.workflow-icon--right {
+  transform: rotate(90deg);
+}
+
+.workflow-icon--up {
+  transform: rotate(180deg);
 }
 
 .workflow-list {

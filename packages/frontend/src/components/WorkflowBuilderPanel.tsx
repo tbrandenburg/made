@@ -1,6 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Modal } from "./Modal";
 import { AvailableAgent } from "../hooks/useApi";
+import { ArrowDownIcon } from "./icons/ArrowDownIcon";
+import { ClockIcon } from "./icons/ClockIcon";
+import { PlayIcon } from "./icons/PlayIcon";
+import { PlusIcon } from "./icons/PlusIcon";
+import { RefreshIcon } from "./icons/RefreshIcon";
+import { SaveIcon } from "./icons/SaveIcon";
+import { TrashIcon } from "./icons/TrashIcon";
+import { XIcon } from "./icons/XIcon";
 
 export type WorkflowStep = {
   type: "agent" | "bash";
@@ -135,10 +143,13 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
   return (
     <div className="workflow-builder">
       <div className="workflow-builder__header">
-        <h3>AGENT WORKFLOW BUILDER</h3>
         <div className="workflow-builder__actions">
-          <button className="secondary" onClick={load} disabled={loading || saving}>Refresh</button>
-          <button className="primary" onClick={() => void persist([...workflows, newWorkflow()])} disabled={saving}>＋ Add Workflow</button>
+          <button className="copy-button workflow-icon-button" onClick={load} disabled={loading || saving} title="Refresh workflows" aria-label="Refresh workflows">
+            <RefreshIcon />
+          </button>
+          <button className="copy-button workflow-icon-button" onClick={() => void persist([...workflows, newWorkflow()])} disabled={saving} title="Add workflow" aria-label="Add workflow">
+            <PlusIcon />
+          </button>
         </div>
       </div>
       {loading && <div className="alert">Loading workflows...</div>}
@@ -152,11 +163,14 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
             <div className="workflow-card" key={workflow.id}>
               <div className="workflow-card__header">
                 <button
-                  className="icon-button"
+                  className="copy-button workflow-icon-button"
                   onClick={() => setExpandedIds((prev) => ({ ...prev, [workflow.id]: !expanded }))}
-                  title={expanded ? "Collapse" : "Expand"}
+                  title={expanded ? "Collapse workflow" : "Expand workflow"}
+                  aria-label={expanded ? "Collapse workflow" : "Expand workflow"}
                 >
-                  {expanded ? "▼" : "▶"}
+                  <span className={expanded ? "workflow-icon workflow-icon--down" : "workflow-icon workflow-icon--right"}>
+                    <ArrowDownIcon />
+                  </span>
                 </button>
                 <input
                   className="workflow-name-input"
@@ -169,22 +183,28 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                   }}
                 />
                 <button
-                  className="icon-button"
-                  title={workflow.schedule || "Not scheduled"}
+                  className="copy-button workflow-icon-button"
+                  title={workflow.schedule || "Set schedule"}
+                  aria-label={workflow.schedule ? `Edit schedule: ${workflow.schedule}` : "Set schedule"}
                   onClick={() =>
                     setScheduleEditor({ workflowId: workflow.id, value: workflow.schedule || "" })
                   }
                 >
-                  ⏰
+                  <ClockIcon />
                 </button>
-                <button className="icon-button" onClick={() => addStep(workflow.id)} title="Add step">＋</button>
-                <button className="icon-button" title="Run workflow" disabled>▶</button>
+                <button className="copy-button workflow-icon-button" onClick={() => addStep(workflow.id)} title="Add step" aria-label="Add step">
+                  <PlusIcon />
+                </button>
+                <button className="copy-button workflow-icon-button" title="Run workflow" aria-label="Run workflow" disabled>
+                  <PlayIcon />
+                </button>
                 <button
-                  className="icon-button danger"
+                  className="copy-button workflow-icon-button workflow-icon-button--danger"
                   title="Remove workflow"
+                  aria-label="Remove workflow"
                   onClick={() => void persist(workflows.filter((item) => item.id !== workflow.id))}
                 >
-                  ✕
+                  <TrashIcon />
                 </button>
               </div>
               {expanded && (
@@ -265,8 +285,10 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                         </button>
                         <div className="workflow-step-controls">
                           <button
-                            className="icon-button"
+                            className="copy-button workflow-icon-button"
                             disabled={stepIndex === 0}
+                            title="Move step up"
+                            aria-label="Move step up"
                             onClick={() => {
                               const next = workflows.map((item) => {
                                 if (item.id !== workflow.id || stepIndex === 0) return item;
@@ -277,11 +299,15 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                               void persist(next);
                             }}
                           >
-                            ▲
+                            <span className="workflow-icon workflow-icon--up">
+                              <ArrowDownIcon />
+                            </span>
                           </button>
                           <button
-                            className="icon-button"
+                            className="copy-button workflow-icon-button"
                             disabled={stepIndex === workflow.steps.length - 1}
+                            title="Move step down"
+                            aria-label="Move step down"
                             onClick={() => {
                               const next = workflows.map((item) => {
                                 if (item.id !== workflow.id || stepIndex >= item.steps.length - 1) return item;
@@ -292,7 +318,9 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                               void persist(next);
                             }}
                           >
-                            ▼
+                            <span className="workflow-icon workflow-icon--down">
+                              <ArrowDownIcon />
+                            </span>
                           </button>
                         </div>
                       </div>
@@ -323,9 +351,13 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
           />
         </div>
         <div className="modal-actions">
-          <button className="secondary" onClick={() => setEditStep(null)}>Cancel</button>
+          <button className="copy-button workflow-icon-button" onClick={() => setEditStep(null)} title="Cancel" aria-label="Cancel">
+            <XIcon />
+          </button>
           <button
-            className="primary"
+            className="copy-button workflow-icon-button"
+            title="Save step"
+            aria-label="Save step"
             onClick={() => {
               if (!editStep) return;
               const next = workflows.map((workflow) => {
@@ -351,7 +383,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
               void persist(next);
             }}
           >
-            Save
+            <SaveIcon />
           </button>
         </div>
       </Modal>
@@ -373,9 +405,13 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
           />
         </div>
         <div className="modal-actions">
-          <button className="secondary" onClick={() => setScheduleEditor({ workflowId: "", value: "" })}>Cancel</button>
+          <button className="copy-button workflow-icon-button" onClick={() => setScheduleEditor({ workflowId: "", value: "" })} title="Cancel" aria-label="Cancel">
+            <XIcon />
+          </button>
           <button
-            className="primary"
+            className="copy-button workflow-icon-button"
+            title="Save schedule"
+            aria-label="Save schedule"
             onClick={() => {
               const next = workflows.map((workflow) =>
                 workflow.id === scheduleEditor.workflowId
@@ -386,7 +422,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
               void persist(next);
             }}
           >
-            Save
+            <SaveIcon />
           </button>
         </div>
       </Modal>
