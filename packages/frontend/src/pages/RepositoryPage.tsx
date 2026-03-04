@@ -1526,6 +1526,7 @@ export const RepositoryPage: React.FC = () => {
       label: "Harnesses",
       content: (
         <div className="harness-center">
+          <Panel title="Harness Builder">{null}</Panel>
           <Panel
             title="Harness Scripts"
             actions={
