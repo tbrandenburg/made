@@ -1,0 +1,102 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from config import ensure_directory, get_made_directory, get_workspace_home
+
+DEFAULT_WORKFLOW_NAME = "New workflow"
+
+
+def _workflow_path(repo_name: str | None = None) -> Path:
+    if repo_name:
+        base_path = get_workspace_home() / repo_name
+    else:
+        base_path = get_made_directory()
+    workflow_dir = ensure_directory(base_path / ".made") if repo_name else base_path
+    return workflow_dir / "workflows.yml"
+
+
+def _as_string(value: Any) -> str | None:
+    if isinstance(value, str):
+        stripped = value.strip()
+        return stripped if stripped else None
+    return None
+
+
+def _normalize_step(step: Any) -> dict[str, str]:
+    if not isinstance(step, dict):
+        return {}
+    step_type = _as_string(step.get("type"))
+    if step_type == "bash":
+        run = _as_string(step.get("run"))
+        return {"type": "bash", "run": run or ""}
+    if step_type == "agent":
+        normalized: dict[str, str] = {"type": "agent"}
+        agent = _as_string(step.get("agent"))
+        command = _as_string(step.get("command"))
+        prompt = _as_string(step.get("prompt"))
+        if agent:
+            normalized["agent"] = agent
+        if command:
+            normalized["command"] = command
+        if prompt:
+            normalized["prompt"] = prompt
+        return normalized
+    return {}
+
+
+def _normalize_workflow(workflow: Any, index: int) -> dict[str, Any] | None:
+    if not isinstance(workflow, dict):
+        return None
+    workflow_id = _as_string(workflow.get("id")) or f"workflow_{index + 1}"
+    name = _as_string(workflow.get("name")) or DEFAULT_WORKFLOW_NAME
+    schedule = _as_string(workflow.get("schedule"))
+    raw_steps = workflow.get("steps")
+    steps: list[dict[str, str]] = []
+    if isinstance(raw_steps, list):
+        for raw_step in raw_steps:
+            step = _normalize_step(raw_step)
+            if step:
+                steps.append(step)
+
+    return {
+        "id": workflow_id,
+        "name": name,
+        "schedule": schedule,
+        "steps": steps,
+    }
+
+
+def _normalize_payload(payload: Any) -> dict[str, list[dict[str, Any]]]:
+    workflows: list[dict[str, Any]] = []
+    if isinstance(payload, dict) and isinstance(payload.get("workflows"), list):
+        for index, raw_workflow in enumerate(payload["workflows"]):
+            normalized = _normalize_workflow(raw_workflow, index)
+            if normalized:
+                workflows.append(normalized)
+    return {"workflows": workflows}
+
+
+def read_workflows(repo_name: str | None = None) -> dict[str, list[dict[str, Any]]]:
+    workflow_file = _workflow_path(repo_name)
+    if not workflow_file.exists():
+        return {"workflows": []}
+
+    data = yaml.safe_load(workflow_file.read_text(encoding="utf-8"))
+    return _normalize_payload(data)
+
+
+def write_workflows(
+    workflows_payload: dict[str, Any], repo_name: str | None = None
+) -> dict[str, list[dict[str, Any]]]:
+    normalized = _normalize_payload(workflows_payload)
+    workflow_file = _workflow_path(repo_name)
+    ensure_directory(workflow_file.parent)
+    workflow_file.write_text(
+        yaml.safe_dump(normalized, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    return normalized

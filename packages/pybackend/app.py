@@ -50,6 +50,7 @@ from knowledge_service import (
 )
 from command_service import list_commands
 from harness_service import is_process_running, list_harnesses, run_harness
+from workflow_service import read_workflows, write_workflows
 from repository_service import (
     create_repository,
     create_repository_file,
@@ -501,6 +502,61 @@ def repository_git_worktree_delete(name: str):
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
+
+
+
+@app.get("/api/repositories/{name}/workflows")
+def repository_workflows(name: str):
+    try:
+        logger.info("Listing workflows for repository '%s'", name)
+        _repository_path(name)
+        return read_workflows(name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to list workflows for repository '%s'", name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.put("/api/repositories/{name}/workflows")
+def save_repository_workflows(name: str, payload: dict = Body(...)):
+    try:
+        logger.info("Saving workflows for repository '%s'", name)
+        _repository_path(name)
+        return write_workflows(payload, name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to save workflows for repository '%s'", name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/workflows")
+def global_workflows():
+    try:
+        logger.info("Listing global workflows")
+        return read_workflows()
+    except Exception as exc:
+        logger.exception("Failed to list global workflows")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.put("/api/workflows")
+def save_global_workflows(payload: dict = Body(...)):
+    try:
+        logger.info("Saving global workflows")
+        return write_workflows(payload)
+    except Exception as exc:
+        logger.exception("Failed to save global workflows")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
 
 @app.get("/api/commands")
 def global_commands():

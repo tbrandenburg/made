@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "./Panel";
 import { Modal } from "./Modal";
-import { HarnessDefinition } from "../hooks/useApi";
+import { HarnessDefinition, WorkflowDefinition } from "../hooks/useApi";
+import { WorkflowBuilderPanel } from "./WorkflowBuilderPanel";
 
 type HarnessRun = {
   pid: number;
@@ -17,6 +18,9 @@ type HarnessesTabProps = {
     args?: string,
   ) => Promise<{ pid: number; name: string; path: string }>;
   getHarnessStatus: (pid: number) => Promise<{ pid: number; running: boolean }>;
+  loadWorkflows: () => Promise<{ workflows: WorkflowDefinition[] }>;
+  saveWorkflows: (workflows: WorkflowDefinition[]) => Promise<{ workflows: WorkflowDefinition[] }>;
+  listAgents: () => Promise<{ agents: { name: string }[] }>;
   historyStorageKey: string;
   maxHistory?: number;
 };
@@ -31,6 +35,9 @@ export const HarnessesTab: React.FC<HarnessesTabProps> = ({
   loadHarnesses,
   runHarness,
   getHarnessStatus,
+  loadWorkflows,
+  saveWorkflows,
+  listAgents,
   historyStorageKey,
   maxHistory = 10,
 }) => {
@@ -210,7 +217,13 @@ export const HarnessesTab: React.FC<HarnessesTabProps> = ({
 
   return (
     <div className="harness-center">
-      <Panel title="Harness Builder">{null}</Panel>
+      <Panel title="Harness Builder">
+        <WorkflowBuilderPanel
+          loadWorkflows={loadWorkflows}
+          saveWorkflows={(payload) => saveWorkflows(payload.workflows)}
+          listAgents={listAgents}
+        />
+      </Panel>
       <Panel
         title="Harness Scripts"
         actions={

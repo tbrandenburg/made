@@ -223,6 +223,22 @@ export type HarnessDefinition = {
   source: string;
 };
 
+
+export type WorkflowStep = {
+  type: "agent" | "bash";
+  agent?: string;
+  command?: string;
+  prompt?: string;
+  run?: string;
+};
+
+export type WorkflowDefinition = {
+  id: string;
+  name: string;
+  schedule: string | null;
+  steps: WorkflowStep[];
+};
+
 export const api = {
   getDashboard: () =>
     request<{
@@ -400,6 +416,14 @@ export const api = {
         body: JSON.stringify({ path, args }),
       },
     ),
+
+  getRepositoryWorkflows: (name: string) =>
+    request<{ workflows: WorkflowDefinition[] }>(`/repositories/${name}/workflows`),
+  saveRepositoryWorkflows: (name: string, workflows: WorkflowDefinition[]) =>
+    request<{ workflows: WorkflowDefinition[] }>(`/repositories/${name}/workflows`, {
+      method: "PUT",
+      body: JSON.stringify({ workflows }),
+    }),
   getCommands: () => request<{ commands: CommandDefinition[] }>("/commands"),
   getHarnesses: () => request<{ harnesses: HarnessDefinition[] }>("/harnesses"),
   runHarness: (path: string, args?: string) =>
@@ -409,6 +433,13 @@ export const api = {
     }),
   getHarnessStatus: (pid: number) =>
     request<{ pid: number; running: boolean }>(`/harnesses/${pid}/status`),
+
+  getWorkflows: () => request<{ workflows: WorkflowDefinition[] }>("/workflows"),
+  saveWorkflows: (workflows: WorkflowDefinition[]) =>
+    request<{ workflows: WorkflowDefinition[] }>("/workflows", {
+      method: "PUT",
+      body: JSON.stringify({ workflows }),
+    }),
   getAgents: () => request<{ agents: AvailableAgent[] }>("/agents"),
   listKnowledge: () => request<{ artefacts: ArtefactSummary[] }>("/knowledge"),
   getKnowledge: (name: string) => request<MatterFile>(`/knowledge/${name}`),

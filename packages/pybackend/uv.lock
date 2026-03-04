@@ -351,6 +351,7 @@ dependencies = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "python-frontmatter" },
+    { name = "pyyaml" },
     { name = "ruff" },
     { name = "uvicorn" },
 ]
@@ -362,6 +363,7 @@ requires-dist = [
     { name = "pytest", specifier = ">=7.0.0" },
     { name = "pytest-cov", specifier = ">=4.0.0" },
     { name = "python-frontmatter", specifier = "==1.0.0" },
+    { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "ruff", specifier = ">=0.1.0" },
     { name = "uvicorn", specifier = "==0.29.0" },
 ]

@@ -1037,3 +1037,45 @@ class TestAgentMessageValidation:
 
         assert response.status_code == 400
         assert "Message is required" in response.json()["detail"]
+
+
+class TestWorkflowEndpoints:
+    @patch("app.read_workflows")
+    def test_global_workflows_success(self, mock_read):
+        mock_read.return_value = {"workflows": []}
+
+        response = client.get("/api/workflows")
+
+        assert response.status_code == 200
+        assert response.json() == {"workflows": []}
+
+    @patch("app.write_workflows")
+    def test_save_global_workflows_success(self, mock_write):
+        mock_write.return_value = {"workflows": [{"id": "wf_1", "name": "x", "schedule": None, "steps": []}]}
+
+        response = client.put("/api/workflows", json={"workflows": []})
+
+        assert response.status_code == 200
+        mock_write.assert_called_once_with({"workflows": []})
+
+    @patch("app.read_workflows")
+    @patch("app._repository_path")
+    def test_repository_workflows_success(self, mock_repo_path, mock_read):
+        mock_repo_path.return_value = "/workspace/repo"
+        mock_read.return_value = {"workflows": []}
+
+        response = client.get("/api/repositories/sample/workflows")
+
+        assert response.status_code == 200
+        mock_read.assert_called_once_with("sample")
+
+    @patch("app.write_workflows")
+    @patch("app._repository_path")
+    def test_save_repository_workflows_success(self, mock_repo_path, mock_write):
+        mock_repo_path.return_value = "/workspace/repo"
+        mock_write.return_value = {"workflows": []}
+
+        response = client.put("/api/repositories/sample/workflows", json={"workflows": []})
+
+        assert response.status_code == 200
+        mock_write.assert_called_once_with({"workflows": []}, "sample")

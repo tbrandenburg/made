@@ -506,6 +506,9 @@ export const TaskPage: React.FC = () => {
                 loadHarnesses={loadHarnesses}
                 runHarness={runHarness}
                 getHarnessStatus={getHarnessStatus}
+                loadWorkflows={() => api.getWorkflows()}
+                saveWorkflows={(workflows) => api.saveWorkflows(workflows)}
+                listAgents={() => api.getAgents()}
                 historyStorageKey={harnessHistoryStorageKey}
               />
             ),

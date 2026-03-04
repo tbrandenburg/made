@@ -333,3 +333,96 @@
 .harness-status.pending {
   color: #94a3b8;
 }
+
+.workflow-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.workflow-builder__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.workflow-builder__header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+}
+
+.workflow-builder__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.workflow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.workflow-card {
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  background: var(--panel-bg);
+}
+
+.workflow-card__header {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.workflow-name-input {
+  min-width: 0;
+}
+
+.workflow-steps {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.workflow-step-row {
+  display: grid;
+  grid-template-columns: 220px 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.workflow-step-target {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+}
+
+.workflow-step-target__label {
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+}
+
+.workflow-step-preview {
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.workflow-step-controls {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.icon-button {
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: transparent;
+  padding: 0.3rem 0.45rem;
+}
