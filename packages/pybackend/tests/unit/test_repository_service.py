@@ -264,3 +264,36 @@ def test_get_repository_info_marks_non_worktree_repo(monkeypatch, tmp_path):
 
     assert result["hasGit"] is True
     assert result["isWorktreeChild"] is False
+
+
+def test_get_repository_git_status_uses_remote_line_stats(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    repo_path = workspace / "repo"
+    _init_local_repo(repo_path)
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+    monkeypatch.setattr("repository_service._github_repo", lambda *_: None)
+
+    def fake_run_git(path, command):
+        if command == ["rev-parse", "--abbrev-ref", "HEAD"]:
+            return "main"
+        if command == ["rev-list", "--left-right", "--count", "HEAD...@{upstream}"]:
+            return "1 2"
+        if command == ["diff", "--numstat", "@{upstream}..HEAD"]:
+            return "4\t1\tsrc/main.py"
+        if command == ["diff", "--numstat", "HEAD"]:
+            return "10\t8\tsrc/local.py"
+        if command == ["log", "-1", "--format=%H\t%cI"]:
+            return "abc123\t2024-01-01T00:00:00Z"
+        if command == ["worktree", "list", "--porcelain"]:
+            return "worktree /tmp/repo"
+        raise AssertionError(f"Unexpected command: {command}")
+
+    monkeypatch.setattr("repository_service._run_git", fake_run_git)
+
+    result = get_repository_git_status("repo")
+
+    assert result["aheadBehind"] == {"ahead": 1, "behind": 2}
+    assert result["lineStats"] == {"green": 4, "red": 1}
+    assert result["diff"] == [{"path": "src/local.py", "green": 10, "red": 8}]
