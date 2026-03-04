@@ -41,7 +41,9 @@ describe("GitTab", () => {
     expect(screen.getByText("main")).toBeInTheDocument();
     expect(screen.getByText("+10")).toBeInTheDocument();
     expect(screen.getByText("-4")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "src/App.tsx" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "src/App.tsx" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "abcdef12" })).toBeInTheDocument();
   });
 
@@ -72,13 +74,27 @@ describe("GitTab", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Create worktree" }));
     fireEvent.change(screen.getByLabelText("Directory name"), {
-      target: { value: "repo-worktree" },
+      target: { value: "repo worktree@{bad}/..name.lock" },
     });
+
+    expect(screen.getByLabelText("Branch name")).toHaveValue(
+      "feature/repo-worktree-bad-name",
+    );
+
     fireEvent.change(screen.getByLabelText("Branch name"), {
       target: { value: "feature/test" },
     });
+
+    fireEvent.change(screen.getByLabelText("Directory name"), {
+      target: { value: "repo-worktree-next" },
+    });
+
+    expect(screen.getByLabelText("Branch name")).toHaveValue("feature/test");
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
-    expect(onCreateWorktree).toHaveBeenCalledWith("repo-worktree", "feature/test");
+    expect(onCreateWorktree).toHaveBeenCalledWith(
+      "repo-worktree-next",
+      "feature/test",
+    );
   });
 });

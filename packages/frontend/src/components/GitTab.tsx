@@ -22,7 +22,11 @@ const formatDate = (value: string | null) => {
   return new Date(parsed).toLocaleString();
 };
 
-const renderMaybeLink = (count: number | null, href: string | null, label: string) => {
+const renderMaybeLink = (
+  count: number | null,
+  href: string | null,
+  label: string,
+) => {
   const content = `${count ?? 0}`;
   if (!href) return content;
   return (
@@ -30,6 +34,18 @@ const renderMaybeLink = (count: number | null, href: string | null, label: strin
       {content} {label}
     </a>
   );
+};
+
+// Helper function to sanitize directory names for use as git branch names
+const sanitizeBranchName = (input: string): string => {
+  return input
+    .replace(/@\{([^}]*)\}/g, "-$1") // Replace @{content} with -content
+    .replace(/[~^:?*[\]\s\\]+/g, "-")
+    .replace(/\.{2,}/g, "-")
+    .replace(/\//g, "-")
+    .replace(/--+/g, "-")
+    .replace(/(^[./-]+)|([./-]+$)/g, "")
+    .replace(/\.lock$/i, "");
 };
 
 export const GitTab: React.FC<GitTabProps> = ({
@@ -46,6 +62,22 @@ export const GitTab: React.FC<GitTabProps> = ({
   const [worktreeModalOpen, setWorktreeModalOpen] = useState(false);
   const [directoryName, setDirectoryName] = useState("");
   const [branchName, setBranchName] = useState("");
+  const [branchManuallyEdited, setBranchManuallyEdited] = useState(false);
+
+  const closeWorktreeModal = () => {
+    setWorktreeModalOpen(false);
+    setDirectoryName("");
+    setBranchName("");
+    setBranchManuallyEdited(false);
+  };
+
+  const handleDirectoryChange = (value: string) => {
+    setDirectoryName(value);
+    if (!branchManuallyEdited) {
+      const sanitized = sanitizeBranchName(value);
+      setBranchName(sanitized ? `feature/${sanitized}` : "");
+    }
+  };
 
   const lastCommitLabel = status?.lastCommit.id
     ? status.lastCommit.id.slice(0, 8)
@@ -66,8 +98,16 @@ export const GitTab: React.FC<GitTabProps> = ({
         {!loading && !error && status && (
           <table className="git-table">
             <tbody>
-              <tr><th>Branch</th><td>{status.branch || "Unknown"}</td></tr>
-              <tr><th>Commits ahead/behind</th><td>{status.aheadBehind.ahead}/{status.aheadBehind.behind}</td></tr>
+              <tr>
+                <th>Branch</th>
+                <td>{status.branch || "Unknown"}</td>
+              </tr>
+              <tr>
+                <th>Commits ahead/behind</th>
+                <td>
+                  {status.aheadBehind.ahead}/{status.aheadBehind.behind}
+                </td>
+              </tr>
               <tr>
                 <th>Line Stats</th>
                 <td>
@@ -80,15 +120,61 @@ export const GitTab: React.FC<GitTabProps> = ({
               <tr>
                 <th>Last Commit</th>
                 <td>
-                  {formatDate(status.lastCommit.date)} ({status.links.commit ? (
-                    <a href={status.links.commit} target="_blank" rel="noreferrer">{lastCommitLabel}</a>
-                  ) : lastCommitLabel})
+                  {formatDate(status.lastCommit.date)} (
+                  {status.links.commit ? (
+                    <a
+                      href={status.links.commit}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {lastCommitLabel}
+                    </a>
+                  ) : (
+                    lastCommitLabel
+                  )}
+                  )
                 </td>
               </tr>
-              <tr><th>Issues</th><td>{renderMaybeLink(status.counts.issues, status.links.issues, "open")}</td></tr>
-              <tr><th>Pull Requests</th><td>{renderMaybeLink(status.counts.pullRequests, status.links.pulls, "open")}</td></tr>
-              <tr><th>Branches</th><td>{renderMaybeLink(status.counts.branches, status.links.branches, "total")}</td></tr>
-              <tr><th>Worktrees</th><td>{renderMaybeLink(status.counts.worktrees, status.links.branches, "total")}</td></tr>
+              <tr>
+                <th>Issues</th>
+                <td>
+                  {renderMaybeLink(
+                    status.counts.issues,
+                    status.links.issues,
+                    "open",
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <th>Pull Requests</th>
+                <td>
+                  {renderMaybeLink(
+                    status.counts.pullRequests,
+                    status.links.pulls,
+                    "open",
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <th>Branches</th>
+                <td>
+                  {renderMaybeLink(
+                    status.counts.branches,
+                    status.links.branches,
+                    "total",
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <th>Worktrees</th>
+                <td>
+                  {renderMaybeLink(
+                    status.counts.worktrees,
+                    status.links.branches,
+                    "total",
+                  )}
+                </td>
+              </tr>
             </tbody>
           </table>
         )}
@@ -103,7 +189,10 @@ export const GitTab: React.FC<GitTabProps> = ({
               {status.diff.map((entry) => (
                 <tr key={entry.path}>
                   <td>
-                    <button className="link-button" onClick={() => onOpenFile(entry.path)}>
+                    <button
+                      className="link-button"
+                      onClick={() => onOpenFile(entry.path)}
+                    >
                       {entry.path}
                     </button>
                   </td>
@@ -118,8 +207,13 @@ export const GitTab: React.FC<GitTabProps> = ({
 
       <Panel title="Management" className="git-management-panel">
         <div className="button-bar">
-          <button className="primary" onClick={onPull} disabled={pulling}>Pull</button>
-          <button className="primary" onClick={() => setWorktreeModalOpen(true)}>
+          <button className="primary" onClick={onPull} disabled={pulling}>
+            Pull
+          </button>
+          <button
+            className="primary"
+            onClick={() => setWorktreeModalOpen(true)}
+          >
             Create worktree
           </button>
         </div>
@@ -128,14 +222,14 @@ export const GitTab: React.FC<GitTabProps> = ({
       <Modal
         open={worktreeModalOpen}
         title="Create Worktree"
-        onClose={() => setWorktreeModalOpen(false)}
+        onClose={closeWorktreeModal}
       >
         <div className="form-group">
           <label htmlFor="worktree-directory">Directory name</label>
           <input
             id="worktree-directory"
             value={directoryName}
-            onChange={(event) => setDirectoryName(event.target.value)}
+            onChange={(event) => handleDirectoryChange(event.target.value)}
           />
         </div>
         <div className="form-group">
@@ -143,18 +237,21 @@ export const GitTab: React.FC<GitTabProps> = ({
           <input
             id="worktree-branch"
             value={branchName}
-            onChange={(event) => setBranchName(event.target.value)}
+            onChange={(event) => {
+              setBranchName(event.target.value);
+              setBranchManuallyEdited(true);
+            }}
           />
         </div>
         <div className="button-bar">
           <button
             className="primary"
-            disabled={!directoryName.trim() || !branchName.trim() || creatingWorktree}
+            disabled={
+              !directoryName.trim() || !branchName.trim() || creatingWorktree
+            }
             onClick={() => {
               onCreateWorktree(directoryName.trim(), branchName.trim());
-              setWorktreeModalOpen(false);
-              setDirectoryName("");
-              setBranchName("");
+              closeWorktreeModal();
             }}
           >
             Create

@@ -3,6 +3,7 @@ import { api, RepositorySummary } from "../hooks/useApi";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
+import { TrashIcon } from "../components/icons/TrashIcon";
 import "../styles/page.css";
 
 export const RepositoriesPage: React.FC = () => {
@@ -15,6 +16,11 @@ export const RepositoriesPage: React.FC = () => {
   const [cloneName, setCloneName] = useState("");
   const [cloneBranch, setCloneBranch] = useState("");
   const [isCloning, setIsCloning] = useState(false);
+  const [isRemovingWorktree, setIsRemovingWorktree] = useState(false);
+  const [removeWorktreeModal, setRemoveWorktreeModal] = useState<{
+    open: boolean;
+    name: string | null;
+  }>({ open: false, name: null });
   const [alert, setAlert] = useState<{
     type: "success" | "error";
     message: string;
@@ -60,6 +66,26 @@ export const RepositoriesPage: React.FC = () => {
     }
   };
 
+
+  const handleRemoveWorktree = async () => {
+    if (!removeWorktreeModal.name) return;
+
+    setIsRemovingWorktree(true);
+    try {
+      await api.removeRepositoryWorktree(removeWorktreeModal.name);
+      setAlert({ type: "success", message: "Worktree removed successfully" });
+      setRemoveWorktreeModal({ open: false, name: null });
+      loadRepositories();
+    } catch (error) {
+      setAlert({
+        type: "error",
+        message:
+          error instanceof Error ? error.message : "Failed to remove worktree",
+      });
+    } finally {
+      setIsRemovingWorktree(false);
+    }
+  };
   const handleClone = async () => {
     const trimmedUrl = cloneUrl.trim();
     const trimmedName = cloneName.trim();
@@ -127,6 +153,23 @@ export const RepositoriesPage: React.FC = () => {
                       title={repo.name}
                       to={`/repositories/${repo.name}`}
                       className={repo.isWorktreeChild ? "worktree-child-pill" : undefined}
+                      actions={
+                        repo.isWorktreeChild ? (
+                          <button
+                            type="button"
+                            className="copy-button"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setRemoveWorktreeModal({ open: true, name: repo.name });
+                            }}
+                            aria-label={`Remove ${repo.name} worktree`}
+                            title={`Remove ${repo.name} worktree`}
+                          >
+                            <TrashIcon />
+                          </button>
+                        ) : undefined
+                      }
                     >
                       <div className="metadata">
                         <span
@@ -230,6 +273,36 @@ export const RepositoriesPage: React.FC = () => {
             disabled={isCloning}
           >
             {isCloning ? "Cloning..." : "Clone"}
+          </button>
+        </div>
+      </Modal>
+      <Modal
+        open={removeWorktreeModal.open}
+        title="Remove Worktree"
+        onClose={() => {
+          if (!isRemovingWorktree) {
+            setRemoveWorktreeModal({ open: false, name: null });
+          }
+        }}
+      >
+        <p>
+          Are you sure you want to remove worktree
+          {removeWorktreeModal.name ? ` ${removeWorktreeModal.name}` : ""}?
+        </p>
+        <div className="modal-actions">
+          <button
+            className="secondary"
+            onClick={() => setRemoveWorktreeModal({ open: false, name: null })}
+            disabled={isRemovingWorktree}
+          >
+            Cancel
+          </button>
+          <button
+            className="primary"
+            onClick={handleRemoveWorktree}
+            disabled={isRemovingWorktree}
+          >
+            {isRemovingWorktree ? "Removing..." : "Remove"}
           </button>
         </div>
       </Modal>
