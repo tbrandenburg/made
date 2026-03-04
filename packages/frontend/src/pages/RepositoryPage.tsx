@@ -14,6 +14,7 @@ import { TerminalTab } from "../components/TerminalTab";
 import { GitTab } from "../components/GitTab";
 import { ChatWindow } from "../components/ChatWindow";
 import { SessionPickerModal } from "../components/SessionPickerModal";
+import { AgentSelector, DEFAULT_AGENT_VALUE } from "../components/AgentSelector";
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import { useAgentCli } from "../hooks/useAgentCli";
@@ -321,6 +322,10 @@ export const RepositoryPage: React.FC = () => {
     () => (name ? `repository-model-${name}` : "repository-model"),
     [name],
   );
+  const agentStorageKey = useMemo(
+    () => (name ? `repository-agent-${name}` : "repository-agent"),
+    [name],
+  );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);
   const [pendingPrompt, setPendingPrompt] = useState("");
@@ -328,7 +333,12 @@ export const RepositoryPage: React.FC = () => {
     modelStorageKey,
     "default",
   );
+  const [selectedAgent, setSelectedAgent] = usePersistentString(
+    agentStorageKey,
+    DEFAULT_AGENT_VALUE,
+  );
   const normalizedSelectedModel = selectedModel ?? "default";
+  const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
@@ -883,11 +893,16 @@ export const RepositoryPage: React.FC = () => {
         normalizedSelectedModel === "default"
           ? undefined
           : normalizedSelectedModel.trim();
+      const agent =
+        normalizedSelectedAgent === DEFAULT_AGENT_VALUE
+          ? undefined
+          : normalizedSelectedAgent.trim();
       const reply = await api.sendAgentMessage(
         name,
         message,
         sessionId || undefined,
         model,
+        agent,
       );
       
       // No immediate message processing - polling handles everything
@@ -934,11 +949,13 @@ export const RepositoryPage: React.FC = () => {
 
   const handleClearSessionOnly = () => {
     setSessionId(null);
+    setSelectedAgent(DEFAULT_AGENT_VALUE);
     setClearSessionModalOpen(false);
   };
 
   const handleClearSessionAndHistory = () => {
     setSessionId(null);
+    setSelectedAgent(DEFAULT_AGENT_VALUE);
     setChat([]);
     setClearSessionModalOpen(false);
   };
@@ -1438,6 +1455,12 @@ export const RepositoryPage: React.FC = () => {
           />
           <div className="button-bar chat-controls">
             <div className="chat-controls__left">
+              <AgentSelector
+                selectId="agent-select"
+                selectedAgent={normalizedSelectedAgent}
+                onChange={setSelectedAgent}
+                disabled={chatLoading}
+              />
               <label className="model-select" htmlFor="agent-model-select">
                 <select
                   id="agent-model-select"
