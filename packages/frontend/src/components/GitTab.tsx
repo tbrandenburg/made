@@ -103,9 +103,9 @@ export const GitTab: React.FC<GitTabProps> = ({
                 <td>{status.branch || "Unknown"}</td>
               </tr>
               <tr>
-                <th>Commits ahead/behind</th>
+                <th>Commits behind/ahead</th>
                 <td>
-                  {status.aheadBehind.ahead}/{status.aheadBehind.behind}
+                  {status.aheadBehind.behind}/{status.aheadBehind.ahead}
                 </td>
               </tr>
               <tr>

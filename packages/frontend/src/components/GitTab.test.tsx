@@ -39,6 +39,8 @@ describe("GitTab", () => {
 
     expect(screen.getByText("Branch")).toBeInTheDocument();
     expect(screen.getByText("main")).toBeInTheDocument();
+    expect(screen.getByText("Commits behind/ahead")).toBeInTheDocument();
+    expect(screen.getByText("2/1")).toBeInTheDocument();
     expect(screen.getByText("+10")).toBeInTheDocument();
     expect(screen.getByText("-4")).toBeInTheDocument();
     expect(

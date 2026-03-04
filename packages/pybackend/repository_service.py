@@ -373,6 +373,15 @@ def _ahead_behind(repo_path: Path) -> dict[str, int]:
         return {"ahead": 0, "behind": 0}
 
 
+def _remote_line_stats(repo_path: Path) -> dict[str, int]:
+    try:
+        numstat_output = _run_git(repo_path, ["diff", "--numstat", "@{upstream}..HEAD"])
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return {"green": 0, "red": 0}
+
+    return _line_stats_from_numstat(numstat_output)
+
+
 def _line_stats_from_numstat(numstat_output: str) -> dict[str, int]:
     green = 0
     red = 0
@@ -408,7 +417,7 @@ def get_repository_git_status(
     except (subprocess.CalledProcessError, FileNotFoundError):
         diff_numstat = ""
 
-    line_stats = _line_stats_from_numstat(diff_numstat)
+    line_stats = _remote_line_stats(repo_path)
 
     diff_files = []
     for line in diff_numstat.splitlines():
