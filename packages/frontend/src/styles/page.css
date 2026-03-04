@@ -358,6 +358,33 @@
   gap: 0.5rem;
 }
 
+
+.workflow-icon-button {
+  width: 30px;
+  height: 30px;
+}
+
+.workflow-icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.workflow-icon-button--danger {
+  color: #ef4444;
+}
+
+.workflow-icon {
+  display: inline-flex;
+}
+
+.workflow-icon--right {
+  transform: rotate(90deg);
+}
+
+.workflow-icon--up {
+  transform: rotate(180deg);
+}
+
 .workflow-list {
   display: flex;
   flex-direction: column;
