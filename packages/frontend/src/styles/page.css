@@ -342,16 +342,11 @@
 
 .workflow-builder__header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: 1rem;
 }
 
-.workflow-builder__header h3 {
-  margin: 0;
-  font-size: 0.95rem;
-  letter-spacing: 0.05em;
-}
 
 .workflow-builder__actions {
   display: flex;

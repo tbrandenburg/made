@@ -143,7 +143,6 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
   return (
     <div className="workflow-builder">
       <div className="workflow-builder__header">
-        <h3>AGENT WORKFLOW BUILDER</h3>
         <div className="workflow-builder__actions">
           <button className="copy-button workflow-icon-button" onClick={load} disabled={loading || saving} title="Refresh workflows" aria-label="Refresh workflows">
             <RefreshIcon />
