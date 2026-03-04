@@ -182,6 +182,12 @@ export type CommandDefinition = {
   argumentHint?: string | string[] | null;
 };
 
+export type AvailableAgent = {
+  name: string;
+  type?: string;
+  source?: string;
+};
+
 
 export type GitDiffEntry = {
   path: string;
@@ -282,10 +288,11 @@ export const api = {
     message: string,
     sessionId?: string,
     model?: string,
+    agent?: string,
   ) =>
     request<AgentReply>(`/repositories/${name}/agent`, {
       method: "POST",
-      body: JSON.stringify({ message, sessionId, model }),
+      body: JSON.stringify({ message, sessionId, model, agent }),
     }),
   getRepositoryAgentStatus: (name: string) =>
     request<AgentStatus>(`/repositories/${name}/agent/status`),
@@ -402,6 +409,7 @@ export const api = {
     }),
   getHarnessStatus: (pid: number) =>
     request<{ pid: number; running: boolean }>(`/harnesses/${pid}/status`),
+  getAgents: () => request<{ agents: AvailableAgent[] }>("/agents"),
   listKnowledge: () => request<{ artefacts: ArtefactSummary[] }>("/knowledge"),
   getKnowledge: (name: string) => request<MatterFile>(`/knowledge/${name}`),
   saveKnowledge: (name: string, payload: MatterFile) =>
@@ -409,10 +417,16 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
-  sendKnowledgeAgent: (name: string, message: string, sessionId?: string) =>
+  sendKnowledgeAgent: (
+    name: string,
+    message: string,
+    sessionId?: string,
+    model?: string,
+    agent?: string,
+  ) =>
     request<AgentReply>(`/knowledge/${name}/agent`, {
       method: "POST",
-      body: JSON.stringify({ message, sessionId }),
+      body: JSON.stringify({ message, sessionId, model, agent }),
     }),
   getKnowledgeAgentStatus: (name: string) =>
     request<AgentStatus>(`/knowledge/${name}/agent/status`),
@@ -427,10 +441,16 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
-  sendConstitutionAgent: (name: string, message: string, sessionId?: string) =>
+  sendConstitutionAgent: (
+    name: string,
+    message: string,
+    sessionId?: string,
+    model?: string,
+    agent?: string,
+  ) =>
     request<AgentReply>(`/constitutions/${name}/agent`, {
       method: "POST",
-      body: JSON.stringify({ message, sessionId }),
+      body: JSON.stringify({ message, sessionId, model, agent }),
     }),
   getConstitutionAgentStatus: (name: string) =>
     request<AgentStatus>(`/constitutions/${name}/agent/status`),
@@ -443,10 +463,16 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
-  sendTaskAgent: (name: string, message: string, sessionId?: string) =>
+  sendTaskAgent: (
+    name: string,
+    message: string,
+    sessionId?: string,
+    model?: string,
+    agent?: string,
+  ) =>
     request<AgentReply>(`/tasks/${name}/agent`, {
       method: "POST",
-      body: JSON.stringify({ message, sessionId }),
+      body: JSON.stringify({ message, sessionId, model, agent }),
     }),
   getTaskAgentStatus: (name: string) =>
     request<AgentStatus>(`/tasks/${name}/agent/status`),

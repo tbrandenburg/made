@@ -286,7 +286,9 @@ textarea {
 }
 
 .chat-controls__left {
-  flex: 0 1 360px;
+  flex: 0 1 420px;
+  display: flex;
+  gap: 0.75rem;
 }
 
 .chat-controls__right {

@@ -28,6 +28,7 @@ import { ClearSessionModal } from "../components/ClearSessionModal";
 import { SessionPickerModal } from "../components/SessionPickerModal";
 import { ArrowDownIcon } from "../components/icons/ArrowDownIcon";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
+import { AgentSelector, DEFAULT_AGENT_VALUE } from "../components/AgentSelector";
 
 export const ConstitutionPage: React.FC = () => {
   const { name } = useParams();
@@ -54,8 +55,17 @@ export const ConstitutionPage: React.FC = () => {
         : "constitution-harness-history",
     [name],
   );
+  const agentStorageKey = useMemo(
+    () => (name ? `constitution-agent-${name}` : "constitution-agent"),
+    [name],
+  );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);
+  const [selectedAgent, setSelectedAgent] = usePersistentString(
+    agentStorageKey,
+    DEFAULT_AGENT_VALUE,
+  );
+  const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [prompt, setPrompt] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
@@ -185,10 +195,16 @@ export const ConstitutionPage: React.FC = () => {
           userMessage.text,
           name,
         );
+        const agent =
+          normalizedSelectedAgent === DEFAULT_AGENT_VALUE
+            ? undefined
+            : normalizedSelectedAgent.trim();
         const reply = await api.sendConstitutionAgent(
           name,
           promptWithPolicy,
           sessionId || undefined,
+          undefined,
+          agent,
         );
         
         // No immediate message processing - polling handles everything
@@ -218,6 +234,7 @@ export const ConstitutionPage: React.FC = () => {
     [
       name,
       refreshAgentStatus,
+      normalizedSelectedAgent,
       sessionId,
       setActiveTab,
       setAgentStatus,
@@ -251,11 +268,13 @@ export const ConstitutionPage: React.FC = () => {
 
   const handleClearSessionOnly = () => {
     setSessionId(null);
+    setSelectedAgent(DEFAULT_AGENT_VALUE);
     setClearSessionModalOpen(false);
   };
 
   const handleClearSessionAndHistory = () => {
     setSessionId(null);
+    setSelectedAgent(DEFAULT_AGENT_VALUE);
     setChat([]);
     setClearSessionModalOpen(false);
   };
@@ -437,7 +456,16 @@ export const ConstitutionPage: React.FC = () => {
                   onChange={(event) => setPrompt(event.target.value)}
                   placeholder="Ask the agent to update governance rules..."
                 />
-                <div className="button-bar">
+                <div className="button-bar chat-controls">
+                  <div className="chat-controls__left">
+                    <AgentSelector
+                      selectId="agent-select"
+                      selectedAgent={normalizedSelectedAgent}
+                      onChange={setSelectedAgent}
+                      disabled={chatLoading}
+                    />
+                  </div>
+                  <div className="chat-controls__right">
                   {chatLoading ? (
                     <button className="danger" onClick={handleCancel}>
                       Cancel
@@ -451,6 +479,7 @@ export const ConstitutionPage: React.FC = () => {
                       Send
                     </button>
                   )}
+                                  </div>
                 </div>
               </Panel>
             ),
