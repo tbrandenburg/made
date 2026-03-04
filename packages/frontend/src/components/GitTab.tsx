@@ -88,7 +88,7 @@ export const GitTab: React.FC<GitTabProps> = ({
       <Panel
         title="Status"
         actions={
-          <button className="secondary" onClick={onRefresh} disabled={loading}>
+          <button className="primary" onClick={onRefresh} disabled={loading}>
             Refresh
           </button>
         }
@@ -205,7 +205,7 @@ export const GitTab: React.FC<GitTabProps> = ({
         )}
       </Panel>
 
-      <Panel title="Management">
+      <Panel title="Management" className="git-management-panel">
         <div className="button-bar">
           <button className="primary" onClick={onPull} disabled={pulling}>
             Pull

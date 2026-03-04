@@ -561,6 +561,15 @@ textarea {
   border-collapse: collapse;
 }
 
+.git-management-panel {
+  border-radius: 999px;
+}
+
+.git-management-panel .panel-body {
+  display: flex;
+  align-items: center;
+}
+
 .git-table th,
 .git-table td {
   text-align: left;
