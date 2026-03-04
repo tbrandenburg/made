@@ -119,7 +119,7 @@ export const GitTab: React.FC<GitTabProps> = ({
       <Panel title="Management">
         <div className="button-bar">
           <button className="primary" onClick={onPull} disabled={pulling}>Pull</button>
-          <button className="secondary" onClick={() => setWorktreeModalOpen(true)}>
+          <button className="primary" onClick={() => setWorktreeModalOpen(true)}>
             Create worktree
           </button>
         </div>
