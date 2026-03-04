@@ -22,7 +22,11 @@ const formatDate = (value: string | null) => {
   return new Date(parsed).toLocaleString();
 };
 
-const renderMaybeLink = (count: number | null, href: string | null, label: string) => {
+const renderMaybeLink = (
+  count: number | null,
+  href: string | null,
+  label: string,
+) => {
   const content = `${count ?? 0}`;
   if (!href) return content;
   return (
@@ -32,12 +36,19 @@ const renderMaybeLink = (count: number | null, href: string | null, label: strin
   );
 };
 
-    .replace(/[~^:?*\[\]\s\\]+/g, "-")
+// Helper function to sanitize directory names for use as git branch names
+const sanitizeBranchName = (input: string): string => {
+  return input
+    .replace(/@\{([^}]*)\}/g, "-$1") // Replace @{content} with -content
+    .replace(/[~^:?*[\]\s\\]+/g, "-")
     .replace(/\.{2,}/g, "-")
-    .replace(/@\{/g, "-")
     .replace(/\//g, "-")
+    .replace(/--+/g, "-")
     .replace(/(^[./-]+)|([./-]+$)/g, "")
     .replace(/\.lock$/i, "");
+};
+
+export const GitTab: React.FC<GitTabProps> = ({
   status,
   loading,
   error,
@@ -63,7 +74,8 @@ const renderMaybeLink = (count: number | null, href: string | null, label: strin
   const handleDirectoryChange = (value: string) => {
     setDirectoryName(value);
     if (!branchManuallyEdited) {
-      setBranchName(value ? `feature/${value}` : "");
+      const sanitized = sanitizeBranchName(value);
+      setBranchName(sanitized ? `feature/${sanitized}` : "");
     }
   };
 
@@ -86,8 +98,16 @@ const renderMaybeLink = (count: number | null, href: string | null, label: strin
         {!loading && !error && status && (
           <table className="git-table">
             <tbody>
-              <tr><th>Branch</th><td>{status.branch || "Unknown"}</td></tr>
-              <tr><th>Commits ahead/behind</th><td>{status.aheadBehind.ahead}/{status.aheadBehind.behind}</td></tr>
+              <tr>
+                <th>Branch</th>
+                <td>{status.branch || "Unknown"}</td>
+              </tr>
+              <tr>
+                <th>Commits ahead/behind</th>
+                <td>
+                  {status.aheadBehind.ahead}/{status.aheadBehind.behind}
+                </td>
+              </tr>
               <tr>
                 <th>Line Stats</th>
                 <td>
@@ -100,15 +120,61 @@ const renderMaybeLink = (count: number | null, href: string | null, label: strin
               <tr>
                 <th>Last Commit</th>
                 <td>
-                  {formatDate(status.lastCommit.date)} ({status.links.commit ? (
-                    <a href={status.links.commit} target="_blank" rel="noreferrer">{lastCommitLabel}</a>
-                  ) : lastCommitLabel})
+                  {formatDate(status.lastCommit.date)} (
+                  {status.links.commit ? (
+                    <a
+                      href={status.links.commit}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {lastCommitLabel}
+                    </a>
+                  ) : (
+                    lastCommitLabel
+                  )}
+                  )
                 </td>
               </tr>
-              <tr><th>Issues</th><td>{renderMaybeLink(status.counts.issues, status.links.issues, "open")}</td></tr>
-              <tr><th>Pull Requests</th><td>{renderMaybeLink(status.counts.pullRequests, status.links.pulls, "open")}</td></tr>
-              <tr><th>Branches</th><td>{renderMaybeLink(status.counts.branches, status.links.branches, "total")}</td></tr>
-              <tr><th>Worktrees</th><td>{renderMaybeLink(status.counts.worktrees, status.links.branches, "total")}</td></tr>
+              <tr>
+                <th>Issues</th>
+                <td>
+                  {renderMaybeLink(
+                    status.counts.issues,
+                    status.links.issues,
+                    "open",
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <th>Pull Requests</th>
+                <td>
+                  {renderMaybeLink(
+                    status.counts.pullRequests,
+                    status.links.pulls,
+                    "open",
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <th>Branches</th>
+                <td>
+                  {renderMaybeLink(
+                    status.counts.branches,
+                    status.links.branches,
+                    "total",
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <th>Worktrees</th>
+                <td>
+                  {renderMaybeLink(
+                    status.counts.worktrees,
+                    status.links.branches,
+                    "total",
+                  )}
+                </td>
+              </tr>
             </tbody>
           </table>
         )}
@@ -123,7 +189,10 @@ const renderMaybeLink = (count: number | null, href: string | null, label: strin
               {status.diff.map((entry) => (
                 <tr key={entry.path}>
                   <td>
-                    <button className="link-button" onClick={() => onOpenFile(entry.path)}>
+                    <button
+                      className="link-button"
+                      onClick={() => onOpenFile(entry.path)}
+                    >
                       {entry.path}
                     </button>
                   </td>
@@ -138,8 +207,13 @@ const renderMaybeLink = (count: number | null, href: string | null, label: strin
 
       <Panel title="Management">
         <div className="button-bar">
-          <button className="primary" onClick={onPull} disabled={pulling}>Pull</button>
-          <button className="primary" onClick={() => setWorktreeModalOpen(true)}>
+          <button className="primary" onClick={onPull} disabled={pulling}>
+            Pull
+          </button>
+          <button
+            className="primary"
+            onClick={() => setWorktreeModalOpen(true)}
+          >
             Create worktree
           </button>
         </div>
@@ -172,7 +246,9 @@ const renderMaybeLink = (count: number | null, href: string | null, label: strin
         <div className="button-bar">
           <button
             className="primary"
-            disabled={!directoryName.trim() || !branchName.trim() || creatingWorktree}
+            disabled={
+              !directoryName.trim() || !branchName.trim() || creatingWorktree
+            }
             onClick={() => {
               onCreateWorktree(directoryName.trim(), branchName.trim());
               closeWorktreeModal();
