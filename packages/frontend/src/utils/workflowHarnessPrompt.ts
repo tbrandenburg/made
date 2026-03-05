@@ -1,6 +1,9 @@
 import workflowPromptTemplate from "../templates/WORKFLOW_TO_HARNESS_PROMPT_TEMPLATE.md?raw";
 import { WorkflowDefinition, WorkflowStep } from "../components/WorkflowBuilderPanel";
 
+export const workflowShellScriptPath = (workflowName: string) =>
+  `.harness/${normalizeWorkflowName(workflowName)}.sh`;
+
 const escapeYamlValue = (value: string) => {
   const normalized = value.replace(/\r\n/g, "\n");
   return JSON.stringify(normalized);
@@ -19,7 +22,14 @@ const stepToYaml = (step: WorkflowStep, indent: string) => {
 };
 
 const workflowToYaml = (workflow: WorkflowDefinition) => {
-  const lines: string[] = ["workflows:", "  - id: " + escapeYamlValue(workflow.id), "    name: " + escapeYamlValue(workflow.name), "    schedule: " + (workflow.schedule ? escapeYamlValue(workflow.schedule) : "null"), "    steps:"];
+  const lines: string[] = [
+    "workflows:",
+    "  - id: " + escapeYamlValue(workflow.id),
+    "    name: " + escapeYamlValue(workflow.name),
+    "    schedule: " + (workflow.schedule ? escapeYamlValue(workflow.schedule) : "null"),
+    "    shellScriptPath: " + escapeYamlValue(workflow.shellScriptPath || workflowShellScriptPath(workflow.name)),
+    "    steps:",
+  ];
 
   if (!workflow.steps.length) {
     lines.push("      []");
@@ -56,6 +66,7 @@ export const buildWorkflowHarnessPrompt = (
     "{{WORKFLOW_FILE_NAME}}",
     `${normalizeWorkflowName(workflow.name)}.sh`,
   );
+  output = apply(output, "{{WORKFLOW_SCRIPT_PATH}}", workflow.shellScriptPath || workflowShellScriptPath(workflow.name));
   output = apply(output, "{{WORKFLOW_YAML}}", workflowToYaml(workflow));
   output = apply(output, "{{CURRENT_AGENT_CLI}}", agentCli || "opencode");
   return output;

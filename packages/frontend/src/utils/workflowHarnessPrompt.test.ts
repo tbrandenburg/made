@@ -23,7 +23,9 @@ describe("buildWorkflowHarnessPrompt", () => {
     expect(prompt).toContain('agent: "default"');
     expect(prompt).toContain('command: "plan"');
     expect(prompt).toContain('run: "echo done"');
-    expect(prompt).toContain(".harness/release-workflow.sh");
+    expect(prompt).toContain("shellScriptPath: \".harness/release-workflow.sh\"");
+    expect(prompt).toContain("Use this exact script path when generating the harness script:");
+    expect(prompt).toContain("`.harness/release-workflow.sh`");
     expect(prompt).toContain("Support exactly one optional flag: `--dry-run`.");
     expect(prompt).toContain("Without any parameter, the script should execute the workflow normally.");
     expect(prompt).toContain(".harness/release-workflow.sh --dry-run");
@@ -42,4 +44,19 @@ describe("buildWorkflowHarnessPrompt", () => {
     expect(prompt).toContain(".harness/workflow.sh");
     expect(prompt).toContain("schedule: null");
   });
+  it("uses explicit workflow shell script path when provided", () => {
+    const workflow: WorkflowDefinition = {
+      id: "wf_3",
+      name: "Any",
+      schedule: null,
+      shellScriptPath: ".harness/custom-script.sh",
+      steps: [],
+    };
+
+    const prompt = buildWorkflowHarnessPrompt(workflow, "opencode");
+
+    expect(prompt).toContain("shellScriptPath: \".harness/custom-script.sh\"");
+    expect(prompt).toContain("`.harness/custom-script.sh`");
+  });
+
 });

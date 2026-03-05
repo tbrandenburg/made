@@ -236,6 +236,7 @@ export type WorkflowDefinition = {
   id: string;
   name: string;
   schedule: string | null;
+  shellScriptPath?: string;
   steps: WorkflowStep[];
 };
 

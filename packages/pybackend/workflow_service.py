@@ -54,6 +54,7 @@ def _normalize_workflow(workflow: Any, index: int) -> dict[str, Any] | None:
     workflow_id = _as_string(workflow.get("id")) or f"workflow_{index + 1}"
     name = _as_string(workflow.get("name")) or DEFAULT_WORKFLOW_NAME
     schedule = _as_string(workflow.get("schedule"))
+    shell_script_path = _as_string(workflow.get("shellScriptPath"))
     raw_steps = workflow.get("steps")
     steps: list[dict[str, str]] = []
     if isinstance(raw_steps, list):
@@ -62,12 +63,15 @@ def _normalize_workflow(workflow: Any, index: int) -> dict[str, Any] | None:
             if step:
                 steps.append(step)
 
-    return {
+    normalized_workflow = {
         "id": workflow_id,
         "name": name,
         "schedule": schedule,
         "steps": steps,
     }
+    if shell_script_path:
+        normalized_workflow["shellScriptPath"] = shell_script_path
+    return normalized_workflow
 
 
 def _normalize_payload(payload: Any) -> dict[str, list[dict[str, Any]]]:
