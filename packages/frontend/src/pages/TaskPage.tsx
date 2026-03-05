@@ -509,6 +509,8 @@ export const TaskPage: React.FC = () => {
                 loadWorkflows={() => api.getWorkflows()}
                 saveWorkflows={(workflows) => api.saveWorkflows(workflows)}
                 listAgents={() => api.getAgents()}
+                onSendMessage={(message) => void handleSendMessage(message)}
+                agentCli={agentCli}
                 historyStorageKey={harnessHistoryStorageKey}
               />
             ),
