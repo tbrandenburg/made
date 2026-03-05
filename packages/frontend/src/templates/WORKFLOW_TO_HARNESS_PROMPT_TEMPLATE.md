@@ -5,10 +5,11 @@ Create a single bash script for this workflow.
 ## Output requirements
 
 1. Save the bash script in `.harness/{{WORKFLOW_FILE_NAME}}`.
-2. Do not add any script parameters. The script must run without positional arguments.
-3. Ignore workflow schedule metadata and execute only the listed steps sequentially.
-4. Keep script sections readable and clearly mapped to the original workflow steps.
-5. Verify the script with bash tools, but never execute the script for real.
+2. The script must run without additional parameters in normal mode.
+3. Add one optional dry-run mode via `--dry-run` that performs a safe simulation for verification/testing.
+4. Ignore workflow schedule metadata and execute only the listed steps sequentially.
+5. Keep script sections readable and clearly mapped to the original workflow steps.
+6. Real execution is not allowed during verification; execution is only allowed in dry-run mode.
 
 ## Current configured agent CLI
 
@@ -76,7 +77,9 @@ log "INFO" "Workflow finished: {{WORKFLOW_NAME}}"
 
 ## Verification requirements
 
-- Run static checks only, for example:
+- Always run static checks:
   - `bash -n .harness/{{WORKFLOW_FILE_NAME}}`
   - `shellcheck .harness/{{WORKFLOW_FILE_NAME}}` (if available)
-- Never execute `.harness/{{WORKFLOW_FILE_NAME}}`.
+- Functional verification is allowed only in dry-run mode:
+  - `bash .harness/{{WORKFLOW_FILE_NAME}} --dry-run`
+- Never execute `.harness/{{WORKFLOW_FILE_NAME}}` without `--dry-run` during verification.

@@ -24,6 +24,8 @@ describe("buildWorkflowHarnessPrompt", () => {
     expect(prompt).toContain('command: "plan"');
     expect(prompt).toContain('run: "echo done"');
     expect(prompt).toContain(".harness/release-workflow.sh");
+    expect(prompt).toContain("--dry-run");
+    expect(prompt).toContain("run without additional parameters in normal mode");
   });
 
   it("falls back to workflow file name when workflow name is empty", () => {
