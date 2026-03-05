@@ -1536,6 +1536,7 @@ export const RepositoryPage: React.FC = () => {
               listAgents={() => api.getAgents()}
               onRunWorkflow={(message) => {
                 void handleSendMessage(message);
+                setActiveTab("agent");
               }}
               agentCli={agentCli}
             />
