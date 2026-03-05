@@ -70,7 +70,7 @@ const parseAgentText = (value: string) => {
 const newWorkflow = (): WorkflowDefinition => ({
   id: `wf_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
   name: "New workflow",
-  enabled: true,
+  enabled: false,
   schedule: null,
   steps: [],
 });

@@ -31,7 +31,7 @@ def test_normalize_payload_keeps_shell_script_path():
     }
 
 
-def test_normalize_payload_defaults_enabled_true_when_missing():
+def test_normalize_payload_defaults_enabled_false_when_missing():
     payload = {
         "workflows": [
             {
@@ -44,7 +44,7 @@ def test_normalize_payload_defaults_enabled_true_when_missing():
 
     result = _normalize_payload(payload)
 
-    assert result["workflows"][0]["enabled"] is True
+    assert result["workflows"][0]["enabled"] is False
 
 
 def test_normalize_payload_omits_empty_shell_script_path():

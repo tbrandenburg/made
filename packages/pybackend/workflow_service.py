@@ -26,7 +26,7 @@ def _as_string(value: Any) -> str | None:
     return None
 
 
-def _as_bool(value: Any, default: bool = True) -> bool:
+def _as_bool(value: Any, default: bool = False) -> bool:
     if isinstance(value, bool):
         return value
     return default
@@ -59,7 +59,7 @@ def _normalize_workflow(workflow: Any, index: int) -> dict[str, Any] | None:
         return None
     workflow_id = _as_string(workflow.get("id")) or f"workflow_{index + 1}"
     name = _as_string(workflow.get("name")) or DEFAULT_WORKFLOW_NAME
-    enabled = _as_bool(workflow.get("enabled"), default=True)
+    enabled = _as_bool(workflow.get("enabled"), default=False)
     schedule = _as_string(workflow.get("schedule"))
     shell_script_path = _as_string(workflow.get("shellScriptPath"))
     raw_steps = workflow.get("steps")
