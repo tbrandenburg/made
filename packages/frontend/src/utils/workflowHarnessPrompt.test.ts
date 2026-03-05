@@ -8,6 +8,7 @@ describe("buildWorkflowHarnessPrompt", () => {
     const workflow: WorkflowDefinition = {
       id: "wf_1",
       name: "Release Workflow",
+      enabled: true,
       schedule: "0 5 * * *",
       steps: [
         { type: "agent", agent: "default", command: "plan", prompt: "Create release plan" },
@@ -19,6 +20,7 @@ describe("buildWorkflowHarnessPrompt", () => {
 
     expect(prompt).toContain("`codex`");
     expect(prompt).toContain('name: "Release Workflow"');
+    expect(prompt).toContain("enabled: true");
     expect(prompt).toContain('schedule: "0 5 * * *"');
     expect(prompt).toContain('agent: "default"');
     expect(prompt).toContain('command: "plan"');
@@ -35,6 +37,7 @@ describe("buildWorkflowHarnessPrompt", () => {
     const workflow: WorkflowDefinition = {
       id: "wf_2",
       name: "",
+      enabled: false,
       schedule: null,
       steps: [],
     };
@@ -43,11 +46,13 @@ describe("buildWorkflowHarnessPrompt", () => {
 
     expect(prompt).toContain(".harness/workflow.sh");
     expect(prompt).toContain("schedule: null");
+    expect(prompt).toContain("enabled: false");
   });
   it("uses explicit workflow shell script path when provided", () => {
     const workflow: WorkflowDefinition = {
       id: "wf_3",
       name: "Any",
+      enabled: true,
       schedule: null,
       shellScriptPath: ".harness/custom-script.sh",
       steps: [],

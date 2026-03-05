@@ -26,6 +26,7 @@ const workflowToYaml = (workflow: WorkflowDefinition) => {
     "workflows:",
     "  - id: " + escapeYamlValue(workflow.id),
     "    name: " + escapeYamlValue(workflow.name),
+    "    enabled: " + (workflow.enabled ? "true" : "false"),
     "    schedule: " + (workflow.schedule ? escapeYamlValue(workflow.schedule) : "null"),
     "    shellScriptPath: " + escapeYamlValue(workflow.shellScriptPath || workflowShellScriptPath(workflow.name)),
     "    steps:",
