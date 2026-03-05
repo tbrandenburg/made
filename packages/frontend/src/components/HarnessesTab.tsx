@@ -188,14 +188,17 @@ export const HarnessesTab: React.FC<HarnessesTabProps> = ({
   const closeHarnessModal = () =>
     setHarnessModal({ open: false, harness: null, args: "" });
 
-  const handleHarnessRun = async () => {
+  const handleHarnessRun = async (options?: { dryRun?: boolean }) => {
     if (!harnessModal.harness) return;
     setHarnessRunError(null);
     try {
-      const argsValue = harnessModal.args;
+      const argsValue = harnessModal.args.trim();
+      const finalArgs = options?.dryRun
+        ? `${argsValue} --dry-run`.trim()
+        : argsValue;
       const response = await runHarness(
         harnessModal.harness.path,
-        argsValue.trim() ? argsValue : undefined,
+        finalArgs || undefined,
       );
       const entry: HarnessRun = {
         pid: response.pid,
@@ -351,7 +354,10 @@ export const HarnessesTab: React.FC<HarnessesTabProps> = ({
           <button className="secondary" onClick={closeHarnessModal}>
             Cancel
           </button>
-          <button className="primary" onClick={handleHarnessRun}>
+          <button className="primary" onClick={() => handleHarnessRun({ dryRun: true })}>
+            Dry Run
+          </button>
+          <button className="danger" onClick={() => handleHarnessRun()}>
             Run
           </button>
         </div>
