@@ -18,7 +18,8 @@ describe("buildWorkflowHarnessPrompt", () => {
 
     const prompt = buildWorkflowHarnessPrompt(workflow, "codex");
 
-    expect(prompt).toContain("`codex`");
+    expect(prompt).toContain("Only generate commands for this CLI:");
+    expect(prompt).toContain("    codex");
     expect(prompt).toContain('name: "Release Workflow"');
     expect(prompt).toContain("enabled: true");
     expect(prompt).toContain('schedule: "0 5 * * *"');
@@ -26,10 +27,10 @@ describe("buildWorkflowHarnessPrompt", () => {
     expect(prompt).toContain('command: "plan"');
     expect(prompt).toContain('run: "echo done"');
     expect(prompt).toContain("shellScriptPath: \".harness/release-workflow.sh\"");
-    expect(prompt).toContain("Use this exact script path when generating the harness script:");
-    expect(prompt).toContain("`.harness/release-workflow.sh`");
-    expect(prompt).toContain("Support exactly one optional flag: `--dry-run`.");
-    expect(prompt).toContain("Without any parameter, the script should execute the workflow normally.");
+    expect(prompt).toContain("The script MUST be written exactly to:");
+    expect(prompt).toContain("    .harness/release-workflow.sh");
+    expect(prompt).toContain("The script supports **exactly one optional argument**:");
+    expect(prompt).toContain("• No arguments → execute workflow normally");
     expect(prompt).toContain(".harness/release-workflow.sh --dry-run");
   });
 
@@ -61,7 +62,7 @@ describe("buildWorkflowHarnessPrompt", () => {
     const prompt = buildWorkflowHarnessPrompt(workflow, "opencode");
 
     expect(prompt).toContain("shellScriptPath: \".harness/custom-script.sh\"");
-    expect(prompt).toContain("`.harness/custom-script.sh`");
+    expect(prompt).toContain("    .harness/custom-script.sh");
   });
 
 });

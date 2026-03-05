@@ -1,92 +1,393 @@
-# Workflow to Harness Script Generator
+# Strict Workflow → Bash Harness Generator (Deterministic Version)
 
-Create a single bash script for this workflow.
+This prompt generates **deterministic, production‑safe Bash harness
+scripts** from a workflow YAML.
 
-## Output requirements
+The goal is to eliminate common LLM mistakes such as:
 
-1. Save the bash script in `{{WORKFLOW_SCRIPT_PATH}}`.
-2. Support exactly one optional flag: `--dry-run`.
-3. Without any parameter, the script should execute the workflow normally.
-4. With `--dry-run`, print/log what would run without executing workflow actions.
-5. Ignore workflow schedule metadata and execute only the listed steps sequentially.
-6. Keep script sections readable and clearly mapped to the original workflow steps.
-7. Verify the script with bash tools, and test only in dry-run mode.
+-   unsafe quoting
+-   use of `eval`
+-   fragile pipelines
+-   missing dependency checks
+-   broken dry‑run behavior
+-   command string execution
+-   inconsistent step structure
 
-## Current configured agent CLI
+The generated script must be **safe, reproducible, and
+ShellCheck‑clean**.
 
-`{{CURRENT_AGENT_CLI}}`
+------------------------------------------------------------------------
 
-## Supported agent CLI invocation reference (from made code)
+# Hard Requirements (MUST FOLLOW)
 
-- `opencode` and `opencode-legacy`
-  - Base invocation: `opencode run --format json`
-  - Optional session: `-s <session_id>`
-  - Optional agent: `--agent <agent_name>`
-  - Optional model: `--model <model_name>`
-  - Message is sent through stdin.
-- `kiro`
-  - Base invocation: `kiro-cli chat --no-interactive --trust-all-tools`
-  - Optional resume: `--resume`
-  - Optional agent: `--agent <agent_name>`
-  - Optional model: `--model <model_name>`
-  - Message is sent through stdin.
-- `copilot`
-  - Base invocation: `copilot -p "<message>" --allow-all-tools --silent`
-  - Optional resume: `--resume <session_id>`
-- `codex`
-  - Base invocation: `codex exec --json`
-  - Optional resume: `codex exec resume <session_id> --json`
-  - Message is sent through stdin.
+The generated Bash script **must satisfy all rules below**.
 
-Generate command calls only for the currently configured agent CLI (`{{CURRENT_AGENT_CLI}}`).
+If any rule cannot be satisfied, the generator must **fail instead of
+guessing**.
 
-## Workflow script path
+------------------------------------------------------------------------
 
-Use this exact script path when generating the harness script:
+# Script Output Location
 
-`{{WORKFLOW_SCRIPT_PATH}}`
+The script MUST be written exactly to:
 
-## Workflow YAML
+    {{WORKFLOW_SCRIPT_PATH}}
 
-```yaml
+No alternative path may be used.
+
+------------------------------------------------------------------------
+
+# Supported CLI
+
+Only generate commands for this CLI:
+
+    {{CURRENT_AGENT_CLI}}
+
+Do not generate commands for any other CLI.
+
+------------------------------------------------------------------------
+
+# Bash Environment Requirements
+
+The script MUST start with:
+
+``` bash
+#!/usr/bin/env bash
+set -euo pipefail
+```
+
+The script must be compatible with **Bash ≥ 4.0**.
+
+------------------------------------------------------------------------
+
+# Argument Handling
+
+The script supports **exactly one optional argument**:
+
+    --dry-run
+
+Rules:
+
+• No arguments → execute workflow normally
+• `--dry-run` → simulate execution without running commands
+
+Invalid arguments MUST:
+
+1.  print a usage message
+2.  exit with status **2**
+
+Example valid invocations:
+
+    script.sh
+    script.sh --dry-run
+
+Example invalid:
+
+    script.sh --foo
+    script.sh test
+
+------------------------------------------------------------------------
+
+# Required Helper Functions
+
+The script MUST implement the following helpers:
+
+### log()
+
+Logging requirements:
+
+• ISO‑8601 UTC timestamps
+• levels: INFO, ERROR
+• always log to stderr
+• append to log file if writable
+
+Example format:
+
+    2026-01-01T12:00:00Z [INFO] message
+
+Log destination preference:
+
+1.  `/var/log/<workflow>.log`
+2.  `/tmp/made-harness-logs/<workflow>.log`
+
+If `/var/log` cannot be written, automatically fallback.
+
+Logging failures **must never terminate the workflow**.
+
+------------------------------------------------------------------------
+
+### need_cmd()
+
+Verify CLI dependency:
+
+``` bash
+command -v <cli> >/dev/null 2>&1
+```
+
+If missing → log error and exit.
+
+------------------------------------------------------------------------
+
+### run_step()
+
+Responsible for dry‑run logic.
+
+Parameters:
+
+1.  description
+2.  command array
+
+Behavior:
+
+Normal mode:
+
+    "${cmd[@]}"
+
+Dry‑run mode:
+
+    printf '%q ' "${cmd[@]}"
+
+Must not execute the command.
+
+------------------------------------------------------------------------
+
+# Command Construction Rules
+
+The generator MUST follow these rules.
+
+### Absolutely Forbidden
+
+The script MUST NOT contain:
+
+    eval
+    bash -c
+    sh -c
+    command strings executed via variables
+
+### Required Pattern
+
+Commands must be stored as arrays:
+
+``` bash
+cmd=(opencode run --format json --agent build)
+"${cmd[@]}"
+```
+
+This prevents quoting bugs and injection risks.
+
+------------------------------------------------------------------------
+
+# Prompt / Message Handling
+
+Some agent CLIs accept messages through **stdin**.
+
+The script MUST send prompts safely.
+
+Forbidden:
+
+    echo "$PROMPT"
+
+Required:
+
+    printf '%s' "$PROMPT"
+
+Example:
+
+``` bash
+printf '%s' "$PROMPT" | opencode run --format json
+```
+
+Prompts may contain:
+
+• quotes
+• unicode
+• newlines
+
+The script must handle them correctly.
+
+------------------------------------------------------------------------
+
+# Workflow Execution Rules
+
+The workflow YAML describes sequential steps.
+
+Rules:
+
+1.  Ignore schedules and metadata.
+2.  Execute steps strictly in YAML order.
+3.  Each step must be clearly mapped in the script.
+
+Required structure:
+
+    # Step 1: <name>
+
+    STEP1_DESCRIPTION="..."
+    STEP1_PROMPT="..."
+
+    cmd=( ... )
+
+    run_step "$STEP1_DESCRIPTION" "${cmd[@]}"
+
+Each step must follow the same structure.
+
+------------------------------------------------------------------------
+
+# CLI Invocation Reference
+
+Generate commands only for the configured CLI.
+
+------------------------------------------------------------------------
+
+## opencode / opencode-legacy
+
+Base command:
+
+    opencode run --format json
+
+Options:
+
+    -s <session_id>
+    --agent <agent_name>
+    --model <model_name>
+
+Message input: **stdin**
+
+------------------------------------------------------------------------
+
+## kiro
+
+Base command:
+
+    kiro-cli chat --no-interactive --trust-all-tools
+
+Options:
+
+    --resume
+    --agent <agent_name>
+    --model <model_name>
+
+Message input: **stdin**
+
+------------------------------------------------------------------------
+
+## copilot
+
+Base command:
+
+    copilot -p "<message>" --allow-all-tools --silent
+
+Options:
+
+    --resume <session_id>
+
+Message input: **-p flag**
+
+------------------------------------------------------------------------
+
+## codex
+
+Base command:
+
+    codex exec --json
+
+Resume:
+
+    codex exec resume <session_id> --json
+
+Message input: **stdin**
+
+------------------------------------------------------------------------
+
+# Workflow YAML Input
+
+``` yaml
 {{WORKFLOW_YAML}}
 ```
 
-## Bash file template (use and adapt)
+Steps must be translated into Bash step sections.
 
-```bash
+------------------------------------------------------------------------
+
+# Bash Template (Base)
+
+The generator must start from this template and extend it safely.
+
+``` bash
 #!/usr/bin/env bash
 set -euo pipefail
 
 SCRIPT_NAME="{{WORKFLOW_FILE_NAME}}"
+
+DRY_RUN=false
+
 LOG_DIR="/tmp/made-harness-logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/${SCRIPT_NAME%.sh}.log"
 
-if [[ -w /var/log ]]; then
-  LOG_FILE="/var/log/${SCRIPT_NAME%.sh}.log"
-fi
-
 log() {
-  local level="$1"
-  shift
-  printf '%s [%s] %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$level" "$*" | tee -a "$LOG_FILE"
+  local level="$1"; shift
+  printf '%s [%s] %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$level" "$*" >&2
 }
 
-log "INFO" "Starting workflow: {{WORKFLOW_NAME}}"
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1 || {
+    log ERROR "Missing dependency: $1"
+    exit 1
+  }
+}
 
-# Step 1: ...
-# Step 2: ...
-# Keep one clear section per workflow step.
+run_step() {
+  local desc="$1"; shift
+  local cmd=("$@")
 
-log "INFO" "Workflow finished: {{WORKFLOW_NAME}}"
+  if [[ "$DRY_RUN" == true ]]; then
+    log INFO "[DRY-RUN] $desc"
+    printf '%q ' "${cmd[@]}"
+    printf '\n'
+  else
+    log INFO "$desc"
+    "${cmd[@]}"
+  fi
+}
+
+log INFO "Starting workflow: {{WORKFLOW_NAME}}"
+
+# Steps inserted here
+
+log INFO "Workflow finished: {{WORKFLOW_NAME}}"
 ```
 
-## Verification requirements
+The template may be extended but must **not violate any safety rule**.
 
-- Run static checks:
-  - `bash -n {{WORKFLOW_SCRIPT_PATH}}`
-  - `shellcheck {{WORKFLOW_SCRIPT_PATH}}` (if available)
-- Test dry-run behavior:
-  - `{{WORKFLOW_SCRIPT_PATH}} --dry-run`
-- Do not run full execution mode during verification.
+------------------------------------------------------------------------
+
+# Verification Requirements
+
+The generated script must pass:
+
+    bash -n {{WORKFLOW_SCRIPT_PATH}}
+
+If available:
+
+    shellcheck {{WORKFLOW_SCRIPT_PATH}}
+
+Then test dry‑run mode:
+
+    {{WORKFLOW_SCRIPT_PATH}} --dry-run
+
+The generator must **never run the workflow in real execution mode
+during verification**.
+
+------------------------------------------------------------------------
+
+# Determinism Requirement
+
+The generated script must:
+
+• always follow the same structure
+• never reorder steps
+• never infer missing fields
+• never invent new workflow fields
+
+If the workflow YAML is incomplete, the generator must **fail rather
+than guess**.
