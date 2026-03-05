@@ -4,39 +4,45 @@ import { WorkflowDefinition } from "../components/WorkflowBuilderPanel";
 import { buildWorkflowHarnessPrompt } from "./workflowHarnessPrompt";
 
 describe("buildWorkflowHarnessPrompt", () => {
-  it("renders the configured cli and workflow yaml", () => {
-    const workflow: WorkflowDefinition = {
-      id: "wf_1",
-      name: "Release Workflow",
-      schedule: "0 5 * * *",
-      steps: [
-        { type: "agent", agent: "default", command: "plan", prompt: "Create release plan" },
-        { type: "bash", run: "echo done" },
-      ],
-    };
+  it("renders current cli, full workflows yaml, and selected workflow id hint", () => {
+    const workflows: WorkflowDefinition[] = [
+      {
+        id: "wf_release",
+        name: "Release Workflow",
+        schedule: "0 5 * * *",
+        steps: [
+          {
+            type: "agent",
+            agent: "default",
+            command: "plan",
+            prompt: "Create release plan",
+          },
+        ],
+      },
+      {
+        id: "wf_other",
+        name: "Other Workflow",
+        schedule: null,
+        steps: [{ type: "bash", run: "echo other" }],
+      },
+    ];
 
-    const prompt = buildWorkflowHarnessPrompt(workflow, "codex");
+    const prompt = buildWorkflowHarnessPrompt(workflows, "wf_release", "codex");
 
     expect(prompt).toContain("`codex`");
-    expect(prompt).toContain('name: "Release Workflow"');
-    expect(prompt).toContain('schedule: "0 5 * * *"');
-    expect(prompt).toContain('agent: "default"');
-    expect(prompt).toContain('command: "plan"');
-    expect(prompt).toContain('run: "echo done"');
+    expect(prompt).toContain("Only generate a script for workflow ID `wf_release`.");
+    expect(prompt).toContain('id: "wf_release"');
+    expect(prompt).toContain('id: "wf_other"');
+    expect(prompt).toContain("select only ID `wf_release`");
     expect(prompt).toContain(".harness/release-workflow.sh");
   });
 
-  it("falls back to workflow file name when workflow name is empty", () => {
-    const workflow: WorkflowDefinition = {
-      id: "wf_2",
-      name: "",
-      schedule: null,
-      steps: [],
-    };
+  it("falls back to workflow id for file naming when id cannot be found", () => {
+    const workflows: WorkflowDefinition[] = [];
 
-    const prompt = buildWorkflowHarnessPrompt(workflow, "opencode");
+    const prompt = buildWorkflowHarnessPrompt(workflows, "wf_missing", "opencode");
 
-    expect(prompt).toContain(".harness/workflow.sh");
-    expect(prompt).toContain("schedule: null");
+    expect(prompt).toContain(".harness/wf-missing.sh");
+    expect(prompt).toContain("workflows:\n  []");
   });
 });

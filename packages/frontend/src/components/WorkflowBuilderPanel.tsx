@@ -204,7 +204,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                   className="copy-button workflow-icon-button"
                   title="Run workflow"
                   aria-label="Run workflow"
-                  onClick={() => onRunWorkflow(buildWorkflowHarnessPrompt(workflow, agentCli))}
+                  onClick={() => onRunWorkflow(buildWorkflowHarnessPrompt(workflows, workflow.id, agentCli))}
                 >
                   <PlayIcon />
                 </button>

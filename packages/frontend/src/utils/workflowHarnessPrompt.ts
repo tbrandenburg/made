@@ -18,16 +18,30 @@ const stepToYaml = (step: WorkflowStep, indent: string) => {
   return lines;
 };
 
-const workflowToYaml = (workflow: WorkflowDefinition) => {
-  const lines: string[] = ["workflows:", "  - id: " + escapeYamlValue(workflow.id), "    name: " + escapeYamlValue(workflow.name), "    schedule: " + (workflow.schedule ? escapeYamlValue(workflow.schedule) : "null"), "    steps:"];
+const workflowsToYaml = (workflows: WorkflowDefinition[]) => {
+  const lines: string[] = ["workflows:"];
 
-  if (!workflow.steps.length) {
-    lines.push("      []");
-  } else {
-    workflow.steps.forEach((step) => {
-      lines.push(...stepToYaml(step, "      "));
-    });
+  if (!workflows.length) {
+    lines.push("  []");
+    return lines.join("\n");
   }
+
+  workflows.forEach((workflow) => {
+    lines.push(`  - id: ${escapeYamlValue(workflow.id)}`);
+    lines.push(`    name: ${escapeYamlValue(workflow.name)}`);
+    lines.push(
+      `    schedule: ${workflow.schedule ? escapeYamlValue(workflow.schedule) : "null"}`,
+    );
+    lines.push("    steps:");
+
+    if (!workflow.steps.length) {
+      lines.push("      []");
+    } else {
+      workflow.steps.forEach((step) => {
+        lines.push(...stepToYaml(step, "      "));
+      });
+    }
+  });
 
   return lines.join("\n");
 };
@@ -43,20 +57,25 @@ const normalizeWorkflowName = (value: string) => {
 };
 
 export const buildWorkflowHarnessPrompt = (
-  workflow: WorkflowDefinition,
+  workflows: WorkflowDefinition[],
+  workflowId: string,
   agentCli: string,
 ) => {
+  const selected = workflows.find((workflow) => workflow.id === workflowId);
+  const workflowName = selected?.name || workflowId;
+
   const apply = (template: string, key: string, value: string) =>
     template.split(key).join(value);
 
   let output = workflowPromptTemplate;
-  output = apply(output, "{{WORKFLOW_NAME}}", workflow.name);
+  output = apply(output, "{{WORKFLOW_ID}}", workflowId);
+  output = apply(output, "{{WORKFLOW_NAME}}", workflowName);
   output = apply(
     output,
     "{{WORKFLOW_FILE_NAME}}",
-    `${normalizeWorkflowName(workflow.name)}.sh`,
+    `${normalizeWorkflowName(workflowName)}.sh`,
   );
-  output = apply(output, "{{WORKFLOW_YAML}}", workflowToYaml(workflow));
+  output = apply(output, "{{WORKFLOWS_YAML}}", workflowsToYaml(workflows));
   output = apply(output, "{{CURRENT_AGENT_CLI}}", agentCli || "opencode");
   return output;
 };
