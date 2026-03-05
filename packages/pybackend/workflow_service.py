@@ -112,3 +112,29 @@ def write_workflows(
         encoding="utf-8",
     )
     return normalized
+
+
+def list_workspace_workflows() -> dict[str, list[dict[str, Any]]]:
+    workspace_home = get_workspace_home()
+    workflows: list[dict[str, Any]] = []
+
+    for repo_path in workspace_home.iterdir():
+        if not repo_path.is_dir():
+            continue
+
+        repo_name = repo_path.name
+        repository_workflows = read_workflows(repo_name).get("workflows", [])
+
+        for workflow in repository_workflows:
+            workflows.append(
+                {
+                    "repository": repo_name,
+                    "id": workflow.get("id"),
+                    "name": workflow.get("name"),
+                    "enabled": bool(workflow.get("enabled", False)),
+                    "schedule": workflow.get("schedule"),
+                    "shellScriptPath": workflow.get("shellScriptPath"),
+                }
+            )
+
+    return {"workflows": workflows}

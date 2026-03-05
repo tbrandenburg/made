@@ -232,6 +232,15 @@ export type WorkflowStep = {
   run?: string;
 };
 
+export type WorkspaceWorkflowSummary = {
+  repository: string;
+  id: string;
+  name: string;
+  enabled: boolean;
+  schedule: string | null;
+  shellScriptPath?: string;
+};
+
 export type WorkflowDefinition = {
   id: string;
   name: string;
@@ -437,6 +446,8 @@ export const api = {
     request<{ pid: number; running: boolean }>(`/harnesses/${pid}/status`),
 
   getWorkflows: () => request<{ workflows: WorkflowDefinition[] }>("/workflows"),
+  getWorkspaceWorkflows: () =>
+    request<{ workflows: WorkspaceWorkflowSummary[] }>("/workspace/workflows"),
   saveWorkflows: (workflows: WorkflowDefinition[]) =>
     request<{ workflows: WorkflowDefinition[] }>("/workflows", {
       method: "PUT",

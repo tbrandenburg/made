@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { api, ArtefactSummary } from "../hooks/useApi";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  api,
+  ArtefactSummary,
+  WorkspaceWorkflowSummary,
+} from "../hooks/useApi";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
@@ -9,6 +13,7 @@ import "../styles/page.css";
 export const TasksPage: React.FC = () => {
   const [tasks, setTasks] = useState<ArtefactSummary[]>([]);
   const [activeTab, setActiveTab] = useState("tasks");
+  const [workspaceWorkflows, setWorkspaceWorkflows] = useState<WorkspaceWorkflowSummary[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const navigate = useNavigate();
@@ -33,6 +38,12 @@ export const TasksPage: React.FC = () => {
 
   useEffect(() => {
     loadTasks();
+    api
+      .getWorkspaceWorkflows()
+      .then((res) => setWorkspaceWorkflows(res.workflows))
+      .catch((error) =>
+        console.error("Failed to load workspace workflows", error),
+      );
   }, []);
 
   const handleCreate = async () => {
@@ -60,6 +71,46 @@ export const TasksPage: React.FC = () => {
             label: "Tasks",
             content: (
               <>
+                <Panel title="Workflows">
+                  {workspaceWorkflows.length === 0 ? (
+                    <div className="empty">
+                      No workflows found in repository .made/workflows.yml files.
+                    </div>
+                  ) : (
+                    <table className="git-table">
+                      <thead>
+                        <tr>
+                          <th>Enabled</th>
+                          <th>Schedule</th>
+                          <th>Name</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {workspaceWorkflows.map((workflow) => (
+                          <tr key={`${workflow.repository}:${workflow.id}`}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={workflow.enabled}
+                                readOnly
+                                aria-label={`${workflow.name} enabled`}
+                              />
+                            </td>
+                            <td>{workflow.schedule || "-"}</td>
+                            <td>
+                              <Link
+                                to={`/repositories/${encodeURIComponent(workflow.repository)}?tab=harnesses`}
+                              >
+                                {workflow.name}
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </Panel>
+
                 <div className="button-bar">
                   <button
                     className="primary"
