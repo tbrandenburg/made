@@ -79,9 +79,18 @@ def run_harness(
         raise FileNotFoundError("Harness script not found")
 
     command = ["bash", str(resolved_path), *(_parse_harness_args(args))]
+    execution_cwd = resolved_path.parent
+    for ancestor in resolved_path.parents:
+        if ancestor.name == ".harness":
+            execution_cwd = ancestor.parent
+            break
+        if ancestor.name == "harness" and ancestor.parent.name == ".opencode":
+            execution_cwd = ancestor.parent.parent
+            break
+
     process = subprocess.Popen(
         command,
-        cwd=str(resolved_path.parent),
+        cwd=str(execution_cwd),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         start_new_session=True,
