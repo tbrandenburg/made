@@ -50,7 +50,7 @@ from knowledge_service import (
 )
 from command_service import list_commands
 from harness_service import is_process_running, list_harnesses, run_harness
-from workflow_service import read_workflows, write_workflows
+from workflow_service import list_workspace_workflows, read_workflows, write_workflows
 from repository_service import (
     create_repository,
     create_repository_file,
@@ -554,6 +554,18 @@ def save_global_workflows(payload: dict = Body(...)):
         return write_workflows(payload)
     except Exception as exc:
         logger.exception("Failed to save global workflows")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/workspace/workflows")
+def workspace_workflows():
+    try:
+        logger.info("Listing workspace workflows")
+        return list_workspace_workflows()
+    except Exception as exc:
+        logger.exception("Failed to list workspace workflows")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )

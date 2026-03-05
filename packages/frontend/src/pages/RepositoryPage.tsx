@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { marked } from "marked";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
@@ -303,6 +303,7 @@ export const RepositoryPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("agent");
+  const [searchParams] = useSearchParams();
   const [repository, setRepository] = useState<RepositorySummary | null>(null);
   const [fileTree, setFileTree] = useState<FileNode | null>(null);
   const [fileActionError, setFileActionError] = useState<string | null>(null);
@@ -453,6 +454,13 @@ export const RepositoryPage: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [chat]);
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
   const lastKnownTimestamp = useMemo(() => {
     if (!chat.length) return undefined;
     const parsed = Date.parse(chat[chat.length - 1].timestamp);

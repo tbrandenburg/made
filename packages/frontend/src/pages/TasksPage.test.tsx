@@ -17,6 +17,7 @@ vi.mock("../hooks/useApi", async () => {
       ...actual.api,
       listTasks: vi.fn(),
       saveTask: vi.fn(),
+      getWorkspaceWorkflows: vi.fn(),
     },
   };
 });
@@ -24,6 +25,7 @@ vi.mock("../hooks/useApi", async () => {
 describe("TasksPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(api.getWorkspaceWorkflows).mockResolvedValue({ workflows: [] });
   });
 
   it("renders task schedules as green schedule tags", async () => {
@@ -44,6 +46,35 @@ describe("TasksPage", () => {
 
     expect(await screen.findByText("0 9 * * 1-5")).toBeInTheDocument();
     expect(screen.getByText("0 9 * * 1-5")).toHaveClass("success");
+  });
+
+  it("shows workspace workflows and links to the repository harness tab", async () => {
+    vi.mocked(api.listTasks).mockResolvedValue({ tasks: [] });
+    vi.mocked(api.getWorkspaceWorkflows).mockResolvedValue({
+      workflows: [
+        {
+          repository: "sample-repo",
+          id: "wf_release",
+          name: "Release",
+          enabled: true,
+          schedule: "0 8 * * 1",
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("0 8 * * 1")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "Release" });
+    expect(link).toHaveAttribute(
+      "href",
+      "/repositories/sample-repo?tab=harnesses",
+    );
+    expect(screen.getByLabelText("Release enabled")).toBeChecked();
   });
 
   it("creates tasks with schedule metadata", async () => {

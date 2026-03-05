@@ -1058,6 +1058,15 @@ class TestWorkflowEndpoints:
         assert response.status_code == 200
         mock_write.assert_called_once_with({"workflows": []})
 
+    @patch("app.list_workspace_workflows")
+    def test_workspace_workflows_success(self, mock_list):
+        mock_list.return_value = {"workflows": [{"repository": "sample", "id": "wf_1", "name": "Release", "enabled": True, "schedule": None}]}
+
+        response = client.get("/api/workspace/workflows")
+
+        assert response.status_code == 200
+        assert response.json()["workflows"][0]["repository"] == "sample"
+
     @patch("app.read_workflows")
     @patch("app._repository_path")
     def test_repository_workflows_success(self, mock_repo_path, mock_read):
