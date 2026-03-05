@@ -98,7 +98,7 @@ export const TasksPage: React.FC = () => {
                     </Panel>
                   )}
                   {documentTasks.length > 0 && (
-                    <Panel title="Documents">
+                    <Panel title="Tasks">
                       <div className="panel-column">
                         {documentTasks.map((task) => (
                           <Panel
