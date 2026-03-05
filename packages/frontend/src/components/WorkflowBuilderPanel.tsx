@@ -9,6 +9,7 @@ import { RefreshIcon } from "./icons/RefreshIcon";
 import { SaveIcon } from "./icons/SaveIcon";
 import { TrashIcon } from "./icons/TrashIcon";
 import { XIcon } from "./icons/XIcon";
+import { buildWorkflowHarnessPrompt } from "../utils/workflowHarnessPrompt";
 
 export type WorkflowStep = {
   type: "agent" | "bash";
@@ -29,6 +30,8 @@ type WorkflowBuilderPanelProps = {
   loadWorkflows: () => Promise<{ workflows: WorkflowDefinition[] }>;
   saveWorkflows: (payload: { workflows: WorkflowDefinition[] }) => Promise<unknown>;
   listAgents: () => Promise<{ agents: AvailableAgent[] }>;
+  onRunWorkflow: (prompt: string) => void;
+  agentCli: string;
 };
 
 const previewText = (step: WorkflowStep) => {
@@ -69,6 +72,8 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
   loadWorkflows,
   saveWorkflows,
   listAgents,
+  onRunWorkflow,
+  agentCli,
 }) => {
   const [workflows, setWorkflows] = useState<WorkflowDefinition[]>([]);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
@@ -195,7 +200,12 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                 <button className="copy-button workflow-icon-button" onClick={() => addStep(workflow.id)} title="Add step" aria-label="Add step">
                   <PlusIcon />
                 </button>
-                <button className="copy-button workflow-icon-button" title="Run workflow" aria-label="Run workflow" disabled>
+                <button
+                  className="copy-button workflow-icon-button"
+                  title="Run workflow"
+                  aria-label="Run workflow"
+                  onClick={() => onRunWorkflow(buildWorkflowHarnessPrompt(workflow, agentCli))}
+                >
                   <PlayIcon />
                 </button>
                 <button

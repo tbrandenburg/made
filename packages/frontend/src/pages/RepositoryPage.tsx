@@ -1534,6 +1534,10 @@ export const RepositoryPage: React.FC = () => {
                 api.saveRepositoryWorkflows(name || "", payload.workflows)
               }
               listAgents={() => api.getAgents()}
+              onRunWorkflow={(message) => {
+                void handleSendMessage(message);
+              }}
+              agentCli={agentCli}
             />
           </Panel>
           <Panel
