@@ -4,7 +4,7 @@ Create a single bash script for this workflow.
 
 ## Output requirements
 
-1. Save the bash script in `.harness/{{WORKFLOW_FILE_NAME}}`.
+1. Save the bash script in `{{WORKFLOW_SCRIPT_PATH}}`.
 2. Support exactly one optional flag: `--dry-run`.
 3. Without any parameter, the script should execute the workflow normally.
 4. With `--dry-run`, print/log what would run without executing workflow actions.
@@ -39,6 +39,12 @@ Create a single bash script for this workflow.
   - Message is sent through stdin.
 
 Generate command calls only for the currently configured agent CLI (`{{CURRENT_AGENT_CLI}}`).
+
+## Workflow script path
+
+Use this exact script path when generating the harness script:
+
+`{{WORKFLOW_SCRIPT_PATH}}`
 
 ## Workflow YAML
 
@@ -79,8 +85,8 @@ log "INFO" "Workflow finished: {{WORKFLOW_NAME}}"
 ## Verification requirements
 
 - Run static checks:
-  - `bash -n .harness/{{WORKFLOW_FILE_NAME}}`
-  - `shellcheck .harness/{{WORKFLOW_FILE_NAME}}` (if available)
+  - `bash -n {{WORKFLOW_SCRIPT_PATH}}`
+  - `shellcheck {{WORKFLOW_SCRIPT_PATH}}` (if available)
 - Test dry-run behavior:
-  - `.harness/{{WORKFLOW_FILE_NAME}} --dry-run`
+  - `{{WORKFLOW_SCRIPT_PATH}} --dry-run`
 - Do not run full execution mode during verification.
