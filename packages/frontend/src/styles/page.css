@@ -372,6 +372,10 @@
   display: inline-flex;
 }
 
+.workflow-icon--enabled {
+  color: #22c55e;
+}
+
 .workflow-icon--right {
   transform: rotate(90deg);
 }
@@ -395,7 +399,7 @@
 
 .workflow-card__header {
   display: grid;
-  grid-template-columns: auto 1fr auto auto auto auto;
+  grid-template-columns: auto 1fr auto auto auto auto auto;
   align-items: center;
   gap: 0.5rem;
 }

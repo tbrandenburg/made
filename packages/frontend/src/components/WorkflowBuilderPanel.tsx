@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Modal } from "./Modal";
 import { AvailableAgent } from "../hooks/useApi";
 import { ArrowDownIcon } from "./icons/ArrowDownIcon";
+import { CheckboxIcon } from "./icons/CheckboxIcon";
 import { ClockIcon } from "./icons/ClockIcon";
 import { PlayIcon } from "./icons/PlayIcon";
 import { PlusIcon } from "./icons/PlusIcon";
@@ -25,6 +26,7 @@ export type WorkflowStep = {
 export type WorkflowDefinition = {
   id: string;
   name: string;
+  enabled: boolean;
   schedule: string | null;
   shellScriptPath?: string;
   steps: WorkflowStep[];
@@ -68,6 +70,7 @@ const parseAgentText = (value: string) => {
 const newWorkflow = (): WorkflowDefinition => ({
   id: `wf_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
   name: "New workflow",
+  enabled: false,
   schedule: null,
   steps: [],
 });
@@ -191,6 +194,23 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                     void persist(next);
                   }}
                 />
+                <button
+                  className="copy-button workflow-icon-button"
+                  title={workflow.enabled ? "Disable workflow" : "Enable workflow"}
+                  aria-label={workflow.enabled ? "Disable workflow" : "Enable workflow"}
+                  onClick={() => {
+                    const next = workflows.map((item) =>
+                      item.id === workflow.id
+                        ? { ...item, enabled: !item.enabled }
+                        : item,
+                    );
+                    void persist(next);
+                  }}
+                >
+                  <span className={workflow.enabled ? "workflow-icon workflow-icon--enabled" : "workflow-icon"}>
+                    <CheckboxIcon checked={workflow.enabled} />
+                  </span>
+                </button>
                 <button
                   className="copy-button workflow-icon-button"
                   title={workflow.schedule || "Set schedule"}
