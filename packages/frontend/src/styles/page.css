@@ -47,6 +47,11 @@
   box-shadow: 0 0 12px rgba(52, 211, 153, 0.6);
 }
 
+.status-indicator.warning .light {
+  background: #f59e0b;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+}
+
 .path-info {
   font-family: monospace;
   font-size: 0.9rem;

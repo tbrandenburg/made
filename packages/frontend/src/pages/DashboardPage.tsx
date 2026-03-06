@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api } from "../hooks/useApi";
+import { api, type CronClockSummary } from "../hooks/useApi";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import "../styles/page.css";
@@ -10,6 +10,7 @@ type DashboardData = {
   madeHome: string;
   workspaceHome: string;
   madeDirectory: string;
+  cronClock: CronClockSummary;
 };
 
 export const DashboardPage: React.FC = () => {
@@ -26,10 +27,13 @@ export const DashboardPage: React.FC = () => {
           madeHome: res.madeHome,
           workspaceHome: res.workspaceHome,
           madeDirectory: res.madeDirectory,
+          cronClock: res.cronClock,
         }),
       )
       .catch((error) => console.error("Failed to load dashboard", error));
   }, []);
+
+  const cronLight = data?.cronClock.trafficLight ?? "warning";
 
   return (
     <div className="page">
@@ -52,6 +56,17 @@ export const DashboardPage: React.FC = () => {
                     {data?.agentConnection
                       ? "Connection established"
                       : "Connection lost"}
+                  </div>
+                </Panel>
+                <Panel title="Cron Clock Status">
+                  <div className={`status-indicator ${cronLight}`}>
+                    <span className="light" />
+                    {data?.cronClock.message ?? "Cron status unknown"}
+                  </div>
+                </Panel>
+                <Panel title="Cron Jobs Started Since Startup">
+                  <div className="metric">
+                    {data?.cronClock.startedJobsSinceStartup ?? "—"}
                   </div>
                 </Panel>
                 <Panel title="MADE Home">

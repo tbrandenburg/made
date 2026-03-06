@@ -51,6 +51,7 @@ from knowledge_service import (
 from command_service import list_commands
 from harness_service import is_process_running, list_harnesses, run_harness
 from workflow_service import list_workspace_workflows, read_workflows, write_workflows
+from cron_service import start_cron_clock, stop_cron_clock
 from repository_service import (
     create_repository,
     create_repository_file,
@@ -92,7 +93,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger("made.pybackend")
 
-app = FastAPI(title="MADE Python Backend")
+@contextlib.asynccontextmanager
+async def lifespan(_: FastAPI):
+    start_cron_clock()
+    try:
+        yield
+    finally:
+        stop_cron_clock()
+
+
+app = FastAPI(title="MADE Python Backend", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

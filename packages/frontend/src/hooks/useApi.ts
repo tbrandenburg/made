@@ -241,6 +241,16 @@ export type WorkspaceWorkflowSummary = {
   shellScriptPath?: string;
 };
 
+export type CronClockSummary = {
+  running: boolean;
+  trafficLight: "ok" | "warning" | "error";
+  message: string;
+  startedAt: string | null;
+  configuredJobs: number;
+  invalidSchedules: number;
+  startedJobsSinceStartup: number;
+};
+
 export type WorkflowDefinition = {
   id: string;
   name: string;
@@ -259,6 +269,7 @@ export const api = {
       madeHome: string;
       workspaceHome: string;
       madeDirectory: string;
+      cronClock: CronClockSummary;
     }>("/dashboard"),
   listRepositories: () =>
     request<{ repositories: RepositorySummary[] }>("/repositories"),
