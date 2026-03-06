@@ -51,7 +51,7 @@ from knowledge_service import (
 from command_service import list_commands
 from harness_service import is_process_running, list_harnesses, run_harness
 from workflow_service import list_workspace_workflows, read_workflows, write_workflows
-from cron_service import start_cron_clock, stop_cron_clock
+from cron_service import refresh_cron_clock, start_cron_clock, stop_cron_clock
 from repository_service import (
     create_repository,
     create_repository_file,
@@ -576,6 +576,17 @@ def workspace_workflows():
         return list_workspace_workflows()
     except Exception as exc:
         logger.exception("Failed to list workspace workflows")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+@app.post("/api/cron/update")
+def update_cron_jobs():
+    try:
+        logger.info("Refreshing cron clock from workflows")
+        return refresh_cron_clock()
+    except Exception as exc:
+        logger.exception("Failed to refresh cron clock")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )

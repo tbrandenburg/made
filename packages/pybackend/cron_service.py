@@ -143,6 +143,13 @@ def stop_cron_clock() -> None:
     logger.info("Cron clock stopped")
 
 
+def refresh_cron_clock() -> dict[str, object]:
+    """Reload cron jobs from workflow definitions and return current status."""
+    stop_cron_clock()
+    start_cron_clock()
+    return get_cron_clock_status()
+
+
 def get_cron_clock_status() -> dict[str, object]:
     with _state_lock:
         started_jobs = _started_jobs

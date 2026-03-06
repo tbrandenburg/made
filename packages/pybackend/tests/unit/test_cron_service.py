@@ -150,3 +150,21 @@ def test_cron_status_tracks_successful_vs_started_jobs(mock_run, tmp_path):
     status = cron_service.get_cron_clock_status()
     assert status["startedJobsSinceStartup"] == 3
     assert status["successfulJobsSinceStartup"] == 1
+
+
+@patch("cron_service.get_cron_clock_status")
+@patch("cron_service.start_cron_clock")
+@patch("cron_service.stop_cron_clock")
+def test_refresh_cron_clock_reloads_scheduler(
+    mock_stop,
+    mock_start,
+    mock_status,
+):
+    mock_status.return_value = {"running": True}
+
+    status = cron_service.refresh_cron_clock()
+
+    mock_stop.assert_called_once_with()
+    mock_start.assert_called_once_with()
+    mock_status.assert_called_once_with()
+    assert status == {"running": True}
