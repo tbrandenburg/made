@@ -17,6 +17,7 @@ logger = logging.getLogger("made.pybackend.cron")
 _scheduler: BackgroundScheduler | None = None
 _state_lock = Lock()
 _started_jobs = 0
+_successful_jobs = 0
 _configured_jobs = 0
 _invalid_jobs = 0
 _started_at: datetime | None = None
@@ -30,7 +31,7 @@ def _resolve_script_path(repo_path: Path, shell_script_path: str) -> Path:
 
 
 def _run_workflow_script(repo_path: Path, workflow_id: str, script_path: Path) -> None:
-    global _started_jobs
+    global _started_jobs, _successful_jobs
 
     with _state_lock:
         _started_jobs += 1
@@ -45,6 +46,8 @@ def _run_workflow_script(repo_path: Path, workflow_id: str, script_path: Path) -
     )
 
     if result.returncode == 0:
+        with _state_lock:
+            _successful_jobs += 1
         logger.info("Cron workflow '%s' completed", workflow_id)
         if result.stdout.strip():
             logger.info("Cron workflow '%s' stdout: %s", workflow_id, result.stdout.strip())
@@ -60,7 +63,7 @@ def _run_workflow_script(repo_path: Path, workflow_id: str, script_path: Path) -
 
 
 def start_cron_clock() -> None:
-    global _scheduler, _started_jobs, _configured_jobs, _invalid_jobs, _started_at
+    global _scheduler, _started_jobs, _successful_jobs, _configured_jobs, _invalid_jobs, _started_at
 
     if _scheduler is not None:
         return
@@ -117,6 +120,7 @@ def start_cron_clock() -> None:
 
     with _state_lock:
         _started_jobs = 0
+        _successful_jobs = 0
         _configured_jobs = configured_jobs
         _invalid_jobs = invalid_jobs
         _started_at = datetime.now(timezone.utc)
@@ -142,6 +146,7 @@ def stop_cron_clock() -> None:
 def get_cron_clock_status() -> dict[str, object]:
     with _state_lock:
         started_jobs = _started_jobs
+        successful_jobs = _successful_jobs
         configured_jobs = _configured_jobs
         invalid_jobs = _invalid_jobs
         started_at = _started_at
@@ -168,4 +173,5 @@ def get_cron_clock_status() -> dict[str, object]:
         "configuredJobs": configured_jobs,
         "invalidSchedules": invalid_jobs,
         "startedJobsSinceStartup": started_jobs,
+        "successfulJobsSinceStartup": successful_jobs,
     }

@@ -64,9 +64,11 @@ export const DashboardPage: React.FC = () => {
                     {data?.cronClock.message ?? "Cron status unknown"}
                   </div>
                 </Panel>
-                <Panel title="Cron Jobs Started Since Startup">
+                <Panel title="Cron Job Success Rate Since Startup">
                   <div className="metric">
-                    {data?.cronClock.startedJobsSinceStartup ?? "—"}
+                    {data
+                      ? `${data.cronClock.successfulJobsSinceStartup}/${data.cronClock.startedJobsSinceStartup}`
+                      : "—"}
                   </div>
                 </Panel>
                 <Panel title="MADE Home">
