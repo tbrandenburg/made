@@ -13,6 +13,7 @@ import { Modal } from "../components/Modal";
 import { TerminalTab } from "../components/TerminalTab";
 import { GitTab } from "../components/GitTab";
 import { ChatWindow } from "../components/ChatWindow";
+import { MentionPathTextarea } from "../components/MentionPathTextarea";
 import { WorkflowBuilderPanel } from "../components/WorkflowBuilderPanel";
 import { SessionPickerModal } from "../components/SessionPickerModal";
 import { AgentSelector, DEFAULT_AGENT_VALUE } from "../components/AgentSelector";
@@ -44,6 +45,7 @@ import { EditIcon } from "../components/icons/EditIcon";
 import { MoveIcon } from "../components/icons/MoveIcon";
 import { TagIcon } from "../components/icons/TagIcon";
 import { TrashIcon } from "../components/icons/TrashIcon";
+import { buildMentionPathCandidates, commandPathsFromDefinitions } from "../utils/pathMentions";
 
 const stripCommandFrontmatter = (content: string) => {
   const delimiterPattern =
@@ -350,6 +352,10 @@ export const RepositoryPage: React.FC = () => {
   const [availableCommands, setAvailableCommands] = useState<
     CommandDefinition[]
   >([]);
+  const mentionPathSuggestions = useMemo(
+    () => buildMentionPathCandidates(commandPathsFromDefinitions(availableCommands), fileTree),
+    [availableCommands, fileTree],
+  );
   const [commandsError, setCommandsError] = useState<string | null>(null);
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [availableHarnesses, setAvailableHarnesses] = useState<
@@ -1460,10 +1466,11 @@ export const RepositoryPage: React.FC = () => {
             onClearSession={() => setClearSessionModalOpen(true)}
           />
           {chatError && <div className="alert">{chatError}</div>}
-          <textarea
+          <MentionPathTextarea
             value={pendingPrompt}
-            onChange={(event) => setPendingPrompt(event.target.value)}
+            onChange={setPendingPrompt}
             placeholder="Describe the change or ask the agent..."
+            suggestions={mentionPathSuggestions}
           />
           <div className="button-bar chat-controls">
             <div className="chat-controls__left">
@@ -1550,6 +1557,7 @@ export const RepositoryPage: React.FC = () => {
                 setActiveTab("agent");
               }}
               agentCli={agentCli}
+              mentionPathSuggestions={mentionPathSuggestions}
             />
           </Panel>
           <Panel

@@ -298,6 +298,40 @@ textarea {
   gap: 1rem;
 }
 
+.mention-textarea {
+  position: relative;
+}
+
+.mention-textarea__menu {
+  position: absolute;
+  z-index: 30;
+  min-width: 260px;
+  max-width: min(520px, calc(100vw - 4rem));
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.mention-textarea__item {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+}
+
+.mention-textarea__item:hover,
+.mention-textarea__item.is-active {
+  background: rgba(59, 130, 246, 0.16);
+}
+
 .model-select {
   display: flex;
   flex-direction: column;
