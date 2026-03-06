@@ -4,6 +4,10 @@ type MentionPathTextareaProps = {
   value: string;
   onChange: (nextValue: string) => void;
   suggestions: string[];
+  sections?: Array<{
+    label: string;
+    suggestions: string[];
+  }>;
   placeholder?: string;
   rows?: number;
   id?: string;
@@ -95,6 +99,7 @@ export const MentionPathTextarea: React.FC<MentionPathTextareaProps> = ({
   value,
   onChange,
   suggestions,
+  sections,
   placeholder,
   rows = 4,
   id,
@@ -110,8 +115,29 @@ export const MentionPathTextarea: React.FC<MentionPathTextareaProps> = ({
   const filteredSuggestions = useMemo(() => {
     if (!activeMention) return [];
     const query = activeMention.query.toLowerCase();
+
+    if (sections?.length) {
+      return sections.flatMap((section) =>
+        section.suggestions.filter((item) => item.toLowerCase().includes(query)),
+      );
+    }
+
     return suggestions.filter((item) => item.toLowerCase().includes(query));
-  }, [activeMention, suggestions]);
+  }, [activeMention, sections, suggestions]);
+
+  const filteredSections = useMemo(() => {
+    if (!activeMention || !sections?.length) return [];
+    const query = activeMention.query.toLowerCase();
+
+    return sections
+      .map((section) => ({
+        label: section.label,
+        suggestions: section.suggestions.filter((item) =>
+          item.toLowerCase().includes(query),
+        ),
+      }))
+      .filter((section) => section.suggestions.length > 0);
+  }, [activeMention, sections]);
 
   useEffect(() => {
     if (!filteredSuggestions.length) {
@@ -221,19 +247,47 @@ export const MentionPathTextarea: React.FC<MentionPathTextareaProps> = ({
           className="mention-textarea__menu"
           style={{ top: menuPosition.top, left: menuPosition.left }}
         >
-          {filteredSuggestions.slice(0, 50).map((item, index) => (
-            <button
-              key={item}
-              type="button"
-              className={`mention-textarea__item${selectedIndex === index ? " is-active" : ""}`}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                applySuggestion(item);
-              }}
-            >
-              {item}
-            </button>
-          ))}
+          {filteredSections.length > 0
+            ? (() => {
+                let globalIndex = 0;
+                return filteredSections.map((section) => (
+                  <div key={section.label}>
+                    <div className="mention-textarea__section-label">
+                      {section.label}
+                    </div>
+                    {section.suggestions.slice(0, 50).map((item) => {
+                      const itemIndex = globalIndex;
+                      globalIndex += 1;
+                      return (
+                        <button
+                          key={`${section.label}-${item}`}
+                          type="button"
+                          className={`mention-textarea__item${selectedIndex === itemIndex ? " is-active" : ""}`}
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            applySuggestion(item);
+                          }}
+                        >
+                          {item}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ));
+              })()
+            : filteredSuggestions.slice(0, 50).map((item, index) => (
+                <button
+                  key={item}
+                  type="button"
+                  className={`mention-textarea__item${selectedIndex === index ? " is-active" : ""}`}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    applySuggestion(item);
+                  }}
+                >
+                  {item}
+                </button>
+              ))}
         </div>
       )}
     </div>

@@ -45,7 +45,11 @@ import { EditIcon } from "../components/icons/EditIcon";
 import { MoveIcon } from "../components/icons/MoveIcon";
 import { TagIcon } from "../components/icons/TagIcon";
 import { TrashIcon } from "../components/icons/TrashIcon";
-import { buildMentionPathCandidates, commandPathsFromDefinitions } from "../utils/pathMentions";
+import {
+  buildMentionPathCandidates,
+  buildMentionPathSections,
+  commandPathsFromDefinitions,
+} from "../utils/pathMentions";
 
 const stripCommandFrontmatter = (content: string) => {
   const delimiterPattern =
@@ -356,6 +360,23 @@ export const RepositoryPage: React.FC = () => {
     () => buildMentionPathCandidates(commandPathsFromDefinitions(availableCommands), fileTree),
     [availableCommands, fileTree],
   );
+  const mentionPathSections = useMemo(() => {
+    const sections = buildMentionPathSections(
+      commandPathsFromDefinitions(availableCommands),
+      fileTree,
+    );
+
+    return [
+      {
+        label: "Commands",
+        suggestions: sections.commands,
+      },
+      {
+        label: "Files",
+        suggestions: sections.files,
+      },
+    ];
+  }, [availableCommands, fileTree]);
   const [commandsError, setCommandsError] = useState<string | null>(null);
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [availableHarnesses, setAvailableHarnesses] = useState<
@@ -1471,6 +1492,7 @@ export const RepositoryPage: React.FC = () => {
             onChange={setPendingPrompt}
             placeholder="Describe the change or ask the agent..."
             suggestions={mentionPathSuggestions}
+            sections={mentionPathSections}
           />
           <div className="button-bar chat-controls">
             <div className="chat-controls__left">

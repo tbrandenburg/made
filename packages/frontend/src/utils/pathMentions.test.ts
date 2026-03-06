@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildMentionPathCandidates, commandPathsFromDefinitions, flattenRepositoryTreePaths } from "./pathMentions";
+import {
+  buildMentionPathCandidates,
+  buildMentionPathSections,
+  commandPathsFromDefinitions,
+  flattenRepositoryTreePaths,
+} from "./pathMentions";
 
 describe("pathMentions", () => {
   it("prioritizes command paths and deduplicates tree paths", () => {
@@ -18,13 +23,31 @@ describe("pathMentions", () => {
       ],
     });
 
-    expect(treePaths).toEqual([
-      "commands/run.md",
-      "commands/build.md",
-      "commands",
-      "src",
-      "src/main.ts",
+    expect(treePaths).toEqual(["commands/run.md", "commands/build.md", "src/main.ts"]);
+  });
+
+  it("keeps command files even when hidden and separates command and file sections", () => {
+    const commandPaths = commandPathsFromDefinitions([
+      { id: "1", name: "c1", description: "", path: ".claude/commands/myCommand.md", source: "user", content: "" },
+      { id: "2", name: "c2", description: "", path: "../.made/commands/centralCommand.md", source: "user", content: "" },
     ]);
+
+    const sections = buildMentionPathSections(commandPaths, {
+      name: ".",
+      path: ".",
+      type: "folder",
+      children: [
+        { name: "src", path: "src", type: "folder", children: [{ name: "main.py", path: "src/main.py", type: "file" }] },
+        { name: "README.md", path: "README.md", type: "file" },
+        { name: ".claude", path: ".claude", type: "folder", children: [{ name: "commands", path: ".claude/commands", type: "folder" }] },
+      ],
+    });
+
+    expect(sections.commands).toEqual([
+      ".claude/commands/myCommand.md",
+      "../.made/commands/centralCommand.md",
+    ]);
+    expect(sections.files).toEqual(["src/main.py", "README.md"]);
   });
 
   it("filters dot and special folders", () => {
@@ -40,6 +63,6 @@ describe("pathMentions", () => {
       ],
     });
 
-    expect(flattened).toEqual(["docs", "docs/README.md"]);
+    expect(flattened).toEqual(["docs/README.md"]);
   });
 });

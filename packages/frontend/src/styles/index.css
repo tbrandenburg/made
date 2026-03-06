@@ -327,6 +327,21 @@ textarea {
   cursor: pointer;
 }
 
+.mention-textarea__section-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 0.45rem 0.6rem 0.2rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.2rem;
+}
+
+.mention-textarea__menu > div:first-child .mention-textarea__section-label {
+  border-top: 0;
+  margin-top: 0;
+}
+
 .mention-textarea__item:hover,
 .mention-textarea__item.is-active {
   background: rgba(59, 130, 246, 0.16);
