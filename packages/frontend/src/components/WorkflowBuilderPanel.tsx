@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { MentionPathTextarea } from "./MentionPathTextarea";
 import { Modal } from "./Modal";
 import { AvailableAgent } from "../hooks/useApi";
 import { ArrowDownIcon } from "./icons/ArrowDownIcon";
@@ -38,6 +39,7 @@ type WorkflowBuilderPanelProps = {
   listAgents: () => Promise<{ agents: AvailableAgent[] }>;
   onRunWorkflow: (prompt: string) => void;
   agentCli: string;
+  mentionPathSuggestions?: string[];
 };
 
 const previewText = (step: WorkflowStep) => {
@@ -81,6 +83,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
   listAgents,
   onRunWorkflow,
   agentCli,
+  mentionPathSuggestions = [],
 }) => {
   const [workflows, setWorkflows] = useState<WorkflowDefinition[]>([]);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
@@ -390,11 +393,12 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
       >
         <div className="form-group">
           <label htmlFor="workflow-step-editor">Command or Prompt</label>
-          <textarea
+          <MentionPathTextarea
             id="workflow-step-editor"
             rows={8}
             value={editStepValue}
-            onChange={(event) => setEditStepValue(event.target.value)}
+            onChange={setEditStepValue}
+            suggestions={mentionPathSuggestions}
           />
         </div>
         <div className="modal-actions">

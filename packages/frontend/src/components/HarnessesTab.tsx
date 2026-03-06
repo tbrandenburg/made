@@ -25,6 +25,7 @@ type HarnessesTabProps = {
   agentCli: string;
   historyStorageKey: string;
   maxHistory?: number;
+  mentionPathSuggestions?: string[];
 };
 
 const formatHarnessTimestamp = (value: string) => {
@@ -44,6 +45,7 @@ export const HarnessesTab: React.FC<HarnessesTabProps> = ({
   agentCli,
   historyStorageKey,
   maxHistory = 10,
+  mentionPathSuggestions = [],
 }) => {
   const [availableHarnesses, setAvailableHarnesses] = useState<
     HarnessDefinition[]
@@ -231,6 +233,7 @@ export const HarnessesTab: React.FC<HarnessesTabProps> = ({
           listAgents={listAgents}
           onRunWorkflow={onSendMessage}
           agentCli={agentCli}
+          mentionPathSuggestions={mentionPathSuggestions}
         />
       </Panel>
       <Panel

@@ -16,7 +16,20 @@ const repositoriesResponse = {
 const dashboardResponse = {
   projectCount: 1,
   agentConnection: true,
-  repositories: repositoriesResponse.repositories
+  repositories: repositoriesResponse.repositories,
+  madeHome: '/workspace',
+  workspaceHome: '/workspace',
+  madeDirectory: '/workspace/.made',
+  cronClock: {
+    running: true,
+    trafficLight: 'ok',
+    message: 'Cron clock running',
+    startedAt: '2026-03-06T19:27:00.528216+00:00',
+    configuredJobs: 1,
+    invalidSchedules: 0,
+    startedJobsSinceStartup: 0,
+    successfulJobsSinceStartup: 0
+  }
 };
 
 test.describe('MADE journeys', () => {

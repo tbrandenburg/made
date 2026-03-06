@@ -10,6 +10,7 @@ import { marked } from "marked";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { ChatWindow } from "../components/ChatWindow";
+import { MentionPathTextarea } from "../components/MentionPathTextarea";
 import { CommandsTab } from "../components/CommandsTab";
 import { HarnessesTab } from "../components/HarnessesTab";
 import { usePersistentChat } from "../hooks/usePersistentChat";
@@ -29,6 +30,7 @@ import { SessionPickerModal } from "../components/SessionPickerModal";
 import { ArrowDownIcon } from "../components/icons/ArrowDownIcon";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
 import { AgentSelector, DEFAULT_AGENT_VALUE } from "../components/AgentSelector";
+import { commandPathsFromDefinitions } from "../utils/pathMentions";
 
 export const ConstitutionPage: React.FC = () => {
   const { name } = useParams();
@@ -75,6 +77,7 @@ export const ConstitutionPage: React.FC = () => {
   const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
   const [sessionListError, setSessionListError] = useState<string | null>(null);
   const [sessionListLoading, setSessionListLoading] = useState(false);
+  const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
   const chatWindowRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -302,7 +305,9 @@ export const ConstitutionPage: React.FC = () => {
 
   const loadCommands = useCallback(async () => {
     const response = await api.getCommands();
-    return response.commands;
+    const commands = response.commands || [];
+    setMentionCommandPaths(commandPathsFromDefinitions(commands));
+    return commands;
   }, []);
 
   const loadHarnesses = useCallback(async () => {
@@ -451,9 +456,10 @@ export const ConstitutionPage: React.FC = () => {
                   onClearSession={() => setClearSessionModalOpen(true)}
                 />
                 {agentStatus && <div className="alert">{agentStatus}</div>}
-                <textarea
+                <MentionPathTextarea
                   value={prompt}
-                  onChange={(event) => setPrompt(event.target.value)}
+                  onChange={setPrompt}
+                  suggestions={mentionCommandPaths}
                   placeholder="Ask the agent to update governance rules..."
                 />
                 <div className="button-bar chat-controls">
@@ -498,6 +504,7 @@ export const ConstitutionPage: React.FC = () => {
                 onSendMessage={(message) => void handleSendMessage(message)}
                 agentCli={agentCli}
                 historyStorageKey={harnessHistoryStorageKey}
+                mentionPathSuggestions={mentionCommandPaths}
               />
             ),
           },
