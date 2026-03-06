@@ -249,6 +249,7 @@ export type CronClockSummary = {
   configuredJobs: number;
   invalidSchedules: number;
   startedJobsSinceStartup: number;
+  successfulJobsSinceStartup: number;
 };
 
 export type WorkflowDefinition = {

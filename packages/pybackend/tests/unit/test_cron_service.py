@@ -103,3 +103,50 @@ def test_start_cron_clock_marks_invalid_cron_as_warning(
     assert status["configuredJobs"] == 0
     assert status["invalidSchedules"] == 1
     assert status["trafficLight"] == "warning"
+
+
+@patch("cron_service.subprocess.run")
+def test_run_workflow_script_executes_from_repository_directory(mock_run, tmp_path):
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    script = repo / ".harness" / "news.sh"
+    script.parent.mkdir(parents=True)
+    script.write_text("echo hi", encoding="utf-8")
+
+    mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
+
+    cron_service._run_workflow_script(repo, "repo-a:news", script)
+
+    mock_run.assert_called_once_with(
+        ["bash", str(script)],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+@patch("cron_service.subprocess.run")
+def test_cron_status_tracks_successful_vs_started_jobs(mock_run, tmp_path):
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    script = repo / ".harness" / "news.sh"
+    script.parent.mkdir(parents=True)
+    script.write_text("echo hi", encoding="utf-8")
+
+    cron_service._started_jobs = 0
+    cron_service._successful_jobs = 0
+
+    mock_run.side_effect = [
+        MagicMock(returncode=0, stdout="ok", stderr=""),
+        MagicMock(returncode=1, stdout="", stderr="boom"),
+        MagicMock(returncode=127, stdout="", stderr="missing"),
+    ]
+
+    cron_service._run_workflow_script(repo, "repo-a:news", script)
+    cron_service._run_workflow_script(repo, "repo-a:news", script)
+    cron_service._run_workflow_script(repo, "repo-a:news", script)
+
+    status = cron_service.get_cron_clock_status()
+    assert status["startedJobsSinceStartup"] == 3
+    assert status["successfulJobsSinceStartup"] == 1
