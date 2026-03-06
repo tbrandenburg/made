@@ -1088,3 +1088,22 @@ class TestWorkflowEndpoints:
 
         assert response.status_code == 200
         mock_write.assert_called_once_with({"workflows": []}, "sample")
+
+    @patch("app.refresh_cron_clock")
+    def test_update_cron_jobs_success(self, mock_refresh):
+        mock_refresh.return_value = {"running": True, "configuredJobs": 2}
+
+        response = client.post("/api/cron/update")
+
+        assert response.status_code == 200
+        assert response.json()["running"] is True
+        mock_refresh.assert_called_once_with()
+
+    @patch("app.refresh_cron_clock")
+    def test_update_cron_jobs_error(self, mock_refresh):
+        mock_refresh.side_effect = Exception("Cron refresh failed")
+
+        response = client.post("/api/cron/update")
+
+        assert response.status_code == 500
+        assert "Cron refresh failed" in response.json()["detail"]
