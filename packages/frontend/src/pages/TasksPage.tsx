@@ -28,6 +28,10 @@ export const TasksPage: React.FC = () => {
   const documentTasks = tasks.filter(
     (task) => !isTemplate(task),
   );
+  const getRepositoryName = (repository: string) => {
+    const segments = repository.split(/[\\/]/).filter(Boolean);
+    return segments[segments.length - 1] || repository;
+  };
 
   const loadTasks = () => {
     api
@@ -83,29 +87,34 @@ export const TasksPage: React.FC = () => {
                           <th>Enabled</th>
                           <th>Schedule</th>
                           <th>Name</th>
+                          <th>Repository</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {workspaceWorkflows.map((workflow) => (
-                          <tr key={`${workflow.repository}:${workflow.id}`}>
-                            <td>
-                              <input
-                                type="checkbox"
-                                checked={workflow.enabled}
-                                readOnly
-                                aria-label={`${workflow.name} enabled`}
-                              />
-                            </td>
-                            <td>{workflow.schedule || "-"}</td>
-                            <td>
-                              <Link
-                                to={`/repositories/${encodeURIComponent(workflow.repository)}?tab=harnesses`}
-                              >
-                                {workflow.name}
-                              </Link>
-                            </td>
-                          </tr>
-                        ))}
+                        {workspaceWorkflows.map((workflow) => {
+                          const repositoryName = getRepositoryName(workflow.repository);
+                          return (
+                            <tr key={`${workflow.repository}:${workflow.id}`}>
+                              <td>
+                                <input
+                                  type="checkbox"
+                                  checked={workflow.enabled}
+                                  readOnly
+                                  aria-label={`${workflow.name} enabled`}
+                                />
+                              </td>
+                              <td>{workflow.schedule || "-"}</td>
+                              <td>
+                                <Link
+                                  to={`/repositories/${encodeURIComponent(repositoryName)}?tab=harnesses`}
+                                >
+                                  {workflow.name}
+                                </Link>
+                              </td>
+                              <td>{repositoryName}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   )}

@@ -48,12 +48,12 @@ describe("TasksPage", () => {
     expect(screen.getByText("0 9 * * 1-5")).toHaveClass("success");
   });
 
-  it("shows workspace workflows and links to the repository harness tab", async () => {
+  it("shows workspace workflows with repository names and links to harness tab", async () => {
     vi.mocked(api.listTasks).mockResolvedValue({ tasks: [] });
     vi.mocked(api.getWorkspaceWorkflows).mockResolvedValue({
       workflows: [
         {
-          repository: "sample-repo",
+          repository: "/workspace/sample-repo",
           id: "wf_release",
           name: "Release",
           enabled: true,
@@ -75,6 +75,7 @@ describe("TasksPage", () => {
       "/repositories/sample-repo?tab=harnesses",
     );
     expect(screen.getByLabelText("Release enabled")).toBeChecked();
+    expect(screen.getByText("sample-repo")).toBeInTheDocument();
   });
 
   it("creates tasks with schedule metadata", async () => {
