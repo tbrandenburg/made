@@ -1603,6 +1603,7 @@ export const RepositoryPage: React.FC = () => {
                 selectedAgent={normalizedSelectedAgent}
                 onChange={setSelectedAgent}
                 disabled={chatLoading}
+                repositoryName={name || undefined}
               />
               <label className="model-select" htmlFor="agent-model-select">
                 <select
@@ -1675,7 +1676,7 @@ export const RepositoryPage: React.FC = () => {
               saveWorkflows={(payload) =>
                 api.saveRepositoryWorkflows(name || "", payload.workflows)
               }
-              listAgents={() => api.getAgents()}
+              listAgents={() => api.getRepositoryAgents(name || "")}
               onRunWorkflow={(message) => {
                 void handleSendMessage(message);
                 setActiveTab("agent");

@@ -466,6 +466,8 @@ export const api = {
       body: JSON.stringify({ workflows }),
     }),
   getAgents: () => request<{ agents: AvailableAgent[] }>("/agents"),
+  getRepositoryAgents: (name: string) =>
+    request<{ agents: AvailableAgent[] }>(`/repositories/${name}/agents`),
   listKnowledge: () => request<{ artefacts: ArtefactSummary[] }>("/knowledge"),
   getKnowledge: (name: string) => request<MatterFile>(`/knowledge/${name}`),
   saveKnowledge: (name: string, payload: MatterFile) =>

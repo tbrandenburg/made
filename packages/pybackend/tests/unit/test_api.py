@@ -82,6 +82,40 @@ class TestAgentsEndpoint:
         assert "Agent error" in response.json()["detail"]
 
 
+class TestRepositoryAgentsEndpoint:
+    """Test repository-scoped agents endpoint."""
+
+    @patch("app.list_agents")
+    def test_list_repository_agents_success(self, mock_list):
+        mock_list.return_value = [
+            {"name": "repo-agent", "type": "primary", "details": []}
+        ]
+
+        response = client.get("/api/repositories/sample/agents")
+
+        assert response.status_code == 200
+        assert response.json() == {"agents": mock_list.return_value}
+        mock_list.assert_called_once_with("sample")
+
+    @patch("app.list_agents")
+    def test_list_repository_agents_not_found(self, mock_list):
+        mock_list.side_effect = FileNotFoundError("Repository 'missing' not found")
+
+        response = client.get("/api/repositories/missing/agents")
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"]
+
+    @patch("app.list_agents")
+    def test_list_repository_agents_error(self, mock_list):
+        mock_list.side_effect = Exception("Agent error")
+
+        response = client.get("/api/repositories/sample/agents")
+
+        assert response.status_code == 500
+        assert "Agent error" in response.json()["detail"]
+
+
 class TestChatHistoryEndpoint:
     @patch("app.export_chat_history")
     def test_repository_history_success(self, mock_export):
