@@ -193,6 +193,48 @@ class TestAgentService:
         assert result == [{"name": "test", "type": "primary", "details": []}]
 
     @patch("agent_service.get_agent_cli")
+    @patch("agent_service.get_workspace_home")
+    def test_list_agents_uses_repository_cwd(
+        self, mock_get_workspace_home, mock_get_cli
+    ):
+        """Test agent listing executes with repository cwd when provided."""
+        from agent_service import list_agents
+        from agent_results import AgentListResult, AgentInfo
+
+        workspace = Path("/workspace")
+        repository = workspace / "sample"
+
+        mock_get_workspace_home.return_value = workspace
+        mock_cli = Mock()
+        mock_get_cli.return_value = mock_cli
+        mock_cli.list_agents.return_value = AgentListResult(
+            success=True,
+            agents=[AgentInfo(name="test", agent_type="primary", details=[])],
+        )
+
+        with patch.object(Path, "exists", return_value=True), patch.object(
+            Path, "is_dir", return_value=True
+        ):
+            result = list_agents("sample")
+
+        mock_cli.list_agents.assert_called_once_with(cwd=repository)
+        assert result == [{"name": "test", "type": "primary", "details": []}]
+
+    @patch("agent_service.get_workspace_home")
+    def test_list_agents_repository_not_found(self, mock_get_workspace_home):
+        """Test repository-specific agent listing fails for missing repository."""
+        from agent_service import list_agents
+
+        workspace = Path("/workspace")
+        mock_get_workspace_home.return_value = workspace
+
+        with patch.object(Path, "exists", return_value=False), patch.object(
+            Path, "is_dir", return_value=False
+        ):
+            with pytest.raises(FileNotFoundError):
+                list_agents("missing")
+
+    @patch("agent_service.get_agent_cli")
     def test_send_agent_message_success(self, mock_get_cli):
         """Test successful agent message sending."""
         from agent_service import send_agent_message

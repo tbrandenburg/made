@@ -198,6 +198,21 @@ def list_available_agents():
         )
 
 
+@app.get("/api/repositories/{name}/agents")
+def list_repository_agents(name: str):
+    try:
+        logger.info("Listing available agents for repository '%s'", name)
+        return {"agents": list_agents(name)}
+    except FileNotFoundError as exc:
+        logger.warning("Repository not found for agent list '%s': %s", name, exc)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to list agents for repository '%s'", name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
 @app.get("/api/repositories")
 def repositories():
     try:

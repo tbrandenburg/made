@@ -317,13 +317,25 @@ def list_chat_sessions(
     return [session.to_frontend_format() for session in limited_sessions]
 
 
-def list_agents() -> list[dict[str, object]]:
-    logger.info("Listing available %s agents", AGENT_CLI.cli_name)
+def list_agents(repository_name: str | None = None) -> list[dict[str, object]]:
+    logger.info(
+        "Listing available %s agents (repository: %s)",
+        AGENT_CLI.cli_name,
+        repository_name or "<workspace>",
+    )
 
     workspace_home = get_workspace_home()
-    list_cwd = (
-        workspace_home if workspace_home.exists() and workspace_home.is_dir() else None
-    )
+    if repository_name:
+        repository_path = workspace_home / repository_name
+        if not repository_path.exists() or not repository_path.is_dir():
+            raise FileNotFoundError(f"Repository '{repository_name}' not found")
+        list_cwd = repository_path
+    else:
+        list_cwd = (
+            workspace_home
+            if workspace_home.exists() and workspace_home.is_dir()
+            else None
+        )
 
     agent_cli = get_agent_cli()
     start_time = time.monotonic()

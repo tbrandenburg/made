@@ -6,6 +6,7 @@ type AgentSelectorProps = {
   onChange: (value: string) => void;
   disabled?: boolean;
   selectId: string;
+  repositoryName?: string;
 };
 
 const DEFAULT_AGENT_VALUE = "default";
@@ -15,6 +16,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   onChange,
   disabled = false,
   selectId,
+  repositoryName,
 }) => {
   const [agents, setAgents] = useState<AvailableAgent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -25,7 +27,9 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
     const loadAgents = async () => {
       setLoading(true);
       try {
-        const response = await api.getAgents();
+        const response = repositoryName
+          ? await api.getRepositoryAgents(repositoryName)
+          : await api.getAgents();
         if (!active) return;
         setAgents(response.agents || []);
         setError(null);
@@ -44,7 +48,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
     return () => {
       active = false;
     };
-  }, []);
+  }, [repositoryName]);
 
   const groupedAgents = useMemo(() => {
     const primary = agents.filter((agent) => agent.type === "primary");
