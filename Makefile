@@ -11,7 +11,7 @@ MADE_WORKSPACE_HOME ?= $(abspath $(CURDIR)/workspace/)
 export MADE_HOME
 export MADE_WORKSPACE_HOME
 
-.PHONY: help lint format test unit-test system-test qa qa-quick build run stop restart clean install install-node install-pybackend test-coverage docker-build docker-up docker-down docker-dev docker-clean
+.PHONY: help lint format test unit-test system-test qa qa-quick build run stop restart clean install install-node install-pybackend test-coverage security-audit docker-build docker-up docker-down docker-dev docker-clean
 
 # Default target
 help:
@@ -27,6 +27,7 @@ help:
 	@echo "  qa            Run all quality assurance tasks (lint + format + test)"
 	@echo "  qa-quick      Run all quick quality assurance tasks (lint + format + unit-test)"
 	@echo "  test-coverage Run full test suite with coverage reporting (70% minimum)"
+	@echo "  security-audit Run npm security audit to check for vulnerabilities"
 	@echo ""
 	@echo "Docker:"
 	@echo "  docker-build   Build all Docker images"
@@ -118,6 +119,15 @@ test-coverage:
 	@echo "📊 Backend tests with detailed coverage..."
 	cd $(PYBACKEND_DIR) && uv sync && uv run pytest -c pytest.cov.ini --cov-branch --cov-fail-under=70
 	@echo "📊 Coverage report generated in packages/pybackend/htmlcov/"
+
+# Security Tasks
+security-audit:
+	@echo "🔒 Running npm security audit..."
+	@echo "🔍 Checking root dependencies..."
+	npm audit --audit-level critical
+	@echo "🔍 Checking frontend dependencies..."
+	cd packages/frontend && npm audit --audit-level critical
+	@echo "📋 Security audit completed"
 
 # Build & Run Tasks
 build:
