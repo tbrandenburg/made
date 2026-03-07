@@ -157,6 +157,14 @@ def _start_shell(repo_path: Path) -> tuple[int, subprocess.Popen, str]:
     return master_fd, process, shell
 
 
+def _save_workflows_and_refresh_cron(
+    payload: dict, repo_name: str | None = None
+) -> dict[str, object]:
+    saved_workflows = write_workflows(payload, repo_name)
+    refresh_cron_clock()
+    return saved_workflows
+
+
 @app.get("/api/health")
 def health_check():
     return {
@@ -535,7 +543,7 @@ def save_repository_workflows(name: str, payload: dict = Body(...)):
     try:
         logger.info("Saving workflows for repository '%s'", name)
         _repository_path(name)
-        return write_workflows(payload, name)
+        return _save_workflows_and_refresh_cron(payload, name)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:
@@ -561,7 +569,7 @@ def global_workflows():
 def save_global_workflows(payload: dict = Body(...)):
     try:
         logger.info("Saving global workflows")
-        return write_workflows(payload)
+        return _save_workflows_and_refresh_cron(payload)
     except Exception as exc:
         logger.exception("Failed to save global workflows")
         raise HTTPException(

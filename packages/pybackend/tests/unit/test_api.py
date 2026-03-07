@@ -1049,14 +1049,17 @@ class TestWorkflowEndpoints:
         assert response.status_code == 200
         assert response.json() == {"workflows": []}
 
+    @patch("app.refresh_cron_clock")
     @patch("app.write_workflows")
-    def test_save_global_workflows_success(self, mock_write):
+    def test_save_global_workflows_success(self, mock_write, mock_refresh):
         mock_write.return_value = {"workflows": [{"id": "wf_1", "name": "x", "schedule": None, "steps": []}]}
+        mock_refresh.return_value = {"running": True}
 
         response = client.put("/api/workflows", json={"workflows": []})
 
         assert response.status_code == 200
-        mock_write.assert_called_once_with({"workflows": []})
+        mock_write.assert_called_once_with({"workflows": []}, None)
+        mock_refresh.assert_called_once_with()
 
     @patch("app.list_workspace_workflows")
     def test_workspace_workflows_success(self, mock_list):
@@ -1078,16 +1081,21 @@ class TestWorkflowEndpoints:
         assert response.status_code == 200
         mock_read.assert_called_once_with("sample")
 
+    @patch("app.refresh_cron_clock")
     @patch("app.write_workflows")
     @patch("app._repository_path")
-    def test_save_repository_workflows_success(self, mock_repo_path, mock_write):
+    def test_save_repository_workflows_success(
+        self, mock_repo_path, mock_write, mock_refresh
+    ):
         mock_repo_path.return_value = "/workspace/repo"
         mock_write.return_value = {"workflows": []}
+        mock_refresh.return_value = {"running": True}
 
         response = client.put("/api/repositories/sample/workflows", json={"workflows": []})
 
         assert response.status_code == 200
         mock_write.assert_called_once_with({"workflows": []}, "sample")
+        mock_refresh.assert_called_once_with()
 
     @patch("app.refresh_cron_clock")
     def test_update_cron_jobs_success(self, mock_refresh):
