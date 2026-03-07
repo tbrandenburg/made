@@ -13,6 +13,7 @@ type MentionPathTextareaProps = {
   id?: string;
   className?: string;
   disabled?: boolean;
+  onMentionQueryChange?: (query: string) => void;
 };
 
 type ActiveMention = {
@@ -105,6 +106,7 @@ export const MentionPathTextarea: React.FC<MentionPathTextareaProps> = ({
   id,
   className,
   disabled,
+  onMentionQueryChange,
 }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -150,7 +152,12 @@ export const MentionPathTextarea: React.FC<MentionPathTextareaProps> = ({
   const closeMenu = () => {
     setActiveMention(null);
     setSelectedIndex(0);
+    onMentionQueryChange?.("");
   };
+
+  useEffect(() => {
+    onMentionQueryChange?.(activeMention?.query || "");
+  }, [activeMention, onMentionQueryChange]);
 
   useEffect(() => {
     const handleMouseDown = (event: MouseEvent) => {

@@ -63,6 +63,22 @@ const ARGUMENT_SPECIFIER_PATTERN = /\[([^\]]+)\]|<([^>]+)>/g;
 const PARENTHETICAL_COMMENT_PATTERN = /\s*\([^()]*\)\s*$/g;
 const CODE_BLOCK_PATTERN = /```[\s\S]*?```/g;
 const INLINE_CODE_PATTERN = /`[^`]*`/g;
+const normalizeMentionQuery = (value: string) =>
+  value.replace(/^\.\//, "").replace(/\\/g, "/").trim();
+
+const splitMentionSearch = (query: string) => {
+  const normalized = normalizeMentionQuery(query);
+  const lastSlash = normalized.lastIndexOf("/");
+  if (lastSlash <= 0) {
+    return null;
+  }
+
+  return {
+    directory: normalized.slice(0, lastSlash),
+    searchTerm: normalized.slice(lastSlash + 1).toLowerCase(),
+  };
+};
+
 const MODEL_OPTIONS = [
   { value: "default", label: "default" },
   { value: "", label: "------ kiro ------", disabled: true },
@@ -383,6 +399,8 @@ export const RepositoryPage: React.FC = () => {
       },
     ];
   }, [availableCommands, fileTree, repository?.path]);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [recursiveMentionResults, setRecursiveMentionResults] = useState<string[]>([]);
   const [commandsError, setCommandsError] = useState<string | null>(null);
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [availableHarnesses, setAvailableHarnesses] = useState<
@@ -529,6 +547,83 @@ export const RepositoryPage: React.FC = () => {
   const [movePath, setMovePath] = useState("");
   const [loadingFile, setLoadingFile] = useState(false);
   const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
+
+  useEffect(() => {
+    const search = splitMentionSearch(mentionQuery);
+    if (!name || !search?.directory) {
+      setRecursiveMentionResults([]);
+      return;
+    }
+
+    let cancelled = false;
+    const timeout = window.setTimeout(() => {
+      const loadRecursiveMatches = async () => {
+        const folderQueue = [search.directory];
+        const collected: string[] = [];
+        const seen = new Set<string>();
+
+        while (folderQueue.length > 0) {
+          const currentPath = folderQueue.shift();
+          if (!currentPath || seen.has(currentPath)) {
+            continue;
+          }
+          seen.add(currentPath);
+
+          try {
+            const node = await api.getRepositoryFiles(name, currentPath);
+            const children = node.children || [];
+            children.forEach((child) => {
+              if (child.path) {
+                collected.push(child.path);
+              }
+              if (child.type === "folder") {
+                folderQueue.push(child.path);
+              }
+            });
+          } catch {
+            // Ignore invalid or inaccessible directories.
+          }
+        }
+
+        const filtered = search.searchTerm
+          ? collected.filter((path) =>
+              path.toLowerCase().includes(search.searchTerm),
+            )
+          : collected;
+
+        if (!cancelled) {
+          setRecursiveMentionResults(Array.from(new Set(filtered)).sort());
+        }
+      };
+
+      void loadRecursiveMatches();
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [mentionQuery, name]);
+
+  const displayedMentionSuggestions = useMemo(() => {
+    if (!recursiveMentionResults.length) {
+      return mentionPathSuggestions;
+    }
+    return recursiveMentionResults;
+  }, [mentionPathSuggestions, recursiveMentionResults]);
+
+  const displayedMentionSections = useMemo(() => {
+    if (!recursiveMentionResults.length) {
+      return mentionPathSections;
+    }
+
+    return [
+      {
+        label: "Recursive matches",
+        suggestions: recursiveMentionResults,
+      },
+    ];
+  }, [mentionPathSections, recursiveMentionResults]);
 
   useEffect(() => {
     if (!name) {
@@ -1497,8 +1592,9 @@ export const RepositoryPage: React.FC = () => {
             value={pendingPrompt}
             onChange={setPendingPrompt}
             placeholder="Describe the change or ask the agent..."
-            suggestions={mentionPathSuggestions}
-            sections={mentionPathSections}
+            suggestions={displayedMentionSuggestions}
+            sections={displayedMentionSections}
+            onMentionQueryChange={setMentionQuery}
           />
           <div className="button-bar chat-controls">
             <div className="chat-controls__left">
