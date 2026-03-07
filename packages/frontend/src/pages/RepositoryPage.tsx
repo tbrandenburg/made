@@ -357,13 +357,19 @@ export const RepositoryPage: React.FC = () => {
     CommandDefinition[]
   >([]);
   const mentionPathSuggestions = useMemo(
-    () => buildMentionPathCandidates(commandPathsFromDefinitions(availableCommands), fileTree),
-    [availableCommands, fileTree],
+    () =>
+      buildMentionPathCandidates(
+        commandPathsFromDefinitions(availableCommands, repository?.path),
+        fileTree,
+        repository?.path,
+      ),
+    [availableCommands, fileTree, repository?.path],
   );
   const mentionPathSections = useMemo(() => {
     const sections = buildMentionPathSections(
-      commandPathsFromDefinitions(availableCommands),
+      commandPathsFromDefinitions(availableCommands, repository?.path),
       fileTree,
+      repository?.path,
     );
 
     return [
@@ -376,7 +382,7 @@ export const RepositoryPage: React.FC = () => {
         suggestions: sections.files,
       },
     ];
-  }, [availableCommands, fileTree]);
+  }, [availableCommands, fileTree, repository?.path]);
   const [commandsError, setCommandsError] = useState<string | null>(null);
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [availableHarnesses, setAvailableHarnesses] = useState<

@@ -21,12 +21,61 @@ const hasIgnoredFileSegment = (path: string) =>
 
 const normalizePath = (value: string) => value.replace(/^\.\//, "").trim();
 
-const dedupePaths = (paths: string[], shouldIgnore: (path: string) => boolean) => {
+const normalizeAbsolutePath = (value: string) => {
+  const normalized = normalizePath(value).replace(/\\/g, "/");
+  const withoutTrailingSlash = normalized.replace(/\/+$/, "");
+  if (/^[A-Za-z]:\//.test(withoutTrailingSlash)) {
+    return withoutTrailingSlash.toLowerCase();
+  }
+  return withoutTrailingSlash;
+};
+
+const isAbsolutePath = (value: string) =>
+  value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value);
+
+const relativizePath = (value: string, scopeRoot?: string) => {
+  const normalizedValue = normalizePath(value);
+  if (!scopeRoot || !isAbsolutePath(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  const base = normalizeAbsolutePath(scopeRoot);
+  const target = normalizeAbsolutePath(normalizedValue);
+  if (!base || !target || !isAbsolutePath(base) || !isAbsolutePath(target)) {
+    return normalizedValue;
+  }
+
+  const baseParts = base.split("/").filter(Boolean);
+  const targetParts = target.split("/").filter(Boolean);
+  let commonLength = 0;
+
+  while (
+    commonLength < baseParts.length &&
+    commonLength < targetParts.length &&
+    baseParts[commonLength] === targetParts[commonLength]
+  ) {
+    commonLength += 1;
+  }
+
+  const upSegments = Array.from(
+    { length: baseParts.length - commonLength },
+    () => "..",
+  );
+  const downSegments = targetParts.slice(commonLength);
+  const relativePath = [...upSegments, ...downSegments].join("/");
+  return relativePath || ".";
+};
+
+const dedupePaths = (
+  paths: string[],
+  shouldIgnore: (path: string) => boolean,
+  scopeRoot?: string,
+) => {
   const deduped: string[] = [];
   const seen = new Set<string>();
 
   paths.forEach((value) => {
-    const normalized = normalizePath(value);
+    const normalized = relativizePath(value, scopeRoot);
     if (!normalized || shouldIgnore(normalized) || seen.has(normalized)) {
       return;
     }
@@ -37,20 +86,27 @@ const dedupePaths = (paths: string[], shouldIgnore: (path: string) => boolean) =
   return deduped;
 };
 
-export const commandPathsFromDefinitions = (commands: CommandDefinition[]) =>
+export const commandPathsFromDefinitions = (
+  commands: CommandDefinition[],
+  scopeRoot?: string,
+) =>
   dedupePaths(
     commands.map((command) => normalizePath(command.path || "")),
     () => false,
+    scopeRoot,
   );
 
-export const flattenRepositoryTreePaths = (tree?: FileNode | null): string[] => {
+export const flattenRepositoryTreePaths = (
+  tree?: FileNode | null,
+  scopeRoot?: string,
+): string[] => {
   if (!tree?.children?.length) return [];
 
   const collected: string[] = [];
 
   const walk = (nodes: FileNode[]) => {
     nodes.forEach((node) => {
-      const path = normalizePath(node.path || "");
+      const path = relativizePath(node.path || "", scopeRoot);
       if (!path || hasIgnoredFileSegment(path)) return;
       if (node.type === "file") {
         collected.push(path);
@@ -73,15 +129,25 @@ export type MentionPathSections = {
 export const buildMentionPathSections = (
   commandPaths: string[],
   tree?: FileNode | null,
+  scopeRoot?: string,
 ): MentionPathSections => ({
-  commands: dedupePaths(commandPaths, () => false),
-  files: dedupePaths(flattenRepositoryTreePaths(tree), hasIgnoredFileSegment),
+  commands: dedupePaths(commandPaths, () => false, scopeRoot),
+  files: dedupePaths(
+    flattenRepositoryTreePaths(tree, scopeRoot),
+    hasIgnoredFileSegment,
+    scopeRoot,
+  ),
 });
 
 export const buildMentionPathCandidates = (
   commandPaths: string[],
   tree?: FileNode | null,
+  scopeRoot?: string,
 ) => {
-  const sections = buildMentionPathSections(commandPaths, tree);
-  return dedupePaths([...sections.commands, ...sections.files], () => false);
+  const sections = buildMentionPathSections(commandPaths, tree, scopeRoot);
+  return dedupePaths(
+    [...sections.commands, ...sections.files],
+    () => false,
+    scopeRoot,
+  );
 };

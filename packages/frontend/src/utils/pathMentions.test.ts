@@ -50,6 +50,50 @@ describe("pathMentions", () => {
     expect(sections.files).toEqual(["src/main.py", "README.md"]);
   });
 
+  it("relativizes absolute command and file paths to the repository scope", () => {
+    const scopeRoot = "/workspace/made/repo";
+    const commandPaths = commandPathsFromDefinitions(
+      [
+        {
+          id: "1",
+          name: "c1",
+          description: "",
+          path: "/workspace/made/repo/.claude/commands/my-command.md",
+          source: "repository",
+          content: "",
+        },
+      ],
+      scopeRoot,
+    );
+
+    const sections = buildMentionPathSections(
+      commandPaths,
+      {
+        name: ".",
+        path: ".",
+        type: "folder",
+        children: [
+          {
+            name: "src",
+            path: "/workspace/made/repo/src",
+            type: "folder",
+            children: [
+              {
+                name: "index.ts",
+                path: "/workspace/made/repo/src/index.ts",
+                type: "file",
+              },
+            ],
+          },
+        ],
+      },
+      scopeRoot,
+    );
+
+    expect(sections.commands).toEqual([".claude/commands/my-command.md"]);
+    expect(sections.files).toEqual(["src/index.ts"]);
+  });
+
   it("filters dot and special folders", () => {
     const flattened = flattenRepositoryTreePaths({
       name: ".",
