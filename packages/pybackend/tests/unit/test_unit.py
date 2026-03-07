@@ -166,6 +166,28 @@ class TestAgentService:
         assert result == const_dir
 
     @patch("agent_service.get_agent_cli")
+    @patch("agent_service.get_workspace_home")
+    def test_list_agents_uses_workspace_cwd(self, mock_get_workspace_home, mock_get_cli):
+        """Test agent listing executes with workspace cwd when available."""
+        from agent_service import list_agents
+        from agent_results import AgentListResult, AgentInfo
+
+        workspace = Path("/workspace/made")
+        mock_get_workspace_home.return_value = workspace
+
+        mock_cli = Mock()
+        mock_get_cli.return_value = mock_cli
+        mock_cli.list_agents.return_value = AgentListResult(
+            success=True,
+            agents=[AgentInfo(name="test", agent_type="primary", details=[])],
+        )
+
+        result = list_agents()
+
+        mock_cli.list_agents.assert_called_once_with(cwd=workspace)
+        assert result == [{"name": "test", "type": "primary", "details": []}]
+
+    @patch("agent_service.get_agent_cli")
     def test_send_agent_message_success(self, mock_get_cli):
         """Test successful agent message sending."""
         from agent_service import send_agent_message
