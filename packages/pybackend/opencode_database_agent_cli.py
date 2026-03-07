@@ -435,13 +435,14 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
 
         return agents
 
-    def list_agents(self) -> AgentListResult:
+    def list_agents(self, cwd: Path | None = None) -> AgentListResult:
         """List available agents using CLI subprocess."""
         try:
             result = subprocess.run(
                 ["opencode", "agent", "list"],
                 capture_output=True,
                 text=True,
+                cwd=cwd,
             )
 
             if result.returncode != 0:

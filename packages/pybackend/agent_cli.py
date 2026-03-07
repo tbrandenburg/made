@@ -64,7 +64,7 @@ class AgentCLI(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def list_agents(self) -> AgentListResult:
+    def list_agents(self, cwd: Path | None = None) -> AgentListResult:
         """List available agents and return structured result."""
         raise NotImplementedError
 
@@ -699,13 +699,14 @@ class OpenCodeAgentCLI(AgentCLI):
                 success=False, sessions=[], error_message=f"Error: {str(e)}"
             )
 
-    def list_agents(self) -> AgentListResult:
+    def list_agents(self, cwd: Path | None = None) -> AgentListResult:
         """List available agents and return structured result."""
         try:
             result = subprocess.run(
                 ["opencode", "agent", "list"],
                 capture_output=True,
                 text=True,
+                cwd=cwd,
             )
 
             if result.returncode != 0:

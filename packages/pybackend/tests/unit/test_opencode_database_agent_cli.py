@@ -464,6 +464,7 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
             ["opencode", "agent", "list"],
             capture_output=True,
             text=True,
+            cwd=None,
         )
 
         self.assertTrue(result.success)

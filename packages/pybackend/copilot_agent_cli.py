@@ -451,7 +451,7 @@ class CopilotAgentCLI(AgentCLI):
                 success=False, sessions=[], error_message=f"Error: {str(e)}"
             )
 
-    def list_agents(self) -> AgentListResult:
+    def list_agents(self, cwd: Path | None = None) -> AgentListResult:
         """List available agents and return structured result."""
         try:
             # Copilot CLI doesn't have explicit agent listing like Kiro
