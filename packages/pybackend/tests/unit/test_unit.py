@@ -167,12 +167,17 @@ class TestAgentService:
 
     @patch("agent_service.get_agent_cli")
     @patch("agent_service.get_workspace_home")
-    def test_list_agents_uses_workspace_cwd(self, mock_get_workspace_home, mock_get_cli):
+    def test_list_agents_uses_workspace_cwd(
+        self, mock_get_workspace_home, mock_get_cli
+    ):
         """Test agent listing executes with workspace cwd when available."""
         from agent_service import list_agents
         from agent_results import AgentListResult, AgentInfo
 
-        workspace = Path("/workspace/made")
+        workspace = Mock(spec=Path)
+        workspace.__str__ = Mock(return_value="/workspace/made")
+        workspace.exists.return_value = True
+        workspace.is_dir.return_value = True
         mock_get_workspace_home.return_value = workspace
 
         mock_cli = Mock()
