@@ -1,0 +1,27 @@
+name: GHAR - Auto Issue Investigation
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    # Allow manual triggering for testing
+    inputs:
+      issue_number:
+        description: 'Issue number to investigate'
+        required: true
+        type: string
+
+jobs:
+  investigate:
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: issue-investigation
+      command: ghar-issue-investigate
+      prompt: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+      timeout-minutes: 30
+    permissions:
+      # Required permissions for the job to access and modify issues/PRs
+      issues: write
+      pull-requests: write
+      contents: read
+    secrets: inherit
