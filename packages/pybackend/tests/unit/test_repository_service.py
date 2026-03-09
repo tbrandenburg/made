@@ -168,6 +168,22 @@ def test_get_repository_git_status(monkeypatch, tmp_path):
     assert "lineStats" in result
 
 
+
+
+def test_get_repository_git_status_includes_untracked_files(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    repo_path = workspace / "repo"
+    _init_local_repo(repo_path)
+    (repo_path / "new_file.txt").write_text("new", encoding="utf-8")
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+    monkeypatch.setattr("repository_service._github_repo", lambda *_: None)
+
+    result = get_repository_git_status("repo")
+
+    assert any(entry["path"] == "new_file.txt" for entry in result["diff"])
+
 def test_pull_repository(monkeypatch, tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -284,6 +300,8 @@ def test_get_repository_git_status_uses_remote_line_stats(monkeypatch, tmp_path)
             return "4\t1\tsrc/main.py"
         if command == ["diff", "--numstat", "HEAD"]:
             return "10\t8\tsrc/local.py"
+        if command == ["ls-files", "--others", "--exclude-standard"]:
+            return ""
         if command == ["log", "-1", "--format=%H\t%cI"]:
             return "abc123\t2024-01-01T00:00:00Z"
         if command == ["worktree", "list", "--porcelain"]:

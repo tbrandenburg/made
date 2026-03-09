@@ -397,6 +397,15 @@ def _line_stats_from_numstat(numstat_output: str) -> dict[str, int]:
     return {"green": green, "red": red}
 
 
+def _untracked_files(repo_path: Path) -> list[str]:
+    try:
+        output = _run_git(repo_path, ["ls-files", "--others", "--exclude-standard"])
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return []
+
+    return [line for line in output.splitlines() if line]
+
+
 def get_repository_git_status(
     repo_name: str,
 ) -> Dict[str, Union[str, int, dict, list, None]]:
@@ -420,11 +429,13 @@ def get_repository_git_status(
     line_stats = _remote_line_stats(repo_path)
 
     diff_files = []
+    seen_paths: set[str] = set()
     for line in diff_numstat.splitlines():
         parts = line.split("\t")
         if len(parts) < 3:
             continue
         added, deleted, path = parts[0], parts[1], parts[2]
+        seen_paths.add(path)
         diff_files.append(
             {
                 "path": path,
@@ -432,6 +443,11 @@ def get_repository_git_status(
                 "red": int(deleted) if deleted.isdigit() else 0,
             }
         )
+
+    for path in _untracked_files(repo_path):
+        if path in seen_paths:
+            continue
+        diff_files.append({"path": path, "green": 0, "red": 0})
 
     last_commit_id = None
     last_commit_date = None
