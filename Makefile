@@ -84,10 +84,6 @@ unit-test:
 
 system-test:
 	@echo "🏗️ Running system tests with service management..."
-	@echo "🧹 Cleaning up any existing test services..."
-	@pkill -f "vite.*--port 5173" 2>/dev/null || true
-	@pkill -f "made-backend.*127.0.0.1.*3000" 2>/dev/null || true
-	@sleep 2
 	@echo "🚀 Starting services for system tests..."
 	@echo "🔍 Checking port availability..."
 	@lsof -ti:5173 >/dev/null 2>&1 && echo "⚠️ Port 5173 still in use" || echo "✅ Port 5173 available"
