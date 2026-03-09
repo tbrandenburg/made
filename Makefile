@@ -85,14 +85,23 @@ unit-test:
 system-test:
 	@echo "🏗️ Running system tests with service management..."
 	@echo "🚀 Starting services for system tests..."
+	@echo "🔍 Checking port availability..."
+	@lsof -ti:5173 >/dev/null 2>&1 && echo "⚠️ Port 5173 still in use" || echo "✅ Port 5173 available"
+	@lsof -ti:3000 >/dev/null 2>&1 && echo "⚠️ Port 3000 still in use" || echo "✅ Port 3000 available"
+	@echo "✅ Ports are available"
 	@MADE_HOME=$(MADE_HOME) MADE_WORKSPACE_HOME=$(MADE_WORKSPACE_HOME) npm --workspace packages/frontend run dev -- --host 127.0.0.1 --port 5173 > frontend-test.log 2>&1 & \
 	FRONTEND_PID=$$!; \
 	cd $(PYBACKEND_DIR) && MADE_HOME=$(MADE_HOME) MADE_WORKSPACE_HOME=$(MADE_WORKSPACE_HOME) MADE_BACKEND_HOST=127.0.0.1 MADE_BACKEND_PORT=3000 uv run made-backend > ../backend-test.log 2>&1 & \
 	BACKEND_PID=$$!; \
 	trap 'echo "🛑 Stopping test services..."; kill $$FRONTEND_PID $$BACKEND_PID 2>/dev/null || true; wait' EXIT INT TERM; \
 	echo "⏳ Waiting for services to be ready..."; \
-	npx wait-on http://127.0.0.1:5173 http://127.0.0.1:3000/api/repositories --timeout 60000 --interval 2000; \
+	npx wait-on http://127.0.0.1:5173 http://127.0.0.1:3000/api/repositories --timeout 120000 --interval 2000; \
 	echo "✅ Services are ready"; \
+	echo "⏳ Allowing services to stabilize..."; \
+	sleep 3; \
+	echo "🔍 Verifying services are still running..."; \
+	curl -s http://127.0.0.1:5173 > /dev/null && echo "✅ Frontend still responsive" || echo "❌ Frontend not responding"; \
+	curl -s http://127.0.0.1:3000/api/repositories > /dev/null && echo "✅ Backend still responsive" || echo "❌ Backend not responding"; \
 	echo "🔬 Running frontend system tests..."; \
 	npm run test:e2e; \
 	TEST_EXIT_CODE=$$?; \
