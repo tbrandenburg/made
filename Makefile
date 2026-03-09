@@ -124,9 +124,9 @@ test-coverage:
 security-audit:
 	@echo "🔒 Running npm security audit..."
 	@echo "🔍 Checking root dependencies..."
-	npm audit --audit-level critical
+	npm audit --audit-level moderate
 	@echo "🔍 Checking frontend dependencies..."
-	cd packages/frontend && npm audit --audit-level critical
+	cd packages/frontend && npm audit --audit-level moderate
 	@echo "📋 Security audit completed"
 
 # Build & Run Tasks
