@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import "../styles/modal.css";
 
 interface ModalProps {
@@ -17,7 +18,9 @@ export const Modal: React.FC<ModalProps> = ({
   className,
 }) => {
   if (!open) return null;
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div className="modal-backdrop" role="dialog" aria-modal="true">
       <div className={`modal${className ? ` ${className}` : ""}`}>
         <header className="modal-header">
@@ -32,6 +35,7 @@ export const Modal: React.FC<ModalProps> = ({
         </header>
         <div className="modal-body">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
