@@ -114,7 +114,9 @@ def write_workflows(
     return normalized
 
 
-def list_workspace_workflows() -> dict[str, list[dict[str, Any]]]:
+def list_workspace_workflows(
+    last_runs_by_job: dict[str, str | None] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
     workspace_home = get_workspace_home()
     workflows: list[dict[str, Any]] = []
 
@@ -126,6 +128,7 @@ def list_workspace_workflows() -> dict[str, list[dict[str, Any]]]:
         repository_workflows = read_workflows(repo_name).get("workflows", [])
 
         for workflow in repository_workflows:
+            job_id = f"{repo_name}:{workflow.get('id') or 'workflow'}"
             workflows.append(
                 {
                     "repository": repo_name,
@@ -134,6 +137,7 @@ def list_workspace_workflows() -> dict[str, list[dict[str, Any]]]:
                     "enabled": bool(workflow.get("enabled", False)),
                     "schedule": workflow.get("schedule"),
                     "shellScriptPath": workflow.get("shellScriptPath"),
+                    "lastRun": (last_runs_by_job or {}).get(job_id),
                 }
             )
 

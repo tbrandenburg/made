@@ -58,6 +58,7 @@ describe("TasksPage", () => {
           name: "Release",
           enabled: true,
           schedule: "0 8 * * 1",
+          lastRun: "2026-01-02T03:04:05Z",
         },
       ],
     });
@@ -76,6 +77,42 @@ describe("TasksPage", () => {
     );
     expect(screen.getByLabelText("Release enabled")).toBeChecked();
     expect(screen.getByText("sample-repo")).toBeInTheDocument();
+    expect(screen.getByText("Last run")).toBeInTheDocument();
+    expect(screen.getByText(/2026|1\/2\/2026|2\/1\/2026/)).toBeInTheDocument();
+  });
+
+
+  it("shows fallback last-run labels for non-cron and never-run workflows", async () => {
+    vi.mocked(api.listTasks).mockResolvedValue({ tasks: [] });
+    vi.mocked(api.getWorkspaceWorkflows).mockResolvedValue({
+      workflows: [
+        {
+          repository: "repo-a",
+          id: "wf_no_cron",
+          name: "No Cron",
+          enabled: true,
+          schedule: null,
+          lastRun: null,
+        },
+        {
+          repository: "repo-b",
+          id: "wf_never",
+          name: "Never Run",
+          enabled: true,
+          schedule: "0 8 * * 1",
+          lastRun: null,
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("n.a.")).toBeInTheDocument();
+    expect(screen.getAllByText("-").length).toBeGreaterThan(0);
   });
 
   it("creates tasks with schedule metadata", async () => {

@@ -239,6 +239,7 @@ export type WorkspaceWorkflowSummary = {
   enabled: boolean;
   schedule: string | null;
   shellScriptPath?: string;
+  lastRun?: string | null;
 };
 
 export type CronClockSummary = {

@@ -1095,14 +1095,18 @@ class TestWorkflowEndpoints:
         mock_write.assert_called_once_with({"workflows": []}, None)
         mock_refresh.assert_called_once_with()
 
+    @patch("app.get_cron_job_last_runs")
     @patch("app.list_workspace_workflows")
-    def test_workspace_workflows_success(self, mock_list):
+    def test_workspace_workflows_success(self, mock_list, mock_last_runs):
+        mock_last_runs.return_value = {"sample:wf_1": "2026-01-02T03:04:05+00:00"}
         mock_list.return_value = {"workflows": [{"repository": "sample", "id": "wf_1", "name": "Release", "enabled": True, "schedule": None}]}
 
         response = client.get("/api/workspace/workflows")
 
         assert response.status_code == 200
         assert response.json()["workflows"][0]["repository"] == "sample"
+        mock_last_runs.assert_called_once_with()
+        mock_list.assert_called_once_with({"sample:wf_1": "2026-01-02T03:04:05+00:00"})
 
     @patch("app.read_workflows")
     @patch("app._repository_path")
