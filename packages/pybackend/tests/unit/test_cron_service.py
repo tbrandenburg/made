@@ -168,3 +168,21 @@ def test_refresh_cron_clock_reloads_scheduler(
     mock_start.assert_called_once_with()
     mock_status.assert_called_once_with()
     assert status == {"running": True}
+
+
+def test_get_cron_job_last_runs_includes_only_registered_jobs():
+    cron_service._scheduler = MagicMock()
+    cron_service._scheduler.get_jobs.return_value = [
+        MagicMock(id="repo-a:wf-1"),
+        MagicMock(id="repo-a:wf-2"),
+    ]
+    cron_service._last_run_by_job = {
+        "repo-a:wf-1": cron_service.datetime(2026, 1, 2, 3, 4, 5, tzinfo=cron_service.timezone.utc),
+        "repo-a:other": cron_service.datetime(2026, 1, 3, 3, 4, 5, tzinfo=cron_service.timezone.utc),
+    }
+
+    result = cron_service.get_cron_job_last_runs()
+
+    assert result["repo-a:wf-1"] == "2026-01-02T03:04:05+00:00"
+    assert result["repo-a:wf-2"] is None
+    assert "repo-a:other" not in result

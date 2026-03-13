@@ -28,6 +28,23 @@ export const TasksPage: React.FC = () => {
   const documentTasks = tasks.filter(
     (task) => !isTemplate(task),
   );
+  const formatWorkflowLastRun = (workflow: WorkspaceWorkflowSummary) => {
+    if (!workflow.schedule || !workflow.schedule.trim()) {
+      return "n.a.";
+    }
+
+    if (!workflow.lastRun) {
+      return "-";
+    }
+
+    const lastRunDate = new Date(workflow.lastRun);
+    if (Number.isNaN(lastRunDate.getTime())) {
+      return "-";
+    }
+
+    return lastRunDate.toLocaleString();
+  };
+
   const getRepositoryName = (repository: string) => {
     const segments = repository.split(/[\\/]/).filter(Boolean);
     return segments[segments.length - 1] || repository;
@@ -88,6 +105,7 @@ export const TasksPage: React.FC = () => {
                           <th>Schedule</th>
                           <th>Name</th>
                           <th>Repository</th>
+                          <th>Last run</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -112,6 +130,7 @@ export const TasksPage: React.FC = () => {
                                 </Link>
                               </td>
                               <td>{repositoryName}</td>
+                              <td>{formatWorkflowLastRun(workflow)}</td>
                             </tr>
                           );
                         })}

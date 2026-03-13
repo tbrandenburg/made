@@ -85,7 +85,7 @@ def test_list_workspace_workflows_collects_repository_workflows(
             {"workflows": []},
         ]
 
-        result = list_workspace_workflows()
+        result = list_workspace_workflows({"repo-a:wf_a": "2026-01-02T03:04:05+00:00"})
 
     assert result == {
         "workflows": [
@@ -96,6 +96,7 @@ def test_list_workspace_workflows_collects_repository_workflows(
                 "enabled": True,
                 "schedule": "* * * * *",
                 "shellScriptPath": None,
+                "lastRun": "2026-01-02T03:04:05+00:00",
             }
         ]
     }

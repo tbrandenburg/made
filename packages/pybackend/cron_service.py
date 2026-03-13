@@ -21,6 +21,7 @@ _successful_jobs = 0
 _configured_jobs = 0
 _invalid_jobs = 0
 _started_at: datetime | None = None
+_last_run_by_job: dict[str, datetime] = {}
 
 
 def _resolve_script_path(repo_path: Path, shell_script_path: str) -> Path:
@@ -35,6 +36,7 @@ def _run_workflow_script(repo_path: Path, workflow_id: str, script_path: Path) -
 
     with _state_lock:
         _started_jobs += 1
+        _last_run_by_job[workflow_id] = datetime.now(timezone.utc)
 
     logger.info("Running cron workflow '%s' in '%s'", workflow_id, repo_path)
     result = subprocess.run(
@@ -124,6 +126,7 @@ def start_cron_clock() -> None:
         _configured_jobs = configured_jobs
         _invalid_jobs = invalid_jobs
         _started_at = datetime.now(timezone.utc)
+        _last_run_by_job.clear()
 
     logger.info(
         "Cron clock started with %s configured jobs (%s invalid schedules)",
@@ -182,3 +185,20 @@ def get_cron_clock_status() -> dict[str, object]:
         "startedJobsSinceStartup": started_jobs,
         "successfulJobsSinceStartup": successful_jobs,
     }
+
+
+def get_cron_job_last_runs() -> dict[str, str | None]:
+    if _scheduler is None:
+        return {}
+
+    with _state_lock:
+        last_runs = {
+            workflow_id: timestamp.isoformat()
+            for workflow_id, timestamp in _last_run_by_job.items()
+        }
+
+    job_last_runs: dict[str, str | None] = {}
+    for job in _scheduler.get_jobs():
+        job_last_runs[job.id] = last_runs.get(job.id)
+
+    return job_last_runs
