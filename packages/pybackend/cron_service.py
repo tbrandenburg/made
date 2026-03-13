@@ -22,6 +22,22 @@ _configured_jobs = 0
 _invalid_jobs = 0
 _started_at: datetime | None = None
 _last_run_by_job: dict[str, datetime] = {}
+_running_process_by_job: dict[str, subprocess.Popen[str]] = {}
+
+
+def _terminate_running_job(workflow_id: str) -> None:
+    running_process = _running_process_by_job.get(workflow_id)
+    if running_process is None or running_process.poll() is not None:
+        return
+
+    logger.info("Stopping previous cron workflow run for '%s'", workflow_id)
+    running_process.terminate()
+    try:
+        running_process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        logger.warning("Force killing previous cron workflow run for '%s'", workflow_id)
+        running_process.kill()
+        running_process.wait(timeout=5)
 
 
 def _resolve_script_path(repo_path: Path, shell_script_path: str) -> Path:
@@ -35,33 +51,39 @@ def _run_workflow_script(repo_path: Path, workflow_id: str, script_path: Path) -
     global _started_jobs, _successful_jobs
 
     with _state_lock:
+        _terminate_running_job(workflow_id)
         _started_jobs += 1
         _last_run_by_job[workflow_id] = datetime.now(timezone.utc)
+        process = subprocess.Popen(
+            ["bash", str(script_path)],
+            cwd=str(repo_path),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        _running_process_by_job[workflow_id] = process
 
     logger.info("Running cron workflow '%s' in '%s'", workflow_id, repo_path)
-    result = subprocess.run(
-        ["bash", str(script_path)],
-        cwd=str(repo_path),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    stdout, stderr = process.communicate()
+    returncode = process.returncode
 
-    if result.returncode == 0:
+    with _state_lock:
+        if _running_process_by_job.get(workflow_id) is process:
+            _running_process_by_job.pop(workflow_id, None)
+
+    if returncode == 0:
         with _state_lock:
             _successful_jobs += 1
         logger.info("Cron workflow '%s' completed", workflow_id)
-        if result.stdout.strip():
-            logger.info("Cron workflow '%s' stdout: %s", workflow_id, result.stdout.strip())
+        if stdout.strip():
+            logger.info("Cron workflow '%s' stdout: %s", workflow_id, stdout.strip())
         return
 
-    logger.warning(
-        "Cron workflow '%s' failed with exit code %s", workflow_id, result.returncode
-    )
-    if result.stdout.strip():
-        logger.warning("Cron workflow '%s' stdout: %s", workflow_id, result.stdout.strip())
-    if result.stderr.strip():
-        logger.warning("Cron workflow '%s' stderr: %s", workflow_id, result.stderr.strip())
+    logger.warning("Cron workflow '%s' failed with exit code %s", workflow_id, returncode)
+    if stdout.strip():
+        logger.warning("Cron workflow '%s' stdout: %s", workflow_id, stdout.strip())
+    if stderr.strip():
+        logger.warning("Cron workflow '%s' stderr: %s", workflow_id, stderr.strip())
 
 
 def start_cron_clock() -> None:
@@ -103,7 +125,7 @@ def start_cron_clock() -> None:
                     CronTrigger.from_crontab(schedule),
                     id=job_id,
                     replace_existing=True,
-                    max_instances=1,
+                    max_instances=2,
                     coalesce=True,
                     args=[repo_path, job_id, script_path],
                 )
@@ -127,6 +149,7 @@ def start_cron_clock() -> None:
         _invalid_jobs = invalid_jobs
         _started_at = datetime.now(timezone.utc)
         _last_run_by_job.clear()
+        _running_process_by_job.clear()
 
     logger.info(
         "Cron clock started with %s configured jobs (%s invalid schedules)",
@@ -142,6 +165,12 @@ def stop_cron_clock() -> None:
         return
 
     _scheduler.shutdown(wait=False)
+
+    with _state_lock:
+        for workflow_id in list(_running_process_by_job):
+            _terminate_running_job(workflow_id)
+            _running_process_by_job.pop(workflow_id, None)
+
     _scheduler = None
     logger.info("Cron clock stopped")
 

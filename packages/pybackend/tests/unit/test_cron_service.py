@@ -5,6 +5,7 @@ import cron_service
 
 def teardown_function():
     cron_service.stop_cron_clock()
+    cron_service._running_process_by_job = {}
 
 
 @patch("cron_service.CronTrigger.from_crontab")
@@ -105,29 +106,33 @@ def test_start_cron_clock_marks_invalid_cron_as_warning(
     assert status["trafficLight"] == "warning"
 
 
-@patch("cron_service.subprocess.run")
-def test_run_workflow_script_executes_from_repository_directory(mock_run, tmp_path):
+@patch("cron_service.subprocess.Popen")
+def test_run_workflow_script_executes_from_repository_directory(mock_popen, tmp_path):
     repo = tmp_path / "repo-a"
     repo.mkdir()
     script = repo / ".harness" / "news.sh"
     script.parent.mkdir(parents=True)
     script.write_text("echo hi", encoding="utf-8")
 
-    mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
+    process = MagicMock()
+    process.communicate.return_value = ("ok", "")
+    process.returncode = 0
+    process.poll.return_value = None
+    mock_popen.return_value = process
 
     cron_service._run_workflow_script(repo, "repo-a:news", script)
 
-    mock_run.assert_called_once_with(
+    mock_popen.assert_called_once_with(
         ["bash", str(script)],
         cwd=str(repo),
-        capture_output=True,
+        stdout=cron_service.subprocess.PIPE,
+        stderr=cron_service.subprocess.PIPE,
         text=True,
-        check=False,
     )
 
 
-@patch("cron_service.subprocess.run")
-def test_cron_status_tracks_successful_vs_started_jobs(mock_run, tmp_path):
+@patch("cron_service.subprocess.Popen")
+def test_cron_status_tracks_successful_vs_started_jobs(mock_popen, tmp_path):
     repo = tmp_path / "repo-a"
     repo.mkdir()
     script = repo / ".harness" / "news.sh"
@@ -137,10 +142,22 @@ def test_cron_status_tracks_successful_vs_started_jobs(mock_run, tmp_path):
     cron_service._started_jobs = 0
     cron_service._successful_jobs = 0
 
-    mock_run.side_effect = [
-        MagicMock(returncode=0, stdout="ok", stderr=""),
-        MagicMock(returncode=1, stdout="", stderr="boom"),
-        MagicMock(returncode=127, stdout="", stderr="missing"),
+    mock_popen.side_effect = [
+        MagicMock(
+            communicate=MagicMock(return_value=("ok", "")),
+            returncode=0,
+            poll=MagicMock(return_value=None),
+        ),
+        MagicMock(
+            communicate=MagicMock(return_value=("", "boom")),
+            returncode=1,
+            poll=MagicMock(return_value=None),
+        ),
+        MagicMock(
+            communicate=MagicMock(return_value=("", "missing")),
+            returncode=127,
+            poll=MagicMock(return_value=None),
+        ),
     ]
 
     cron_service._run_workflow_script(repo, "repo-a:news", script)
@@ -150,6 +167,30 @@ def test_cron_status_tracks_successful_vs_started_jobs(mock_run, tmp_path):
     status = cron_service.get_cron_clock_status()
     assert status["startedJobsSinceStartup"] == 3
     assert status["successfulJobsSinceStartup"] == 1
+
+
+@patch("cron_service.subprocess.Popen")
+def test_new_run_terminates_previous_process_for_same_job(mock_popen, tmp_path):
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    script = repo / "run.sh"
+    script.write_text("echo hi", encoding="utf-8")
+
+    previous_process = MagicMock()
+    previous_process.poll.return_value = None
+
+    next_process = MagicMock()
+    next_process.communicate.return_value = ("ok", "")
+    next_process.returncode = 0
+    next_process.poll.return_value = None
+
+    cron_service._running_process_by_job = {"repo-a:wf": previous_process}
+    mock_popen.return_value = next_process
+
+    cron_service._run_workflow_script(repo, "repo-a:wf", script)
+
+    previous_process.terminate.assert_called_once_with()
+    previous_process.wait.assert_called_once_with(timeout=5)
 
 
 @patch("cron_service.get_cron_clock_status")
