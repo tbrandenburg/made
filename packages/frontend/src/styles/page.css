@@ -438,10 +438,25 @@
 }
 
 .workflow-step-preview {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.workflow-step-preview:hover,
+.workflow-step-preview:focus-visible {
+  border-color: var(--accent);
+  background: var(--surface-strong);
+  outline: none;
 }
 
 .workflow-step-controls {
