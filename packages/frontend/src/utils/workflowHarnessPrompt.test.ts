@@ -33,6 +33,10 @@ describe("buildWorkflowHarnessPrompt", () => {
     expect(prompt).toContain("Treat `run` as a shell command to execute directly in Bash,");
     expect(prompt).toContain("Do NOT call `codex` for bash steps.");
     expect(prompt).toContain("This section applies to `type: agent` steps only.");
+    expect(prompt).toContain("Equivalent helper-based form is also allowed when behavior is identical:");
+    expect(prompt).toContain("run_agent() {");
+    expect(prompt).toContain("Function-wrapped execution example with centralized error hook:");
+    expect(prompt).toContain("step1 || { catch \"step1\" \"$?\"; exit \"$?\"; }");
     expect(prompt).toContain("• No arguments → execute workflow normally");
     expect(prompt).toContain(".harness/release-workflow.sh --dry-run");
   });

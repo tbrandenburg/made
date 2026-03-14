@@ -237,6 +237,30 @@ RUN_STEP_PROMPT="$STEP2_PROMPT"
 run_step "$STEP2_DESCRIPTION" "${cmd[@]}"
 ```
 
+Equivalent helper-based form is also allowed when behavior is identical:
+
+``` bash
+run_agent() {
+  local desc="$1"
+  local prompt="$2"
+  shift 2
+  local cmd=("$@")
+
+  if [[ "$DRY_RUN" == true ]]; then
+    run_step "$desc" "${cmd[@]}"
+    return 0
+  fi
+
+  log INFO "$desc"
+  printf '%s' "$prompt" | "${cmd[@]}"
+}
+
+STEP2_DESCRIPTION='Follow issue instructions'
+STEP2_PROMPT='Follow issue instructions'
+cmd=(opencode run --format json --agent build)
+run_agent "$STEP2_DESCRIPTION" "$STEP2_PROMPT" "${cmd[@]}"
+```
+
 ------------------------------------------------------------------------
 
 # Prompt / Message Handling
@@ -302,6 +326,29 @@ Required structure:
     run_step "$STEP1_DESCRIPTION" "${cmd[@]}"
 
 Each step must follow the same structure.
+
+Function-wrapped execution example with centralized error hook:
+
+``` bash
+catch() {
+  local step_name="$1"
+  local exit_code="$2"
+  log ERROR "Step failed: ${step_name} (exit=${exit_code})"
+}
+
+step1() {
+  local cmd=(bash -lc "$STEP1_RUN")
+  run_step "$STEP1_DESCRIPTION" "${cmd[@]}"
+}
+
+step2() {
+  local cmd=(opencode run --format json --agent build)
+  run_agent "$STEP2_DESCRIPTION" "$STEP2_PROMPT" "${cmd[@]}"
+}
+
+step1 || { catch "step1" "$?"; exit "$?"; }
+step2 || { catch "step2" "$?"; exit "$?"; }
+```
 
 ------------------------------------------------------------------------
 
