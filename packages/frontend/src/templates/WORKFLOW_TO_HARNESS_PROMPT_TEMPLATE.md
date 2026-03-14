@@ -149,6 +149,28 @@ Dry‑run mode:
 
 Must not execute the command.
 
+### run_agent()
+
+Required for `type: agent` steps so prompt handling and CLI invocation stay
+consistent.
+
+Behavior:
+
+• accept description, prompt, and command array inputs
+• send prompt via `printf '%s'` (never `echo`)
+• reuse `run_step()` for dry-run behavior and command execution
+• return the underlying command exit code unchanged
+
+### catch()
+
+Optional centralized failure hook for step-level recovery/logging.
+
+Behavior:
+
+• accept step identifier and exit code
+• log the failure to stderr (and log file via `log()`)
+• must not hide failures unless workflow YAML explicitly models recovery
+
 ------------------------------------------------------------------------
 
 # Command Construction Rules
@@ -258,6 +280,15 @@ Rules:
 1.  Ignore schedules and metadata.
 2.  Execute steps strictly in YAML order.
 3.  Each step must be clearly mapped in the script.
+4.  Step wrappers as functions (for example `step1()`, `step2()`) are allowed
+    if behavior is preserved.
+
+Preserved behavior means:
+
+• same execution order as YAML
+• same dry-run semantics
+• same prompt delivery semantics for agent steps
+• same non-zero exit status behavior (unless an explicit recovery step exists)
 
 Required structure:
 
