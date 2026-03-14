@@ -52,6 +52,7 @@ from command_service import list_commands
 from harness_service import is_process_running, list_harnesses, run_harness
 from workflow_service import list_workspace_workflows, read_workflows, write_workflows
 from cron_service import (
+    get_cron_job_diagnostics,
     get_cron_job_last_runs,
     refresh_cron_clock,
     start_cron_clock,
@@ -601,7 +602,10 @@ def save_global_workflows(payload: dict = Body(...)):
 def workspace_workflows():
     try:
         logger.info("Listing workspace workflows")
-        return list_workspace_workflows(get_cron_job_last_runs())
+        return list_workspace_workflows(
+            get_cron_job_last_runs(),
+            get_cron_job_diagnostics(),
+        )
     except Exception as exc:
         logger.exception("Failed to list workspace workflows")
         raise HTTPException(

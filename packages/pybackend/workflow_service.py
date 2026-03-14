@@ -116,6 +116,7 @@ def write_workflows(
 
 def list_workspace_workflows(
     last_runs_by_job: dict[str, str | None] | None = None,
+    diagnostics_by_job: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     workspace_home = get_workspace_home()
     workflows: list[dict[str, Any]] = []
@@ -138,6 +139,7 @@ def list_workspace_workflows(
                     "schedule": workflow.get("schedule"),
                     "shellScriptPath": workflow.get("shellScriptPath"),
                     "lastRun": (last_runs_by_job or {}).get(job_id),
+                    "diagnostics": (diagnostics_by_job or {}).get(job_id),
                 }
             )
 
