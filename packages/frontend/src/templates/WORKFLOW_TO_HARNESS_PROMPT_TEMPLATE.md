@@ -160,9 +160,13 @@ The generator MUST follow these rules.
 The script MUST NOT contain:
 
     eval
-    bash -c
     sh -c
     command strings executed via variables
+
+Exception:
+
+• `bash -lc` is allowed **only** for workflow steps with `type: bash`, and
+  only when executing the exact `run` value from the workflow YAML.
 
 ### Required Pattern
 
@@ -177,11 +181,49 @@ This prevents quoting bugs and injection risks.
 
 ------------------------------------------------------------------------
 
+# Step Type Mapping (MUST be exact)
+
+Each workflow step type maps to a different execution path:
+
+### `type: bash`
+
+Treat `run` as a shell command to execute directly in Bash,
+**not as an agent prompt**.
+
+Required structure for bash steps:
+
+``` bash
+STEP1_DESCRIPTION='git switch main && git pull --rebase --autostash'
+STEP1_RUN='git switch main && git pull --rebase --autostash'
+cmd=(bash -lc "$STEP1_RUN")
+run_step "$STEP1_DESCRIPTION" "${cmd[@]}"
+```
+
+Do NOT call `{{CURRENT_AGENT_CLI}}` for bash steps.
+
+### `type: agent`
+
+Treat `prompt` as the message to the configured agent CLI.
+
+Required structure for agent steps:
+
+``` bash
+STEP2_DESCRIPTION='Follow issue instructions'
+STEP2_PROMPT='Follow issue instructions'
+cmd=(opencode run --format json --agent build)
+RUN_STEP_PROMPT="$STEP2_PROMPT"
+run_step "$STEP2_DESCRIPTION" "${cmd[@]}"
+```
+
+------------------------------------------------------------------------
+
 # Prompt / Message Handling
 
 Some agent CLIs accept messages through **stdin**.
 
 The script MUST send prompts safely.
+
+This section applies to `type: agent` steps only.
 
 Forbidden:
 
