@@ -315,7 +315,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                               )}
                             </select>
                           ) : (
-                            <span className="workflow-step-target__label">Bash</span>
+                            <span className="workflow-step-target__label" />
                           )}
                         </div>
                         <button
