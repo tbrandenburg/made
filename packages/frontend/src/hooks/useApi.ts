@@ -139,10 +139,10 @@ async function requestForm<T>(
 export type AgentReply = {
   messageId: string;
   sent: string;
-  response: string;                 // Status message only
+  response: string; // Status message only
   prompt?: string;
   sessionId?: string;
-  processing?: boolean;             // NEW: indicates polling needed
+  processing?: boolean; // NEW: indicates polling needed
 };
 
 type AgentStatus = {
@@ -188,7 +188,6 @@ export type AvailableAgent = {
   source?: string;
 };
 
-
 export type GitDiffEntry = {
   path: string;
   green: number;
@@ -223,7 +222,6 @@ export type HarnessDefinition = {
   source: string;
 };
 
-
 export type WorkflowStep = {
   type: "agent" | "bash";
   agent?: string;
@@ -240,6 +238,14 @@ export type WorkspaceWorkflowSummary = {
   schedule: string | null;
   shellScriptPath?: string;
   lastRun?: string | null;
+  diagnostics?: {
+    lastStartedAt?: string | null;
+    lastFinishedAt?: string | null;
+    lastDurationMs?: number | null;
+    lastExitCode?: number | null;
+    lastError?: string | null;
+    running?: boolean;
+  } | null;
 };
 
 export type CronClockSummary = {
@@ -424,10 +430,13 @@ export const api = {
     directoryName: string,
     branchName: string,
   ) =>
-    request<{ path: string; branch: string }>(`/repositories/${name}/git/worktree`, {
-      method: "POST",
-      body: JSON.stringify({ directoryName, branchName }),
-    }),
+    request<{ path: string; branch: string }>(
+      `/repositories/${name}/git/worktree`,
+      {
+        method: "POST",
+        body: JSON.stringify({ directoryName, branchName }),
+      },
+    ),
   removeRepositoryWorktree: (name: string) =>
     request<{ removed: string }>(`/repositories/${name}/git/worktree`, {
       method: "DELETE",
@@ -442,12 +451,17 @@ export const api = {
     ),
 
   getRepositoryWorkflows: (name: string) =>
-    request<{ workflows: WorkflowDefinition[] }>(`/repositories/${name}/workflows`),
+    request<{ workflows: WorkflowDefinition[] }>(
+      `/repositories/${name}/workflows`,
+    ),
   saveRepositoryWorkflows: (name: string, workflows: WorkflowDefinition[]) =>
-    request<{ workflows: WorkflowDefinition[] }>(`/repositories/${name}/workflows`, {
-      method: "PUT",
-      body: JSON.stringify({ workflows }),
-    }),
+    request<{ workflows: WorkflowDefinition[] }>(
+      `/repositories/${name}/workflows`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ workflows }),
+      },
+    ),
   getCommands: () => request<{ commands: CommandDefinition[] }>("/commands"),
   getHarnesses: () => request<{ harnesses: HarnessDefinition[] }>("/harnesses"),
   runHarness: (path: string, args?: string) =>
@@ -458,7 +472,8 @@ export const api = {
   getHarnessStatus: (pid: number) =>
     request<{ pid: number; running: boolean }>(`/harnesses/${pid}/status`),
 
-  getWorkflows: () => request<{ workflows: WorkflowDefinition[] }>("/workflows"),
+  getWorkflows: () =>
+    request<{ workflows: WorkflowDefinition[] }>("/workflows"),
   getWorkspaceWorkflows: () =>
     request<{ workflows: WorkspaceWorkflowSummary[] }>("/workspace/workflows"),
   saveWorkflows: (workflows: WorkflowDefinition[]) =>

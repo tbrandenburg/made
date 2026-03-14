@@ -8,9 +8,8 @@ import { TasksPage } from "./TasksPage";
 import { api } from "../hooks/useApi";
 
 vi.mock("../hooks/useApi", async () => {
-  const actual = await vi.importActual<typeof import("../hooks/useApi")>(
-    "../hooks/useApi",
-  );
+  const actual =
+    await vi.importActual<typeof import("../hooks/useApi")>("../hooks/useApi");
   return {
     ...actual,
     api: {
@@ -59,6 +58,14 @@ describe("TasksPage", () => {
           enabled: true,
           schedule: "0 8 * * 1",
           lastRun: "2026-01-02T03:04:05Z",
+          diagnostics: {
+            lastStartedAt: "2026-01-02T03:00:00Z",
+            lastFinishedAt: "2026-01-02T03:04:05Z",
+            lastDurationMs: 245000,
+            lastExitCode: 0,
+            lastError: null,
+            running: false,
+          },
         },
       ],
     });
@@ -78,9 +85,13 @@ describe("TasksPage", () => {
     expect(screen.getByLabelText("Release enabled")).toBeChecked();
     expect(screen.getByText("sample-repo")).toBeInTheDocument();
     expect(screen.getByText("Last run")).toBeInTheDocument();
-    expect(screen.getByText(/2026|1\/2\/2026|2\/1\/2026/)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/2026|1\/2\/2026|2\/1\/2026/).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Diagnostics")).toBeInTheDocument();
+    expect(screen.getByText("Idle")).toBeInTheDocument();
+    expect(screen.getByText("Exit 0")).toBeInTheDocument();
   });
-
 
   it("shows fallback last-run labels for non-cron and never-run workflows", async () => {
     vi.mocked(api.listTasks).mockResolvedValue({ tasks: [] });
@@ -115,6 +126,31 @@ describe("TasksPage", () => {
     expect(screen.getAllByText("-").length).toBeGreaterThan(0);
   });
 
+  it("shows fallback diagnostics label when no diagnostics exist", async () => {
+    vi.mocked(api.listTasks).mockResolvedValue({ tasks: [] });
+    vi.mocked(api.getWorkspaceWorkflows).mockResolvedValue({
+      workflows: [
+        {
+          repository: "repo-a",
+          id: "wf_no_diagnostics",
+          name: "No Diagnostics",
+          enabled: true,
+          schedule: "0 8 * * 1",
+          lastRun: null,
+          diagnostics: null,
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("No diagnostics yet")).toBeInTheDocument();
+  });
+
   it("creates tasks with schedule metadata", async () => {
     vi.mocked(api.listTasks).mockResolvedValue({ tasks: [] });
     vi.mocked(api.saveTask).mockResolvedValue({});
@@ -125,7 +161,9 @@ describe("TasksPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: /create task/i }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /create task/i }),
+    );
     fireEvent.change(screen.getByLabelText(/file name/i), {
       target: { value: "new-task" },
     });
