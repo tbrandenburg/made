@@ -30,6 +30,9 @@ describe("buildWorkflowHarnessPrompt", () => {
     expect(prompt).toContain("The script MUST be written exactly to:");
     expect(prompt).toContain("    .harness/release-workflow.sh");
     expect(prompt).toContain("The script supports **exactly one optional argument**:");
+    expect(prompt).toContain("Treat `run` as a shell command to execute directly in Bash,");
+    expect(prompt).toContain("Do NOT call `codex` for bash steps.");
+    expect(prompt).toContain("This section applies to `type: agent` steps only.");
     expect(prompt).toContain("• No arguments → execute workflow normally");
     expect(prompt).toContain(".harness/release-workflow.sh --dry-run");
   });
