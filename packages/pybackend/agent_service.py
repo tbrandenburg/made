@@ -10,6 +10,7 @@ from opencode_database_agent_cli import OpenCodeDatabaseAgentCLI
 from copilot_agent_cli import CopilotAgentCLI
 from kiro_agent_cli import KiroAgentCLI
 from codex_agent_cli import CodexAgentCLI
+from ob1_agent_cli import OB1AgentCLI
 from config import ensure_directory, get_made_directory, get_workspace_home
 from settings_service import read_settings
 
@@ -35,6 +36,8 @@ def get_agent_cli():
             return CopilotAgentCLI()
         elif agent_cli_setting == "codex":
             return CodexAgentCLI()
+        elif agent_cli_setting == "ob1":
+            return OB1AgentCLI()
         elif agent_cli_setting == "opencode":
             return OpenCodeDatabaseAgentCLI()
         elif agent_cli_setting == "opencode-legacy":
