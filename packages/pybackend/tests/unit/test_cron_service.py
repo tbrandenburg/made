@@ -6,6 +6,11 @@ import cron_service
 def teardown_function():
     cron_service.stop_cron_clock()
     cron_service._running_process_by_job = {}
+    cron_service._last_run_by_job = {}
+    cron_service._last_finished_by_job = {}
+    cron_service._last_duration_ms_by_job = {}
+    cron_service._last_exit_code_by_job = {}
+    cron_service._last_error_by_job = {}
 
 
 @patch("cron_service.CronTrigger.from_crontab")
@@ -227,3 +232,42 @@ def test_get_cron_job_last_runs_includes_only_registered_jobs():
     assert result["repo-a:wf-1"] == "2026-01-02T03:04:05+00:00"
     assert result["repo-a:wf-2"] is None
     assert "repo-a:other" not in result
+
+
+def test_get_cron_job_diagnostics_includes_runtime_metadata():
+    cron_service._scheduler = MagicMock()
+    cron_service._scheduler.get_jobs.return_value = [
+        MagicMock(id="repo-a:wf-1", next_run_time=cron_service.datetime(2026, 1, 2, 4, 5, 6, tzinfo=cron_service.timezone.utc)),
+        MagicMock(id="repo-a:wf-2", next_run_time=None),
+    ]
+
+    active_process = MagicMock()
+    active_process.poll.return_value = None
+    cron_service._running_process_by_job = {"repo-a:wf-1": active_process}
+    cron_service._last_run_by_job = {
+        "repo-a:wf-1": cron_service.datetime(2026, 1, 2, 3, 4, 5, tzinfo=cron_service.timezone.utc),
+    }
+    cron_service._last_finished_by_job = {
+        "repo-a:wf-1": cron_service.datetime(2026, 1, 2, 3, 4, 8, tzinfo=cron_service.timezone.utc),
+    }
+    cron_service._last_duration_ms_by_job = {"repo-a:wf-1": 3123}
+    cron_service._last_exit_code_by_job = {"repo-a:wf-1": 0}
+    cron_service._last_error_by_job = {"repo-a:wf-2": "boom"}
+
+    result = cron_service.get_cron_job_diagnostics()
+
+    assert result["repo-a:wf-1"]["lastStartedAt"] == "2026-01-02T03:04:05+00:00"
+    assert result["repo-a:wf-1"]["lastFinishedAt"] == "2026-01-02T03:04:08+00:00"
+    assert result["repo-a:wf-1"]["lastDurationMs"] == 3123
+    assert result["repo-a:wf-1"]["lastExitCode"] == 0
+    assert result["repo-a:wf-1"]["nextRunAt"] == "2026-01-02T04:05:06+00:00"
+    assert result["repo-a:wf-1"]["running"] is True
+    assert result["repo-a:wf-2"]["lastError"] == "boom"
+
+
+def test_get_cron_job_diagnostics_returns_empty_when_scheduler_not_running():
+    cron_service._scheduler = None
+
+    result = cron_service.get_cron_job_diagnostics()
+
+    assert result == {}
