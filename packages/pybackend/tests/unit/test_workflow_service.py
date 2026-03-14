@@ -104,3 +104,41 @@ def test_list_workspace_workflows_collects_repository_workflows(
             }
         ]
     }
+
+
+@patch("workflow_service.read_workflows")
+@patch("workflow_service.get_workspace_home")
+def test_list_workspace_workflows_skips_git_worktrees(
+    mock_workspace_home, mock_read_workflows
+):
+    mock_workspace_home.return_value = Path("/workspace/home")
+
+    repo = Path("/workspace/home/repo-a")
+    worktree = Path("/workspace/home/repo-a-feature")
+
+    with patch.object(Path, "iterdir", return_value=[repo, worktree]), patch.object(
+        Path, "is_dir", return_value=True
+    ), patch.object(Path, "is_file", side_effect=[False, True]):
+        mock_read_workflows.return_value = {
+            "workflows": [
+                {"id": "wf_a", "name": "A", "enabled": True, "schedule": "* * * * *"}
+            ]
+        }
+
+        result = list_workspace_workflows()
+
+    assert result == {
+        "workflows": [
+            {
+                "repository": "repo-a",
+                "id": "wf_a",
+                "name": "A",
+                "enabled": True,
+                "schedule": "* * * * *",
+                "shellScriptPath": None,
+                "lastRun": None,
+                "diagnostics": None,
+            }
+        ]
+    }
+    mock_read_workflows.assert_called_once_with("repo-a")

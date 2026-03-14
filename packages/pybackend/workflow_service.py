@@ -124,6 +124,8 @@ def list_workspace_workflows(
     for repo_path in workspace_home.iterdir():
         if not repo_path.is_dir():
             continue
+        if (repo_path / ".git").is_file():
+            continue
 
         repo_name = repo_path.name
         repository_workflows = read_workflows(repo_name).get("workflows", [])
