@@ -130,24 +130,26 @@ If missing → log error and exit.
 
 ### run_step()
 
-Responsible for dry‑run logic.
+Responsible for dry‑run and failure handling at the step-function level.
 
 Parameters:
 
-1.  description
-2.  command array
+1.  step function name
 
 Behavior:
 
 Normal mode:
 
-    "${cmd[@]}"
+    call the step function and return its exit code unchanged
 
 Dry‑run mode:
 
-    printf '%q ' "${cmd[@]}"
+    log which step would run and return success
 
-Must not execute the command.
+Failure mode:
+
+    if a step fails, call `catch <step_name> <exit_code>` and return the same
+    non-zero exit code
 
 ### run_agent()
 
@@ -156,9 +158,9 @@ consistent.
 
 Behavior:
 
-• accept description, prompt, and command array inputs
+• accept prompt and command array inputs
 • send prompt via `printf '%s'` (never `echo`)
-• reuse `run_step()` for dry-run behavior and command execution
+• keep dry-run behavior consistent with `run_step()`
 • return the underlying command exit code unchanged
 
 ### catch()
@@ -215,10 +217,12 @@ Treat `run` as a shell command to execute directly in Bash,
 Required structure for bash steps:
 
 ``` bash
-STEP1_DESCRIPTION='git switch main && git pull --rebase --autostash'
 STEP1_RUN='git switch main && git pull --rebase --autostash'
-cmd=(bash -lc "$STEP1_RUN")
-run_step "$STEP1_DESCRIPTION" "${cmd[@]}"
+step1() {
+  local cmd=(bash -lc "$STEP1_RUN")
+  "${cmd[@]}"
+}
+run_step step1
 ```
 
 Do NOT call `{{CURRENT_AGENT_CLI}}` for bash steps.
@@ -230,35 +234,35 @@ Treat `prompt` as the message to the configured agent CLI.
 Required structure for agent steps:
 
 ``` bash
-STEP2_DESCRIPTION='Follow issue instructions'
 STEP2_PROMPT='Follow issue instructions'
-cmd=(opencode run --format json --agent build)
-RUN_STEP_PROMPT="$STEP2_PROMPT"
-run_step "$STEP2_DESCRIPTION" "${cmd[@]}"
+step2() {
+  local cmd=(opencode run --format json --agent build)
+  run_agent "$STEP2_PROMPT" "${cmd[@]}"
+}
+run_step step2
 ```
 
 Equivalent helper-based form is also allowed when behavior is identical:
 
 ``` bash
 run_agent() {
-  local desc="$1"
-  local prompt="$2"
-  shift 2
+  local prompt="$1"
+  shift
   local cmd=("$@")
 
   if [[ "$DRY_RUN" == true ]]; then
-    run_step "$desc" "${cmd[@]}"
+    printf 'dry-run: '
+    printf '%q ' "${cmd[@]}"
+    printf '\\n'
     return 0
   fi
 
-  log INFO "$desc"
   printf '%s' "$prompt" | "${cmd[@]}"
 }
 
-STEP2_DESCRIPTION='Follow issue instructions'
 STEP2_PROMPT='Follow issue instructions'
 cmd=(opencode run --format json --agent build)
-run_agent "$STEP2_DESCRIPTION" "$STEP2_PROMPT" "${cmd[@]}"
+run_agent "$STEP2_PROMPT" "${cmd[@]}"
 ```
 
 ------------------------------------------------------------------------
@@ -314,18 +318,8 @@ Preserved behavior means:
 • same prompt delivery semantics for agent steps
 • same non-zero exit status behavior (unless an explicit recovery step exists)
 
-Required structure:
-
-    # Step 1: <name>
-
-    STEP1_DESCRIPTION="..."
-    STEP1_PROMPT="..."
-
-    cmd=( ... )
-
-    run_step "$STEP1_DESCRIPTION" "${cmd[@]}"
-
-Each step must follow the same structure.
+`STEP*_DESCRIPTION` variables are optional and may be omitted when the step
+function name is already clear.
 
 Function-wrapped execution example with centralized error hook:
 
@@ -336,18 +330,34 @@ catch() {
   log ERROR "Step failed: ${step_name} (exit=${exit_code})"
 }
 
+run_step() {
+  local step_name="$1"
+
+  if [[ "$DRY_RUN" == true ]]; then
+    log INFO "[DRY-RUN] ${step_name}"
+    return 0
+  fi
+
+  "$step_name"
+  local status=$?
+  if [[ $status -ne 0 ]]; then
+    catch "$step_name" "$status"
+  fi
+  return "$status"
+}
+
 step1() {
   local cmd=(bash -lc "$STEP1_RUN")
-  run_step "$STEP1_DESCRIPTION" "${cmd[@]}"
+  "${cmd[@]}"
 }
 
 step2() {
   local cmd=(opencode run --format json --agent build)
-  run_agent "$STEP2_DESCRIPTION" "$STEP2_PROMPT" "${cmd[@]}"
+  run_agent "$STEP2_PROMPT" "${cmd[@]}"
 }
 
-step1 || { catch "step1" "$?"; exit "$?"; }
-step2 || { catch "step2" "$?"; exit "$?"; }
+run_step step1
+run_step step2
 ```
 
 ------------------------------------------------------------------------
