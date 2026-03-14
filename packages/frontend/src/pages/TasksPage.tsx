@@ -10,10 +10,102 @@ import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
 import "../styles/page.css";
 
+type WorkflowDiagnostics = WorkspaceWorkflowSummary["diagnostics"];
+
+const formatDateTime = (value?: string | null, fallback = "-") => {
+  if (!value) {
+    return fallback;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return fallback;
+  }
+  return date.toLocaleString();
+};
+
+const formatDuration = (durationMs?: number | null) => {
+  if (typeof durationMs !== "number" || Number.isNaN(durationMs)) {
+    return "-";
+  }
+  if (durationMs < 1000) {
+    return `${durationMs}ms`;
+  }
+  const seconds = durationMs / 1000;
+  if (seconds < 60) {
+    return `${seconds.toFixed(seconds >= 10 ? 0 : 1)}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return `${minutes}m ${remainingSeconds}s`;
+};
+
+const formatExitCode = (value?: number | null) => {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "-";
+  }
+  return String(value);
+};
+
+const formatErrorText = (value?: string | null) => {
+  if (!value || !value.trim()) {
+    return "-";
+  }
+  const normalized = value.trim();
+  if (normalized.length <= 80) {
+    return normalized;
+  }
+  return `${normalized.slice(0, 77)}...`;
+};
+
+const formatWorkflowLastRun = (workflow: WorkspaceWorkflowSummary) => {
+  if (!workflow.schedule || !workflow.schedule.trim()) {
+    return "n.a.";
+  }
+
+  if (!workflow.lastRun) {
+    return "-";
+  }
+
+  return formatDateTime(workflow.lastRun);
+};
+
+const renderWorkflowDiagnosticsSummary = (diagnostics: WorkflowDiagnostics) => {
+  if (!diagnostics) {
+    return <span className="meta-secondary">No diagnostics yet</span>;
+  }
+
+  return (
+    <details className="workflow-diagnostics">
+      <summary className="workflow-diagnostics__summary">
+        <span
+          className={`badge ${diagnostics.running ? "success" : ""}`.trim()}
+        >
+          {diagnostics.running ? "Running" : "Idle"}
+        </span>
+        <span className="badge">
+          Exit {formatExitCode(diagnostics.lastExitCode)}
+        </span>
+        <span className="badge">
+          {formatDuration(diagnostics.lastDurationMs)}
+        </span>
+      </summary>
+      <div className="meta-secondary">
+        <span>Started: {formatDateTime(diagnostics.lastStartedAt)}</span>
+        <span>Finished: {formatDateTime(diagnostics.lastFinishedAt)}</span>
+      </div>
+      <div className="meta-secondary">
+        Error: {formatErrorText(diagnostics.lastError)}
+      </div>
+    </details>
+  );
+};
+
 export const TasksPage: React.FC = () => {
   const [tasks, setTasks] = useState<ArtefactSummary[]>([]);
   const [activeTab, setActiveTab] = useState("tasks");
-  const [workspaceWorkflows, setWorkspaceWorkflows] = useState<WorkspaceWorkflowSummary[]>([]);
+  const [workspaceWorkflows, setWorkspaceWorkflows] = useState<
+    WorkspaceWorkflowSummary[]
+  >([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const navigate = useNavigate();
@@ -22,29 +114,12 @@ export const TasksPage: React.FC = () => {
       return task.type === "template";
     }
     const frontmatterType = task.frontmatter?.type;
-    return typeof frontmatterType === "string" && frontmatterType === "template";
+    return (
+      typeof frontmatterType === "string" && frontmatterType === "template"
+    );
   };
   const templateTasks = tasks.filter(isTemplate);
-  const documentTasks = tasks.filter(
-    (task) => !isTemplate(task),
-  );
-  const formatWorkflowLastRun = (workflow: WorkspaceWorkflowSummary) => {
-    if (!workflow.schedule || !workflow.schedule.trim()) {
-      return "n.a.";
-    }
-
-    if (!workflow.lastRun) {
-      return "-";
-    }
-
-    const lastRunDate = new Date(workflow.lastRun);
-    if (Number.isNaN(lastRunDate.getTime())) {
-      return "-";
-    }
-
-    return lastRunDate.toLocaleString();
-  };
-
+  const documentTasks = tasks.filter((task) => !isTemplate(task));
   const getRepositoryName = (repository: string) => {
     const segments = repository.split(/[\\/]/).filter(Boolean);
     return segments[segments.length - 1] || repository;
@@ -95,7 +170,8 @@ export const TasksPage: React.FC = () => {
                 <Panel title="Workflows">
                   {workspaceWorkflows.length === 0 ? (
                     <div className="empty">
-                      No workflows found in repository .made/workflows.yml files.
+                      No workflows found in repository .made/workflows.yml
+                      files.
                     </div>
                   ) : (
                     <table className="git-table">
@@ -106,11 +182,14 @@ export const TasksPage: React.FC = () => {
                           <th>Name</th>
                           <th>Repository</th>
                           <th>Last run</th>
+                          <th>Diagnostics</th>
                         </tr>
                       </thead>
                       <tbody>
                         {workspaceWorkflows.map((workflow) => {
-                          const repositoryName = getRepositoryName(workflow.repository);
+                          const repositoryName = getRepositoryName(
+                            workflow.repository,
+                          );
                           return (
                             <tr key={`${workflow.repository}:${workflow.id}`}>
                               <td>
@@ -131,6 +210,11 @@ export const TasksPage: React.FC = () => {
                               </td>
                               <td>{repositoryName}</td>
                               <td>{formatWorkflowLastRun(workflow)}</td>
+                              <td>
+                                {renderWorkflowDiagnosticsSummary(
+                                  workflow.diagnostics,
+                                )}
+                              </td>
                             </tr>
                           );
                         })}
@@ -164,8 +248,7 @@ export const TasksPage: React.FC = () => {
                                     {String(task.frontmatter.schedule)}
                                   </span>
                                 )}
-                              {typeof task.frontmatter?.type ===
-                                "string" && (
+                              {typeof task.frontmatter?.type === "string" && (
                                 <span className="badge">
                                   {String(task.frontmatter.type)}
                                 </span>
@@ -192,8 +275,7 @@ export const TasksPage: React.FC = () => {
                                     {String(task.frontmatter.schedule)}
                                   </span>
                                 )}
-                              {typeof task.frontmatter?.type ===
-                                "string" && (
+                              {typeof task.frontmatter?.type === "string" && (
                                 <span className="badge">
                                   {String(task.frontmatter.type)}
                                 </span>

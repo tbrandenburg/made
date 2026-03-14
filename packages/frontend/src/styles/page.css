@@ -352,12 +352,10 @@
   gap: 1rem;
 }
 
-
 .workflow-builder__actions {
   display: flex;
   gap: 0.5rem;
 }
-
 
 .workflow-icon-button {
   width: 30px;
@@ -456,4 +454,17 @@
   border-radius: 6px;
   background: transparent;
   padding: 0.3rem 0.45rem;
+}
+
+.workflow-diagnostics {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.workflow-diagnostics__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
 }
