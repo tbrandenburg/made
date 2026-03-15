@@ -94,7 +94,7 @@ const renderWorkflowDiagnosticsSummary = (diagnostics: WorkflowDiagnostics) => {
         <span>Finished: {formatDateTime(diagnostics.lastFinishedAt)}</span>
       </div>
       <div className="meta-secondary">
-        Error: {formatErrorText(diagnostics.lastError)}
+        Error: {formatErrorText(diagnostics.lastStderr ?? diagnostics.lastError)}
       </div>
     </details>
   );

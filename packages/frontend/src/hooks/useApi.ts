@@ -244,6 +244,7 @@ export type WorkspaceWorkflowSummary = {
     lastDurationMs?: number | null;
     lastExitCode?: number | null;
     lastError?: string | null;
+    lastStderr?: string | null;
     running?: boolean;
   } | null;
 };

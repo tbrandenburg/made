@@ -318,6 +318,7 @@ def get_cron_job_diagnostics() -> dict[str, dict[str, object | None]]:
             "lastDurationMs": durations.get(job.id),
             "lastExitCode": exit_codes.get(job.id),
             "lastError": errors.get(job.id),
+            "lastStderr": errors.get(job.id),
             "nextRunAt": next_run_time,
             "running": job.id in running,
         }

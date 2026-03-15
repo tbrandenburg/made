@@ -277,6 +277,7 @@ def test_get_cron_job_diagnostics_includes_runtime_metadata():
     assert result["repo-a:wf-1"]["nextRunAt"] == "2026-01-02T04:05:06+00:00"
     assert result["repo-a:wf-1"]["running"] is True
     assert result["repo-a:wf-2"]["lastError"] == "boom"
+    assert result["repo-a:wf-2"]["lastStderr"] == "boom"
 
 
 def test_get_cron_job_diagnostics_returns_empty_when_scheduler_not_running():
