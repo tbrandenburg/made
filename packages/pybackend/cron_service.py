@@ -4,7 +4,7 @@ import logging
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from threading import Lock
+from threading import Lock, Thread
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -52,25 +52,13 @@ def _resolve_script_path(repo_path: Path, shell_script_path: str) -> Path:
     return repo_path / script_path
 
 
-def _run_workflow_script(repo_path: Path, workflow_id: str, script_path: Path) -> None:
-    global _started_jobs, _successful_jobs, _failed_jobs
+def _wait_for_workflow_process(
+    workflow_id: str,
+    process: subprocess.Popen[str],
+    started_at: datetime,
+) -> None:
+    global _successful_jobs, _failed_jobs
 
-    started_at = datetime.now(timezone.utc)
-
-    with _state_lock:
-        _terminate_running_job(workflow_id)
-        _started_jobs += 1
-        _last_run_by_job[workflow_id] = datetime.now(timezone.utc)
-        process = subprocess.Popen(
-            ["bash", str(script_path)],
-            cwd=str(repo_path),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        _running_process_by_job[workflow_id] = process
-
-    logger.info("Running cron workflow '%s' in '%s'", workflow_id, repo_path)
     stdout, stderr = process.communicate()
     returncode = process.returncode
     finished_at = datetime.now(timezone.utc)
@@ -105,6 +93,32 @@ def _run_workflow_script(repo_path: Path, workflow_id: str, script_path: Path) -
     else:
         with _state_lock:
             _last_error_by_job[workflow_id] = f"Exit code {returncode} without stderr"
+
+
+def _run_workflow_script(repo_path: Path, workflow_id: str, script_path: Path) -> None:
+    global _started_jobs
+
+    started_at = datetime.now(timezone.utc)
+
+    with _state_lock:
+        _terminate_running_job(workflow_id)
+        _started_jobs += 1
+        _last_run_by_job[workflow_id] = datetime.now(timezone.utc)
+        process = subprocess.Popen(
+            ["bash", str(script_path)],
+            cwd=str(repo_path),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        _running_process_by_job[workflow_id] = process
+
+    logger.info("Running cron workflow '%s' in '%s'", workflow_id, repo_path)
+    Thread(
+        target=_wait_for_workflow_process,
+        args=(workflow_id, process, started_at),
+        daemon=True,
+    ).start()
 
 
 def start_cron_clock() -> None:
@@ -154,9 +168,7 @@ def start_cron_clock() -> None:
                     CronTrigger.from_crontab(schedule),
                     id=job_id,
                     replace_existing=True,
-                    # Allow the new scheduled trigger to start and explicitly terminate
-                    # any stale process from a previous run for the same workflow.
-                    max_instances=2,
+                    max_instances=1,
                     coalesce=True,
                     misfire_grace_time=300,
                     args=[repo_path, job_id, script_path],
