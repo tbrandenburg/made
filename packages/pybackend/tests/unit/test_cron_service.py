@@ -63,6 +63,7 @@ def test_start_cron_clock_registers_only_enabled_workflows_with_existing_scripts
     assert mock_scheduler.add_job.call_count == 1
     _, kwargs = mock_scheduler.add_job.call_args
     assert kwargs["id"] == "repo-a:enabled"
+    assert kwargs["max_instances"] == 2
     assert kwargs["args"][0] == repo
     assert kwargs["args"][2] == script
 

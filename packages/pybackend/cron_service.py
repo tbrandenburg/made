@@ -154,7 +154,9 @@ def start_cron_clock() -> None:
                     CronTrigger.from_crontab(schedule),
                     id=job_id,
                     replace_existing=True,
-                    max_instances=1,
+                    # Allow the new scheduled trigger to start and explicitly terminate
+                    # any stale process from a previous run for the same workflow.
+                    max_instances=2,
                     coalesce=True,
                     misfire_grace_time=300,
                     args=[repo_path, job_id, script_path],
