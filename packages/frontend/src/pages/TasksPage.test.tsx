@@ -64,6 +64,8 @@ describe("TasksPage", () => {
             lastDurationMs: 245000,
             lastExitCode: 0,
             lastError: null,
+            lastStdout: null,
+            lastStderr: null,
             running: false,
           },
         },
@@ -124,6 +126,40 @@ describe("TasksPage", () => {
 
     expect(await screen.findByText("n.a.")).toBeInTheDocument();
     expect(screen.getAllByText("-").length).toBeGreaterThan(0);
+  });
+
+
+
+  it("prefers stderr diagnostics output in overview", async () => {
+    vi.mocked(api.listTasks).mockResolvedValue({ tasks: [] });
+    vi.mocked(api.getWorkspaceWorkflows).mockResolvedValue({
+      workflows: [
+        {
+          repository: "repo-a",
+          id: "wf_stderr",
+          name: "Show stderr",
+          enabled: true,
+          schedule: "0 8 * * 1",
+          diagnostics: {
+            lastExitCode: 1,
+            lastError: "captured stderr summary",
+            lastStdout: "line-11\nline-12",
+            lastStderr: "captured stderr",
+            running: false,
+          },
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Diagnostics")).toBeInTheDocument();
+    expect(screen.getByText(/Error: captured stderr/)).toBeInTheDocument();
+    expect(screen.getByText(/Stdout: line-11/)).toBeInTheDocument();
   });
 
   it("shows fallback diagnostics label when no diagnostics exist", async () => {
