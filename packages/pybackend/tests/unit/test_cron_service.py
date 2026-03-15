@@ -63,6 +63,7 @@ def test_start_cron_clock_registers_only_enabled_workflows_with_existing_scripts
     assert mock_scheduler.add_job.call_count == 1
     _, kwargs = mock_scheduler.add_job.call_args
     assert kwargs["id"] == "repo-a:enabled"
+    assert kwargs["max_instances"] == 1
     assert kwargs["args"][0] == repo
     assert kwargs["args"][2] == script
 
@@ -136,8 +137,9 @@ def test_run_workflow_script_executes_from_repository_directory(mock_popen, tmp_
     )
 
 
+@patch("cron_service.Thread")
 @patch("cron_service.subprocess.Popen")
-def test_cron_status_tracks_successful_vs_started_jobs(mock_popen, tmp_path):
+def test_cron_status_tracks_successful_vs_started_jobs(mock_popen, mock_thread, tmp_path):
     repo = tmp_path / "repo-a"
     repo.mkdir()
     script = repo / ".harness" / "news.sh"
@@ -146,6 +148,15 @@ def test_cron_status_tracks_successful_vs_started_jobs(mock_popen, tmp_path):
 
     cron_service._started_jobs = 0
     cron_service._successful_jobs = 0
+
+    def start_thread_immediately(*_args, **kwargs):
+        thread = MagicMock()
+        target = kwargs["target"]
+        args = kwargs.get("args", ())
+        thread.start.side_effect = lambda: target(*args)
+        return thread
+
+    mock_thread.side_effect = start_thread_immediately
 
     mock_popen.side_effect = [
         MagicMock(
@@ -174,8 +185,9 @@ def test_cron_status_tracks_successful_vs_started_jobs(mock_popen, tmp_path):
     assert status["successfulJobsSinceStartup"] == 1
 
 
+@patch("cron_service.Thread")
 @patch("cron_service.subprocess.Popen")
-def test_new_run_terminates_previous_process_for_same_job(mock_popen, tmp_path):
+def test_new_run_terminates_previous_process_for_same_job(mock_popen, mock_thread, tmp_path):
     repo = tmp_path / "repo-a"
     repo.mkdir()
     script = repo / "run.sh"
@@ -191,6 +203,8 @@ def test_new_run_terminates_previous_process_for_same_job(mock_popen, tmp_path):
 
     cron_service._running_process_by_job = {"repo-a:wf": previous_process}
     mock_popen.return_value = next_process
+
+    mock_thread.return_value = MagicMock(start=MagicMock())
 
     cron_service._run_workflow_script(repo, "repo-a:wf", script)
 
