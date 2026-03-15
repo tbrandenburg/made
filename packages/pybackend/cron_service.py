@@ -27,6 +27,8 @@ _last_finished_by_job: dict[str, datetime] = {}
 _last_duration_ms_by_job: dict[str, int] = {}
 _last_exit_code_by_job: dict[str, int] = {}
 _last_error_by_job: dict[str, str] = {}
+_last_stdout_by_job: dict[str, str] = {}
+_last_stderr_by_job: dict[str, str] = {}
 _running_process_by_job: dict[str, subprocess.Popen[str]] = {}
 
 
@@ -52,6 +54,13 @@ def _resolve_script_path(repo_path: Path, shell_script_path: str) -> Path:
     return repo_path / script_path
 
 
+def _tail_output(value: str, max_lines: int = 20) -> str:
+    lines = [line for line in value.strip().splitlines() if line.strip()]
+    if not lines:
+        return ""
+    return "\n".join(lines[-max_lines:])
+
+
 def _wait_for_workflow_process(
     workflow_id: str,
     process: subprocess.Popen[str],
@@ -60,6 +69,8 @@ def _wait_for_workflow_process(
     global _successful_jobs, _failed_jobs
 
     stdout, stderr = process.communicate()
+    stdout_tail = _tail_output(stdout)
+    stderr_tail = _tail_output(stderr)
     returncode = process.returncode
     finished_at = datetime.now(timezone.utc)
     duration_ms = int((finished_at - started_at).total_seconds() * 1000)
@@ -70,26 +81,34 @@ def _wait_for_workflow_process(
         _last_finished_by_job[workflow_id] = finished_at
         _last_duration_ms_by_job[workflow_id] = duration_ms
         _last_exit_code_by_job[workflow_id] = returncode
+        if stdout_tail:
+            _last_stdout_by_job[workflow_id] = stdout_tail
+        else:
+            _last_stdout_by_job.pop(workflow_id, None)
+        if stderr_tail:
+            _last_stderr_by_job[workflow_id] = stderr_tail
+        else:
+            _last_stderr_by_job.pop(workflow_id, None)
 
     if returncode == 0:
         with _state_lock:
             _successful_jobs += 1
             _last_error_by_job.pop(workflow_id, None)
         logger.info("Cron workflow '%s' completed", workflow_id)
-        if stdout.strip():
-            logger.info("Cron workflow '%s' stdout: %s", workflow_id, stdout.strip())
+        if stdout_tail:
+            logger.info("Cron workflow '%s' stdout: %s", workflow_id, stdout_tail)
         return
 
     with _state_lock:
         _failed_jobs += 1
 
     logger.warning("Cron workflow '%s' failed with exit code %s", workflow_id, returncode)
-    if stdout.strip():
-        logger.warning("Cron workflow '%s' stdout: %s", workflow_id, stdout.strip())
-    if stderr.strip():
+    if stdout_tail:
+        logger.warning("Cron workflow '%s' stdout: %s", workflow_id, stdout_tail)
+    if stderr_tail:
         with _state_lock:
-            _last_error_by_job[workflow_id] = stderr.strip()
-        logger.warning("Cron workflow '%s' stderr: %s", workflow_id, stderr.strip())
+            _last_error_by_job[workflow_id] = stderr_tail
+        logger.warning("Cron workflow '%s' stderr: %s", workflow_id, stderr_tail)
     else:
         with _state_lock:
             _last_error_by_job[workflow_id] = f"Exit code {returncode} without stderr"
@@ -198,6 +217,8 @@ def start_cron_clock() -> None:
         _last_duration_ms_by_job.clear()
         _last_exit_code_by_job.clear()
         _last_error_by_job.clear()
+        _last_stdout_by_job.clear()
+        _last_stderr_by_job.clear()
         _running_process_by_job.clear()
 
     logger.info(
@@ -300,6 +321,8 @@ def get_cron_job_diagnostics() -> dict[str, dict[str, object | None]]:
         durations = dict(_last_duration_ms_by_job)
         exit_codes = dict(_last_exit_code_by_job)
         errors = dict(_last_error_by_job)
+        stdout_by_job = dict(_last_stdout_by_job)
+        stderr_by_job = dict(_last_stderr_by_job)
         running = {
             workflow_id
             for workflow_id, process in _running_process_by_job.items()
@@ -318,7 +341,8 @@ def get_cron_job_diagnostics() -> dict[str, dict[str, object | None]]:
             "lastDurationMs": durations.get(job.id),
             "lastExitCode": exit_codes.get(job.id),
             "lastError": errors.get(job.id),
-            "lastStderr": errors.get(job.id),
+            "lastStdout": stdout_by_job.get(job.id),
+            "lastStderr": stderr_by_job.get(job.id),
             "nextRunAt": next_run_time,
             "running": job.id in running,
         }

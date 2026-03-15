@@ -11,6 +11,8 @@ def teardown_function():
     cron_service._last_duration_ms_by_job = {}
     cron_service._last_exit_code_by_job = {}
     cron_service._last_error_by_job = {}
+    cron_service._last_stdout_by_job = {}
+    cron_service._last_stderr_by_job = {}
 
 
 @patch("cron_service.CronTrigger.from_crontab")
@@ -267,6 +269,8 @@ def test_get_cron_job_diagnostics_includes_runtime_metadata():
     cron_service._last_duration_ms_by_job = {"repo-a:wf-1": 3123}
     cron_service._last_exit_code_by_job = {"repo-a:wf-1": 0}
     cron_service._last_error_by_job = {"repo-a:wf-2": "boom"}
+    cron_service._last_stdout_by_job = {"repo-a:wf-2": "line-1\nline-2"}
+    cron_service._last_stderr_by_job = {"repo-a:wf-2": "boom"}
 
     result = cron_service.get_cron_job_diagnostics()
 
@@ -277,7 +281,24 @@ def test_get_cron_job_diagnostics_includes_runtime_metadata():
     assert result["repo-a:wf-1"]["nextRunAt"] == "2026-01-02T04:05:06+00:00"
     assert result["repo-a:wf-1"]["running"] is True
     assert result["repo-a:wf-2"]["lastError"] == "boom"
+    assert result["repo-a:wf-2"]["lastStdout"] == "line-1\nline-2"
     assert result["repo-a:wf-2"]["lastStderr"] == "boom"
+
+
+def test_wait_for_workflow_process_keeps_last_stdout_lines_only():
+    process = MagicMock()
+    stdout = "\n".join(f"line-{index}" for index in range(1, 31))
+    process.communicate.return_value = (stdout, "")
+    process.returncode = 1
+    process.poll.return_value = 1
+
+    started_at = cron_service.datetime(2026, 1, 2, 3, 4, 5, tzinfo=cron_service.timezone.utc)
+    cron_service._wait_for_workflow_process("repo-a:wf-1", process, started_at)
+
+    stored_stdout = cron_service._last_stdout_by_job["repo-a:wf-1"]
+    assert stored_stdout.startswith("line-11")
+    assert stored_stdout.endswith("line-30")
+    assert "line-10" not in stored_stdout
 
 
 def test_get_cron_job_diagnostics_returns_empty_when_scheduler_not_running():

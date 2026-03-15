@@ -96,6 +96,9 @@ const renderWorkflowDiagnosticsSummary = (diagnostics: WorkflowDiagnostics) => {
       <div className="meta-secondary">
         Error: {formatErrorText(diagnostics.lastStderr ?? diagnostics.lastError)}
       </div>
+      <div className="meta-secondary">
+        Stdout: {formatErrorText(diagnostics.lastStdout)}
+      </div>
     </details>
   );
 };
