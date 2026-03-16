@@ -110,6 +110,9 @@ export const TasksPage: React.FC = () => {
     WorkspaceWorkflowSummary[]
   >([]);
   const [createOpen, setCreateOpen] = useState(false);
+  const [terminatingWorkflow, setTerminatingWorkflow] = useState<string | null>(null);
+  const [terminateModal, setTerminateModal] = useState(false);
+  const [selectedWorkflow, setSelectedWorkflow] = useState<WorkspaceWorkflowSummary | null>(null);
   const [newName, setNewName] = useState("");
   const navigate = useNavigate();
   const isTemplate = (task: ArtefactSummary) => {
@@ -160,6 +163,32 @@ export const TasksPage: React.FC = () => {
     navigate(`/tasks/${filename}`);
   };
 
+  const handleTerminate = (workflow: WorkspaceWorkflowSummary) => {
+    setSelectedWorkflow(workflow);
+    setTerminateModal(true);
+  };
+
+  const handleConfirmTerminate = async () => {
+    if (!selectedWorkflow) return;
+    
+    const workflowId = `${selectedWorkflow.repository}:${selectedWorkflow.id}`;
+    setTerminatingWorkflow(workflowId);
+    setTerminateModal(false);
+    
+    try {
+      await api.terminateWorkflow(workflowId);
+      // Refresh workflow list
+      const res = await api.getWorkspaceWorkflows();
+      setWorkspaceWorkflows(res.workflows);
+    } catch (error) {
+      console.error("Failed to terminate workflow:", error);
+      alert(`Failed to terminate workflow: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setTerminatingWorkflow(null);
+      setSelectedWorkflow(null);
+    }
+  };
+
   return (
     <div className="page">
       <h1>Tasks</h1>
@@ -186,6 +215,7 @@ export const TasksPage: React.FC = () => {
                           <th>Repository</th>
                           <th>Last run</th>
                           <th>Diagnostics</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -216,6 +246,18 @@ export const TasksPage: React.FC = () => {
                               <td>
                                 {renderWorkflowDiagnosticsSummary(
                                   workflow.diagnostics,
+                                )}
+                              </td>
+                              <td>
+                                {workflow.diagnostics?.running && (
+                                  <button
+                                    className="danger"
+                                    onClick={() => handleTerminate(workflow)}
+                                    disabled={terminatingWorkflow === `${workflow.repository}:${workflow.id}`}
+                                    title="Terminate running workflow"
+                                  >
+                                    {terminatingWorkflow === `${workflow.repository}:${workflow.id}` ? "Terminating..." : "Terminate"}
+                                  </button>
                                 )}
                               </td>
                             </tr>
@@ -321,6 +363,25 @@ export const TasksPage: React.FC = () => {
           </button>
           <button className="primary" onClick={handleCreate}>
             Create
+          </button>
+        </div>
+      </Modal>
+
+      <Modal 
+        open={terminateModal} 
+        title="Terminate Workflow" 
+        onClose={() => setTerminateModal(false)}
+      >
+        <p>Are you sure you want to terminate this job?</p>
+        {selectedWorkflow && (
+          <p className="muted">Workflow: {selectedWorkflow.name}</p>
+        )}
+        <div className="modal-actions">
+          <button className="secondary" onClick={() => setTerminateModal(false)}>
+            Cancel
+          </button>
+          <button className="danger" onClick={handleConfirmTerminate}>
+            Terminate
           </button>
         </div>
       </Modal>

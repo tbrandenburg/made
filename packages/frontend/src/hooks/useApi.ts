@@ -478,6 +478,10 @@ export const api = {
     request<{ workflows: WorkflowDefinition[] }>("/workflows"),
   getWorkspaceWorkflows: () =>
     request<{ workflows: WorkspaceWorkflowSummary[] }>("/workspace/workflows"),
+  terminateWorkflow: (workflowId: string) =>
+    request<{ success: boolean; message?: string }>(`/workflows/${encodeURIComponent(workflowId)}/terminate`, {
+      method: "POST",
+    }),
   saveWorkflows: (workflows: WorkflowDefinition[]) =>
     request<{ workflows: WorkflowDefinition[] }>("/workflows", {
       method: "PUT",

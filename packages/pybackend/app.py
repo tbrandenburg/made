@@ -52,6 +52,7 @@ from command_service import list_commands
 from harness_service import is_process_running, list_harnesses, run_harness
 from workflow_service import list_workspace_workflows, read_workflows, write_workflows
 from cron_service import (
+    force_terminate_job,
     get_cron_job_diagnostics,
     get_cron_job_last_runs,
     refresh_cron_clock,
@@ -98,6 +99,7 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger("made.pybackend")
+
 
 @contextlib.asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -542,8 +544,6 @@ def repository_git_worktree_delete(name: str):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
-
-
 @app.get("/api/repositories/{name}/workflows")
 def repository_workflows(name: str):
     try:
@@ -612,6 +612,26 @@ def workspace_workflows():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
 
+
+@app.post("/api/workflows/{workflow_id}/terminate")
+def terminate_workflow(workflow_id: str):
+    """Terminate a running workflow job."""
+    try:
+        success = force_terminate_job(workflow_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No active workflow process to terminate",
+            )
+        return {"success": True, "message": "Workflow terminated successfully"}
+    except Exception as e:
+        logger.exception(f"Error terminating workflow {workflow_id}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to terminate workflow: {str(e)}",
+        )
+
+
 @app.post("/api/cron/update")
 def update_cron_jobs():
     try:
@@ -622,6 +642,7 @@ def update_cron_jobs():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
+
 
 @app.get("/api/commands")
 def global_commands():
