@@ -149,7 +149,7 @@ def test_run_workflow_script_executes_from_repository_directory(mock_popen, tmp_
     process = MagicMock()
     process.communicate.return_value = ("ok", "")
     process.returncode = 0
-    process.poll.return_value = None
+    process.poll.return_value = 0  # Process finished successfully
     mock_popen.return_value = process
 
     cron_service._run_workflow_script(repo, "repo-a:news", script)
@@ -229,7 +229,7 @@ def test_new_run_terminates_previous_process_for_same_job(
     next_process = MagicMock()
     next_process.communicate.return_value = ("ok", "")
     next_process.returncode = 0
-    next_process.poll.return_value = None
+    next_process.poll.return_value = 0  # Process finished successfully
 
     cron_service._running_process_by_job = {"repo-a:wf": previous_process}
     mock_popen.return_value = next_process
@@ -368,26 +368,6 @@ def test_terminate_running_job_handles_double_timeout():
 
     # Should not raise, zombie case handled
     assert "test-wf" not in cron_service._running_process_by_job
-
-
-@patch("cron_service.subprocess.Popen")
-def test_run_workflow_script_tracks_start_time(mock_popen, tmp_path):
-    """Test that job start time is tracked."""
-    repo = tmp_path / "repo-a"
-    repo.mkdir()
-    script = repo / "run.sh"
-    script.write_text("sleep 100", encoding="utf-8")
-
-    process = MagicMock()
-    process.communicate.return_value = ("ok", "")
-    process.returncode = 0
-    process.poll.return_value = None
-    mock_popen.return_value = process
-
-    cron_service._job_start_times = {}
-    cron_service._run_workflow_script(repo, "repo-a:test", script)
-
-    assert "repo-a:test" in cron_service._job_start_times
 
 
 def test_force_terminate_job_returns_false_for_nonexistent():

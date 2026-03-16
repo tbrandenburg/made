@@ -36,13 +36,12 @@ DEFAULT_MAX_RUNTIME_MINUTES = 120  # 2 hours default
 _workflow_max_runtime: dict[str, int] = {}
 
 
-def _terminate_running_job(workflow_id: str) -> None:
-    # Get process reference under lock
-    with _state_lock:
-        running_process = _running_process_by_job.get(workflow_id)
-        if running_process is None or running_process.poll() is not None:
-            _running_process_by_job.pop(workflow_id, None)  # Clean stale entries
-            return
+def _terminate_running_job_unlocked(workflow_id: str) -> None:
+    """Internal version that assumes _state_lock is already held."""
+    running_process = _running_process_by_job.get(workflow_id)
+    if running_process is None or running_process.poll() is not None:
+        _running_process_by_job.pop(workflow_id, None)  # Clean stale entries
+        return
 
     # Terminate outside lock to avoid blocking
     logger.info("Stopping previous cron workflow run for '%s'", workflow_id)
@@ -58,9 +57,14 @@ def _terminate_running_job(workflow_id: str) -> None:
         except subprocess.TimeoutExpired:
             logger.error("Process '%s' became zombie - continuing anyway", workflow_id)
 
-    # Clean up tracking
+    # Clean up tracking (already under lock)
+    _running_process_by_job.pop(workflow_id, None)
+
+
+def _terminate_running_job(workflow_id: str) -> None:
+    # Get process reference under lock
     with _state_lock:
-        _running_process_by_job.pop(workflow_id, None)
+        _terminate_running_job_unlocked(workflow_id)
 
 
 def _resolve_script_path(repo_path: Path, shell_script_path: str) -> Path:
@@ -93,7 +97,7 @@ def _monitor_job_timeouts() -> None:
                         workflow_id,
                         max_runtime,
                     )
-                    _terminate_running_job(workflow_id)
+                    _terminate_running_job_unlocked(workflow_id)
 
 
 def _wait_for_workflow_process(
@@ -158,7 +162,7 @@ def _run_workflow_script(repo_path: Path, workflow_id: str, script_path: Path) -
     started_at = datetime.now(timezone.utc)
 
     with _state_lock:
-        _terminate_running_job(workflow_id)
+        _terminate_running_job_unlocked(workflow_id)
         _started_jobs += 1
         _last_run_by_job[workflow_id] = datetime.now(timezone.utc)
         process = subprocess.Popen(
