@@ -307,7 +307,9 @@ def stop_cron_clock() -> None:
     if _scheduler is None:
         return
 
-    _scheduler.shutdown(wait=False)
+    # Wait for all scheduled jobs (including timeout monitor) to complete
+    # before acquiring locks to prevent deadlock
+    _scheduler.shutdown(wait=True)
 
     with _state_lock:
         for workflow_id in list(_running_process_by_job):
