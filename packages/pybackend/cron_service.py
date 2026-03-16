@@ -311,7 +311,7 @@ def stop_cron_clock() -> None:
 
     with _state_lock:
         for workflow_id in list(_running_process_by_job):
-            _terminate_running_job(workflow_id)
+            _terminate_running_job_unlocked(workflow_id)
             _running_process_by_job.pop(workflow_id, None)
 
     _scheduler = None
