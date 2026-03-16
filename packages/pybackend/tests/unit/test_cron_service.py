@@ -66,8 +66,17 @@ def test_start_cron_clock_registers_only_enabled_workflows_with_existing_scripts
 
     cron_service.start_cron_clock()
 
-    assert mock_scheduler.add_job.call_count == 1
-    _, kwargs = mock_scheduler.add_job.call_args
+    # Should add workflow job + timeout monitor job = 2 total
+    assert mock_scheduler.add_job.call_count == 2
+
+    # Check that the workflow job was added correctly
+    workflow_calls = [
+        call
+        for call in mock_scheduler.add_job.call_args_list
+        if call[1].get("id") == "repo-a:enabled"
+    ]
+    assert len(workflow_calls) == 1
+    kwargs = workflow_calls[0][1]
     assert kwargs["id"] == "repo-a:enabled"
     assert kwargs["max_instances"] == 1
     assert kwargs["args"][0] == repo
@@ -106,7 +115,18 @@ def test_start_cron_clock_marks_invalid_cron_as_warning(
     }
 
     mock_scheduler = MagicMock()
-    mock_scheduler.add_job.side_effect = ValueError("bad cron")
+
+    # Only fail for CronTrigger jobs (workflow jobs), not interval jobs (timeout monitor)
+    def selective_add_job(*args, **kwargs):
+        if (
+            len(args) > 1
+            and hasattr(args[1], "__class__")
+            and "CronTrigger" in str(args[1].__class__)
+        ):
+            raise ValueError("bad cron")
+        return None
+
+    mock_scheduler.add_job.side_effect = selective_add_job
     mock_scheduler_cls.return_value = mock_scheduler
 
     cron_service.start_cron_clock()
