@@ -30,21 +30,37 @@ _last_error_by_job: dict[str, str] = {}
 _last_stdout_by_job: dict[str, str] = {}
 _last_stderr_by_job: dict[str, str] = {}
 _running_process_by_job: dict[str, subprocess.Popen[str]] = {}
+_job_start_times: dict[str, datetime] = {}
+
+DEFAULT_MAX_RUNTIME_MINUTES = 120  # 2 hours default
+_workflow_max_runtime: dict[str, int] = {}
 
 
 def _terminate_running_job(workflow_id: str) -> None:
-    running_process = _running_process_by_job.get(workflow_id)
-    if running_process is None or running_process.poll() is not None:
-        return
+    # Get process reference under lock
+    with _state_lock:
+        running_process = _running_process_by_job.get(workflow_id)
+        if running_process is None or running_process.poll() is not None:
+            _running_process_by_job.pop(workflow_id, None)  # Clean stale entries
+            return
 
+    # Terminate outside lock to avoid blocking
     logger.info("Stopping previous cron workflow run for '%s'", workflow_id)
     running_process.terminate()
+
     try:
         running_process.wait(timeout=5)
     except subprocess.TimeoutExpired:
         logger.warning("Force killing previous cron workflow run for '%s'", workflow_id)
-        running_process.kill()
-        running_process.wait(timeout=5)
+        try:
+            running_process.kill()
+            running_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            logger.error("Process '%s' became zombie - continuing anyway", workflow_id)
+
+    # Clean up tracking
+    with _state_lock:
+        _running_process_by_job.pop(workflow_id, None)
 
 
 def _resolve_script_path(repo_path: Path, shell_script_path: str) -> Path:
@@ -59,6 +75,25 @@ def _tail_output(value: str, max_lines: int = 20) -> str:
     if not lines:
         return ""
     return "\n".join(lines[-max_lines:])
+
+
+def _monitor_job_timeouts() -> None:
+    """Periodically check for jobs exceeding runtime limits."""
+    current_time = datetime.now(timezone.utc)
+    with _state_lock:
+        for workflow_id, start_time in list(_job_start_times.items()):
+            if workflow_id in _running_process_by_job:
+                runtime_minutes = (current_time - start_time).total_seconds() / 60
+                max_runtime = _workflow_max_runtime.get(
+                    workflow_id, DEFAULT_MAX_RUNTIME_MINUTES
+                )
+                if runtime_minutes > max_runtime:
+                    logger.warning(
+                        "Job '%s' exceeded %d min limit, terminating",
+                        workflow_id,
+                        max_runtime,
+                    )
+                    _terminate_running_job(workflow_id)
 
 
 def _wait_for_workflow_process(
@@ -78,6 +113,7 @@ def _wait_for_workflow_process(
     with _state_lock:
         if _running_process_by_job.get(workflow_id) is process:
             _running_process_by_job.pop(workflow_id, None)
+        _job_start_times.pop(workflow_id, None)
         _last_finished_by_job[workflow_id] = finished_at
         _last_duration_ms_by_job[workflow_id] = duration_ms
         _last_exit_code_by_job[workflow_id] = returncode
@@ -102,7 +138,9 @@ def _wait_for_workflow_process(
     with _state_lock:
         _failed_jobs += 1
 
-    logger.warning("Cron workflow '%s' failed with exit code %s", workflow_id, returncode)
+    logger.warning(
+        "Cron workflow '%s' failed with exit code %s", workflow_id, returncode
+    )
     if stdout_tail:
         logger.warning("Cron workflow '%s' stdout: %s", workflow_id, stdout_tail)
     if stderr_tail:
@@ -131,6 +169,7 @@ def _run_workflow_script(repo_path: Path, workflow_id: str, script_path: Path) -
             text=True,
         )
         _running_process_by_job[workflow_id] = process
+        _job_start_times[workflow_id] = started_at
 
     logger.info("Running cron workflow '%s' in '%s'", workflow_id, repo_path)
     Thread(
@@ -141,7 +180,14 @@ def _run_workflow_script(repo_path: Path, workflow_id: str, script_path: Path) -
 
 
 def start_cron_clock() -> None:
-    global _scheduler, _started_jobs, _successful_jobs, _failed_jobs, _configured_jobs, _invalid_jobs, _started_at
+    global \
+        _scheduler, \
+        _started_jobs, \
+        _successful_jobs, \
+        _failed_jobs, \
+        _configured_jobs, \
+        _invalid_jobs, \
+        _started_at
 
     if _scheduler is not None:
         return
@@ -164,10 +210,18 @@ def start_cron_clock() -> None:
             shell_script_path = workflow.get("shellScriptPath")
             workflow_id = workflow.get("id") or "workflow"
             if not isinstance(schedule, str) or not schedule.strip():
-                logger.warning("Skipping workflow '%s' in '%s': missing schedule", workflow_id, repo_name)
+                logger.warning(
+                    "Skipping workflow '%s' in '%s': missing schedule",
+                    workflow_id,
+                    repo_name,
+                )
                 continue
             if not isinstance(shell_script_path, str) or not shell_script_path.strip():
-                logger.warning("Skipping workflow '%s' in '%s': missing shellScriptPath", workflow_id, repo_name)
+                logger.warning(
+                    "Skipping workflow '%s' in '%s': missing shellScriptPath",
+                    workflow_id,
+                    repo_name,
+                )
                 continue
 
             script_path = _resolve_script_path(repo_path, shell_script_path)
@@ -181,6 +235,12 @@ def start_cron_clock() -> None:
                 continue
 
             job_id = f"{repo_name}:{workflow_id}"
+
+            # Configure runtime limits
+            max_runtime = workflow.get("maxRuntimeMinutes", DEFAULT_MAX_RUNTIME_MINUTES)
+            if max_runtime:
+                _workflow_max_runtime[job_id] = max_runtime
+
             try:
                 scheduler.add_job(
                     _run_workflow_script,
@@ -204,6 +264,15 @@ def start_cron_clock() -> None:
 
     scheduler.start()
     _scheduler = scheduler
+
+    # Start job timeout monitor
+    scheduler.add_job(
+        _monitor_job_timeouts,
+        "interval",
+        minutes=1,
+        id="_job_timeout_monitor",
+        replace_existing=True,
+    )
 
     with _state_lock:
         _started_jobs = 0
@@ -323,6 +392,7 @@ def get_cron_job_diagnostics() -> dict[str, dict[str, object | None]]:
         errors = dict(_last_error_by_job)
         stdout_by_job = dict(_last_stdout_by_job)
         stderr_by_job = dict(_last_stderr_by_job)
+        start_times = dict(_job_start_times)
         running = {
             workflow_id
             for workflow_id, process in _running_process_by_job.items()
@@ -335,6 +405,12 @@ def get_cron_job_diagnostics() -> dict[str, dict[str, object | None]]:
         if job.next_run_time is not None:
             next_run_time = job.next_run_time.isoformat()
 
+        runtime_minutes = None
+        if job.id in start_times and job.id in running:
+            runtime_minutes = int(
+                (datetime.now(timezone.utc) - start_times[job.id]).total_seconds() / 60
+            )
+
         diagnostics[job.id] = {
             "lastStartedAt": last_runs.get(job.id),
             "lastFinishedAt": finished_runs.get(job.id),
@@ -345,6 +421,38 @@ def get_cron_job_diagnostics() -> dict[str, dict[str, object | None]]:
             "lastStderr": stderr_by_job.get(job.id),
             "nextRunAt": next_run_time,
             "running": job.id in running,
+            "runtimeMinutes": runtime_minutes,
         }
 
     return diagnostics
+
+
+def force_terminate_job(workflow_id: str) -> bool:
+    """Admin function to manually terminate a job."""
+    with _state_lock:
+        if workflow_id not in _running_process_by_job:
+            return False
+
+    _terminate_running_job(workflow_id)
+    return True
+
+
+def get_long_running_jobs(threshold_minutes: int = 60) -> list[dict]:
+    """Get jobs running longer than threshold."""
+    current_time = datetime.now(timezone.utc)
+    long_running = []
+
+    with _state_lock:
+        for workflow_id, start_time in _job_start_times.items():
+            if workflow_id in _running_process_by_job:
+                runtime = (current_time - start_time).total_seconds() / 60
+                if runtime > threshold_minutes:
+                    long_running.append(
+                        {
+                            "workflow_id": workflow_id,
+                            "runtime_minutes": int(runtime),
+                            "started_at": start_time.isoformat(),
+                        }
+                    )
+
+    return long_running

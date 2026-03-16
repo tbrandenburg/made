@@ -79,6 +79,11 @@ def _normalize_workflow(workflow: Any, index: int) -> dict[str, Any] | None:
     }
     if shell_script_path:
         normalized_workflow["shellScriptPath"] = shell_script_path
+
+    max_runtime_minutes = workflow.get("maxRuntimeMinutes")
+    if isinstance(max_runtime_minutes, int) and max_runtime_minutes > 0:
+        normalized_workflow["maxRuntimeMinutes"] = max_runtime_minutes
+
     return normalized_workflow
 
 

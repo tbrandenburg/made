@@ -1,4 +1,6 @@
 from unittest.mock import MagicMock, patch
+from datetime import timedelta
+import subprocess
 
 import cron_service
 
@@ -13,6 +15,8 @@ def teardown_function():
     cron_service._last_error_by_job = {}
     cron_service._last_stdout_by_job = {}
     cron_service._last_stderr_by_job = {}
+    cron_service._job_start_times = {}
+    cron_service._workflow_max_runtime = {}
 
 
 @patch("cron_service.CronTrigger.from_crontab")
@@ -141,7 +145,9 @@ def test_run_workflow_script_executes_from_repository_directory(mock_popen, tmp_
 
 @patch("cron_service.Thread")
 @patch("cron_service.subprocess.Popen")
-def test_cron_status_tracks_successful_vs_started_jobs(mock_popen, mock_thread, tmp_path):
+def test_cron_status_tracks_successful_vs_started_jobs(
+    mock_popen, mock_thread, tmp_path
+):
     repo = tmp_path / "repo-a"
     repo.mkdir()
     script = repo / ".harness" / "news.sh"
@@ -189,7 +195,9 @@ def test_cron_status_tracks_successful_vs_started_jobs(mock_popen, mock_thread, 
 
 @patch("cron_service.Thread")
 @patch("cron_service.subprocess.Popen")
-def test_new_run_terminates_previous_process_for_same_job(mock_popen, mock_thread, tmp_path):
+def test_new_run_terminates_previous_process_for_same_job(
+    mock_popen, mock_thread, tmp_path
+):
     repo = tmp_path / "repo-a"
     repo.mkdir()
     script = repo / "run.sh"
@@ -239,8 +247,12 @@ def test_get_cron_job_last_runs_includes_only_registered_jobs():
         MagicMock(id="repo-a:wf-2"),
     ]
     cron_service._last_run_by_job = {
-        "repo-a:wf-1": cron_service.datetime(2026, 1, 2, 3, 4, 5, tzinfo=cron_service.timezone.utc),
-        "repo-a:other": cron_service.datetime(2026, 1, 3, 3, 4, 5, tzinfo=cron_service.timezone.utc),
+        "repo-a:wf-1": cron_service.datetime(
+            2026, 1, 2, 3, 4, 5, tzinfo=cron_service.timezone.utc
+        ),
+        "repo-a:other": cron_service.datetime(
+            2026, 1, 3, 3, 4, 5, tzinfo=cron_service.timezone.utc
+        ),
     }
 
     result = cron_service.get_cron_job_last_runs()
@@ -253,7 +265,12 @@ def test_get_cron_job_last_runs_includes_only_registered_jobs():
 def test_get_cron_job_diagnostics_includes_runtime_metadata():
     cron_service._scheduler = MagicMock()
     cron_service._scheduler.get_jobs.return_value = [
-        MagicMock(id="repo-a:wf-1", next_run_time=cron_service.datetime(2026, 1, 2, 4, 5, 6, tzinfo=cron_service.timezone.utc)),
+        MagicMock(
+            id="repo-a:wf-1",
+            next_run_time=cron_service.datetime(
+                2026, 1, 2, 4, 5, 6, tzinfo=cron_service.timezone.utc
+            ),
+        ),
         MagicMock(id="repo-a:wf-2", next_run_time=None),
     ]
 
@@ -261,10 +278,14 @@ def test_get_cron_job_diagnostics_includes_runtime_metadata():
     active_process.poll.return_value = None
     cron_service._running_process_by_job = {"repo-a:wf-1": active_process}
     cron_service._last_run_by_job = {
-        "repo-a:wf-1": cron_service.datetime(2026, 1, 2, 3, 4, 5, tzinfo=cron_service.timezone.utc),
+        "repo-a:wf-1": cron_service.datetime(
+            2026, 1, 2, 3, 4, 5, tzinfo=cron_service.timezone.utc
+        ),
     }
     cron_service._last_finished_by_job = {
-        "repo-a:wf-1": cron_service.datetime(2026, 1, 2, 3, 4, 8, tzinfo=cron_service.timezone.utc),
+        "repo-a:wf-1": cron_service.datetime(
+            2026, 1, 2, 3, 4, 8, tzinfo=cron_service.timezone.utc
+        ),
     }
     cron_service._last_duration_ms_by_job = {"repo-a:wf-1": 3123}
     cron_service._last_exit_code_by_job = {"repo-a:wf-1": 0}
@@ -292,7 +313,9 @@ def test_wait_for_workflow_process_keeps_last_stdout_lines_only():
     process.returncode = 1
     process.poll.return_value = 1
 
-    started_at = cron_service.datetime(2026, 1, 2, 3, 4, 5, tzinfo=cron_service.timezone.utc)
+    started_at = cron_service.datetime(
+        2026, 1, 2, 3, 4, 5, tzinfo=cron_service.timezone.utc
+    )
     cron_service._wait_for_workflow_process("repo-a:wf-1", process, started_at)
 
     stored_stdout = cron_service._last_stdout_by_job["repo-a:wf-1"]
@@ -307,3 +330,81 @@ def test_get_cron_job_diagnostics_returns_empty_when_scheduler_not_running():
     result = cron_service.get_cron_job_diagnostics()
 
     assert result == {}
+
+
+def test_terminate_running_job_handles_double_timeout():
+    """Test that _terminate_running_job handles timeout on kill() gracefully."""
+    cron_service._state_lock = MagicMock()
+    cron_service._running_process_by_job = {}
+
+    mock_process = MagicMock()
+    mock_process.poll.return_value = None
+    mock_process.terminate.side_effect = None
+    mock_process.wait.side_effect = subprocess.TimeoutExpired("cmd", 5)
+    mock_process.kill.side_effect = subprocess.TimeoutExpired("cmd", 5)
+
+    cron_service._running_process_by_job["test-wf"] = mock_process
+    cron_service._terminate_running_job("test-wf")
+
+    # Should not raise, zombie case handled
+    assert "test-wf" not in cron_service._running_process_by_job
+
+
+@patch("cron_service.subprocess.Popen")
+def test_run_workflow_script_tracks_start_time(mock_popen, tmp_path):
+    """Test that job start time is tracked."""
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    script = repo / "run.sh"
+    script.write_text("sleep 100", encoding="utf-8")
+
+    process = MagicMock()
+    process.communicate.return_value = ("ok", "")
+    process.returncode = 0
+    process.poll.return_value = None
+    mock_popen.return_value = process
+
+    cron_service._job_start_times = {}
+    cron_service._run_workflow_script(repo, "repo-a:test", script)
+
+    assert "repo-a:test" in cron_service._job_start_times
+
+
+def test_force_terminate_job_returns_false_for_nonexistent():
+    """Test force_terminate_job returns False when job not running."""
+    cron_service._running_process_by_job = {}
+
+    result = cron_service.force_terminate_job("nonexistent")
+
+    assert result is False
+
+
+@patch("cron_service._terminate_running_job")
+def test_force_terminate_job_terminates_running(mock_terminate):
+    """Test force_terminate_job terminates running job."""
+    mock_process = MagicMock()
+    cron_service._running_process_by_job = {"test-wf": mock_process}
+
+    result = cron_service.force_terminate_job("test-wf")
+
+    mock_terminate.assert_called_once_with("test-wf")
+    assert result is True
+
+
+def test_get_long_running_jobs_returns_running_jobs_above_threshold():
+    """Test get_long_running_jobs returns jobs above threshold."""
+    cron_service._running_process_by_job = {}
+    cron_service._job_start_times = {
+        "short": cron_service.datetime.now(cron_service.timezone.utc),  # Just started
+        "long": cron_service.datetime.now(cron_service.timezone.utc)
+        - timedelta(minutes=90),  # 90 min ago
+    }
+    cron_service._running_process_by_job = {
+        "short": MagicMock(),
+        "long": MagicMock(),
+    }
+
+    result = cron_service.get_long_running_jobs(threshold_minutes=60)
+
+    assert len(result) == 1
+    assert result[0]["workflow_id"] == "long"
