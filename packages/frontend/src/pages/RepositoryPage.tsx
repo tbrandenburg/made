@@ -100,12 +100,20 @@ const MODEL_OPTIONS = [
     label: "github-copilot/claude-opus-4.5",
   },
   {
+    value: "github-copilot/claude-opus-4.6",
+    label: "github-copilot/claude-opus-4.6",
+  },
+  {
     value: "github-copilot/claude-sonnet-4",
     label: "github-copilot/claude-sonnet-4",
   },
   {
     value: "github-copilot/claude-sonnet-4.5",
     label: "github-copilot/claude-sonnet-4.5",
+  },
+  {
+    value: "github-copilot/claude-sonnet-4.6",
+    label: "github-copilot/claude-sonnet-4.6",
   },
   {
     value: "github-copilot/gemini-2.5-pro",
@@ -143,7 +151,18 @@ const MODEL_OPTIONS = [
     value: "github-copilot/gpt-5.1-codex-mini",
     label: "github-copilot/gpt-5.1-codex-mini",
   },
-  { value: "github-copilot/gpt-5.2", label: "github-copilot/gpt-5.2" },
+  {
+    value: "github-copilot/gpt-5.2",
+    label: "github-copilot/gpt-5.2"
+  },
+  {
+    value: "github-copilot/gpt-5.3",
+    label: "github-copilot/gpt-5.3"
+  },
+  {
+    value: "github-copilot/gpt-5.4",
+    label: "github-copilot/gpt-5.4"
+  },
   {
     value: "github-copilot/gpt-5.2-codex",
     label: "github-copilot/gpt-5.2-codex",
@@ -162,6 +181,7 @@ const MODEL_OPTIONS = [
   },
   { value: "openai/gpt-5.2", label: "openai/gpt-5.2" },
   { value: "openai/gpt-5.3", label: "openai/gpt-5.3" },
+  { value: "openai/gpt-5.4", label: "openai/gpt-5.4" },
   {
     value: "openai/gpt-5.2-codex",
     label: "openai/gpt-5.2-codex",
@@ -170,6 +190,10 @@ const MODEL_OPTIONS = [
     value: "openai/gpt-5.3-codex",
     label: "openai/gpt-5.3-codex",
   },
+  {
+    value: "openai/gpt-5.4-codex",
+    label: "openai/gpt-5.4-codex",
+  }
 ];
 
 type HarnessRun = {
