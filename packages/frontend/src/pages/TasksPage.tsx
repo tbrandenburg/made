@@ -50,11 +50,7 @@ const formatErrorText = (value?: string | null) => {
   if (!value || !value.trim()) {
     return "-";
   }
-  const normalized = value.trim();
-  if (normalized.length <= 80) {
-    return normalized;
-  }
-  return `${normalized.slice(0, 77)}...`;
+  return value.trim();
 };
 
 const formatWorkflowLastRun = (workflow: WorkspaceWorkflowSummary) => {
@@ -93,12 +89,14 @@ const renderWorkflowDiagnosticsSummary = (diagnostics: WorkflowDiagnostics) => {
         <span>Started: {formatDateTime(diagnostics.lastStartedAt)}</span>
         <span>Finished: {formatDateTime(diagnostics.lastFinishedAt)}</span>
       </div>
-      <div className="meta-secondary">
-        Error: {formatErrorText(diagnostics.lastStderr ?? diagnostics.lastError)}
-      </div>
-      <div className="meta-secondary">
-        Stdout: {formatErrorText(diagnostics.lastStdout)}
-      </div>
+      <div className="meta-secondary">Error</div>
+      <pre className="workflow-diagnostics__output">
+        {formatErrorText(diagnostics.lastStderr ?? diagnostics.lastError)}
+      </pre>
+      <div className="meta-secondary">Stdout</div>
+      <pre className="workflow-diagnostics__output">
+        {formatErrorText(diagnostics.lastStdout)}
+      </pre>
     </details>
   );
 };

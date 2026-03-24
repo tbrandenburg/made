@@ -158,8 +158,10 @@ describe("TasksPage", () => {
     );
 
     expect(await screen.findByText("Diagnostics")).toBeInTheDocument();
-    expect(screen.getByText(/Error: captured stderr/)).toBeInTheDocument();
-    expect(screen.getByText(/Stdout: line-11/)).toBeInTheDocument();
+    expect(screen.getByText("Error")).toBeInTheDocument();
+    expect(screen.getByText("captured stderr")).toBeInTheDocument();
+    expect(screen.getByText("Stdout")).toBeInTheDocument();
+    expect(screen.getByText(/line-11/)).toBeInTheDocument();
   });
 
   it("shows fallback diagnostics label when no diagnostics exist", async () => {
