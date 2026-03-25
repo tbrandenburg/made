@@ -497,3 +497,13 @@
   color: var(--text);
   font-size: 0.82rem;
 }
+
+.workflow-log-tail {
+  margin: 0;
+  max-height: 24rem;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}

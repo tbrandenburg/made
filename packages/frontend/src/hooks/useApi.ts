@@ -270,6 +270,21 @@ export type WorkflowDefinition = {
   steps: WorkflowStep[];
 };
 
+export type WorkflowLogSummary = {
+  name: string;
+  location: "var" | "tmp" | string;
+  path: string;
+  sizeBytes: number;
+  modifiedAt: string;
+};
+
+export type WorkflowLogTail = {
+  name: string;
+  location: "var" | "tmp" | string;
+  path: string;
+  tail: string;
+};
+
 export const api = {
   getDashboard: () =>
     request<{
@@ -478,6 +493,11 @@ export const api = {
     request<{ workflows: WorkflowDefinition[] }>("/workflows"),
   getWorkspaceWorkflows: () =>
     request<{ workflows: WorkspaceWorkflowSummary[] }>("/workspace/workflows"),
+  getWorkflowLogs: () => request<{ logs: WorkflowLogSummary[] }>("/workflow-logs"),
+  getWorkflowLogTail: (location: string, logName: string) =>
+    request<WorkflowLogTail>(
+      `/workflow-logs/${encodeURIComponent(location)}/${encodeURIComponent(logName)}`,
+    ),
   terminateWorkflow: (workflowId: string) =>
     request<{ success: boolean; message?: string }>(`/workflows/${encodeURIComponent(workflowId)}/terminate`, {
       method: "POST",

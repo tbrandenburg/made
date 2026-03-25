@@ -55,6 +55,8 @@ from cron_service import (
     force_terminate_job,
     get_cron_job_diagnostics,
     get_cron_job_last_runs,
+    list_workflow_logs,
+    read_workflow_log_tail,
     refresh_cron_clock,
     start_cron_clock,
     stop_cron_clock,
@@ -608,6 +610,32 @@ def workspace_workflows():
         )
     except Exception as exc:
         logger.exception("Failed to list workspace workflows")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/workflow-logs")
+def workflow_logs():
+    try:
+        logger.info("Listing workflow log files")
+        return {"logs": list_workflow_logs()}
+    except Exception as exc:
+        logger.exception("Failed to list workflow log files")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/workflow-logs/{location}/{log_name}")
+def workflow_log_tail(location: str, log_name: str):
+    try:
+        logger.info("Reading workflow log tail for %s/%s", location, log_name)
+        return read_workflow_log_tail(location, log_name, max_lines=20)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to read workflow log tail for %s/%s", location, log_name)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )

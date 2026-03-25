@@ -34,6 +34,11 @@ _job_start_times: dict[str, datetime] = {}
 
 DEFAULT_MAX_RUNTIME_MINUTES = 120  # 2 hours default
 _workflow_max_runtime: dict[str, int] = {}
+WORKFLOW_LOG_PREFIX = "made-"
+WORKFLOW_LOG_LOCATIONS: dict[str, Path] = {
+    "var": Path("/var/log"),
+    "tmp": Path("/tmp/made-harness-logs"),
+}
 
 
 def _terminate_running_job_unlocked(workflow_id: str) -> None:
@@ -79,6 +84,72 @@ def _tail_output(value: str, max_lines: int = 20) -> str:
     if not lines:
         return ""
     return "\n".join(lines[-max_lines:])
+
+
+def _is_workflow_log_file(file_path: Path) -> bool:
+    return (
+        file_path.is_file()
+        and file_path.name.startswith(WORKFLOW_LOG_PREFIX)
+        and file_path.suffix == ".log"
+    )
+
+
+def _validate_log_name(log_name: str) -> bool:
+    return (
+        bool(log_name)
+        and "/" not in log_name
+        and "\\" not in log_name
+        and log_name.startswith(WORKFLOW_LOG_PREFIX)
+        and log_name.endswith(".log")
+    )
+
+
+def list_workflow_logs() -> list[dict[str, object]]:
+    log_files: list[tuple[float, dict[str, object]]] = []
+    for location, log_dir in WORKFLOW_LOG_LOCATIONS.items():
+        if not log_dir.exists() or not log_dir.is_dir():
+            continue
+        for file_path in log_dir.iterdir():
+            if not _is_workflow_log_file(file_path):
+                continue
+            stat = file_path.stat()
+            modified_at = datetime.fromtimestamp(stat.st_mtime, timezone.utc)
+            log_files.append(
+                (
+                    stat.st_mtime,
+                    {
+                        "name": file_path.name,
+                        "location": location,
+                        "path": str(file_path),
+                        "sizeBytes": stat.st_size,
+                        "modifiedAt": modified_at.isoformat(),
+                    },
+                )
+            )
+
+    return [entry for _, entry in sorted(log_files, key=lambda item: item[0], reverse=True)]
+
+
+def read_workflow_log_tail(
+    location: str, log_name: str, max_lines: int = 20
+) -> dict[str, object]:
+    log_dir = WORKFLOW_LOG_LOCATIONS.get(location)
+    if log_dir is None:
+        raise FileNotFoundError("Unknown log location")
+    if not _validate_log_name(log_name):
+        raise FileNotFoundError("Invalid log filename")
+
+    file_path = log_dir / log_name
+    if not file_path.exists() or not file_path.is_file():
+        raise FileNotFoundError("Workflow log file not found")
+
+    content = file_path.read_text(encoding="utf-8", errors="replace")
+    return {
+        "name": log_name,
+        "location": location,
+        "path": str(file_path),
+        "tail": _tail_output(content, max_lines=max_lines),
+    }
 
 
 def _monitor_job_timeouts() -> None:
