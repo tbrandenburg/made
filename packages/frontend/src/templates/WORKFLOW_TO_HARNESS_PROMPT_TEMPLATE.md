@@ -106,8 +106,18 @@ Example format:
 
 Log destination preference:
 
-1.  `/var/log/<workflow>.log`
-2.  `/tmp/made-harness-logs/<workflow>.log`
+1.  `/var/log/made-<workflow-name>-<timestamp>-<PID>.log`
+2.  `/tmp/made-harness-logs/made-<workflow-name>-<timestamp>-<PID>.log`
+
+Required filename format:
+
+`made-[workflow-name]-[timestamp]-[PID].log`
+
+Where:
+
+• `workflow-name` is slug-safe (lowercase letters, digits, `-`)
+• `timestamp` uses UTC `YYYYMMDDTHHMMSSZ`
+• `PID` is shell `$$`
 
 If `/var/log` cannot be written, automatically fallback.
 

@@ -1114,6 +1114,43 @@ class TestWorkflowEndpoints:
             {"sample:wf_1": {"lastExitCode": 0, "running": False}},
         )
 
+    @patch("app.list_workflow_logs")
+    def test_workflow_logs_success(self, mock_list_logs):
+        mock_list_logs.return_value = [
+            {
+                "name": "made-nightly-20260325T120000Z-123.log",
+                "location": "tmp",
+                "path": "/tmp/made-harness-logs/made-nightly-20260325T120000Z-123.log",
+                "sizeBytes": 42,
+                "modifiedAt": "2026-03-25T12:00:00+00:00",
+            }
+        ]
+
+        response = client.get("/api/workflow-logs")
+
+        assert response.status_code == 200
+        assert response.json()["logs"][0]["name"].startswith("made-")
+        mock_list_logs.assert_called_once_with()
+
+    @patch("app.read_workflow_log_tail")
+    def test_workflow_log_tail_success(self, mock_read_log_tail):
+        mock_read_log_tail.return_value = {
+            "name": "made-nightly-20260325T120000Z-123.log",
+            "location": "tmp",
+            "path": "/tmp/made-harness-logs/made-nightly-20260325T120000Z-123.log",
+            "tail": "line-1\nline-2",
+        }
+
+        response = client.get(
+            "/api/workflow-logs/tmp/made-nightly-20260325T120000Z-123.log"
+        )
+
+        assert response.status_code == 200
+        assert response.json()["tail"] == "line-1\nline-2"
+        mock_read_log_tail.assert_called_once_with(
+            "tmp", "made-nightly-20260325T120000Z-123.log", max_lines=20
+        )
+
     @patch("app.read_workflows")
     @patch("app._repository_path")
     def test_repository_workflows_success(self, mock_repo_path, mock_read):

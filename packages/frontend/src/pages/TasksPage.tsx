@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   api,
   ArtefactSummary,
+  WorkflowLogSummary,
   WorkspaceWorkflowSummary,
 } from "../hooks/useApi";
 import { Panel } from "../components/Panel";
@@ -65,6 +66,19 @@ const formatWorkflowLastRun = (workflow: WorkspaceWorkflowSummary) => {
   return formatDateTime(workflow.lastRun);
 };
 
+const formatBytes = (value: number) => {
+  if (!Number.isFinite(value) || value < 0) {
+    return "-";
+  }
+  if (value < 1024) {
+    return `${value} B`;
+  }
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 const renderWorkflowDiagnosticsSummary = (diagnostics: WorkflowDiagnostics) => {
   if (!diagnostics) {
     return <span className="meta-secondary">No diagnostics yet</span>;
@@ -107,6 +121,13 @@ export const TasksPage: React.FC = () => {
   const [workspaceWorkflows, setWorkspaceWorkflows] = useState<
     WorkspaceWorkflowSummary[]
   >([]);
+  const [workflowLogs, setWorkflowLogs] = useState<WorkflowLogSummary[]>([]);
+  const [logModal, setLogModal] = useState<{
+    open: boolean;
+    title: string;
+    content: string;
+  }>({ open: false, title: "", content: "" });
+  const [loadingLog, setLoadingLog] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [terminatingWorkflow, setTerminatingWorkflow] = useState<string | null>(null);
   const [terminateModal, setTerminateModal] = useState(false);
@@ -138,11 +159,13 @@ export const TasksPage: React.FC = () => {
 
   useEffect(() => {
     loadTasks();
-    api
-      .getWorkspaceWorkflows()
-      .then((res) => setWorkspaceWorkflows(res.workflows))
+    Promise.all([api.getWorkspaceWorkflows(), api.getWorkflowLogs()])
+      .then(([workflowRes, logRes]) => {
+        setWorkspaceWorkflows(workflowRes.workflows);
+        setWorkflowLogs(logRes.logs);
+      })
       .catch((error) =>
-        console.error("Failed to load workspace workflows", error),
+        console.error("Failed to load tasks page data", error),
       );
   }, []);
 
@@ -184,6 +207,27 @@ export const TasksPage: React.FC = () => {
     } finally {
       setTerminatingWorkflow(null);
       setSelectedWorkflow(null);
+    }
+  };
+
+  const openLogTail = async (logFile: WorkflowLogSummary) => {
+    setLoadingLog(`${logFile.location}:${logFile.name}`);
+    try {
+      const result = await api.getWorkflowLogTail(logFile.location, logFile.name);
+      setLogModal({
+        open: true,
+        title: logFile.name,
+        content: result.tail || "-",
+      });
+    } catch (error) {
+      console.error("Failed to load workflow log tail", error);
+      setLogModal({
+        open: true,
+        title: logFile.name,
+        content: `Failed to read log file: ${error instanceof Error ? error.message : "Unknown error"}`,
+      });
+    } finally {
+      setLoadingLog(null);
     }
   };
 
@@ -261,6 +305,42 @@ export const TasksPage: React.FC = () => {
                             </tr>
                           );
                         })}
+                      </tbody>
+                    </table>
+                  )}
+
+                  <h3>Available workflow logs</h3>
+                  {workflowLogs.length === 0 ? (
+                    <div className="empty">No workflow logs found.</div>
+                  ) : (
+                    <table className="git-table">
+                      <thead>
+                        <tr>
+                          <th>Filename</th>
+                          <th>Location</th>
+                          <th>Modified</th>
+                          <th>Size</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {workflowLogs.map((logFile) => (
+                          <tr key={`${logFile.location}:${logFile.name}`}>
+                            <td>{logFile.name}</td>
+                            <td>{logFile.path}</td>
+                            <td>{formatDateTime(logFile.modifiedAt)}</td>
+                            <td>{formatBytes(logFile.sizeBytes)}</td>
+                            <td>
+                              <button
+                                className="secondary"
+                                onClick={() => void openLogTail(logFile)}
+                                disabled={loadingLog === `${logFile.location}:${logFile.name}`}
+                              >
+                                {loadingLog === `${logFile.location}:${logFile.name}` ? "Loading..." : "View tail"}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   )}
@@ -382,6 +462,14 @@ export const TasksPage: React.FC = () => {
             Terminate
           </button>
         </div>
+      </Modal>
+
+      <Modal
+        open={logModal.open}
+        title={logModal.title}
+        onClose={() => setLogModal({ open: false, title: "", content: "" })}
+      >
+        <pre className="workflow-log-tail">{logModal.content}</pre>
       </Modal>
     </div>
   );
