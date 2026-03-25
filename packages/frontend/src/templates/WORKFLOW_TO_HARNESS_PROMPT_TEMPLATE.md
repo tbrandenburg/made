@@ -106,8 +106,8 @@ Example format:
 
 Log destination preference:
 
-1.  `/var/log/made-<workflow-name>-<timestamp>-<PID>.log`
-2.  `/tmp/made-harness-logs/made-<workflow-name>-<timestamp>-<PID>.log`
+1.  `/var/log/made-[workflow-name]-[timestamp]-[PID].log`
+2.  `/tmp/made-harness-logs/made-[workflow-name]-[timestamp]-[PID].log`
 
 Required filename format:
 
@@ -443,6 +443,12 @@ Adapt {{AGENT_PARAMETER_FORMAT}} when provided and supported by CLI.
 set -euo pipefail
 
 SCRIPT_NAME="{{WORKFLOW_FILE_NAME}}"
+WORKFLOW_NAME="${SCRIPT_NAME%.sh}"
+WORKFLOW_SLUG=$(printf '%s' "$WORKFLOW_NAME" \
+  | tr '[:upper:]' '[:lower:]' \
+  | sed -E 's/[^a-z0-9-]+/-/g; s/^-+//; s/-+$//; s/-+/-/g')
+LOG_TIMESTAMP="$(date -u +'%Y%m%dT%H%M%SZ')"
+LOG_BASENAME="made-${WORKFLOW_SLUG}-${LOG_TIMESTAMP}-$$.log"
 
 # Argument handling
 DRY_RUN=false
@@ -455,11 +461,11 @@ fi
 
 # Try /var/log first, fallback to /tmp/made-harness-logs
 if [[ -w "/var/log" ]]; then
-  LOG_FILE="/var/log/${SCRIPT_NAME%.sh}.log"
+  LOG_FILE="/var/log/${LOG_BASENAME}"
 else
   LOG_DIR="/tmp/made-harness-logs"
   mkdir -p "$LOG_DIR"
-  LOG_FILE="$LOG_DIR/${SCRIPT_NAME%.sh}.log"
+  LOG_FILE="$LOG_DIR/${LOG_BASENAME}"
 fi
 
 log() {
