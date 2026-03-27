@@ -17,10 +17,10 @@ jobs:
       contents: write
     outputs:
       has-command: ${{ steps.parse-comment.outputs.has_command }}
+      has-agent: ${{ steps.parse-comment.outputs.has_agent }}
       command: ${{ steps.parse-comment.outputs.command }}
       prompt: ${{ steps.parse-comment.outputs.prompt }}
       agent: ${{ steps.parse-comment.outputs.agent }}
-      is-agent-command: ${{ steps.parse-comment.outputs.is_agent_command }}
     
     steps:
       - name: Checkout repository
@@ -65,6 +65,8 @@ jobs:
             prompt="${BASH_REMATCH[3]}"
             # Remove leading whitespace from prompt
             prompt=$(echo "$prompt" | sed 's/^[[:space:]]*//')
+            # "agent" is a generic placeholder — clear it to trigger the "build" fallback
+            [[ "$agent" == "agent" ]] && agent=""
             
             echo "Detected agent command"
             echo "agent=$agent" >> $GITHUB_OUTPUT
@@ -73,7 +75,24 @@ jobs:
             echo "$prompt" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
             echo "has_command=true" >> $GITHUB_OUTPUT
-            echo "is_agent_command=true" >> $GITHUB_OUTPUT
+            echo "has_agent=true" >> $GITHUB_OUTPUT
+            
+          elif [[ "$comment" =~ ^\*([a-zA-Z0-9_-]+)[[:space:]]+(.*)$ ]]; then
+            # Agent prompt format: *agent PROMPT (no slash command)
+            agent="${BASH_REMATCH[1]}"
+            prompt="${BASH_REMATCH[2]}"
+            # Remove leading whitespace from prompt
+            prompt=$(echo "$prompt" | sed 's/^[[:space:]]*//')
+            # "agent" is a generic placeholder — clear it to trigger the "build" fallback
+            [[ "$agent" == "agent" ]] && agent=""
+            
+            echo "Detected agent prompt"
+            echo "agent=$agent" >> $GITHUB_OUTPUT
+            echo "prompt<<EOF" >> $GITHUB_OUTPUT
+            echo "$prompt" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "has_command=false" >> $GITHUB_OUTPUT
+            echo "has_agent=true" >> $GITHUB_OUTPUT
             
           elif [[ "$comment" =~ ^/([a-zA-Z0-9_-]+)(.*)$ ]]; then
             # Direct command format: /command PROMPT
@@ -88,15 +107,16 @@ jobs:
             echo "$prompt" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
             echo "has_command=true" >> $GITHUB_OUTPUT
-            echo "is_agent_command=false" >> $GITHUB_OUTPUT
+            echo "has_agent=false" >> $GITHUB_OUTPUT
             
           else
             echo "No command detected in comment"
             echo "has_command=false" >> $GITHUB_OUTPUT
+            echo "has_agent=false" >> $GITHUB_OUTPUT
           fi
 
   execute-opencode:
-    if: needs.parse-and-check.outputs.has-command == 'true'
+    if: needs.parse-and-check.outputs.has-command == 'true' || needs.parse-and-check.outputs.has-agent == 'true'
     needs: parse-and-check
     permissions:
       issues: write
@@ -107,11 +127,11 @@ jobs:
       run-name: "${{ github.event.issue.number != null && format('issue-{0}-comment-{1}', github.event.issue.number, github.event.comment.id) || format('pr-{0}-comment-{1}', github.event.pull_request.number, github.event.comment.id) }}"
       command: ${{ needs.parse-and-check.outputs.command }}
       prompt: ${{ needs.parse-and-check.outputs.prompt }}
-      agent: ${{ needs.parse-and-check.outputs.is-agent-command == 'true' && needs.parse-and-check.outputs.agent || 'build' }}
+      agent: ${{ needs.parse-and-check.outputs.agent || 'build' }}
       timeout-minutes: 30
 
   comment-results:
-    if: needs.parse-and-check.outputs.has-command == 'true' && always()
+    if: (needs.parse-and-check.outputs.has-command == 'true' || needs.parse-and-check.outputs.has-agent == 'true') && always()
     needs: [parse-and-check, execute-opencode]
     runs-on: ubuntu-latest
     permissions:
@@ -123,8 +143,9 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const hasCommand = '${{ needs.parse-and-check.outputs.has-command }}' === 'true';
+            const hasAgent = '${{ needs.parse-and-check.outputs.has-agent }}' === 'true';
             const command = '${{ needs.parse-and-check.outputs.command }}';
-            const isAgentCommand = '${{ needs.parse-and-check.outputs.is-agent-command }}' === 'true';
             const agent = '${{ needs.parse-and-check.outputs.agent }}';
             const runId = context.runId;
             
@@ -134,10 +155,12 @@ jobs:
             const artifactName = '${{ needs.execute-opencode.outputs.artifact-name }}';
             
             let executionType;
-            if (isAgentCommand) {
-              executionType = '*' + agent + ' /' + command + ' (agent command)';
+            if (hasAgent && hasCommand) {
+              executionType = '*' + agent + ' /' + command;
+            } else if (hasAgent) {
+              executionType = '*' + agent;
             } else {
-              executionType = '/' + command + ' (direct command)';
+              executionType = '/' + command;
             }
             
             let commentBody;

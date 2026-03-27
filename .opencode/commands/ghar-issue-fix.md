@@ -557,9 +557,26 @@ git push
 
 ### PR creation fails
 
-- Check if PR already exists for branch
-- Check for permission issues
-- Provide manual gh command
+1. Check if a PR already exists for the branch: `gh pr list --head {branch-name}`
+   - If yes → use that PR, continue
+2. Check the error message:
+   - **"GitHub Actions is not permitted to create or approve pull requests"** → This is a repository-level setting blocking PR creation. Note: the workflow already declares `pull-requests: write` — that is **not** the problem. The repo admin must enable the feature separately.
+     - **STOP** — do NOT continue to the self-review or archive phases
+     - Output clearly:
+       ```
+       ❌ PR creation blocked by GitHub Actions permissions.
+
+       The branch has been pushed: {branch-url}
+
+       To fix (repo admin required):
+         Settings → Actions → General → Workflow permissions
+         → Enable "Allow GitHub Actions to create and approve pull requests"
+
+       To create the PR manually in the meantime, run:
+         gh pr create --title "{title}" --head {branch-name} --base main
+       ```
+   - **Other permission / auth error** → STOP with the error message and suggest using a PAT with `repo` scope
+3. Only provide a manual `gh pr create` command and STOP — do NOT proceed to Phase 8 (review) or Phase 9 (archive) without a real PR number
 
 ### Already on a branch with changes
 
