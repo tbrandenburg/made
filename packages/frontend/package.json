@@ -45,6 +45,7 @@
     "vitest": "^4.0.18"
   },
   "overrides": {
-    "picomatch": "4.0.4"
+    "picomatch": "4.0.4",
+    "flatted": ">=3.4.0"
   }
 }
