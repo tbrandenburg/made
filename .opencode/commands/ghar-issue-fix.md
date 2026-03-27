@@ -1,8 +1,11 @@
 ---
 description: Implement a fix for the latest open issue
+argument-hint: <issue-number|url>
 ---
 
 # Implement Issue Fix
+
+**Input**: $ARGUMENTS
 
 ---
 
@@ -24,11 +27,15 @@ Execute the implementation plan from:
 
 ## Phase 1: LOAD - Get the Artifact
 
-### 1.1 Get latest open Github issue with implementation plan
+### 1.1 Get Github issue with implementation plan
 
-* Use `gh` CLI to get the **latest** **open** issue **without a linked PR**
-* Check if that issue already has an implementation plan comment
-* If not, IMMEDIATELY STOP here!
+* Check the input format:
+  * Looks like a number (`123`, `#123`) → GitHub issue number
+  * Starts with `http` → GitHub URL → extract issue number
+  * Anything else → IMMEDIATELY STOP here!
+
+* Check if that issue already has an implementation plan comment with `gh` CLI
+  * If not, IMMEDIATELY STOP here!
 
 ### 1.2 Load and Parse Artifact
 
