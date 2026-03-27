@@ -1,6 +1,7 @@
 import os
 import subprocess
 import logging
+import shutil
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -8,7 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Union
 from urllib.parse import quote_plus
 
-from config import get_workspace_home
+from config import get_made_home, get_workspace_home
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +149,44 @@ def get_repository_info(repo_name: str) -> Dict[str, Union[str, bool, None]]:
 def list_repositories() -> List[Dict[str, Union[str, bool, None]]]:
     workspace = get_workspace_home()
     return [get_repository_info(name) for name in list_directories(workspace)]
+
+
+def list_repository_templates() -> List[str]:
+    templates_root = get_made_home() / ".made" / "templates"
+    if not templates_root.exists() or not templates_root.is_dir():
+        return []
+
+    return sorted(
+        [entry.name for entry in templates_root.iterdir() if entry.is_dir()],
+        key=str.casefold,
+    )
+
+
+def apply_repository_template(repo_name: str, template_name: str) -> Dict[str, str]:
+    normalized_template_name = template_name.strip()
+    if not normalized_template_name:
+        raise ValueError("Template name is required")
+    if Path(normalized_template_name).name != normalized_template_name:
+        raise ValueError("Invalid template name")
+
+    workspace = get_workspace_home()
+    repo_path = workspace / repo_name
+    if not repo_path.exists() or not repo_path.is_dir():
+        raise FileNotFoundError("Repository not found")
+
+    source_path = get_made_home() / ".made" / normalized_template_name
+    if not source_path.exists() or not source_path.is_dir():
+        raise FileNotFoundError("Template not found")
+
+    for child in source_path.iterdir():
+        destination_path = repo_path / child.name
+        if child.is_dir():
+            shutil.copytree(child, destination_path, dirs_exist_ok=True)
+        else:
+            destination_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(child, destination_path)
+
+    return {"repository": repo_name, "template": normalized_template_name}
 
 
 def create_repository(name: str) -> Dict[str, Union[str, bool, None]]:

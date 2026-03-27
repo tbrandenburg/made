@@ -4,10 +4,12 @@ from pathlib import Path
 import pytest
 
 from repository_service import (
+    apply_repository_template,
     clone_repository,
     create_repository_worktree,
     get_repository_git_status,
     get_repository_info,
+    list_repository_templates,
     pull_repository,
     remove_repository_worktree,
 )
@@ -315,3 +317,39 @@ def test_get_repository_git_status_uses_remote_line_stats(monkeypatch, tmp_path)
     assert result["aheadBehind"] == {"ahead": 1, "behind": 2}
     assert result["lineStats"] == {"green": 4, "red": 1}
     assert result["diff"] == [{"path": "src/local.py", "green": 10, "red": 8}]
+
+
+def test_list_repository_templates(monkeypatch, tmp_path):
+    made_home = tmp_path / "made-home"
+    templates_dir = made_home / ".made" / "templates"
+    (templates_dir / "zeta").mkdir(parents=True)
+    (templates_dir / "alpha").mkdir(parents=True)
+
+    monkeypatch.setattr("repository_service.get_made_home", lambda: made_home)
+
+    result = list_repository_templates()
+
+    assert result == ["alpha", "zeta"]
+
+
+def test_apply_repository_template(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    repo_path = workspace / "repo"
+    repo_path.mkdir(parents=True)
+    (repo_path / "README.md").write_text("old", encoding="utf-8")
+
+    made_home = tmp_path / "made-home"
+    template_dir = made_home / ".made" / "starter"
+    template_dir.mkdir(parents=True)
+    (template_dir / "README.md").write_text("new", encoding="utf-8")
+    (template_dir / "src").mkdir()
+    (template_dir / "src" / "main.py").write_text("print('x')", encoding="utf-8")
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+    monkeypatch.setattr("repository_service.get_made_home", lambda: made_home)
+
+    result = apply_repository_template("repo", "starter")
+
+    assert result == {"repository": "repo", "template": "starter"}
+    assert (repo_path / "README.md").read_text(encoding="utf-8") == "new"
+    assert (repo_path / "src" / "main.py").read_text(encoding="utf-8") == "print('x')"

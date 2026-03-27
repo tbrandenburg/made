@@ -62,6 +62,7 @@ from cron_service import (
     stop_cron_clock,
 )
 from repository_service import (
+    apply_repository_template,
     create_repository,
     create_repository_file,
     clone_repository,
@@ -71,6 +72,7 @@ from repository_service import (
     get_repository_info,
     get_repository_git_status,
     list_repositories,
+    list_repository_templates,
     list_repository_files,
     pull_repository,
     read_repository_file,
@@ -276,6 +278,43 @@ def clone_repo(payload: dict = Body(...)):
             exc,
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@app.get("/api/repositories/templates")
+def repository_templates():
+    try:
+        logger.info("Listing repository templates")
+        return {"templates": list_repository_templates()}
+    except Exception as exc:
+        logger.exception("Failed to list repository templates")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.post("/api/repositories/{name}/templates/apply")
+def apply_template_to_repository(name: str, payload: dict = Body(...)):
+    template_name = payload.get("template")
+    if not template_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Template name is required",
+        )
+
+    try:
+        logger.info("Applying template '%s' to repository '%s'", template_name, name)
+        return apply_repository_template(name, template_name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except Exception as exc:
+        logger.exception(
+            "Failed to apply template '%s' to repository '%s'", template_name, name
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
 
 
 @app.get("/api/repositories/{name}")

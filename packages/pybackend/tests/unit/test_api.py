@@ -434,6 +434,28 @@ class TestRepositoryEndpoints:
         assert response.status_code == 400
         assert "Failed to clone repository" in response.json()["detail"]
 
+    @patch("app.list_repository_templates")
+    def test_list_repository_templates_success(self, mock_list_templates):
+        mock_list_templates.return_value = ["starter", "python"]
+
+        response = client.get("/api/repositories/templates")
+
+        assert response.status_code == 200
+        assert response.json() == {"templates": ["starter", "python"]}
+
+    @patch("app.apply_repository_template")
+    def test_apply_repository_template_success(self, mock_apply_template):
+        mock_apply_template.return_value = {"repository": "sample", "template": "starter"}
+
+        response = client.post(
+            "/api/repositories/sample/templates/apply",
+            json={"template": "starter"},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"repository": "sample", "template": "starter"}
+        mock_apply_template.assert_called_once_with("sample", "starter")
+
     @patch("app.send_agent_message")
     def test_repository_agent_busy(self, mock_send):
         mock_send.side_effect = ChannelBusyError("busy")
