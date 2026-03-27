@@ -65,7 +65,7 @@ Focus on reducing future maintenance costs and improving developer productivity.
 
 ## Final action
 
-Just for the critical and high issues:
+Just for the critical, high and technical debt issues:
 
 1. Check with `gh` CLI if there are already similar issues
 2. Only if there are no similar issues, raise Github issues for the new ones
