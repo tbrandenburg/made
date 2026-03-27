@@ -174,7 +174,7 @@ def apply_repository_template(repo_name: str, template_name: str) -> Dict[str, s
     if not repo_path.exists() or not repo_path.is_dir():
         raise FileNotFoundError("Repository not found")
 
-    source_path = get_made_home() / ".made" / normalized_template_name
+    source_path = get_made_home() / ".made" / "templates" / normalized_template_name
     if not source_path.exists() or not source_path.is_dir():
         raise FileNotFoundError("Template not found")
 

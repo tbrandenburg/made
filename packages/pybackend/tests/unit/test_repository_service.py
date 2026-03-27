@@ -339,7 +339,7 @@ def test_apply_repository_template(monkeypatch, tmp_path):
     (repo_path / "README.md").write_text("old", encoding="utf-8")
 
     made_home = tmp_path / "made-home"
-    template_dir = made_home / ".made" / "starter"
+    template_dir = made_home / ".made" / "templates" / "starter"
     template_dir.mkdir(parents=True)
     (template_dir / "README.md").write_text("new", encoding="utf-8")
     (template_dir / "src").mkdir()
