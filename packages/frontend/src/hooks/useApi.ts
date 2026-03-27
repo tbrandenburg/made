@@ -222,6 +222,11 @@ export type HarnessDefinition = {
   source: string;
 };
 
+export type TemplateApplyResponse = {
+  repository: string;
+  template: string;
+};
+
 export type WorkflowStep = {
   type: "agent" | "bash";
   agent?: string;
@@ -307,6 +312,13 @@ export const api = {
     request<RepositorySummary>("/repositories/clone", {
       method: "POST",
       body: JSON.stringify({ url, name, branch }),
+    }),
+  listRepositoryTemplates: () =>
+    request<{ templates: string[] }>("/repositories/templates"),
+  applyRepositoryTemplate: (name: string, template: string) =>
+    request<TemplateApplyResponse>(`/repositories/${name}/templates/apply`, {
+      method: "POST",
+      body: JSON.stringify({ template }),
     }),
   getRepository: (name: string) =>
     request<RepositorySummary>(`/repositories/${name}`),

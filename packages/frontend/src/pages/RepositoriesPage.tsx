@@ -3,6 +3,7 @@ import { api, RepositorySummary } from "../hooks/useApi";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
+import { DiamondIcon } from "../components/icons/DiamondIcon";
 import { TrashIcon } from "../components/icons/TrashIcon";
 import "../styles/page.css";
 
@@ -17,6 +18,16 @@ export const RepositoriesPage: React.FC = () => {
   const [cloneBranch, setCloneBranch] = useState("");
   const [isCloning, setIsCloning] = useState(false);
   const [isRemovingWorktree, setIsRemovingWorktree] = useState(false);
+  const [templates, setTemplates] = useState<string[]>([]);
+  const [templateModal, setTemplateModal] = useState<{
+    open: boolean;
+    repoName: string | null;
+  }>({ open: false, repoName: null });
+  const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
+  const [templateResult, setTemplateResult] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [removeWorktreeModal, setRemoveWorktreeModal] = useState<{
     open: boolean;
     name: string | null;
@@ -46,6 +57,51 @@ export const RepositoriesPage: React.FC = () => {
   useEffect(() => {
     loadRepositories();
   }, []);
+
+  const openTemplateModal = async (repoName: string) => {
+    setTemplateModal({ open: true, repoName });
+    setTemplateResult(null);
+    setIsApplyingTemplate(false);
+    try {
+      const response = await api.listRepositoryTemplates();
+      setTemplates(response.templates);
+    } catch (error) {
+      console.error("Failed to load templates", error);
+      setTemplates([]);
+      setTemplateResult({
+        type: "error",
+        message:
+          error instanceof Error ? error.message : "Failed to load templates",
+      });
+    }
+  };
+
+  const closeTemplateModal = () => {
+    if (isApplyingTemplate) return;
+    setTemplateModal({ open: false, repoName: null });
+    setTemplateResult(null);
+  };
+
+  const handleApplyTemplate = async (templateName: string) => {
+    if (!templateModal.repoName || isApplyingTemplate) return;
+    setIsApplyingTemplate(true);
+    setTemplateResult(null);
+    try {
+      await api.applyRepositoryTemplate(templateModal.repoName, templateName);
+      setTemplateResult({
+        type: "success",
+        message: `Template '${templateName}' applied successfully.`,
+      });
+    } catch (error) {
+      setTemplateResult({
+        type: "error",
+        message:
+          error instanceof Error ? error.message : "Failed to apply template",
+      });
+    } finally {
+      setIsApplyingTemplate(false);
+    }
+  };
 
   const handleCreate = async () => {
     if (!newRepoName.trim()) {
@@ -154,21 +210,36 @@ export const RepositoriesPage: React.FC = () => {
                       to={`/repositories/${repo.name}`}
                       className={repo.isWorktreeChild ? "worktree-child-pill" : undefined}
                       actions={
-                        repo.isWorktreeChild ? (
+                        <div className="repo-panel-actions">
                           <button
                             type="button"
                             className="copy-button"
                             onClick={(event) => {
                               event.preventDefault();
                               event.stopPropagation();
-                              setRemoveWorktreeModal({ open: true, name: repo.name });
+                              openTemplateModal(repo.name);
                             }}
-                            aria-label={`Remove ${repo.name} worktree`}
-                            title={`Remove ${repo.name} worktree`}
+                            aria-label={`Apply template to ${repo.name}`}
+                            title={`Apply template to ${repo.name}`}
                           >
-                            <TrashIcon />
+                            <DiamondIcon />
                           </button>
-                        ) : undefined
+                          {repo.isWorktreeChild ? (
+                            <button
+                              type="button"
+                              className="copy-button"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setRemoveWorktreeModal({ open: true, name: repo.name });
+                              }}
+                              aria-label={`Remove ${repo.name} worktree`}
+                              title={`Remove ${repo.name} worktree`}
+                            >
+                              <TrashIcon />
+                            </button>
+                          ) : null}
+                        </div>
                       }
                     >
                       <div className="metadata">
@@ -274,6 +345,36 @@ export const RepositoriesPage: React.FC = () => {
           >
             {isCloning ? "Cloning..." : "Clone"}
           </button>
+        </div>
+      </Modal>
+      <Modal
+        open={templateModal.open}
+        title={
+          templateModal.repoName
+            ? `Apply Template: ${templateModal.repoName}`
+            : "Apply Template"
+        }
+        onClose={closeTemplateModal}
+      >
+        {templateResult && (
+          <div className={`alert ${templateResult.type}`}>{templateResult.message}</div>
+        )}
+        <div className="repo-template-grid">
+          {templates.length === 0 ? (
+            <div className="empty">No templates found.</div>
+          ) : (
+            templates.map((templateName) => (
+              <button
+                key={templateName}
+                type="button"
+                className="primary"
+                disabled={isApplyingTemplate}
+                onClick={() => handleApplyTemplate(templateName)}
+              >
+                {templateName}
+              </button>
+            ))
+          )}
         </div>
       </Modal>
       <Modal

@@ -181,6 +181,17 @@
   align-items: center;
 }
 
+.repo-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.repo-template-grid {
+  display: grid;
+  gap: 0.6rem;
+}
+
 .commands-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
