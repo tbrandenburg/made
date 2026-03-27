@@ -1,0 +1,83 @@
+name: Issues - List Available Commands and Agents on New Issue
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  list-tools:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: List available commands and agents
+        id: list-tools
+        run: |
+          # Get the list of command files from .opencode/commands directory
+          commands=$(find .opencode/commands -name "*.md" -type f -exec basename {} .md \; | sort)
+          
+          # Format commands with slash prefix
+          formatted_commands=""
+          for cmd in $commands; do
+            formatted_commands="${formatted_commands}/${cmd}\n"
+          done
+          
+          # Get the list of agent files from .opencode/agents directory
+          agents=$(find .opencode/agents -name "*.md" -type f -exec basename {} .md \; | sort)
+          
+          # Format agents with asterisk prefix
+          formatted_agents=""
+          for agent in $agents; do
+            formatted_agents="${formatted_agents}*${agent}\n"
+          done
+          
+          # Remove trailing newlines
+          formatted_commands=$(echo -e "$formatted_commands" | sed '$ s/\n$//')
+          formatted_agents=$(echo -e "$formatted_agents" | sed '$ s/\n$//')
+          
+          # Set the outputs for use in the next step
+          echo "commands<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$formatted_commands" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "agents<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$formatted_agents" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Comment on issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const author = context.payload.issue.user.login;
+            const commands = `${{ steps.list-tools.outputs.commands }}`;
+            const agents = `${{ steps.list-tools.outputs.agents }}`;
+            
+            const commentBody = `Hello ${author}!
+
+            Thanks for your feedback!
+
+            Here are the tools I am offering:
+
+            **Commands:**
+            ${commands}
+
+            **Agents:**
+            ${agents}
+
+            **Usage:**
+            - Use commands directly: \`/command-name\`
+            - Use agents with commands: \`*agent-name /command-name PROMPT\`
+              
+            Example: \`*review /security-review Please check this code for vulnerabilities\``;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: commentBody
+            });

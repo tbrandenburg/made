@@ -1,0 +1,180 @@
+name: Issues - Execute OpenCode Commands from Issue Comments
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  parse-and-check:
+    # Only run if the comment author is the repository owner
+    if: github.event.comment.author_association == 'OWNER'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: write
+    outputs:
+      has-command: ${{ steps.parse-comment.outputs.has_command }}
+      command: ${{ steps.parse-comment.outputs.command }}
+      prompt: ${{ steps.parse-comment.outputs.prompt }}
+      agent: ${{ steps.parse-comment.outputs.agent }}
+      is-agent-command: ${{ steps.parse-comment.outputs.is_agent_command }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: React with eyes emoji
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Handle both issue comments and PR review comments
+            const commentId = context.eventName === 'pull_request_review_comment' 
+              ? context.payload.comment.id 
+              : context.payload.comment.id;
+            
+            if (context.eventName === 'pull_request_review_comment') {
+              await github.rest.reactions.createForPullRequestReviewComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: commentId,
+                content: 'eyes'
+              });
+            } else {
+              await github.rest.reactions.createForIssueComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: commentId,
+                content: 'eyes'
+              });
+            }
+      
+      - name: Parse comment for commands
+        id: parse-comment
+        run: |
+          comment="${{ github.event.comment.body }}"
+          echo "Original comment: $comment"
+          
+          # Check if comment contains a command or agent command
+          if [[ "$comment" =~ ^\*([a-zA-Z0-9_-]+)[[:space:]]+/([a-zA-Z0-9_-]+)(.*)$ ]]; then
+            # Agent command format: *agent /command PROMPT
+            agent="${BASH_REMATCH[1]}"
+            command="${BASH_REMATCH[2]}"
+            prompt="${BASH_REMATCH[3]}"
+            # Remove leading whitespace from prompt
+            prompt=$(echo "$prompt" | sed 's/^[[:space:]]*//')
+            
+            echo "Detected agent command"
+            echo "agent=$agent" >> $GITHUB_OUTPUT
+            echo "command=$command" >> $GITHUB_OUTPUT
+            echo "prompt<<EOF" >> $GITHUB_OUTPUT
+            echo "$prompt" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "has_command=true" >> $GITHUB_OUTPUT
+            echo "is_agent_command=true" >> $GITHUB_OUTPUT
+            
+          elif [[ "$comment" =~ ^/([a-zA-Z0-9_-]+)(.*)$ ]]; then
+            # Direct command format: /command PROMPT
+            command="${BASH_REMATCH[1]}"
+            prompt="${BASH_REMATCH[2]}"
+            # Remove leading whitespace from prompt
+            prompt=$(echo "$prompt" | sed 's/^[[:space:]]*//')
+            
+            echo "Detected direct command"
+            echo "command=$command" >> $GITHUB_OUTPUT
+            echo "prompt<<EOF" >> $GITHUB_OUTPUT
+            echo "$prompt" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "has_command=true" >> $GITHUB_OUTPUT
+            echo "is_agent_command=false" >> $GITHUB_OUTPUT
+            
+          else
+            echo "No command detected in comment"
+            echo "has_command=false" >> $GITHUB_OUTPUT
+          fi
+
+  execute-opencode:
+    if: needs.parse-and-check.outputs.has-command == 'true'
+    needs: parse-and-check
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: write
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: "${{ github.event.issue.number != null && format('issue-{0}-comment-{1}', github.event.issue.number, github.event.comment.id) || format('pr-{0}-comment-{1}', github.event.pull_request.number, github.event.comment.id) }}"
+      command: ${{ needs.parse-and-check.outputs.command }}
+      prompt: ${{ needs.parse-and-check.outputs.prompt }}
+      agent: ${{ needs.parse-and-check.outputs.is-agent-command == 'true' && needs.parse-and-check.outputs.agent || 'build' }}
+      timeout-minutes: 30
+
+  comment-results:
+    if: needs.parse-and-check.outputs.has-command == 'true' && always()
+    needs: [parse-and-check, execute-opencode]
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    
+    steps:      
+      - name: Comment execution results
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const command = '${{ needs.parse-and-check.outputs.command }}';
+            const isAgentCommand = '${{ needs.parse-and-check.outputs.is-agent-command }}' === 'true';
+            const agent = '${{ needs.parse-and-check.outputs.agent }}';
+            const runId = context.runId;
+            
+            // Use toJSON() to properly escape the results content
+            const results = ${{ toJSON(needs.execute-opencode.outputs.results) }};
+            const resultsTruncated = '${{ needs.execute-opencode.outputs.results-truncated }}' === 'true';
+            const artifactName = '${{ needs.execute-opencode.outputs.artifact-name }}';
+            
+            let executionType;
+            if (isAgentCommand) {
+              executionType = '*' + agent + ' /' + command + ' (agent command)';
+            } else {
+              executionType = '/' + command + ' (direct command)';
+            }
+            
+            let commentBody;
+            if (results && results.trim() !== '' && results !== '❌ No results file generated') {
+              const truncationNote = resultsTruncated ? 
+                '\n\n📎 **Full results available in artifact:** [' + artifactName + '](' + context.payload.repository.html_url + '/actions/runs/' + runId + ')' : '';
+              
+              commentBody = '🤖 **OpenCode Execution Complete**\n\n' +
+                '**Command:** `' + executionType + '`\n' +
+                '**Run ID:** ' + runId + '\n' +
+                '**Status:** ✅ Completed\n\n' +
+                '## Results\n\n' +
+                results + truncationNote;
+            } else {
+              commentBody = '🤖 **OpenCode Execution Complete**\n\n' +
+                '**Command:** `' + executionType + '`\n' +
+                '**Run ID:** ' + runId + '\n' +
+                '**Status:** ⚠️ No output generated\n\n' +
+                '📎 **Check the full logs:** [View run details](' + context.payload.repository.html_url + '/actions/runs/' + runId + ')';
+            }
+
+            // Handle both issue comments and PR review comments
+            if (context.eventName === 'pull_request_review_comment') {
+              return await github.rest.pulls.createReviewComment({
+                pull_number: context.payload.pull_request.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: commentBody,
+                commit_id: context.payload.pull_request.head.sha,
+                path: context.payload.comment.path,
+                line: context.payload.comment.line
+              });
+            } else {
+              return await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: commentBody
+              });
+            }
