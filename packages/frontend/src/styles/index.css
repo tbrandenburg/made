@@ -142,7 +142,9 @@ textarea {
   color: var(--muted);
   cursor: pointer;
   opacity: 0.6;
-  transition: color 0.2s ease, opacity 0.2s ease;
+  transition:
+    color 0.2s ease,
+    opacity 0.2s ease;
   background: transparent;
   background-color: transparent !important;
   border: none;
@@ -492,7 +494,9 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  transition: border-color 0.2s ease, transform 0.2s ease,
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease,
     background-color 0.2s ease;
   will-change: transform;
 }
@@ -606,7 +610,6 @@ textarea {
   }
 }
 
-
 .git-table {
   width: 100%;
   border-collapse: collapse;
@@ -628,7 +631,6 @@ textarea {
   border-bottom: 1px solid var(--border-color);
 }
 
-
 .git-added {
   color: var(--success);
   font-weight: 600;
@@ -645,9 +647,36 @@ textarea {
   white-space: nowrap;
 }
 
-
 .git-stat-pair {
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
+}
+
+.editor-diff-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.editor-diff-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.editor-diff-column {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.editor-diff-column h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+@media (max-width: 900px) {
+  .editor-diff-row {
+    grid-template-columns: 1fr;
+  }
 }

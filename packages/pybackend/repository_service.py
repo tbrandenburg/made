@@ -445,6 +445,71 @@ def _untracked_files(repo_path: Path) -> list[str]:
     return [line for line in output.splitlines() if line]
 
 
+def _is_tracked_file(repo_path: Path, file_path: str) -> bool:
+    try:
+        _run_git(repo_path, ["ls-files", "--error-unmatch", "--", file_path])
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
+
+def _is_ignored_file(repo_path: Path, file_path: str) -> bool:
+    try:
+        result = subprocess.run(
+            ["git", "check-ignore", "--quiet", "--", file_path],
+            cwd=repo_path,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0
+    except FileNotFoundError:
+        return False
+
+
+def _parse_diff_blocks(diff_text: str) -> list[dict[str, str]]:
+    blocks: list[dict[str, str]] = []
+    current_before: list[str] = []
+    current_after: list[str] = []
+    in_hunk = False
+
+    for line in diff_text.splitlines():
+        if line.startswith("@@"):
+            if in_hunk and (current_before or current_after):
+                blocks.append(
+                    {
+                        "before": "\n".join(current_before),
+                        "after": "\n".join(current_after),
+                    }
+                )
+            in_hunk = True
+            current_before = []
+            current_after = []
+            continue
+
+        if not in_hunk:
+            continue
+
+        if line.startswith("-"):
+            current_before.append(line[1:])
+        elif line.startswith("+"):
+            current_after.append(line[1:])
+        elif line.startswith(" "):
+            content = line[1:]
+            current_before.append(content)
+            current_after.append(content)
+
+    if in_hunk and (current_before or current_after):
+        blocks.append(
+            {
+                "before": "\n".join(current_before),
+                "after": "\n".join(current_after),
+            }
+        )
+
+    return blocks
+
+
 def get_repository_git_status(
     repo_name: str,
 ) -> Dict[str, Union[str, int, dict, list, None]]:
@@ -560,6 +625,94 @@ def get_repository_git_status(
         "counts": counts,
         "links": links,
         "diff": diff_files,
+    }
+
+
+def get_repository_file_git_details(
+    repo_name: str, file_path: str
+) -> Dict[str, Union[str, int, bool, dict, list, None]]:
+    workspace = get_workspace_home()
+    repo_path = workspace / repo_name
+    if not repo_path.exists() or not repo_path.is_dir():
+        raise FileNotFoundError("Repository not found")
+    if not (repo_path / ".git").exists():
+        raise ValueError("Repository is not a git repository")
+
+    target_file = repo_path / file_path
+    if not target_file.exists() or not target_file.is_file():
+        raise FileNotFoundError("File not found")
+
+    tracked = _is_tracked_file(repo_path, file_path)
+    ignored = _is_ignored_file(repo_path, file_path)
+
+    green = 0
+    red = 0
+    try:
+        numstat = _run_git(repo_path, ["diff", "--numstat", "HEAD", "--", file_path])
+        parsed = _line_stats_from_numstat(numstat)
+        green = parsed["green"]
+        red = parsed["red"]
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+
+    diff_blocks: list[dict[str, str]] = []
+    try:
+        diff_text = _run_git(repo_path, ["diff", "--unified=0", "HEAD", "--", file_path])
+        diff_blocks = _parse_diff_blocks(diff_text)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        diff_blocks = []
+
+    if not tracked:
+        file_content = target_file.read_text(encoding="utf-8", errors="ignore")
+        green = len(file_content.splitlines())
+        red = 0
+        if file_content:
+            diff_blocks = [{"before": "", "after": file_content}]
+
+    last_commit_id = None
+    last_commit_message = None
+    last_commit_date = None
+    try:
+        raw = _run_git(repo_path, ["log", "-1", "--format=%H\t%s\t%cI", "--", file_path])
+        if raw:
+            commit_id, commit_message, commit_date = raw.split("\t", 2)
+            last_commit_id = commit_id
+            last_commit_message = commit_message
+            try:
+                last_commit_date = (
+                    datetime.fromisoformat(commit_date.replace("Z", "+00:00"))
+                    .astimezone(timezone.utc)
+                    .isoformat()
+                )
+            except ValueError:
+                last_commit_date = commit_date
+    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
+        pass
+
+    last_modified = datetime.fromtimestamp(
+        target_file.stat().st_mtime, tz=timezone.utc
+    ).isoformat()
+    line_count = len(target_file.read_text(encoding="utf-8", errors="ignore").splitlines())
+
+    commit_link = None
+    github_repo = _github_repo(repo_path)
+    if github_repo and last_commit_id:
+        commit_link = f"https://github.com/{github_repo}/commit/{last_commit_id}"
+
+    return {
+        "path": file_path,
+        "tracked": tracked,
+        "ignored": ignored,
+        "lineStats": {"green": green, "red": red},
+        "lastCommit": {
+            "id": last_commit_id,
+            "message": last_commit_message,
+            "date": last_commit_date,
+            "link": commit_link,
+        },
+        "lastModified": last_modified,
+        "lineCount": line_count,
+        "diffBlocks": diff_blocks,
     }
 
 

@@ -69,6 +69,7 @@ from repository_service import (
     delete_repository_file,
     create_repository_worktree,
     remove_repository_worktree,
+    get_repository_file_git_details,
     get_repository_info,
     get_repository_git_status,
     list_repositories,
@@ -534,6 +535,21 @@ def repository_git_status(name: str):
     try:
         logger.info("Retrieving git status for repository '%s'", name)
         return get_repository_git_status(name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@app.get("/api/repositories/{name}/git/file")
+def repository_git_file_details(name: str, path: str = Query(...)):
+    try:
+        logger.info(
+            "Retrieving git file details for repository '%s' and file '%s'",
+            name,
+            path,
+        )
+        return get_repository_file_git_details(name, path)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except ValueError as exc:
