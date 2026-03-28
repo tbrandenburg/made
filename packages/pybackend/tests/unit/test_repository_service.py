@@ -208,6 +208,8 @@ def test_get_repository_file_git_details_for_tracked_file(monkeypatch, tmp_path)
     assert result["lineCount"] == 2
     assert result["lastCommit"]["link"] is not None
     assert len(result["diffBlocks"]) >= 1
+    assert "lineStats" in result["diffBlocks"][0]
+    assert "beforeStart" in result["diffBlocks"][0]
 
 
 def test_get_repository_file_git_details_for_untracked_file(monkeypatch, tmp_path):
@@ -225,7 +227,17 @@ def test_get_repository_file_git_details_for_untracked_file(monkeypatch, tmp_pat
 
     assert result["tracked"] is False
     assert result["lineStats"] == {"green": 2, "red": 0}
-    assert result["diffBlocks"] == [{"before": "", "after": "line one\nline two\n"}]
+    assert result["diffBlocks"] == [
+        {
+            "before": "",
+            "after": "line one\nline two\n",
+            "beforeStart": 0,
+            "beforeCount": 0,
+            "afterStart": 1,
+            "afterCount": 2,
+            "lineStats": {"green": 2, "red": 0},
+        }
+    ]
 
 def test_pull_repository(monkeypatch, tmp_path):
     workspace = tmp_path / "workspace"

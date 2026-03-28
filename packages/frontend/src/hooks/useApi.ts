@@ -228,7 +228,15 @@ export type RepositoryFileGitDetails = {
   };
   lastModified: string;
   lineCount: number;
-  diffBlocks: { before: string; after: string }[];
+  diffBlocks: {
+    before: string;
+    after: string;
+    beforeStart: number;
+    beforeCount: number;
+    afterStart: number;
+    afterCount: number;
+    lineStats: { green: number; red: number };
+  }[];
 };
 
 export type HarnessDefinition = {
