@@ -2,6 +2,7 @@ import os
 import subprocess
 import logging
 import shutil
+import re
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -467,10 +468,16 @@ def _is_ignored_file(repo_path: Path, file_path: str) -> bool:
         return False
 
 
-def _parse_diff_blocks(diff_text: str) -> list[dict[str, str]]:
-    blocks: list[dict[str, str]] = []
+def _parse_diff_blocks(diff_text: str) -> list[dict[str, object]]:
+    blocks: list[dict[str, object]] = []
     current_before: list[str] = []
     current_after: list[str] = []
+    before_start = 0
+    before_count = 0
+    after_start = 0
+    after_count = 0
+    green = 0
+    red = 0
     in_hunk = False
 
     for line in diff_text.splitlines():
@@ -480,11 +487,33 @@ def _parse_diff_blocks(diff_text: str) -> list[dict[str, str]]:
                     {
                         "before": "\n".join(current_before),
                         "after": "\n".join(current_after),
+                        "beforeStart": before_start,
+                        "beforeCount": before_count,
+                        "afterStart": after_start,
+                        "afterCount": after_count,
+                        "lineStats": {"green": green, "red": red},
                     }
                 )
+            match = re.match(
+                r"^@@ -(?P<before_start>\d+)(?:,(?P<before_count>\d+))? "
+                r"\+(?P<after_start>\d+)(?:,(?P<after_count>\d+))? @@",
+                line,
+            )
+            if match:
+                before_start = int(match.group("before_start"))
+                before_count = int(match.group("before_count") or "1")
+                after_start = int(match.group("after_start"))
+                after_count = int(match.group("after_count") or "1")
+            else:
+                before_start = 0
+                before_count = 0
+                after_start = 0
+                after_count = 0
             in_hunk = True
             current_before = []
             current_after = []
+            green = 0
+            red = 0
             continue
 
         if not in_hunk:
@@ -492,8 +521,10 @@ def _parse_diff_blocks(diff_text: str) -> list[dict[str, str]]:
 
         if line.startswith("-"):
             current_before.append(line[1:])
+            red += 1
         elif line.startswith("+"):
             current_after.append(line[1:])
+            green += 1
         elif line.startswith(" "):
             content = line[1:]
             current_before.append(content)
@@ -504,6 +535,11 @@ def _parse_diff_blocks(diff_text: str) -> list[dict[str, str]]:
             {
                 "before": "\n".join(current_before),
                 "after": "\n".join(current_after),
+                "beforeStart": before_start,
+                "beforeCount": before_count,
+                "afterStart": after_start,
+                "afterCount": after_count,
+                "lineStats": {"green": green, "red": red},
             }
         )
 
@@ -655,7 +691,7 @@ def get_repository_file_git_details(
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
 
-    diff_blocks: list[dict[str, str]] = []
+    diff_blocks: list[dict[str, object]] = []
     try:
         diff_text = _run_git(repo_path, ["diff", "--unified=0", "HEAD", "--", file_path])
         diff_blocks = _parse_diff_blocks(diff_text)
@@ -667,7 +703,17 @@ def get_repository_file_git_details(
         green = len(file_content.splitlines())
         red = 0
         if file_content:
-            diff_blocks = [{"before": "", "after": file_content}]
+            diff_blocks = [
+                {
+                    "before": "",
+                    "after": file_content,
+                    "beforeStart": 0,
+                    "beforeCount": 0,
+                    "afterStart": 1,
+                    "afterCount": green,
+                    "lineStats": {"green": green, "red": 0},
+                }
+            ]
 
     last_commit_id = None
     last_commit_message = None

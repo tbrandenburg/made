@@ -2040,20 +2040,37 @@ export const RepositoryPage: React.FC = () => {
                   <div className="editor-diff-grid">
                     {fileGitDetails.diffBlocks.map((block, index) => (
                       <div
-                        className="editor-diff-row"
+                        className="editor-diff-block"
                         key={`${selectedFile}-${index}`}
                       >
-                        <div className="editor-diff-column">
-                          <h4>Before</h4>
-                          <pre className="preview">
-                            {block.before || "(empty)"}
-                          </pre>
+                        <div className="editor-diff-block__meta">
+                          <span className="editor-diff-block__lines">
+                            Lines {block.beforeStart}-{block.beforeStart + Math.max(block.beforeCount - 1, 0)}
+                            {" → "}
+                            {block.afterStart}-{block.afterStart + Math.max(block.afterCount - 1, 0)}
+                          </span>
+                          <span className="git-stat-pair">
+                            <span className="git-added">
+                              +{block.lineStats.green}
+                            </span>
+                            <span className="git-removed">
+                              -{block.lineStats.red}
+                            </span>
+                          </span>
                         </div>
-                        <div className="editor-diff-column">
-                          <h4>After</h4>
-                          <pre className="preview">
-                            {block.after || "(empty)"}
-                          </pre>
+                        <div className="editor-diff-row">
+                          <div className="editor-diff-column">
+                            <h4>Before</h4>
+                            <pre className="preview">
+                              {block.before || "(empty)"}
+                            </pre>
+                          </div>
+                          <div className="editor-diff-column">
+                            <h4>After</h4>
+                            <pre className="preview">
+                              {block.after || "(empty)"}
+                            </pre>
+                          </div>
                         </div>
                       </div>
                     ))}
