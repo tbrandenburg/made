@@ -690,7 +690,9 @@ def workflow_log_tail(location: str, log_name: str):
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except Exception as exc:
-        logger.exception("Failed to read workflow log tail for %s/%s", location, log_name)
+        logger.exception(
+            "Failed to read workflow log tail for %s/%s", location, log_name
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )

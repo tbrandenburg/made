@@ -126,7 +126,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <span>Agent is thinking...</span>
       </div>
     )}
-    {chat.length === 0 && !loading && <div className="empty">{emptyMessage}</div>}
+    {chat.length === 0 && !loading && (
+      <div className="empty">{emptyMessage}</div>
+    )}
     {sessionId && (
       <div className="chat-session-id" aria-label="Session ID">
         <span>Session ID: {sessionId}</span>

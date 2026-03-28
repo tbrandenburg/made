@@ -22,7 +22,10 @@ type ActiveMention = {
   query: string;
 };
 
-const getActiveMention = (value: string, caret: number): ActiveMention | null => {
+const getActiveMention = (
+  value: string,
+  caret: number,
+): ActiveMention | null => {
   const beforeCaret = value.slice(0, caret);
   const mentionStart = beforeCaret.lastIndexOf("@");
 
@@ -85,7 +88,11 @@ const getCaretPosition = (textarea: HTMLTextAreaElement) => {
   div.textContent = textarea.value.slice(0, textarea.selectionStart || 0);
 
   const span = document.createElement("span");
-  span.textContent = textarea.value.slice(textarea.selectionStart || 0, (textarea.selectionStart || 0) + 1) || " ";
+  span.textContent =
+    textarea.value.slice(
+      textarea.selectionStart || 0,
+      (textarea.selectionStart || 0) + 1,
+    ) || " ";
   div.appendChild(span);
 
   document.body.appendChild(div);
@@ -110,7 +117,9 @@ export const MentionPathTextarea: React.FC<MentionPathTextareaProps> = ({
 }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [activeMention, setActiveMention] = useState<ActiveMention | null>(null);
+  const [activeMention, setActiveMention] = useState<ActiveMention | null>(
+    null,
+  );
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
 
@@ -120,7 +129,9 @@ export const MentionPathTextarea: React.FC<MentionPathTextareaProps> = ({
 
     if (sections?.length) {
       return sections.flatMap((section) =>
-        section.suggestions.filter((item) => item.toLowerCase().includes(query)),
+        section.suggestions.filter((item) =>
+          item.toLowerCase().includes(query),
+        ),
       );
     }
 
@@ -146,7 +157,9 @@ export const MentionPathTextarea: React.FC<MentionPathTextareaProps> = ({
       setSelectedIndex(0);
       return;
     }
-    setSelectedIndex((current) => Math.min(current, filteredSuggestions.length - 1));
+    setSelectedIndex((current) =>
+      Math.min(current, filteredSuggestions.length - 1),
+    );
   }, [filteredSuggestions]);
 
   const closeMenu = () => {
@@ -240,7 +253,9 @@ export const MentionPathTextarea: React.FC<MentionPathTextareaProps> = ({
 
           if (event.key === "Enter") {
             event.preventDefault();
-            applySuggestion(filteredSuggestions[selectedIndex] || filteredSuggestions[0]);
+            applySuggestion(
+              filteredSuggestions[selectedIndex] || filteredSuggestions[0],
+            );
             return;
           }
 

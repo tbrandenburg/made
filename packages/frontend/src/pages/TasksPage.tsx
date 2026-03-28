@@ -129,9 +129,12 @@ export const TasksPage: React.FC = () => {
   }>({ open: false, title: "", content: "" });
   const [loadingLog, setLoadingLog] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [terminatingWorkflow, setTerminatingWorkflow] = useState<string | null>(null);
+  const [terminatingWorkflow, setTerminatingWorkflow] = useState<string | null>(
+    null,
+  );
   const [terminateModal, setTerminateModal] = useState(false);
-  const [selectedWorkflow, setSelectedWorkflow] = useState<WorkspaceWorkflowSummary | null>(null);
+  const [selectedWorkflow, setSelectedWorkflow] =
+    useState<WorkspaceWorkflowSummary | null>(null);
   const [newName, setNewName] = useState("");
   const navigate = useNavigate();
   const isTemplate = (task: ArtefactSummary) => {
@@ -164,9 +167,7 @@ export const TasksPage: React.FC = () => {
         setWorkspaceWorkflows(workflowRes.workflows);
         setWorkflowLogs(logRes.logs);
       })
-      .catch((error) =>
-        console.error("Failed to load tasks page data", error),
-      );
+      .catch((error) => console.error("Failed to load tasks page data", error));
   }, []);
 
   const handleCreate = async () => {
@@ -191,11 +192,11 @@ export const TasksPage: React.FC = () => {
 
   const handleConfirmTerminate = async () => {
     if (!selectedWorkflow) return;
-    
+
     const workflowId = `${selectedWorkflow.repository}:${selectedWorkflow.id}`;
     setTerminatingWorkflow(workflowId);
     setTerminateModal(false);
-    
+
     try {
       await api.terminateWorkflow(workflowId);
       // Refresh workflow list
@@ -203,7 +204,9 @@ export const TasksPage: React.FC = () => {
       setWorkspaceWorkflows(res.workflows);
     } catch (error) {
       console.error("Failed to terminate workflow:", error);
-      alert(`Failed to terminate workflow: ${error instanceof Error ? error.message : "Unknown error"}`);
+      alert(
+        `Failed to terminate workflow: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     } finally {
       setTerminatingWorkflow(null);
       setSelectedWorkflow(null);
@@ -213,7 +216,10 @@ export const TasksPage: React.FC = () => {
   const openLogTail = async (logFile: WorkflowLogSummary) => {
     setLoadingLog(`${logFile.location}:${logFile.name}`);
     try {
-      const result = await api.getWorkflowLogTail(logFile.location, logFile.name);
+      const result = await api.getWorkflowLogTail(
+        logFile.location,
+        logFile.name,
+      );
       setLogModal({
         open: true,
         title: logFile.name,
@@ -295,10 +301,16 @@ export const TasksPage: React.FC = () => {
                                   <button
                                     className="danger"
                                     onClick={() => handleTerminate(workflow)}
-                                    disabled={terminatingWorkflow === `${workflow.repository}:${workflow.id}`}
+                                    disabled={
+                                      terminatingWorkflow ===
+                                      `${workflow.repository}:${workflow.id}`
+                                    }
                                     title="Terminate running workflow"
                                   >
-                                    {terminatingWorkflow === `${workflow.repository}:${workflow.id}` ? "Terminating..." : "Terminate"}
+                                    {terminatingWorkflow ===
+                                    `${workflow.repository}:${workflow.id}`
+                                      ? "Terminating..."
+                                      : "Terminate"}
                                   </button>
                                 )}
                               </td>
@@ -334,9 +346,15 @@ export const TasksPage: React.FC = () => {
                               <button
                                 className="secondary"
                                 onClick={() => void openLogTail(logFile)}
-                                disabled={loadingLog === `${logFile.location}:${logFile.name}`}
+                                disabled={
+                                  loadingLog ===
+                                  `${logFile.location}:${logFile.name}`
+                                }
                               >
-                                {loadingLog === `${logFile.location}:${logFile.name}` ? "Loading..." : "View tail"}
+                                {loadingLog ===
+                                `${logFile.location}:${logFile.name}`
+                                  ? "Loading..."
+                                  : "View tail"}
                               </button>
                             </td>
                           </tr>
@@ -445,9 +463,9 @@ export const TasksPage: React.FC = () => {
         </div>
       </Modal>
 
-      <Modal 
-        open={terminateModal} 
-        title="Terminate Workflow" 
+      <Modal
+        open={terminateModal}
+        title="Terminate Workflow"
         onClose={() => setTerminateModal(false)}
       >
         <p>Are you sure you want to terminate this job?</p>
@@ -455,7 +473,10 @@ export const TasksPage: React.FC = () => {
           <p className="muted">Workflow: {selectedWorkflow.name}</p>
         )}
         <div className="modal-actions">
-          <button className="secondary" onClick={() => setTerminateModal(false)}>
+          <button
+            className="secondary"
+            onClick={() => setTerminateModal(false)}
+          >
             Cancel
           </button>
           <button className="danger" onClick={handleConfirmTerminate}>

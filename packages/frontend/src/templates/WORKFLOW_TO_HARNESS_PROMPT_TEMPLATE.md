@@ -5,17 +5,17 @@ scripts** from a workflow YAML.
 
 The goal is to eliminate common LLM mistakes such as:
 
--   unsafe quoting
--   use of `eval`
--   fragile pipelines
--   broken dry‑run behavior
--   command string execution
--   inconsistent step structure
+- unsafe quoting
+- use of `eval`
+- fragile pipelines
+- broken dry‑run behavior
+- command string execution
+- inconsistent step structure
 
 The generated script must be **safe, reproducible, and
 ShellCheck‑clean**.
 
-------------------------------------------------------------------------
+---
 
 # Hard Requirements (MUST FOLLOW)
 
@@ -24,7 +24,7 @@ The generated Bash script **must satisfy all rules below**.
 If any rule cannot be satisfied, the generator must **fail instead of
 guessing**.
 
-------------------------------------------------------------------------
+---
 
 # Script Output Location
 
@@ -34,7 +34,7 @@ The script MUST be written exactly to:
 
 No alternative path may be used.
 
-------------------------------------------------------------------------
+---
 
 # Supported CLI
 
@@ -44,20 +44,20 @@ Only generate commands for this CLI:
 
 Do not generate commands for any other CLI.
 
-------------------------------------------------------------------------
+---
 
 # Bash Environment Requirements
 
 The script MUST start with:
 
-``` bash
+```bash
 #!/usr/bin/env bash
 set -euo pipefail
 ```
 
 The script must be compatible with **Bash ≥ 4.0**.
 
-------------------------------------------------------------------------
+---
 
 # Argument Handling
 
@@ -85,7 +85,7 @@ Example invalid:
     script.sh --foo
     script.sh test
 
-------------------------------------------------------------------------
+---
 
 # Required Helper Functions
 
@@ -125,7 +125,7 @@ Logging failures **must never terminate the workflow**.
 
 **Implementation**: The script must attempt `/var/log` first and fallback to `/tmp/made-harness-logs` if permission denied.
 
-------------------------------------------------------------------------
+---
 
 ### run_step()
 
@@ -174,7 +174,7 @@ Behavior:
 • log the failure to stderr (and log file via `log()`)
 • must not hide failures unless workflow YAML explicitly models recovery
 
-------------------------------------------------------------------------
+---
 
 # Command Construction Rules
 
@@ -198,7 +198,7 @@ The script MUST NOT contain:
 
 **For agent CLI commands**, use arrays with template variables:
 
-``` bash
+```bash
 # CLI command should be generated from {{CURRENT_AGENT_CLI}} template variable
 cmd=({{GENERATED_CLI_COMMAND}})
 "${cmd[@]}"
@@ -210,7 +210,7 @@ This prevents quoting bugs and injection risks for dynamically constructed comma
 
 **Note**: The specific CLI command array must be generated based on the configured `{{CURRENT_AGENT_CLI}}` using the CLI Invocation Reference section.
 
-------------------------------------------------------------------------
+---
 
 # Step Naming Convention
 
@@ -221,7 +221,7 @@ Generated step functions must follow this naming pattern:
 • Replace hyphens and spaces with underscores
 • Ensure valid Bash function names (alphanumeric + underscore only)
 
-------------------------------------------------------------------------
+---
 
 # Step Type Mapping (MUST be exact)
 
@@ -232,7 +232,7 @@ Each workflow step type maps to a different execution path:
 Treat `run` as a shell command to execute directly in Bash,
 **not as an agent prompt**.
 
-``` bash
+```bash
 step1() {
   git switch main && git pull --rebase --autostash
 }
@@ -251,7 +251,7 @@ Treat `prompt` as the message to the configured agent CLI.
 
 Required structure for agent steps:
 
-``` bash
+```bash
 # CLI command must be generated based on {{CURRENT_AGENT_CLI}}
 step2() {
   local prompt='Follow issue instructions'
@@ -267,7 +267,7 @@ The `run_agent` function MUST be implemented to handle CLI command construction.
 
 **Critical**: The CLI command array construction inside `run_agent` must use the CLI Invocation Reference for the configured `{{CURRENT_AGENT_CLI}}` and properly handle the agent parameter when supported.
 
-------------------------------------------------------------------------
+---
 
 # Prompt / Message Handling
 
@@ -287,7 +287,7 @@ Required:
 
 Example (using configured CLI from {{CURRENT_AGENT_CLI}}):
 
-``` bash
+```bash
 # This example shows opencode, but actual CLI must be from template variable
 printf '%s' "$PROMPT" | {{GENERATED_CLI_COMMAND}}
 ```
@@ -300,7 +300,7 @@ Prompts may contain:
 
 The script must handle them correctly.
 
-------------------------------------------------------------------------
+---
 
 # Workflow Execution Rules
 
@@ -322,7 +322,7 @@ Preserved behavior means:
 
 **Step Function Pattern:**
 
-``` bash
+```bash
 step1() {
   # Bash step: direct execution
   git switch main && git pull --rebase --autostash
@@ -342,7 +342,7 @@ run_step step2
 
 **Critical**: Each step function focuses on its specific task. The `run_step` wrapper handles dry-run logic and error management consistently.
 
-------------------------------------------------------------------------
+---
 
 # CLI Invocation Reference
 
@@ -353,11 +353,11 @@ The examples below show different CLI formats. The generator MUST use the approp
 **Agent Parameter Mapping**: When the `run_agent` function receives an agent parameter, it must be mapped to the correct CLI option format:
 
 - opencode/opencode-legacy: `--agent <agent_name>`
-- kiro: `--agent <agent_name>` 
+- kiro: `--agent <agent_name>`
 - copilot: Not supported (ignore agent parameter)
 - codex: Not supported (ignore agent parameter)
 
-------------------------------------------------------------------------
+---
 
 ## opencode / opencode-legacy
 
@@ -373,7 +373,7 @@ Options:
 
 Message input: **stdin**
 
-------------------------------------------------------------------------
+---
 
 ## kiro
 
@@ -389,7 +389,7 @@ Options:
 
 Message input: **stdin**
 
-------------------------------------------------------------------------
+---
 
 ## copilot
 
@@ -403,7 +403,7 @@ Options:
 
 Message input: **-p flag**
 
-------------------------------------------------------------------------
+---
 
 ## codex
 
@@ -417,17 +417,17 @@ Resume:
 
 Message input: **stdin**
 
-------------------------------------------------------------------------
+---
 
 # Workflow YAML Input
 
-``` yaml
-{{WORKFLOW_YAML}}
+```yaml
+{ { WORKFLOW_YAML } }
 ```
 
 Steps must be translated into Bash step sections.
 
-------------------------------------------------------------------------
+---
 
 # Bash Template (Base)
 
@@ -438,7 +438,7 @@ and hints in "CLI Invocation Reference" chapter.
 
 Adapt {{AGENT_PARAMETER_FORMAT}} when provided and supported by CLI.
 
-``` bash
+```bash
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -530,7 +530,7 @@ log INFO "Workflow finished: {{WORKFLOW_NAME}}"
 
 The template may be extended but must **not violate any safety rule**.
 
-------------------------------------------------------------------------
+---
 
 # Verification Requirements
 
@@ -549,7 +549,7 @@ Then test dry‑run mode:
 The generator must **never run the workflow in real execution mode
 during verification**.
 
-------------------------------------------------------------------------
+---
 
 # Determinism Requirement
 

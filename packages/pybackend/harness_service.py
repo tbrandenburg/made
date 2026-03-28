@@ -22,9 +22,7 @@ def _load_harnesses_from_dir(directory: Path, source: str) -> List[Dict[str, Any
     if not directory.exists() or not directory.is_dir():
         return []
 
-    harness_files = sorted(
-        path for path in directory.rglob("*.sh") if path.is_file()
-    )
+    harness_files = sorted(path for path in directory.rglob("*.sh") if path.is_file())
     return [_load_harness_file(file_path, source) for file_path in harness_files]
 
 
@@ -39,7 +37,9 @@ def _load_repo_harnesses(repo_name: str | None) -> List[Dict[str, Any]]:
                 if path.is_file():
                     harness_entries.append((path, "repository"))
 
-    return [_load_harness_file(path, source) for path, source in sorted(harness_entries)]
+    return [
+        _load_harness_file(path, source) for path, source in sorted(harness_entries)
+    ]
 
 
 def list_harnesses(repo_name: str | None = None) -> List[Dict[str, Any]]:

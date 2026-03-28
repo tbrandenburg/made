@@ -693,7 +693,9 @@ def get_repository_file_git_details(
 
     diff_blocks: list[dict[str, object]] = []
     try:
-        diff_text = _run_git(repo_path, ["diff", "--unified=0", "HEAD", "--", file_path])
+        diff_text = _run_git(
+            repo_path, ["diff", "--unified=0", "HEAD", "--", file_path]
+        )
         diff_blocks = _parse_diff_blocks(diff_text)
     except (subprocess.CalledProcessError, FileNotFoundError):
         diff_blocks = []
@@ -719,7 +721,9 @@ def get_repository_file_git_details(
     last_commit_message = None
     last_commit_date = None
     try:
-        raw = _run_git(repo_path, ["log", "-1", "--format=%H\t%s\t%cI", "--", file_path])
+        raw = _run_git(
+            repo_path, ["log", "-1", "--format=%H\t%s\t%cI", "--", file_path]
+        )
         if raw:
             commit_id, commit_message, commit_date = raw.split("\t", 2)
             last_commit_id = commit_id
@@ -738,7 +742,9 @@ def get_repository_file_git_details(
     last_modified = datetime.fromtimestamp(
         target_file.stat().st_mtime, tz=timezone.utc
     ).isoformat()
-    line_count = len(target_file.read_text(encoding="utf-8", errors="ignore").splitlines())
+    line_count = len(
+        target_file.read_text(encoding="utf-8", errors="ignore").splitlines()
+    )
 
     commit_link = None
     github_repo = _github_repo(repo_path)

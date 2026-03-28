@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Panel } from "./Panel";
 import { Modal } from "./Modal";
 import { HarnessDefinition, WorkflowDefinition } from "../hooks/useApi";
@@ -19,7 +25,9 @@ type HarnessesTabProps = {
   ) => Promise<{ pid: number; name: string; path: string }>;
   getHarnessStatus: (pid: number) => Promise<{ pid: number; running: boolean }>;
   loadWorkflows: () => Promise<{ workflows: WorkflowDefinition[] }>;
-  saveWorkflows: (workflows: WorkflowDefinition[]) => Promise<{ workflows: WorkflowDefinition[] }>;
+  saveWorkflows: (
+    workflows: WorkflowDefinition[],
+  ) => Promise<{ workflows: WorkflowDefinition[] }>;
   listAgents: () => Promise<{ agents: { name: string }[] }>;
   onSendMessage: (message: string) => void;
   agentCli: string;
@@ -127,10 +135,7 @@ export const HarnessesTab: React.FC<HarnessesTabProps> = ({
     }
     try {
       if (harnessHistory.length) {
-        localStorage.setItem(
-          historyStorageKey,
-          JSON.stringify(harnessHistory),
-        );
+        localStorage.setItem(historyStorageKey, JSON.stringify(harnessHistory));
       } else {
         localStorage.removeItem(historyStorageKey);
       }
@@ -250,7 +255,9 @@ export const HarnessesTab: React.FC<HarnessesTabProps> = ({
       >
         {harnessLoading && <div className="alert">Loading harnesses...</div>}
         {harnessError && <div className="alert error">{harnessError}</div>}
-        {harnessRunError && <div className="alert error">{harnessRunError}</div>}
+        {harnessRunError && (
+          <div className="alert error">{harnessRunError}</div>
+        )}
         {!harnessLoading && !harnessError && (
           <>
             {availableHarnesses.length === 0 ? (
@@ -266,7 +273,9 @@ export const HarnessesTab: React.FC<HarnessesTabProps> = ({
                     title={`${harness.source} • ${harness.path}`}
                     onClick={() => openHarnessModal(harness)}
                   >
-                    <span className="command-button__title">{harness.name}</span>
+                    <span className="command-button__title">
+                      {harness.name}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -357,7 +366,10 @@ export const HarnessesTab: React.FC<HarnessesTabProps> = ({
           <button className="secondary" onClick={closeHarnessModal}>
             Cancel
           </button>
-          <button className="primary" onClick={() => handleHarnessRun({ dryRun: true })}>
+          <button
+            className="primary"
+            onClick={() => handleHarnessRun({ dryRun: true })}
+          >
             Dry Run
           </button>
           <button className="danger" onClick={() => handleHarnessRun()}>

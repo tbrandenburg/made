@@ -52,16 +52,20 @@ export const mapAgentReplyToMessages = (reply: AgentReply): ChatMessage[] => {
   if (reply.processing) {
     return []; // Empty - polling handles content via export API
   }
-  
+
   // Fallback for error cases only
-  return reply.response ? [{
-    id: reply.messageId,
-    messageKey: reply.messageId,
-    role: "agent" as const,
-    text: reply.response,
-    timestamp: reply.sent,
-    messageType: "final" as const
-  }] : [];
+  return reply.response
+    ? [
+        {
+          id: reply.messageId,
+          messageKey: reply.messageId,
+          role: "agent" as const,
+          text: reply.response,
+          timestamp: reply.sent,
+          messageType: "final" as const,
+        },
+      ]
+    : [];
 };
 
 const normalizeTimestamp = (rawTimestamp: string | null | undefined) => {
@@ -101,10 +105,7 @@ export const mapHistoryToMessages = (
           ? partKey || message.messageId || baseId
           : message.messageId || normalizedContent || baseId,
       role,
-      text:
-        role === "user"
-          ? normalizedContent
-          : message.content || "",
+      text: role === "user" ? normalizedContent : message.content || "",
       timestamp: normalizeTimestamp(message.timestamp),
       messageType: normalizeHistoryMessageType(message.type),
     };
@@ -148,13 +149,12 @@ export const mergeChatMessages = (
     const existingValid = !Number.isNaN(existingTimestamp);
 
     const incomingIsNewer =
-      (incomingValid && existingValid && incomingTimestamp > existingTimestamp) ||
+      (incomingValid &&
+        existingValid &&
+        incomingTimestamp > existingTimestamp) ||
       (incomingValid && !existingValid);
 
-    if (
-      incomingText.length > existingText.length ||
-      incomingIsNewer
-    ) {
+    if (incomingText.length > existingText.length || incomingIsNewer) {
       next[existingIndex] = message;
     }
   });

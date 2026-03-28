@@ -73,8 +73,10 @@ const normalizeMentionQuery = (value: string) =>
 const toRelativeFilePath = (value: string) =>
   value.replace(/\\/g, "/").replace(/^\.?\//, "");
 
-const buildFileCommentPrompt = (relativeFilePath: string, userComment: string) =>
-  `Regarding \`${relativeFilePath}\`: ${userComment}`;
+const buildFileCommentPrompt = (
+  relativeFilePath: string,
+  userComment: string,
+) => `Regarding \`${relativeFilePath}\`: ${userComment}`;
 
 const splitMentionSearch = (query: string) => {
   const normalized = normalizeMentionQuery(query);
@@ -2058,7 +2060,9 @@ export const RepositoryPage: React.FC = () => {
                             <h4>
                               Before{" "}
                               <span className="editor-diff-column__line-range">
-                                {block.beforeStart}-{block.beforeStart + Math.max(block.beforeCount - 1, 0)}
+                                {block.beforeStart}-
+                                {block.beforeStart +
+                                  Math.max(block.beforeCount - 1, 0)}
                               </span>
                             </h4>
                             <pre className="preview">
@@ -2069,7 +2073,9 @@ export const RepositoryPage: React.FC = () => {
                             <h4>
                               After{" "}
                               <span className="editor-diff-column__line-range">
-                                {block.afterStart}-{block.afterStart + Math.max(block.afterCount - 1, 0)}
+                                {block.afterStart}-
+                                {block.afterStart +
+                                  Math.max(block.afterCount - 1, 0)}
                               </span>
                             </h4>
                             <pre className="preview">
@@ -2087,7 +2093,9 @@ export const RepositoryPage: React.FC = () => {
           <div className="editor-grid">
             <Panel
               title={
-                selectedFile ? `Editing ${selectedFile}` : "Select a file to edit"
+                selectedFile
+                  ? `Editing ${selectedFile}`
+                  : "Select a file to edit"
               }
               actions={
                 selectedFile && (

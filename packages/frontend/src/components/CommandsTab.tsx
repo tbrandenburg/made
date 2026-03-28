@@ -148,9 +148,8 @@ export const CommandsTab: React.FC<CommandsTabProps> = ({
   >([]);
   const [commandsError, setCommandsError] = useState<string | null>(null);
   const [commandsLoading, setCommandsLoading] = useState(false);
-  const [commandPreview, setCommandPreview] = useState<CommandDefinition | null>(
-    null,
-  );
+  const [commandPreview, setCommandPreview] =
+    useState<CommandDefinition | null>(null);
   const [commandModal, setCommandModal] = useState<CommandModalState>({
     open: false,
     command: null,

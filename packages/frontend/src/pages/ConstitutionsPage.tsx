@@ -17,7 +17,9 @@ export const ConstitutionsPage: React.FC = () => {
       return constitution.type === "template";
     }
     const frontmatterType = constitution.frontmatter?.type;
-    return typeof frontmatterType === "string" && frontmatterType === "template";
+    return (
+      typeof frontmatterType === "string" && frontmatterType === "template"
+    );
   };
   const templateConstitutions = constitutions.filter(isTemplate);
   const documentConstitutions = constitutions.filter(

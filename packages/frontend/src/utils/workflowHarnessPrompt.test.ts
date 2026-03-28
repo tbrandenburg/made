@@ -11,7 +11,12 @@ describe("buildWorkflowHarnessPrompt", () => {
       enabled: true,
       schedule: "0 5 * * *",
       steps: [
-        { type: "agent", agent: "default", command: "plan", prompt: "Create release plan" },
+        {
+          type: "agent",
+          agent: "default",
+          command: "plan",
+          prompt: "Create release plan",
+        },
         { type: "bash", run: "echo done" },
       ],
     };
@@ -26,17 +31,27 @@ describe("buildWorkflowHarnessPrompt", () => {
     expect(prompt).toContain('agent: "default"');
     expect(prompt).toContain('command: "plan"');
     expect(prompt).toContain('run: "echo done"');
-    expect(prompt).toContain("shellScriptPath: \".harness/release-workflow.sh\"");
+    expect(prompt).toContain('shellScriptPath: ".harness/release-workflow.sh"');
     expect(prompt).toContain("The script MUST be written exactly to:");
     expect(prompt).toContain("    .harness/release-workflow.sh");
-    expect(prompt).toContain("The script supports **exactly one optional argument**:");
-    expect(prompt).toContain("Treat `run` as a shell command to execute directly in Bash,");
+    expect(prompt).toContain(
+      "The script supports **exactly one optional argument**:",
+    );
+    expect(prompt).toContain(
+      "Treat `run` as a shell command to execute directly in Bash,",
+    );
     expect(prompt).toContain("Do NOT call `codex` for bash steps.");
-    expect(prompt).toContain("This section applies to `type: agent` steps only.");
-    expect(prompt).toContain("Equivalent helper-based form is also allowed when behavior is identical:");
+    expect(prompt).toContain(
+      "This section applies to `type: agent` steps only.",
+    );
+    expect(prompt).toContain(
+      "Equivalent helper-based form is also allowed when behavior is identical:",
+    );
     expect(prompt).toContain("run_agent() {");
     expect(prompt).toContain("run_step step2");
-    expect(prompt).toContain("Function-wrapped execution example with centralized error hook:");
+    expect(prompt).toContain(
+      "Function-wrapped execution example with centralized error hook:",
+    );
     expect(prompt).toContain("run_step() {");
     expect(prompt).toContain("run_step step1");
     expect(prompt).toContain("`STEP*_DESCRIPTION` variables are optional");
@@ -71,8 +86,7 @@ describe("buildWorkflowHarnessPrompt", () => {
 
     const prompt = buildWorkflowHarnessPrompt(workflow, "opencode");
 
-    expect(prompt).toContain("shellScriptPath: \".harness/custom-script.sh\"");
+    expect(prompt).toContain('shellScriptPath: ".harness/custom-script.sh"');
     expect(prompt).toContain("    .harness/custom-script.sh");
   });
-
 });
