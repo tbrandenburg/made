@@ -1949,8 +1949,8 @@ export const RepositoryPage: React.FC = () => {
       id: "editor",
       label: "File Editor",
       content: (
-        <div className="editor-grid">
-          {repository?.hasGit && selectedFile && (
+        <div className="editor-layout">
+          {repository?.hasGit && selectedFile ? (
             <>
               <Panel title="Git File Info">
                 {fileGitDetailsLoading && (
@@ -2030,7 +2030,7 @@ export const RepositoryPage: React.FC = () => {
                   actions={
                     <button
                       type="button"
-                      className="secondary"
+                      className="secondary comment-action"
                       onClick={() => openFileCommentModal("diff")}
                     >
                       Comment
@@ -2061,70 +2061,72 @@ export const RepositoryPage: React.FC = () => {
                 </Panel>
               )}
             </>
-          )}
-          <Panel
-            title={
-              selectedFile ? `Editing ${selectedFile}` : "Select a file to edit"
-            }
-            actions={
-              selectedFile && (
-                <button
-                  className="primary"
-                  onClick={handleSaveFile}
-                  disabled={loadingFile}
+          ) : null}
+          <div className="editor-grid">
+            <Panel
+              title={
+                selectedFile ? `Editing ${selectedFile}` : "Select a file to edit"
+              }
+              actions={
+                selectedFile && (
+                  <button
+                    className="primary"
+                    onClick={handleSaveFile}
+                    disabled={loadingFile}
+                  >
+                    Save File
+                  </button>
+                )
+              }
+            >
+              {loadingFile && <div className="alert">Loading file...</div>}
+              {editorStatus && (
+                <div
+                  className={`alert ${
+                    editorStatus.includes("successfully")
+                      ? "success"
+                      : editorStatus.includes("Failed") ||
+                          editorStatus.includes("failed")
+                        ? "error"
+                        : ""
+                  }`}
                 >
-                  Save File
-                </button>
-              )
-            }
-          >
-            {loadingFile && <div className="alert">Loading file...</div>}
-            {editorStatus && (
-              <div
-                className={`alert ${
-                  editorStatus.includes("successfully")
-                    ? "success"
-                    : editorStatus.includes("Failed") ||
-                        editorStatus.includes("failed")
-                      ? "error"
-                      : ""
-                }`}
-              >
-                {editorStatus}
-              </div>
-            )}
-            <textarea
-              value={editorContent}
-              onChange={(event) => setEditorContent(event.target.value)}
-              disabled={!selectedFile}
-              className="editor-input"
-            />
-          </Panel>
-          <Panel
-            title="Preview"
-            actions={
-              selectedFile && (
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => openFileCommentModal("preview")}
-                >
-                  Comment
-                </button>
-              )
-            }
-          >
-            {selectedFile?.endsWith(".md") ? (
-              <div
-                className="markdown"
-                dangerouslySetInnerHTML={{
-                  __html: marked(editorContent || ""),
-                }}
+                  {editorStatus}
+                </div>
+              )}
+              <textarea
+                value={editorContent}
+                onChange={(event) => setEditorContent(event.target.value)}
+                disabled={!selectedFile}
+                className="editor-input"
               />
-            ) : (
-              <pre className="preview">{editorContent}</pre>
-            )}
-          </Panel>
+            </Panel>
+            <Panel
+              title="Preview"
+              actions={
+                selectedFile && (
+                  <button
+                    type="button"
+                    className="secondary comment-action"
+                    onClick={() => openFileCommentModal("preview")}
+                  >
+                    Comment
+                  </button>
+                )
+              }
+            >
+              {selectedFile?.endsWith(".md") ? (
+                <div
+                  className="markdown"
+                  dangerouslySetInnerHTML={{
+                    __html: marked(editorContent || ""),
+                  }}
+                />
+              ) : (
+                <pre className="preview">{editorContent}</pre>
+              )}
+            </Panel>
+          </div>
         </div>
       ),
     },
