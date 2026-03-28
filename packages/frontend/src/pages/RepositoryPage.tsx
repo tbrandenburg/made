@@ -70,6 +70,12 @@ const INLINE_CODE_PATTERN = /`[^`]*`/g;
 const normalizeMentionQuery = (value: string) =>
   value.replace(/^\.\//, "").replace(/\\/g, "/").trim();
 
+const toRelativeFilePath = (value: string) =>
+  value.replace(/\\/g, "/").replace(/^\.?\//, "");
+
+const buildFileCommentPrompt = (relativeFilePath: string, userComment: string) =>
+  `Regarding \`${relativeFilePath}\`: ${userComment}`;
+
 const splitMentionSearch = (query: string) => {
   const normalized = normalizeMentionQuery(query);
   const lastSlash = normalized.lastIndexOf("/");
@@ -1372,7 +1378,10 @@ export const RepositoryPage: React.FC = () => {
 
   const submitFileComment = () => {
     if (!selectedFile || !fileCommentText.trim()) return;
-    const prompt = `Regarding \`${selectedFile}\`: ${fileCommentText.trim()}`;
+    const prompt = buildFileCommentPrompt(
+      toRelativeFilePath(selectedFile),
+      fileCommentText.trim(),
+    );
     handleSendMessage(prompt);
     setActiveTab("agent");
     closeFileCommentModal();
