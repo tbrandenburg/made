@@ -216,6 +216,19 @@ textarea {
   color: var(--muted);
 }
 
+.comment-action {
+  border-color: rgba(63, 116, 255, 0.45);
+  background: rgba(63, 116, 255, 0.16);
+  color: #c8dcff;
+}
+
+.comment-action:hover:not(:disabled),
+.comment-action:focus-visible:not(:disabled) {
+  border-color: rgba(98, 144, 255, 0.65);
+  background: rgba(63, 116, 255, 0.24);
+  color: #e2edff;
+}
+
 .danger {
   padding: 0.75rem 1.25rem;
   border-radius: 0.9rem;
