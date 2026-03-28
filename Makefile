@@ -11,7 +11,7 @@ MADE_WORKSPACE_HOME ?= $(abspath $(CURDIR)/workspace/)
 export MADE_HOME
 export MADE_WORKSPACE_HOME
 
-.PHONY: help lint format test unit-test system-test qa qa-quick build run stop restart clean install install-node install-pybackend test-coverage security-audit docker-build docker-up docker-down docker-dev docker-clean
+.PHONY: help lint format test unit-test system-test qa qa-quick build run stop restart clean install install-node install-pybackend test-coverage security-audit docker-build docker-up docker-down docker-dev docker-clean release tag-release
 
 # Default target
 help:
@@ -55,6 +55,8 @@ help:
 	@echo "  make docker-build              # Build Docker images"
 	@echo "  make docker-dev                # Start development environment"
 	@echo "  make run PORT=3000 FRONTEND_PORT=5173  # Start frontend + Python backend"
+	@echo "  release            Interactive release creation workflow"
+	@echo "  tag-release        Create and push version tag (VERSION=v0.1.1)"
 
 # Quality Assurance Tasks
 format:
@@ -244,3 +246,41 @@ docker-clean: docker-down
 	docker compose down -v --remove-orphans
 	docker system prune -f
 	@echo "✅ Docker cleanup completed"
+
+# Release Management
+release: qa
+	@echo "🚀 Release Workflow"
+	@echo "=================="
+	@echo ""
+	@echo "Current version tags:"
+	@git tag --list --sort=-version:refname | head -5 || echo "  (no tags yet)"
+	@echo ""
+	@read -p "Enter new version tag (e.g., v0.1.1): " VERSION; \
+	if [ -z "$$VERSION" ]; then \
+		echo "❌ Version is required"; \
+		exit 1; \
+	fi; \
+	if ! echo "$$VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$$'; then \
+		echo "❌ Version must follow semantic versioning (e.g., v1.0.0, v1.0.0-beta.1)"; \
+		exit 1; \
+	fi; \
+	if git tag --list | grep -q "^$$VERSION$$"; then \
+		echo "❌ Tag $$VERSION already exists"; \
+		exit 1; \
+	fi; \
+	echo "🏷️  Creating annotated tag $$VERSION..."; \
+	git tag -a $$VERSION -m "Release $$VERSION"; \
+	echo "🚀 Pushing tag to trigger release workflow..."; \
+	git push origin $$VERSION; \
+	echo "✅ Release $$VERSION created and pushed"; \
+	echo "📦 Check GitHub Actions for automated release: https://github.com/tbrandenburg/made/actions"
+
+tag-release:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "❌ Usage: make tag-release VERSION=v0.1.1"; \
+		exit 1; \
+	fi; \
+	echo "🏷️  Creating tag $(VERSION)..."; \
+	git tag -a $(VERSION) -m "Release $(VERSION)"; \
+	git push origin $(VERSION); \
+	echo "✅ Tag $(VERSION) pushed"

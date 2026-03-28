@@ -133,6 +133,47 @@ The backend provides a RESTful API with endpoints for:
 - **File Operations**: `/api/repositories/:name/file` - File management and editing
 - **Settings**: `/api/settings` - Application configuration
 
+## 📦 Releases & Versioning
+
+This project follows [Semantic Versioning](https://semver.org/) (SemVer).
+
+### Version Format
+
+Given a version number `MAJOR.MINOR.PATCH`:
+- **MAJOR** - Incompatible API changes  
+- **MINOR** - New functionality (backwards compatible)
+- **PATCH** - Bug fixes (backwards compatible)
+
+### Latest Release
+
+[![Latest Release](https://img.shields.io/github/v/release/tbrandenburg/made)](https://github.com/tbrandenburg/made/releases)
+
+Check the latest version:
+```bash
+git fetch --tags
+git tag --list | tail -1
+```
+
+### Creating a Release
+
+```bash
+# Run quality assurance
+make qa
+
+# Create and push release tag
+make release VERSION=v0.1.1
+
+# Automated: CI creates GitHub release
+```
+
+### Release Automation
+
+Releases are automated via GitHub Actions:
+1. Developer creates annotated tag (`v*.*.*` format)
+2. CI runs full test suite (`make qa`)  
+3. GitHub release is created automatically
+4. Release artifacts are built and attached
+
 ## Tests & CI
 
 ### Quick Test Commands
