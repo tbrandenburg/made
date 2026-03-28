@@ -16,7 +16,10 @@ import { ChatWindow } from "../components/ChatWindow";
 import { MentionPathTextarea } from "../components/MentionPathTextarea";
 import { WorkflowBuilderPanel } from "../components/WorkflowBuilderPanel";
 import { SessionPickerModal } from "../components/SessionPickerModal";
-import { AgentSelector, DEFAULT_AGENT_VALUE } from "../components/AgentSelector";
+import {
+  AgentSelector,
+  DEFAULT_AGENT_VALUE,
+} from "../components/AgentSelector";
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import { useAgentCli } from "../hooks/useAgentCli";
@@ -26,6 +29,7 @@ import {
   ChatSession,
   FileNode,
   HarnessDefinition,
+  RepositoryFileGitDetails,
   RepositorySummary,
   RepositoryGitStatus,
 } from "../hooks/useApi";
@@ -153,15 +157,15 @@ const MODEL_OPTIONS = [
   },
   {
     value: "github-copilot/gpt-5.2",
-    label: "github-copilot/gpt-5.2"
+    label: "github-copilot/gpt-5.2",
   },
   {
     value: "github-copilot/gpt-5.3",
-    label: "github-copilot/gpt-5.3"
+    label: "github-copilot/gpt-5.3",
   },
   {
     value: "github-copilot/gpt-5.4",
-    label: "github-copilot/gpt-5.4"
+    label: "github-copilot/gpt-5.4",
   },
   {
     value: "github-copilot/gpt-5.2-codex",
@@ -193,7 +197,7 @@ const MODEL_OPTIONS = [
   {
     value: "openai/gpt-5.4-codex",
     label: "openai/gpt-5.4-codex",
-  }
+  },
 ];
 
 type HarnessRun = {
@@ -245,6 +249,13 @@ const formatArgumentHint = (argumentHint?: ArgumentHint) => {
 const formatHarnessTimestamp = (value: string) => {
   const parsed = Date.parse(value);
   if (!Number.isFinite(parsed)) return "Unknown time";
+  return new Date(parsed).toLocaleString();
+};
+
+const formatDateTime = (value: string | null) => {
+  if (!value) return "Unknown";
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return value;
   return new Date(parsed).toLocaleString();
 };
 
@@ -424,7 +435,9 @@ export const RepositoryPage: React.FC = () => {
     ];
   }, [availableCommands, fileTree, repository?.path]);
   const [mentionQuery, setMentionQuery] = useState("");
-  const [recursiveMentionResults, setRecursiveMentionResults] = useState<string[]>([]);
+  const [recursiveMentionResults, setRecursiveMentionResults] = useState<
+    string[]
+  >([]);
   const [commandsError, setCommandsError] = useState<string | null>(null);
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [availableHarnesses, setAvailableHarnesses] = useState<
@@ -488,9 +501,8 @@ export const RepositoryPage: React.FC = () => {
     placeholders: [],
     values: [],
   });
-  const [commandPreview, setCommandPreview] = useState<CommandDefinition | null>(
-    null,
-  );
+  const [commandPreview, setCommandPreview] =
+    useState<CommandDefinition | null>(null);
   const [harnessModal, setHarnessModal] = useState<{
     open: boolean;
     harness: HarnessDefinition | null;
@@ -548,6 +560,17 @@ export const RepositoryPage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [editorContent, setEditorContent] = useState("");
   const [editorStatus, setEditorStatus] = useState<string | null>(null);
+  const [fileGitDetails, setFileGitDetails] =
+    useState<RepositoryFileGitDetails | null>(null);
+  const [fileGitDetailsLoading, setFileGitDetailsLoading] = useState(false);
+  const [fileGitDetailsError, setFileGitDetailsError] = useState<string | null>(
+    null,
+  );
+  const [fileCommentModal, setFileCommentModal] = useState<{
+    open: boolean;
+    source: "preview" | "diff" | null;
+  }>({ open: false, source: null });
+  const [fileCommentText, setFileCommentText] = useState("");
   const [createModal, setCreateModal] = useState(false);
   const [uploadModal, setUploadModal] = useState(false);
   const [renameModal, setRenameModal] = useState<{
@@ -727,6 +750,29 @@ export const RepositoryPage: React.FC = () => {
       .finally(() => setGitStatusLoading(false));
   }, [name, repository?.hasGit]);
 
+  const loadFileGitDetails = useCallback(
+    async (filePath: string) => {
+      if (!name || !repository?.hasGit) return;
+      setFileGitDetailsLoading(true);
+      try {
+        const response = await api.getRepositoryFileGitDetails(name, filePath);
+        setFileGitDetails(response);
+        setFileGitDetailsError(null);
+      } catch (error) {
+        console.error("Failed to load file git details", error);
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to load file git details";
+        setFileGitDetailsError(message);
+        setFileGitDetails(null);
+      } finally {
+        setFileGitDetailsLoading(false);
+      }
+    },
+    [name, repository?.hasGit],
+  );
+
   const refreshHarnessStatuses = useCallback(async () => {
     if (!harnessHistory.length) return;
     const updates = await Promise.all(
@@ -818,7 +864,10 @@ export const RepositoryPage: React.FC = () => {
     }
   }, [name]);
 
-  const findNodeByPath = (node: FileNode, targetPath: string): FileNode | null => {
+  const findNodeByPath = (
+    node: FileNode,
+    targetPath: string,
+  ): FileNode | null => {
     if (node.path === targetPath) {
       return node;
     }
@@ -890,6 +939,12 @@ export const RepositoryPage: React.FC = () => {
       setSelectedFile(filePath);
       setEditorContent(response.content);
       setEditorStatus(null);
+      if (repository?.hasGit) {
+        void loadFileGitDetails(filePath);
+      } else {
+        setFileGitDetails(null);
+        setFileGitDetailsError(null);
+      }
       setActiveTab("editor");
     } catch (error) {
       console.error("Failed to open file", error);
@@ -931,7 +986,10 @@ export const RepositoryPage: React.FC = () => {
     }
   };
 
-  const handleCreateWorktree = async (directoryName: string, branchName: string) => {
+  const handleCreateWorktree = async (
+    directoryName: string,
+    branchName: string,
+  ) => {
     if (!name) return;
     setCreatingWorktree(true);
     try {
@@ -1065,15 +1123,15 @@ export const RepositoryPage: React.FC = () => {
         model,
         agent,
       );
-      
+
       // No immediate message processing - polling handles everything
       if (reply.sessionId) {
         setSessionId(reply.sessionId);
       }
-      
+
       setChatError(null);
       setActiveTab("agent");
-      
+
       // Keep chatLoading=true if processing (triggers existing polling)
       if (!reply.processing) setChatLoading(false);
     } catch (error) {
@@ -1135,7 +1193,9 @@ export const RepositoryPage: React.FC = () => {
     } catch (error) {
       console.error("Failed to load session history", error);
       const message =
-        error instanceof Error ? error.message : "Failed to load session history";
+        error instanceof Error
+          ? error.message
+          : "Failed to load session history";
       setChatError(message);
     } finally {
       setChatLoading(false);
@@ -1290,10 +1350,32 @@ export const RepositoryPage: React.FC = () => {
       await api.saveRepositoryFile(name, selectedFile, editorContent);
       setEditorStatus("Saved successfully");
       refreshFiles();
+      if (repository?.hasGit) {
+        void loadGitStatus();
+        void loadFileGitDetails(selectedFile);
+      }
     } catch (error) {
       setEditorStatus("Failed to save file");
       console.error("Failed to save file", error);
     }
+  };
+
+  const openFileCommentModal = (source: "preview" | "diff") => {
+    setFileCommentModal({ open: true, source });
+    setFileCommentText("");
+  };
+
+  const closeFileCommentModal = () => {
+    setFileCommentModal({ open: false, source: null });
+    setFileCommentText("");
+  };
+
+  const submitFileComment = () => {
+    if (!selectedFile || !fileCommentText.trim()) return;
+    const prompt = `Regarding \`${selectedFile}\`: ${fileCommentText.trim()}`;
+    handleSendMessage(prompt);
+    setActiveTab("agent");
+    closeFileCommentModal();
   };
 
   const handleCreateFile = async () => {
@@ -1404,6 +1486,8 @@ export const RepositoryPage: React.FC = () => {
       if (selectedFile === deleteModal.target) {
         setSelectedFile(null);
         setEditorContent("");
+        setFileGitDetails(null);
+        setFileGitDetailsError(null);
       }
       setDeleteModal({ open: false, target: null });
       refreshFiles();
@@ -1427,9 +1511,7 @@ export const RepositoryPage: React.FC = () => {
 
   const renderNode = (node: FileNode, depth = 0): React.ReactNode => {
     if (node.path === ".") {
-      return sortNodes(node.children).map((child) =>
-        renderNode(child, depth),
-      );
+      return sortNodes(node.children).map((child) => renderNode(child, depth));
     }
     const indent = { marginLeft: depth * 16 };
     const isFolder = node.type === "folder";
@@ -1826,7 +1908,7 @@ export const RepositoryPage: React.FC = () => {
     {
       id: "files",
       label: "File Browser",
-          content: (
+      content: (
         <>
           <div className="button-bar">
             <button className="primary" onClick={() => setCreateModal(true)}>
@@ -1859,6 +1941,118 @@ export const RepositoryPage: React.FC = () => {
       label: "File Editor",
       content: (
         <div className="editor-grid">
+          {repository?.hasGit && selectedFile && (
+            <>
+              <Panel title="Git File Info">
+                {fileGitDetailsLoading && (
+                  <div className="alert">Loading git file details...</div>
+                )}
+                {fileGitDetailsError && (
+                  <div className="alert error">{fileGitDetailsError}</div>
+                )}
+                {!fileGitDetailsLoading &&
+                  !fileGitDetailsError &&
+                  fileGitDetails && (
+                    <table className="git-table">
+                      <tbody>
+                        <tr>
+                          <th>Tracking</th>
+                          <td>
+                            {fileGitDetails.tracked ? "Tracked" : "Untracked"}
+                          </td>
+                        </tr>
+                        <tr>
+                          <th>Ignored</th>
+                          <td>{fileGitDetails.ignored ? "Yes" : "No"}</td>
+                        </tr>
+                        <tr>
+                          <th>Line diff stats</th>
+                          <td>
+                            <span className="git-stat-pair">
+                              <span className="git-added">
+                                +{fileGitDetails.lineStats.green}
+                              </span>
+                              <span className="git-removed">
+                                -{fileGitDetails.lineStats.red}
+                              </span>
+                            </span>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th>Last commit</th>
+                          <td>
+                            {fileGitDetails.lastCommit.id ? (
+                              <>
+                                {fileGitDetails.lastCommit.link ? (
+                                  <a
+                                    href={fileGitDetails.lastCommit.link}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    {fileGitDetails.lastCommit.id.slice(0, 8)}
+                                  </a>
+                                ) : (
+                                  fileGitDetails.lastCommit.id.slice(0, 8)
+                                )}{" "}
+                                —{" "}
+                                {fileGitDetails.lastCommit.message ||
+                                  "No message"}
+                              </>
+                            ) : (
+                              "No commit yet"
+                            )}
+                          </td>
+                        </tr>
+                        <tr>
+                          <th>Last modified</th>
+                          <td>{formatDateTime(fileGitDetails.lastModified)}</td>
+                        </tr>
+                        <tr>
+                          <th>Line count</th>
+                          <td>{fileGitDetails.lineCount}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  )}
+              </Panel>
+              {fileGitDetails && fileGitDetails.diffBlocks.length > 0 && (
+                <Panel
+                  title="Diff View"
+                  actions={
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => openFileCommentModal("diff")}
+                    >
+                      Comment
+                    </button>
+                  }
+                >
+                  <div className="editor-diff-grid">
+                    {fileGitDetails.diffBlocks.map((block, index) => (
+                      <div
+                        className="editor-diff-row"
+                        key={`${selectedFile}-${index}`}
+                      >
+                        <div className="editor-diff-column">
+                          <h4>Before</h4>
+                          <pre className="preview">
+                            {block.before || "(empty)"}
+                          </pre>
+                        </div>
+                        <div className="editor-diff-column">
+                          <h4>After</h4>
+                          <pre className="preview">
+                            {block.after || "(empty)"}
+                          </pre>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+              )}
+            </>
+          )}
           <Panel
             title={
               selectedFile ? `Editing ${selectedFile}` : "Select a file to edit"
@@ -1897,7 +2091,20 @@ export const RepositoryPage: React.FC = () => {
               className="editor-input"
             />
           </Panel>
-          <Panel title="Preview">
+          <Panel
+            title="Preview"
+            actions={
+              selectedFile && (
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => openFileCommentModal("preview")}
+                >
+                  Comment
+                </button>
+              )
+            }
+          >
             {selectedFile?.endsWith(".md") ? (
               <div
                 className="markdown"
@@ -1948,7 +2155,10 @@ export const RepositoryPage: React.FC = () => {
                       const argumentPlan = getCommandArgumentPlan(command);
                       const usesArguments = argumentPlan.labels.length > 0;
                       return (
-                        <div className="command-button-wrapper" key={command.id}>
+                        <div
+                          className="command-button-wrapper"
+                          key={command.id}
+                        >
                           <button
                             className="primary command-button command-button--previewable"
                             title={`${command.source} • ${command.name}`}
@@ -2127,7 +2337,10 @@ export const RepositoryPage: React.FC = () => {
           <button className="secondary" onClick={closeHarnessModal}>
             Cancel
           </button>
-          <button className="primary" onClick={() => handleHarnessRun({ dryRun: true })}>
+          <button
+            className="primary"
+            onClick={() => handleHarnessRun({ dryRun: true })}
+          >
             Dry Run
           </button>
           <button className="danger" onClick={() => handleHarnessRun()}>
@@ -2160,11 +2373,7 @@ export const RepositoryPage: React.FC = () => {
         </div>
       </Modal>
 
-      <Modal
-        open={uploadModal}
-        title="Upload File"
-        onClose={closeUploadModal}
-      >
+      <Modal open={uploadModal} title="Upload File" onClose={closeUploadModal}>
         {uploadError && <div className="alert error">{uploadError}</div>}
         <div className="form-group">
           <label htmlFor="upload-file">Select file</label>
@@ -2276,6 +2485,35 @@ export const RepositoryPage: React.FC = () => {
           </button>
           <button className="danger" onClick={handleDeleteFile}>
             Delete
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={fileCommentModal.open}
+        title={`Comment on ${fileCommentModal.source === "diff" ? "Diff View" : "Preview"}`}
+        onClose={closeFileCommentModal}
+      >
+        <div className="form-group">
+          <label htmlFor="file-comment">Comment</label>
+          <textarea
+            id="file-comment"
+            rows={4}
+            value={fileCommentText}
+            onChange={(event) => setFileCommentText(event.target.value)}
+            placeholder="What should the agent do about this file?"
+          />
+        </div>
+        <div className="modal-actions">
+          <button className="secondary" onClick={closeFileCommentModal}>
+            Cancel
+          </button>
+          <button
+            className="primary"
+            onClick={submitFileComment}
+            disabled={!selectedFile || !fileCommentText.trim()}
+          >
+            Send to chat
           </button>
         </div>
       </Modal>
