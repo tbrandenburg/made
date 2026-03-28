@@ -62,7 +62,10 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   const renderAgentOption = (agent: AvailableAgent) => {
     const typeSuffix = agent.type ? ` (${agent.type})` : "";
     return (
-      <option key={`${agent.name}-${agent.type || "unknown"}`} value={agent.name}>
+      <option
+        key={`${agent.name}-${agent.type || "unknown"}`}
+        value={agent.name}
+      >
         {`${agent.name}${typeSuffix}`}
       </option>
     );

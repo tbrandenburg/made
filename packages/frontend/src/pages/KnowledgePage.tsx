@@ -18,10 +18,14 @@ export const KnowledgePage: React.FC = () => {
       return artefact.type === "template";
     }
     const frontmatterType = artefact.frontmatter?.type;
-    return typeof frontmatterType === "string" && frontmatterType === "template";
+    return (
+      typeof frontmatterType === "string" && frontmatterType === "template"
+    );
   };
   const templateArtefacts = artefacts.filter(isTemplate);
-  const documentArtefacts = artefacts.filter((artefact) => !isTemplate(artefact));
+  const documentArtefacts = artefacts.filter(
+    (artefact) => !isTemplate(artefact),
+  );
 
   const loadArtefacts = () => {
     api

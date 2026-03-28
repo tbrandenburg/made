@@ -122,7 +122,6 @@ export const RepositoriesPage: React.FC = () => {
     }
   };
 
-
   const handleRemoveWorktree = async () => {
     if (!removeWorktreeModal.name) return;
 
@@ -208,7 +207,9 @@ export const RepositoriesPage: React.FC = () => {
                       key={repo.name}
                       title={repo.name}
                       to={`/repositories/${repo.name}`}
-                      className={repo.isWorktreeChild ? "worktree-child-pill" : undefined}
+                      className={
+                        repo.isWorktreeChild ? "worktree-child-pill" : undefined
+                      }
                       actions={
                         <div className="repo-panel-actions">
                           <button
@@ -231,7 +232,10 @@ export const RepositoriesPage: React.FC = () => {
                               onClick={(event) => {
                                 event.preventDefault();
                                 event.stopPropagation();
-                                setRemoveWorktreeModal({ open: true, name: repo.name });
+                                setRemoveWorktreeModal({
+                                  open: true,
+                                  name: repo.name,
+                                });
                               }}
                               aria-label={`Remove ${repo.name} worktree`}
                               title={`Remove ${repo.name} worktree`}
@@ -357,7 +361,9 @@ export const RepositoriesPage: React.FC = () => {
         onClose={closeTemplateModal}
       >
         {templateResult && (
-          <div className={`alert ${templateResult.type}`}>{templateResult.message}</div>
+          <div className={`alert ${templateResult.type}`}>
+            {templateResult.message}
+          </div>
         )}
         <div className="repo-template-grid">
           {templates.length === 0 ? (

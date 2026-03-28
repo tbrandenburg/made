@@ -1,5 +1,8 @@
 import workflowPromptTemplate from "../templates/WORKFLOW_TO_HARNESS_PROMPT_TEMPLATE.md?raw";
-import { WorkflowDefinition, WorkflowStep } from "../components/WorkflowBuilderPanel";
+import {
+  WorkflowDefinition,
+  WorkflowStep,
+} from "../components/WorkflowBuilderPanel";
 
 export const workflowShellScriptPath = (workflowName: string) =>
   `.harness/${normalizeWorkflowName(workflowName)}.sh`;
@@ -12,9 +15,12 @@ const escapeYamlValue = (value: string) => {
 const stepToYaml = (step: WorkflowStep, indent: string) => {
   const lines: string[] = [`${indent}- type: ${step.type}`];
   if (step.type === "agent") {
-    if (step.agent) lines.push(`${indent}  agent: ${escapeYamlValue(step.agent)}`);
-    if (step.command) lines.push(`${indent}  command: ${escapeYamlValue(step.command)}`);
-    if (step.prompt) lines.push(`${indent}  prompt: ${escapeYamlValue(step.prompt)}`);
+    if (step.agent)
+      lines.push(`${indent}  agent: ${escapeYamlValue(step.agent)}`);
+    if (step.command)
+      lines.push(`${indent}  command: ${escapeYamlValue(step.command)}`);
+    if (step.prompt)
+      lines.push(`${indent}  prompt: ${escapeYamlValue(step.prompt)}`);
     return lines;
   }
   lines.push(`${indent}  run: ${escapeYamlValue(step.run || "")}`);
@@ -27,8 +33,12 @@ const workflowToYaml = (workflow: WorkflowDefinition) => {
     "  - id: " + escapeYamlValue(workflow.id),
     "    name: " + escapeYamlValue(workflow.name),
     "    enabled: " + (workflow.enabled ? "true" : "false"),
-    "    schedule: " + (workflow.schedule ? escapeYamlValue(workflow.schedule) : "null"),
-    "    shellScriptPath: " + escapeYamlValue(workflow.shellScriptPath || workflowShellScriptPath(workflow.name)),
+    "    schedule: " +
+      (workflow.schedule ? escapeYamlValue(workflow.schedule) : "null"),
+    "    shellScriptPath: " +
+      escapeYamlValue(
+        workflow.shellScriptPath || workflowShellScriptPath(workflow.name),
+      ),
     "    steps:",
   ];
 
@@ -67,7 +77,11 @@ export const buildWorkflowHarnessPrompt = (
     "{{WORKFLOW_FILE_NAME}}",
     `${normalizeWorkflowName(workflow.name)}.sh`,
   );
-  output = apply(output, "{{WORKFLOW_SCRIPT_PATH}}", workflow.shellScriptPath || workflowShellScriptPath(workflow.name));
+  output = apply(
+    output,
+    "{{WORKFLOW_SCRIPT_PATH}}",
+    workflow.shellScriptPath || workflowShellScriptPath(workflow.name),
+  );
   output = apply(output, "{{WORKFLOW_YAML}}", workflowToYaml(workflow));
   output = apply(output, "{{CURRENT_AGENT_CLI}}", agentCli || "opencode");
   return output;

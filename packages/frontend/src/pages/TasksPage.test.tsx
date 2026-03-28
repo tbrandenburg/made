@@ -128,8 +128,6 @@ describe("TasksPage", () => {
     expect(screen.getAllByText("-").length).toBeGreaterThan(0);
   });
 
-
-
   it("prefers stderr diagnostics output in overview", async () => {
     vi.mocked(api.listTasks).mockResolvedValue({ tasks: [] });
     vi.mocked(api.getWorkspaceWorkflows).mockResolvedValue({

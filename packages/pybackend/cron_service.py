@@ -127,7 +127,9 @@ def list_workflow_logs() -> list[dict[str, object]]:
                 )
             )
 
-    return [entry for _, entry in sorted(log_files, key=lambda item: item[0], reverse=True)]
+    return [
+        entry for _, entry in sorted(log_files, key=lambda item: item[0], reverse=True)
+    ]
 
 
 def read_workflow_log_tail(

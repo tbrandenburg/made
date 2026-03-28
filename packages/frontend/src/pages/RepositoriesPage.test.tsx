@@ -8,9 +8,8 @@ import { RepositoriesPage } from "./RepositoriesPage";
 import { api } from "../hooks/useApi";
 
 vi.mock("../hooks/useApi", async () => {
-  const actual = await vi.importActual<typeof import("../hooks/useApi")>(
-    "../hooks/useApi",
-  );
+  const actual =
+    await vi.importActual<typeof import("../hooks/useApi")>("../hooks/useApi");
   return {
     ...actual,
     api: {
@@ -134,9 +133,13 @@ describe("RepositoriesPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByLabelText("Apply template to main-repo"));
+    fireEvent.click(
+      await screen.findByLabelText("Apply template to main-repo"),
+    );
 
-    expect(await screen.findByRole("button", { name: "starter-kit" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "starter-kit" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "starter-kit" }));
 
     await waitFor(() => {

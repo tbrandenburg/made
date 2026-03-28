@@ -29,7 +29,10 @@ import { ClearSessionModal } from "../components/ClearSessionModal";
 import { SessionPickerModal } from "../components/SessionPickerModal";
 import { ArrowDownIcon } from "../components/icons/ArrowDownIcon";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
-import { AgentSelector, DEFAULT_AGENT_VALUE } from "../components/AgentSelector";
+import {
+  AgentSelector,
+  DEFAULT_AGENT_VALUE,
+} from "../components/AgentSelector";
 import { commandPathsFromDefinitions } from "../utils/pathMentions";
 
 export const TaskPage: React.FC = () => {
@@ -45,16 +48,11 @@ export const TaskPage: React.FC = () => {
   );
   const sessionStorageKey = useMemo(
     () =>
-      name
-        ? `task-session-${name}-${agentCli}`
-        : `task-session-${agentCli}`,
+      name ? `task-session-${name}-${agentCli}` : `task-session-${agentCli}`,
     [agentCli, name],
   );
   const harnessHistoryStorageKey = useMemo(
-    () =>
-      name
-        ? `task-harness-history-${name}`
-        : "task-harness-history",
+    () => (name ? `task-harness-history-${name}` : "task-harness-history"),
     [name],
   );
   const agentStorageKey = useMemo(
@@ -209,14 +207,14 @@ export const TaskPage: React.FC = () => {
           undefined,
           agent,
         );
-        
+
         // No immediate message processing - polling handles everything
         if (reply.sessionId) {
           setSessionId(reply.sessionId);
         }
         setActiveTab("agent");
         setAgentStatus(null);
-        
+
         // Keep chatLoading=true if processing (triggers existing polling)
         if (!reply.processing) setChatLoading(false);
       } catch (error) {
@@ -296,7 +294,9 @@ export const TaskPage: React.FC = () => {
     } catch (error) {
       console.error("Failed to load session history", error);
       const message =
-        error instanceof Error ? error.message : "Failed to load session history";
+        error instanceof Error
+          ? error.message
+          : "Failed to load session history";
       setAgentStatus(message);
     } finally {
       setChatLoading(false);
@@ -454,7 +454,14 @@ export const TaskPage: React.FC = () => {
                         aria-hidden="true"
                         focusable="false"
                       >
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <rect
+                          x="9"
+                          y="9"
+                          width="13"
+                          height="13"
+                          rx="2"
+                          ry="2"
+                        />
                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                       </svg>
                     </button>
@@ -486,20 +493,20 @@ export const TaskPage: React.FC = () => {
                     />
                   </div>
                   <div className="chat-controls__right">
-                  {chatLoading ? (
-                    <button className="danger" onClick={handleCancel}>
-                      Cancel
-                    </button>
-                  ) : (
-                    <button
-                      className="primary"
-                      onClick={handleSend}
-                      disabled={!prompt.trim()}
-                    >
-                      Send
-                    </button>
-                  )}
-                                  </div>
+                    {chatLoading ? (
+                      <button className="danger" onClick={handleCancel}>
+                        Cancel
+                      </button>
+                    ) : (
+                      <button
+                        className="primary"
+                        onClick={handleSend}
+                        disabled={!prompt.trim()}
+                      >
+                        Send
+                      </button>
+                    )}
+                  </div>
                 </div>
               </Panel>
             ),

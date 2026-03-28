@@ -6,7 +6,14 @@ import "../styles/page.css";
 
 type SettingsMap = Record<string, unknown>;
 
-const agentCliOptions = ["opencode", "opencode-legacy", "kiro", "copilot", "codex", "ob1"];
+const agentCliOptions = [
+  "opencode",
+  "opencode-legacy",
+  "kiro",
+  "copilot",
+  "codex",
+  "ob1",
+];
 
 export const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SettingsMap>({});
@@ -43,9 +50,7 @@ export const SettingsPage: React.FC = () => {
   return (
     <div className="page">
       <h1>Settings</h1>
-      {status && (
-        <div className={`alert ${status.type}`}>{status.message}</div>
-      )}
+      {status && <div className={`alert ${status.type}`}>{status.message}</div>}
       <TabView
         tabs={[
           {

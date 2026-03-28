@@ -25,7 +25,11 @@ def _sanitize_frontmatter(raw_text: str) -> str:
         return raw_text
 
     end_index = next(
-        (index for index, line in enumerate(lines[1:], start=1) if line.strip() == "---"),
+        (
+            index
+            for index, line in enumerate(lines[1:], start=1)
+            if line.strip() == "---"
+        ),
         None,
     )
     if end_index is None:
@@ -87,7 +91,9 @@ def _load_repo_commands(repo_name: str) -> List[Dict[str, Any]]:
             if path.is_file():
                 command_files.append((path, "repository"))
 
-    commands = (_load_command_file(path, source) for path, source in sorted(command_files))
+    commands = (
+        _load_command_file(path, source) for path, source in sorted(command_files)
+    )
     return [command for command in commands if command]
 
 

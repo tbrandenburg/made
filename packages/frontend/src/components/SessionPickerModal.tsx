@@ -36,7 +36,9 @@ export const SessionPickerModal: React.FC<SessionPickerModalProps> = ({
               <span className="session-pill-date">{session.updated}</span>
             </button>
           ))}
-          {!sessions.length && !error && <p className="muted">No sessions available.</p>}
+          {!sessions.length && !error && (
+            <p className="muted">No sessions available.</p>
+          )}
         </div>
       )}
       <div className="modal-actions">
