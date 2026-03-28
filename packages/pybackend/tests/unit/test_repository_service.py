@@ -7,6 +7,7 @@ from repository_service import (
     apply_repository_template,
     clone_repository,
     create_repository_worktree,
+    get_repository_file_git_details,
     get_repository_git_status,
     get_repository_info,
     list_repository_templates,
@@ -185,6 +186,46 @@ def test_get_repository_git_status_includes_untracked_files(monkeypatch, tmp_pat
     result = get_repository_git_status("repo")
 
     assert any(entry["path"] == "new_file.txt" for entry in result["diff"])
+
+
+def test_get_repository_file_git_details_for_tracked_file(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    repo_path = workspace / "repo"
+    _init_local_repo(repo_path)
+
+    readme = repo_path / "README.md"
+    readme.write_text("hello\nupdated\n", encoding="utf-8")
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+    monkeypatch.setattr("repository_service._github_repo", lambda *_: "org/repo")
+
+    result = get_repository_file_git_details("repo", "README.md")
+
+    assert result["tracked"] is True
+    assert result["ignored"] is False
+    assert result["lineStats"]["green"] >= 1
+    assert result["lineCount"] == 2
+    assert result["lastCommit"]["link"] is not None
+    assert len(result["diffBlocks"]) >= 1
+
+
+def test_get_repository_file_git_details_for_untracked_file(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    repo_path = workspace / "repo"
+    _init_local_repo(repo_path)
+    notes = repo_path / "NOTES.md"
+    notes.write_text("line one\nline two\n", encoding="utf-8")
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+    monkeypatch.setattr("repository_service._github_repo", lambda *_: None)
+
+    result = get_repository_file_git_details("repo", "NOTES.md")
+
+    assert result["tracked"] is False
+    assert result["lineStats"] == {"green": 2, "red": 0}
+    assert result["diffBlocks"] == [{"before": "", "after": "line one\nline two\n"}]
 
 def test_pull_repository(monkeypatch, tmp_path):
     workspace = tmp_path / "workspace"

@@ -215,6 +215,22 @@ export type RepositoryGitStatus = {
   diff: GitDiffEntry[];
 };
 
+export type RepositoryFileGitDetails = {
+  path: string;
+  tracked: boolean;
+  ignored: boolean;
+  lineStats: { green: number; red: number };
+  lastCommit: {
+    id: string | null;
+    message: string | null;
+    date: string | null;
+    link: string | null;
+  };
+  lastModified: string;
+  lineCount: number;
+  diffBlocks: { before: string; after: string }[];
+};
+
 export type HarnessDefinition = {
   id: string;
   name: string;
@@ -450,6 +466,10 @@ export const api = {
 
   getRepositoryGitStatus: (name: string) =>
     request<RepositoryGitStatus>(`/repositories/${name}/git`),
+  getRepositoryFileGitDetails: (name: string, filePath: string) =>
+    request<RepositoryFileGitDetails>(
+      `/repositories/${name}/git/file?path=${encodeURIComponent(filePath)}`,
+    ),
   pullRepository: (name: string) =>
     request<{ output: string }>(`/repositories/${name}/git/pull`, {
       method: "POST",
@@ -505,15 +525,19 @@ export const api = {
     request<{ workflows: WorkflowDefinition[] }>("/workflows"),
   getWorkspaceWorkflows: () =>
     request<{ workflows: WorkspaceWorkflowSummary[] }>("/workspace/workflows"),
-  getWorkflowLogs: () => request<{ logs: WorkflowLogSummary[] }>("/workflow-logs"),
+  getWorkflowLogs: () =>
+    request<{ logs: WorkflowLogSummary[] }>("/workflow-logs"),
   getWorkflowLogTail: (location: string, logName: string) =>
     request<WorkflowLogTail>(
       `/workflow-logs/${encodeURIComponent(location)}/${encodeURIComponent(logName)}`,
     ),
   terminateWorkflow: (workflowId: string) =>
-    request<{ success: boolean; message?: string }>(`/workflows/${encodeURIComponent(workflowId)}/terminate`, {
-      method: "POST",
-    }),
+    request<{ success: boolean; message?: string }>(
+      `/workflows/${encodeURIComponent(workflowId)}/terminate`,
+      {
+        method: "POST",
+      },
+    ),
   saveWorkflows: (workflows: WorkflowDefinition[]) =>
     request<{ workflows: WorkflowDefinition[] }>("/workflows", {
       method: "PUT",
