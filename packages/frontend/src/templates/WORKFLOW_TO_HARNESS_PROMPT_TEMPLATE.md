@@ -150,6 +150,26 @@ Failure mode:
     if a step fails, call `catch <step_name> <exit_code>` and return the same
     non-zero exit code
 
+### Subprocess output visibility (stdout/stderr)
+
+Step subprocess output MUST remain visible to users in real time.
+
+Requirements:
+
+• Do not suppress step stdout/stderr (no blanket redirects to `/dev/null`)
+• Stream step output to the console while also appending to the workflow log
+• Include this behavior for both `type: bash` and `type: agent` steps
+• Preserve the true step exit code (including when pipelines are used)
+
+Recommended implementation pattern:
+
+```bash
+"$step_name" 2>&1 | tee -a "$LOG_FILE"
+local status=${PIPESTATUS[0]}
+```
+
+If `tee` cannot append to the log file, console output visibility must still be preserved.
+
 ### run_agent()
 
 Required for `type: agent` steps so prompt handling and CLI invocation stay
@@ -422,7 +442,7 @@ Message input: **stdin**
 # Workflow YAML Input
 
 ```yaml
-{ { WORKFLOW_YAML } }
+{{WORKFLOW_YAML}}
 ```
 
 Steps must be translated into Bash step sections.
@@ -493,8 +513,13 @@ run_step() {
 
   # Temporarily disable exit on error to handle failures gracefully
   set +e
-  "$step_name"
-  local status=$?
+  if [[ -n "${LOG_FILE:-}" ]] && ( : >> "$LOG_FILE" ) 2>/dev/null; then
+    "$step_name" 2>&1 | tee -a "$LOG_FILE"
+    local status=${PIPESTATUS[0]}
+  else
+    "$step_name"
+    local status=$?
+  fi
   set -e  # Re-enable exit on error
 
   if [[ $status -ne 0 ]]; then
