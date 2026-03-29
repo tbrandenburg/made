@@ -6,6 +6,7 @@ from typing import Any
 import yaml
 
 from config import ensure_directory, get_made_directory, get_workspace_home
+from task_service import list_scheduled_tasks
 
 DEFAULT_WORKFLOW_NAME = "New workflow"
 
@@ -149,5 +150,23 @@ def list_workspace_workflows(
                     "diagnostics": (diagnostics_by_job or {}).get(job_id),
                 }
             )
+
+    for task in list_scheduled_tasks():
+        task_name = str(task.get("name") or "task.md")
+        task_id = f"task:{task_name}"
+        workflows.append(
+            {
+                "repository": ".made/tasks",
+                "id": task_id,
+                "name": task_name,
+                "enabled": True,
+                "schedule": task.get("schedule"),
+                "shellScriptPath": None,
+                "lastRun": (last_runs_by_job or {}).get(task_id),
+                "diagnostics": (diagnostics_by_job or {}).get(task_id),
+            }
+        )
+
+    workflows.sort(key=lambda workflow: (str(workflow.get("repository") or ""), str(workflow.get("name") or "")))
 
     return {"workflows": workflows}

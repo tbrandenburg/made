@@ -297,6 +297,10 @@ export const TasksPage: React.FC = () => {
                           const repositoryName = getRepositoryName(
                             workflow.repository,
                           );
+                          const isScheduledTask = workflow.id.startsWith("task:");
+                          const scheduledTaskName = isScheduledTask
+                            ? workflow.id.slice("task:".length)
+                            : null;
                           return (
                             <tr key={`${workflow.repository}:${workflow.id}`}>
                               <td>
@@ -309,11 +313,17 @@ export const TasksPage: React.FC = () => {
                               </td>
                               <td>{workflow.schedule || "-"}</td>
                               <td>
-                                <Link
-                                  to={`/repositories/${encodeURIComponent(repositoryName)}?tab=harnesses`}
-                                >
-                                  {workflow.name}
-                                </Link>
+                                {isScheduledTask && scheduledTaskName ? (
+                                  <Link to={`/tasks/${encodeURIComponent(scheduledTaskName)}`}>
+                                    {workflow.name}
+                                  </Link>
+                                ) : (
+                                  <Link
+                                    to={`/repositories/${encodeURIComponent(repositoryName)}?tab=harnesses`}
+                                  >
+                                    {workflow.name}
+                                  </Link>
+                                )}
                               </td>
                               <td>{repositoryName}</td>
                               <td>{formatWorkflowLastRun(workflow)}</td>

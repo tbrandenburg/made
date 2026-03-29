@@ -10,6 +10,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from config import get_workspace_home
+from settings_service import read_settings
+from task_service import get_tasks_directory, list_scheduled_tasks
 from workflow_service import read_workflows
 
 logger = logging.getLogger("made.pybackend.cron")
@@ -77,6 +79,29 @@ def _resolve_script_path(repo_path: Path, shell_script_path: str) -> Path:
     if script_path.is_absolute():
         return script_path
     return repo_path / script_path
+
+
+def _build_agent_cli_command(prompt: str) -> list[str]:
+    settings = read_settings()
+    selected_cli = str(settings.get("agentCli", "opencode")).strip()
+
+    if selected_cli == "kiro":
+        return ["kiro-cli", "chat", "--no-interactive", "--trust-all-tools"]
+    if selected_cli == "copilot":
+        return ["copilot", "-p", prompt, "--allow-all-tools", "--silent"]
+    if selected_cli == "codex":
+        return ["codex", "exec", "--json"]
+    if selected_cli == "ob1":
+        return ["ob1", "--output-format", "json", "--prompt", prompt]
+
+    # Defaults for both "opencode" and "opencode-legacy".
+    return ["opencode", "run", "--format", "json"]
+
+
+def _uses_stdin_prompt(command: list[str]) -> bool:
+    if len(command) < 2:
+        return False
+    return command[0] in {"opencode", "kiro-cli", "codex"}
 
 
 def _tail_output(value: str, max_lines: int = 20) -> str:
@@ -256,6 +281,43 @@ def _run_workflow_script(repo_path: Path, workflow_id: str, script_path: Path) -
     ).start()
 
 
+def _run_scheduled_task(task_id: str, task_file_name: str) -> None:
+    global _started_jobs
+
+    started_at = datetime.now(timezone.utc)
+    tasks_directory = get_tasks_directory()
+    prompt = f"Follow the instructions in `{task_file_name}`"
+    command = _build_agent_cli_command(prompt)
+
+    popen_kwargs: dict[str, object] = {
+        "cwd": str(tasks_directory),
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "text": True,
+    }
+    if _uses_stdin_prompt(command):
+        popen_kwargs["stdin"] = subprocess.PIPE
+
+    with _state_lock:
+        _terminate_running_job_unlocked(task_id)
+        _started_jobs += 1
+        _last_run_by_job[task_id] = datetime.now(timezone.utc)
+        process = subprocess.Popen(command, **popen_kwargs)  # type: ignore[arg-type]
+        _running_process_by_job[task_id] = process
+        _job_start_times[task_id] = started_at
+
+    if _uses_stdin_prompt(command) and process.stdin is not None:
+        process.stdin.write(prompt)
+        process.stdin.close()
+
+    logger.info("Running scheduled task '%s' in '%s'", task_id, tasks_directory)
+    Thread(
+        target=_wait_for_workflow_process,
+        args=(task_id, process, started_at),
+        daemon=True,
+    ).start()
+
+
 def start_cron_clock() -> None:
     global \
         _scheduler, \
@@ -338,6 +400,27 @@ def start_cron_clock() -> None:
                     repo_name,
                     schedule,
                 )
+
+    for task in list_scheduled_tasks():
+        task_name = str(task.get("name") or "task.md")
+        schedule = str(task.get("schedule") or "").strip()
+        job_id = f"task:{task_name}"
+
+        try:
+            scheduler.add_job(
+                _run_scheduled_task,
+                CronTrigger.from_crontab(schedule),
+                id=job_id,
+                replace_existing=True,
+                max_instances=1,
+                coalesce=True,
+                misfire_grace_time=300,
+                args=[job_id, task_name],
+            )
+            configured_jobs += 1
+        except ValueError:
+            invalid_jobs += 1
+            logger.warning("Skipping task '%s': invalid cron '%s'", task_name, schedule)
 
     scheduler.start()
     _scheduler = scheduler

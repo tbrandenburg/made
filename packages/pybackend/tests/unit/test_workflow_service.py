@@ -68,9 +68,10 @@ def test_normalize_payload_omits_empty_shell_script_path():
 
 
 @patch("workflow_service.read_workflows")
+@patch("workflow_service.list_scheduled_tasks")
 @patch("workflow_service.get_workspace_home")
 def test_list_workspace_workflows_collects_repository_workflows(
-    mock_workspace_home, mock_read_workflows
+    mock_workspace_home, mock_list_scheduled_tasks, mock_read_workflows
 ):
     mock_workspace_home.return_value = Path("/workspace/home")
 
@@ -107,9 +108,10 @@ def test_list_workspace_workflows_collects_repository_workflows(
 
 
 @patch("workflow_service.read_workflows")
+@patch("workflow_service.list_scheduled_tasks")
 @patch("workflow_service.get_workspace_home")
 def test_list_workspace_workflows_skips_git_worktrees(
-    mock_workspace_home, mock_read_workflows
+    mock_workspace_home, mock_list_scheduled_tasks, mock_read_workflows
 ):
     mock_workspace_home.return_value = Path("/workspace/home")
 
@@ -142,3 +144,41 @@ def test_list_workspace_workflows_skips_git_worktrees(
         ]
     }
     mock_read_workflows.assert_called_once_with("repo-a")
+
+
+@patch("workflow_service.read_workflows")
+@patch("workflow_service.list_scheduled_tasks")
+@patch("workflow_service.get_workspace_home")
+def test_list_workspace_workflows_includes_scheduled_tasks(
+    mock_workspace_home, mock_list_scheduled_tasks, mock_read_workflows
+):
+    mock_workspace_home.return_value = Path("/workspace/home")
+
+    with patch.object(Path, "iterdir", return_value=[]):
+        mock_read_workflows.return_value = {"workflows": []}
+        mock_list_scheduled_tasks.return_value = [
+            {
+                "name": "daily-report.md",
+                "schedule": "0 8 * * 1",
+            }
+        ]
+
+        result = list_workspace_workflows(
+            {"task:daily-report.md": "2026-01-02T03:04:05+00:00"},
+            {"task:daily-report.md": {"lastExitCode": 0, "running": False}},
+        )
+
+    assert result == {
+        "workflows": [
+            {
+                "repository": ".made/tasks",
+                "id": "task:daily-report.md",
+                "name": "daily-report.md",
+                "enabled": True,
+                "schedule": "0 8 * * 1",
+                "shellScriptPath": None,
+                "lastRun": "2026-01-02T03:04:05+00:00",
+                "diagnostics": {"lastExitCode": 0, "running": False},
+            }
+        ]
+    }
