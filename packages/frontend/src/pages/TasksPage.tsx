@@ -247,7 +247,7 @@ export const TasksPage: React.FC = () => {
             label: "Tasks",
             content: (
               <>
-                <Panel title="Workflows">
+                <Panel title="Schedule">
                   {workspaceWorkflows.length === 0 ? (
                     <div className="empty">
                       No workflows found in repository .made/workflows.yml
