@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import pty
+import shutil
 import struct
 import subprocess
 import termios
@@ -150,7 +151,18 @@ def _start_shell(repo_path: Path) -> tuple[int, subprocess.Popen, str]:
     master_fd, slave_fd = pty.openpty()
     env = os.environ.copy()
     env.setdefault("TERM", "xterm-256color")
-    shell = env.get("SHELL", "/bin/bash")
+    requested_shell = env.get("SHELL", "")
+    fallback_shells = [
+        requested_shell,
+        "/bin/bash",
+        "/usr/bin/bash",
+        "/bin/sh",
+        "/usr/bin/sh",
+    ]
+    shell = next(
+        (candidate for candidate in fallback_shells if candidate and shutil.which(candidate)),
+        "/bin/sh",
+    )
     try:
         process = subprocess.Popen(
             [shell],
