@@ -277,6 +277,7 @@ class TestTerminalWebSocket:
         repo = tmp_path / "demo"
         repo.mkdir()
         monkeypatch.setenv("MADE_WORKSPACE_HOME", str(tmp_path))
+        monkeypatch.setenv("SHELL", "/nonexistent-shell")
 
         messages: list[str] = []
         with TestClient(app) as local_client:
