@@ -319,6 +319,7 @@ export type AgentProcessSummary = {
   ppid: number;
   executable: string;
   command: string;
+  workingDirectory?: string | null;
 };
 
 export const api = {

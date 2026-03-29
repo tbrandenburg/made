@@ -259,12 +259,19 @@ def list_running_agent_processes() -> list[dict[str, object]]:
         if executable not in executable_names:
             continue
 
+        working_directory: str | None = None
+        try:
+            working_directory = os.readlink(f"/proc/{pid}/cwd")
+        except OSError:
+            working_directory = None
+
         processes.append(
             {
                 "pid": pid,
                 "ppid": ppid,
                 "executable": executable,
                 "command": args,
+                "workingDirectory": working_directory,
             }
         )
 
