@@ -4,14 +4,17 @@ import { api, ArtefactSummary } from "../hooks/useApi";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
+import { addExternalMatterLink, listExternalMatter } from "../utils/externalLinks";
 import "../styles/page.css";
 
 export const KnowledgePage: React.FC = () => {
   const [artefacts, setArtefacts] = useState<ArtefactSummary[]>([]);
   const [activeTab, setActiveTab] = useState("artefacts");
   const [createOpen, setCreateOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newTags, setNewTags] = useState("");
+  const [linkPath, setLinkPath] = useState("");
   const navigate = useNavigate();
   const isTemplate = (artefact: ArtefactSummary) => {
     if (typeof artefact.type === "string") {
@@ -30,7 +33,23 @@ export const KnowledgePage: React.FC = () => {
   const loadArtefacts = () => {
     api
       .listKnowledge()
-      .then((res) => setArtefacts(res.artefacts))
+      .then((res) => {
+        const external = listExternalMatter("knowledge").map((item) => ({
+          name: item.name,
+          routeName: item.id,
+          frontmatter: item.frontmatter,
+          isExternal: true,
+          externalPath: item.path,
+          type:
+            typeof item.frontmatter.type === "string"
+              ? item.frontmatter.type
+              : "document",
+          tags: Array.isArray(item.frontmatter.tags)
+            ? (item.frontmatter.tags as string[])
+            : [],
+        }));
+        setArtefacts([...res.artefacts, ...external]);
+      })
       .catch((error) => console.error("Failed to load artefacts", error));
   };
 
@@ -57,6 +76,15 @@ export const KnowledgePage: React.FC = () => {
     navigate(`/knowledge/${filename}`);
   };
 
+  const handleLink = () => {
+    const linked = addExternalMatterLink("knowledge", linkPath);
+    if (!linked) return;
+    setLinkOpen(false);
+    setLinkPath("");
+    loadArtefacts();
+    navigate(`/knowledge/${linked.id}`);
+  };
+
   return (
     <div className="page">
       <h1>Knowledge Base</h1>
@@ -74,6 +102,9 @@ export const KnowledgePage: React.FC = () => {
                   >
                     Create Artefact
                   </button>
+                  <button className="secondary" onClick={() => setLinkOpen(true)}>
+                    Link Artefact
+                  </button>
                 </div>
                 <div className="panel-column">
                   {templateArtefacts.length > 0 && (
@@ -81,9 +112,9 @@ export const KnowledgePage: React.FC = () => {
                       <div className="panel-column">
                         {templateArtefacts.map((artefact) => (
                           <Panel
-                            key={artefact.name}
+                            key={artefact.routeName ?? artefact.name}
                             title={artefact.name}
-                            to={`/knowledge/${artefact.name}`}
+                            to={`/knowledge/${artefact.routeName ?? artefact.name}`}
                           >
                             <div className="metadata">
                               <span className="badge">
@@ -93,6 +124,16 @@ export const KnowledgePage: React.FC = () => {
                                 <span className="badge">
                                   {artefact.tags.join(", ")}
                                 </span>
+                              )}
+                              {artefact.isExternal && (
+                                <>
+                                  <span className="badge external">External</span>
+                                  {artefact.externalPath && (
+                                    <span className="path-info">
+                                      {artefact.externalPath}
+                                    </span>
+                                  )}
+                                </>
                               )}
                             </div>
                           </Panel>
@@ -105,9 +146,9 @@ export const KnowledgePage: React.FC = () => {
                       <div className="panel-column">
                         {documentArtefacts.map((artefact) => (
                           <Panel
-                            key={artefact.name}
+                            key={artefact.routeName ?? artefact.name}
                             title={artefact.name}
-                            to={`/knowledge/${artefact.name}`}
+                            to={`/knowledge/${artefact.routeName ?? artefact.name}`}
                           >
                             <div className="metadata">
                               <span className="badge">
@@ -117,6 +158,16 @@ export const KnowledgePage: React.FC = () => {
                                 <span className="badge">
                                   {artefact.tags.join(", ")}
                                 </span>
+                              )}
+                              {artefact.isExternal && (
+                                <>
+                                  <span className="badge external">External</span>
+                                  {artefact.externalPath && (
+                                    <span className="path-info">
+                                      {artefact.externalPath}
+                                    </span>
+                                  )}
+                                </>
                               )}
                             </div>
                           </Panel>
@@ -164,6 +215,29 @@ export const KnowledgePage: React.FC = () => {
           </button>
           <button className="primary" onClick={handleCreate}>
             Create
+          </button>
+        </div>
+      </Modal>
+      <Modal
+        open={linkOpen}
+        title="Link Knowledge Artefact"
+        onClose={() => setLinkOpen(false)}
+      >
+        <div className="form-group">
+          <label htmlFor="artefact-path">Path</label>
+          <input
+            id="artefact-path"
+            value={linkPath}
+            onChange={(event) => setLinkPath(event.target.value)}
+            placeholder="~/.config/opencode/AGENTS.md"
+          />
+        </div>
+        <div className="modal-actions">
+          <button className="secondary" onClick={() => setLinkOpen(false)}>
+            Cancel
+          </button>
+          <button className="primary" onClick={handleLink}>
+            Link
           </button>
         </div>
       </Modal>
