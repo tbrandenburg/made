@@ -133,6 +133,33 @@ describe("TasksPage", () => {
     expect(screen.getAllByText("-").length).toBeGreaterThan(0);
   });
 
+  it("links scheduled tasks from .made/tasks to task detail page", async () => {
+    vi.mocked(api.listTasks).mockResolvedValue({ tasks: [] });
+    vi.mocked(api.getWorkspaceWorkflows).mockResolvedValue({
+      workflows: [
+        {
+          repository: ".made/tasks",
+          id: "task:daily-report.md",
+          name: "daily-report.md",
+          enabled: true,
+          schedule: "0 8 * * 1",
+          lastRun: null,
+          diagnostics: null,
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    const link = await screen.findByRole("link", { name: "daily-report.md" });
+    expect(link).toHaveAttribute("href", "/tasks/daily-report.md");
+    expect(screen.getByText("tasks")).toBeInTheDocument();
+  });
+
   it("prefers stderr diagnostics output in overview", async () => {
     vi.mocked(api.listTasks).mockResolvedValue({ tasks: [] });
     vi.mocked(api.getWorkspaceWorkflows).mockResolvedValue({

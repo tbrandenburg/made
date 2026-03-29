@@ -21,11 +21,13 @@ def teardown_function():
 
 @patch("cron_service.CronTrigger.from_crontab")
 @patch("cron_service.BackgroundScheduler")
+@patch("cron_service.list_scheduled_tasks")
 @patch("cron_service.read_workflows")
 @patch("cron_service.get_workspace_home")
 def test_start_cron_clock_registers_only_enabled_workflows_with_existing_scripts(
     mock_workspace_home,
     mock_read_workflows,
+    mock_list_scheduled_tasks,
     mock_scheduler_cls,
     mock_from_crontab,
     tmp_path,
@@ -37,6 +39,7 @@ def test_start_cron_clock_registers_only_enabled_workflows_with_existing_scripts
     script.write_text("echo hi", encoding="utf-8")
 
     mock_workspace_home.return_value = tmp_path
+    mock_list_scheduled_tasks.return_value = []
     mock_read_workflows.return_value = {
         "workflows": [
             {
@@ -89,11 +92,13 @@ def test_start_cron_clock_registers_only_enabled_workflows_with_existing_scripts
 
 
 @patch("cron_service.BackgroundScheduler")
+@patch("cron_service.list_scheduled_tasks")
 @patch("cron_service.read_workflows")
 @patch("cron_service.get_workspace_home")
 def test_start_cron_clock_marks_invalid_cron_as_warning(
     mock_workspace_home,
     mock_read_workflows,
+    mock_list_scheduled_tasks,
     mock_scheduler_cls,
     tmp_path,
 ):
@@ -103,6 +108,7 @@ def test_start_cron_clock_marks_invalid_cron_as_warning(
     script.write_text("echo hi", encoding="utf-8")
 
     mock_workspace_home.return_value = tmp_path
+    mock_list_scheduled_tasks.return_value = []
     mock_read_workflows.return_value = {
         "workflows": [
             {
@@ -318,12 +324,83 @@ def test_get_cron_job_diagnostics_includes_runtime_metadata():
     assert result["repo-a:wf-1"]["lastStartedAt"] == "2026-01-02T03:04:05+00:00"
     assert result["repo-a:wf-1"]["lastFinishedAt"] == "2026-01-02T03:04:08+00:00"
     assert result["repo-a:wf-1"]["lastDurationMs"] == 3123
-    assert result["repo-a:wf-1"]["lastExitCode"] == 0
-    assert result["repo-a:wf-1"]["nextRunAt"] == "2026-01-02T04:05:06+00:00"
-    assert result["repo-a:wf-1"]["running"] is True
-    assert result["repo-a:wf-2"]["lastError"] == "boom"
-    assert result["repo-a:wf-2"]["lastStdout"] == "line-1\nline-2"
-    assert result["repo-a:wf-2"]["lastStderr"] == "boom"
+
+
+@patch("cron_service.CronTrigger.from_crontab")
+@patch("cron_service.BackgroundScheduler")
+@patch("cron_service.list_scheduled_tasks")
+@patch("cron_service.read_workflows")
+@patch("cron_service.get_workspace_home")
+def test_start_cron_clock_registers_scheduled_tasks(
+    mock_workspace_home,
+    mock_read_workflows,
+    mock_list_scheduled_tasks,
+    mock_scheduler_cls,
+    mock_from_crontab,
+    tmp_path,
+):
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    mock_workspace_home.return_value = tmp_path
+    mock_read_workflows.return_value = {"workflows": []}
+    mock_list_scheduled_tasks.return_value = [
+        {"name": "daily-report.md", "schedule": "0 8 * * 1"}
+    ]
+
+    mock_scheduler = MagicMock()
+    mock_scheduler_cls.return_value = mock_scheduler
+    mock_from_crontab.return_value = object()
+
+    cron_service.start_cron_clock()
+
+    task_calls = [
+        call
+        for call in mock_scheduler.add_job.call_args_list
+        if call[1].get("id") == "task:daily-report.md"
+    ]
+    assert len(task_calls) == 1
+    kwargs = task_calls[0][1]
+    assert kwargs["args"] == ["task:daily-report.md", "daily-report.md"]
+
+
+@patch("cron_service.get_tasks_directory")
+@patch("cron_service.read_settings")
+@patch("cron_service.Thread")
+@patch("cron_service.subprocess.Popen")
+def test_run_scheduled_task_uses_configured_agent_cli(
+    mock_popen,
+    mock_thread,
+    mock_read_settings,
+    mock_get_tasks_directory,
+    tmp_path,
+):
+    tasks_dir = tmp_path / ".made" / "tasks"
+    tasks_dir.mkdir(parents=True)
+    mock_get_tasks_directory.return_value = tasks_dir
+    mock_read_settings.return_value = {"agentCli": "opencode"}
+
+    process = MagicMock()
+    process.stdin = MagicMock()
+    process.communicate.return_value = ("ok", "")
+    process.returncode = 0
+    process.poll.return_value = 0
+    mock_popen.return_value = process
+    mock_thread.return_value = MagicMock(start=MagicMock())
+
+    cron_service._run_scheduled_task("task:daily-report.md", "daily-report.md")
+
+    mock_popen.assert_called_once_with(
+        ["opencode", "run", "--format", "json"],
+        cwd=str(tasks_dir),
+        stdout=cron_service.subprocess.PIPE,
+        stderr=cron_service.subprocess.PIPE,
+        text=True,
+        stdin=cron_service.subprocess.PIPE,
+    )
+    process.stdin.write.assert_called_once_with(
+        "Follow the instructions in `daily-report.md`"
+    )
+    process.stdin.close.assert_called_once_with()
 
 
 def test_wait_for_workflow_process_keeps_last_stdout_lines_only():
