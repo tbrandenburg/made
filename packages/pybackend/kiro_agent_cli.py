@@ -25,6 +25,10 @@ from agent_results import (
 class KiroAgentCLI(AgentCLI):
     """Kiro CLI implementation following the AgentCLI interface."""
 
+    @classmethod
+    def main_executable_name(cls) -> str:
+        return "kiro-cli"
+
     @property
     def cli_name(self) -> str:
         """Return the CLI name for error messages."""

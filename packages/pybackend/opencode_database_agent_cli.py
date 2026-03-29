@@ -42,6 +42,10 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
     the best of both approaches for optimal performance and completeness.
     """
 
+    @classmethod
+    def main_executable_name(cls) -> str:
+        return "opencode"
+
     @property
     def cli_name(self) -> str:
         """Return the CLI name identifier."""

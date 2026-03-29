@@ -17,6 +17,9 @@ vi.mock("../hooks/useApi", async () => {
       listTasks: vi.fn(),
       saveTask: vi.fn(),
       getWorkspaceWorkflows: vi.fn(),
+      getWorkflowLogs: vi.fn(),
+      getAgentProcesses: vi.fn(),
+      terminateAgentProcess: vi.fn(),
     },
   };
 });
@@ -25,6 +28,8 @@ describe("TasksPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(api.getWorkspaceWorkflows).mockResolvedValue({ workflows: [] });
+    vi.mocked(api.getWorkflowLogs).mockResolvedValue({ logs: [] });
+    vi.mocked(api.getAgentProcesses).mockResolvedValue({ processes: [] });
   });
 
   it("renders task schedules as green schedule tags", async () => {
@@ -210,6 +215,38 @@ describe("TasksPage", () => {
         content: "# New Task\n\n- [ ] Define work\n",
         frontmatter: { type: "task", schedule: "" },
       });
+    });
+  });
+
+  it("renders and terminates running agent CLI processes", async () => {
+    vi.mocked(api.listTasks).mockResolvedValue({ tasks: [] });
+    vi.mocked(api.getAgentProcesses)
+      .mockResolvedValueOnce({
+        processes: [
+          {
+            pid: 1234,
+            ppid: 1,
+            executable: "codex",
+            command: "codex exec --json",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ processes: [] });
+    vi.mocked(api.terminateAgentProcess).mockResolvedValue({ success: true });
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Running Agent CLI Processes")).toBeInTheDocument();
+    expect(screen.getByText("codex")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Terminate" }));
+
+    await waitFor(() => {
+      expect(api.terminateAgentProcess).toHaveBeenCalledWith(1234);
     });
   });
 });

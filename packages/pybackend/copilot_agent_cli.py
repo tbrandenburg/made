@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 class CopilotAgentCLI(AgentCLI):
     """Copilot CLI implementation following the AgentCLI interface."""
 
+    @classmethod
+    def main_executable_name(cls) -> str:
+        return "copilot"
+
     @property
     def cli_name(self) -> str:
         """Return the CLI name for error messages."""

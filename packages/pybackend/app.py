@@ -33,9 +33,11 @@ from agent_service import (
     cancel_agent_message,
     export_chat_history,
     get_channel_status,
+    list_running_agent_processes,
     list_agents,
     list_chat_sessions,
     send_agent_message,
+    terminate_agent_process,
 )
 from constitution_service import (
     list_constitutions,
@@ -726,6 +728,38 @@ def terminate_workflow(workflow_id: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to terminate workflow: {str(e)}",
+        )
+
+
+@app.get("/api/agent-processes")
+def list_agent_processes():
+    try:
+        logger.info("Listing running agent CLI processes")
+        return {"processes": list_running_agent_processes()}
+    except Exception as exc:
+        logger.exception("Failed to list running agent CLI processes")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.post("/api/agent-processes/{pid}/terminate")
+def terminate_agent_cli_process(pid: int):
+    try:
+        logger.info("Terminating agent CLI process pid=%s", pid)
+        success = terminate_agent_process(pid)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No running agent CLI process found for pid",
+            )
+        return {"success": True, "message": "Agent CLI process terminated"}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to terminate agent CLI process pid=%s", pid)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
 
 
