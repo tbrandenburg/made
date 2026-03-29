@@ -255,6 +255,7 @@ describe("TasksPage", () => {
             ppid: 1,
             executable: "codex",
             command: "codex exec --json",
+            workingDirectory: "/workspace/made",
           },
         ],
       })
@@ -269,6 +270,7 @@ describe("TasksPage", () => {
 
     expect(await screen.findByText("Running Agent CLI Processes")).toBeInTheDocument();
     expect(screen.getByText("codex")).toBeInTheDocument();
+    expect(screen.getByText("/workspace/made")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Terminate" }));
 

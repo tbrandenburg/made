@@ -410,6 +410,7 @@ export const TasksPage: React.FC = () => {
                           <th>PPID</th>
                           <th>Executable</th>
                           <th>Command</th>
+                          <th>Working Directory</th>
                           <th>Actions</th>
                         </tr>
                       </thead>
@@ -420,6 +421,7 @@ export const TasksPage: React.FC = () => {
                             <td>{process.ppid}</td>
                             <td>{process.executable}</td>
                             <td>{process.command}</td>
+                            <td>{process.workingDirectory ?? "-"}</td>
                             <td>
                               <button
                                 className="danger"
