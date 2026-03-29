@@ -314,6 +314,13 @@ export type WorkflowLogTail = {
   tail: string;
 };
 
+export type AgentProcessSummary = {
+  pid: number;
+  ppid: number;
+  executable: string;
+  command: string;
+};
+
 export const api = {
   getDashboard: () =>
     request<{
@@ -542,6 +549,15 @@ export const api = {
   terminateWorkflow: (workflowId: string) =>
     request<{ success: boolean; message?: string }>(
       `/workflows/${encodeURIComponent(workflowId)}/terminate`,
+      {
+        method: "POST",
+      },
+    ),
+  getAgentProcesses: () =>
+    request<{ processes: AgentProcessSummary[] }>("/agent-processes"),
+  terminateAgentProcess: (pid: number) =>
+    request<{ success: boolean; message?: string }>(
+      `/agent-processes/${pid}/terminate`,
       {
         method: "POST",
       },

@@ -28,6 +28,12 @@ AGENT_ROW_PATTERN = re.compile(r"^(?P<name>\S+)\s+\((?P<kind>[^)]+)\)\s*$")
 
 
 class AgentCLI(ABC):
+    @classmethod
+    @abstractmethod
+    def main_executable_name(cls) -> str:
+        """Return the primary executable used to start this CLI."""
+        raise NotImplementedError
+
     @property
     @abstractmethod
     def cli_name(self) -> str:
@@ -190,6 +196,10 @@ class AgentCLI(ABC):
 
 
 class OpenCodeAgentCLI(AgentCLI):
+    @classmethod
+    def main_executable_name(cls) -> str:
+        return "opencode"
+
     @property
     def cli_name(self) -> str:
         return "opencode"

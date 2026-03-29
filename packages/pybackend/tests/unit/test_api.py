@@ -116,6 +116,42 @@ class TestRepositoryAgentsEndpoint:
         assert "Agent error" in response.json()["detail"]
 
 
+class TestAgentProcessesEndpoint:
+    @patch("app.list_running_agent_processes")
+    def test_list_agent_processes_success(self, mock_list):
+        mock_list.return_value = [
+            {
+                "pid": 123,
+                "ppid": 1,
+                "executable": "codex",
+                "command": "codex exec --json",
+            }
+        ]
+
+        response = client.get("/api/agent-processes")
+
+        assert response.status_code == 200
+        assert response.json() == {"processes": mock_list.return_value}
+
+    @patch("app.terminate_agent_process")
+    def test_terminate_agent_process_success(self, mock_terminate):
+        mock_terminate.return_value = True
+
+        response = client.post("/api/agent-processes/123/terminate")
+
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+        mock_terminate.assert_called_once_with(123)
+
+    @patch("app.terminate_agent_process")
+    def test_terminate_agent_process_not_found(self, mock_terminate):
+        mock_terminate.return_value = False
+
+        response = client.post("/api/agent-processes/999/terminate")
+
+        assert response.status_code == 404
+
+
 class TestChatHistoryEndpoint:
     @patch("app.export_chat_history")
     def test_repository_history_success(self, mock_export):

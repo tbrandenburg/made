@@ -24,6 +24,10 @@ from agent_results import (
 class CodexAgentCLI(AgentCLI):
     """Codex CLI implementation following the AgentCLI interface."""
 
+    @classmethod
+    def main_executable_name(cls) -> str:
+        return "codex"
+
     @property
     def cli_name(self) -> str:
         """Return the CLI name for error messages."""

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  AgentProcessSummary,
   api,
   ArtefactSummary,
   WorkflowLogSummary,
@@ -129,6 +130,10 @@ export const TasksPage: React.FC = () => {
   }>({ open: false, title: "", content: "" });
   const [loadingLog, setLoadingLog] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [agentProcesses, setAgentProcesses] = useState<AgentProcessSummary[]>([]);
+  const [terminatingAgentPid, setTerminatingAgentPid] = useState<number | null>(
+    null,
+  );
   const [terminatingWorkflow, setTerminatingWorkflow] = useState<string | null>(
     null,
   );
@@ -162,10 +167,15 @@ export const TasksPage: React.FC = () => {
 
   useEffect(() => {
     loadTasks();
-    Promise.all([api.getWorkspaceWorkflows(), api.getWorkflowLogs()])
-      .then(([workflowRes, logRes]) => {
+    Promise.all([
+      api.getWorkspaceWorkflows(),
+      api.getWorkflowLogs(),
+      api.getAgentProcesses(),
+    ])
+      .then(([workflowRes, logRes, processRes]) => {
         setWorkspaceWorkflows(workflowRes.workflows);
         setWorkflowLogs(logRes.logs);
+        setAgentProcesses(processRes.processes);
       })
       .catch((error) => console.error("Failed to load tasks page data", error));
   }, []);
@@ -234,6 +244,22 @@ export const TasksPage: React.FC = () => {
       });
     } finally {
       setLoadingLog(null);
+    }
+  };
+
+  const handleTerminateAgentProcess = async (pid: number) => {
+    setTerminatingAgentPid(pid);
+    try {
+      await api.terminateAgentProcess(pid);
+      const processRes = await api.getAgentProcesses();
+      setAgentProcesses(processRes.processes);
+    } catch (error) {
+      console.error("Failed to terminate agent process", error);
+      alert(
+        `Failed to terminate process: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    } finally {
+      setTerminatingAgentPid(null);
     }
   };
 
@@ -355,6 +381,46 @@ export const TasksPage: React.FC = () => {
                                 `${logFile.location}:${logFile.name}`
                                   ? "Loading..."
                                   : "View tail"}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </Panel>
+                <Panel title="Running Agent CLI Processes">
+                  {agentProcesses.length === 0 ? (
+                    <div className="empty">No running agent CLI processes.</div>
+                  ) : (
+                    <table className="git-table">
+                      <thead>
+                        <tr>
+                          <th>PID</th>
+                          <th>PPID</th>
+                          <th>Executable</th>
+                          <th>Command</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {agentProcesses.map((process) => (
+                          <tr key={process.pid}>
+                            <td>{process.pid}</td>
+                            <td>{process.ppid}</td>
+                            <td>{process.executable}</td>
+                            <td>{process.command}</td>
+                            <td>
+                              <button
+                                className="danger"
+                                onClick={() =>
+                                  void handleTerminateAgentProcess(process.pid)
+                                }
+                                disabled={terminatingAgentPid === process.pid}
+                              >
+                                {terminatingAgentPid === process.pid
+                                  ? "Terminating..."
+                                  : "Terminate"}
                               </button>
                             </td>
                           </tr>

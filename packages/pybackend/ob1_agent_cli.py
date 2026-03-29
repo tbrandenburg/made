@@ -26,6 +26,10 @@ logger = logging.getLogger(__name__)
 class OB1AgentCLI(AgentCLI):
     """OB1 AgentCLI implementation."""
 
+    @classmethod
+    def main_executable_name(cls) -> str:
+        return "ob1"
+
     @property
     def cli_name(self) -> str:
         return "ob1"

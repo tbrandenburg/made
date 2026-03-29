@@ -1,10 +1,13 @@
 import logging
+import os
+import signal
 import subprocess
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Event, Lock
 
+from agent_cli import AgentCLI
 from agent_cli import OpenCodeAgentCLI
 from opencode_database_agent_cli import OpenCodeDatabaseAgentCLI
 from copilot_agent_cli import CopilotAgentCLI
@@ -22,6 +25,14 @@ _cancelled_channels: set[str] = set()
 _active_processes: dict[str, subprocess.Popen[str]] = {}
 _cancel_events: dict[str, Event] = {}
 _conversation_sessions: dict[str, str] = {}
+REGISTERED_AGENT_CLI_CLASSES: tuple[type[AgentCLI], ...] = (
+    OpenCodeDatabaseAgentCLI,
+    OpenCodeAgentCLI,
+    KiroAgentCLI,
+    CopilotAgentCLI,
+    CodexAgentCLI,
+    OB1AgentCLI,
+)
 
 
 def get_agent_cli():
@@ -201,6 +212,76 @@ def get_channel_status(channel: str) -> dict[str, object]:
         "processing": started_at is not None,
         "startedAt": started_at.isoformat() if started_at else None,
     }
+
+
+def _get_registered_agent_executables() -> set[str]:
+    executable_names = {
+        cli_cls.main_executable_name().strip()
+        for cli_cls in REGISTERED_AGENT_CLI_CLASSES
+        if cli_cls.main_executable_name().strip()
+    }
+    return executable_names
+
+
+def list_running_agent_processes() -> list[dict[str, object]]:
+    """List currently running agent CLI processes from the OS process table."""
+    executable_names = _get_registered_agent_executables()
+    if not executable_names:
+        return []
+
+    try:
+        ps_output = subprocess.check_output(
+            ["ps", "-eo", "pid=,ppid=,comm=,args="],
+            text=True,
+        )
+    except subprocess.SubprocessError as exc:
+        logger.warning("Failed to inspect process table: %s", exc)
+        return []
+
+    processes: list[dict[str, object]] = []
+    for raw_line in ps_output.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        parts = line.split(maxsplit=3)
+        if len(parts) < 4:
+            continue
+
+        try:
+            pid = int(parts[0])
+            ppid = int(parts[1])
+        except ValueError:
+            continue
+
+        executable = os.path.basename(parts[2])
+        args = parts[3]
+        if executable not in executable_names:
+            continue
+
+        processes.append(
+            {
+                "pid": pid,
+                "ppid": ppid,
+                "executable": executable,
+                "command": args,
+            }
+        )
+
+    return sorted(processes, key=lambda item: int(item["pid"]))
+
+
+def terminate_agent_process(pid: int) -> bool:
+    """Terminate a running agent process by PID."""
+    running_processes = {proc["pid"] for proc in list_running_agent_processes()}
+    if pid not in running_processes:
+        return False
+
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return False
+    return True
 
 
 def _get_working_directory(channel: str) -> Path:
