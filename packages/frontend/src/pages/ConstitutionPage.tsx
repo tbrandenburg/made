@@ -34,6 +34,11 @@ import {
   DEFAULT_AGENT_VALUE,
 } from "../components/AgentSelector";
 import { commandPathsFromDefinitions } from "../utils/pathMentions";
+import {
+  getExternalMatter,
+  isExternalMatterId,
+  saveExternalMatter,
+} from "../utils/externalLinks";
 
 export const ConstitutionPage: React.FC = () => {
   const { name } = useParams();
@@ -81,7 +86,13 @@ export const ConstitutionPage: React.FC = () => {
   const [sessionListError, setSessionListError] = useState<string | null>(null);
   const [sessionListLoading, setSessionListLoading] = useState(false);
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
+  const [externalPath, setExternalPath] = useState<string | null>(null);
   const chatWindowRef = useRef<HTMLDivElement>(null);
+  const isExternal = Boolean(name && isExternalMatterId(name));
+  const linkedExternalMatter = useMemo(
+    () => (isExternal && name ? getExternalMatter("constitution", name) : null),
+    [isExternal, name],
+  );
 
   const scrollToBottom = () => {
     if (chatWindowRef.current) {
@@ -117,6 +128,16 @@ export const ConstitutionPage: React.FC = () => {
       navigate("/constitutions");
       return;
     }
+    if (isExternal) {
+      if (!linkedExternalMatter) {
+        setStatus("Linked external constitution not found");
+        return;
+      }
+      setFrontmatter(linkedExternalMatter.frontmatter ?? {});
+      setContent(linkedExternalMatter.content ?? "");
+      setExternalPath(linkedExternalMatter.path);
+      return;
+    }
     api
       .getConstitution(name)
       .then((data) => {
@@ -127,10 +148,10 @@ export const ConstitutionPage: React.FC = () => {
         console.error("Failed to load constitution", error);
         setStatus("Failed to load constitution");
       });
-  }, [name, navigate]);
+  }, [isExternal, linkedExternalMatter, name, navigate]);
 
   const refreshAgentStatus = useCallback(async () => {
-    if (!name) return false;
+    if (!name || isExternal) return false;
     try {
       const status = await api.getConstitutionAgentStatus(name);
       setChatLoading(status.processing);
@@ -144,14 +165,14 @@ export const ConstitutionPage: React.FC = () => {
       console.error("Failed to load agent status", error);
       return false;
     }
-  }, [name]);
+  }, [isExternal, name]);
 
   useEffect(() => {
     refreshAgentStatus();
   }, [refreshAgentStatus]);
 
   const openSessionModal = useCallback(async () => {
-    if (!name) return;
+    if (!name || isExternal) return;
     setSessionModalOpen(true);
     setSessionListLoading(true);
     try {
@@ -166,11 +187,16 @@ export const ConstitutionPage: React.FC = () => {
     } finally {
       setSessionListLoading(false);
     }
-  }, [name]);
+  }, [isExternal, name]);
 
   const handleSave = async () => {
     if (!name) return;
     try {
+      if (isExternal) {
+        saveExternalMatter("constitution", name, content, frontmatter);
+        setStatus("Saved successfully");
+        return;
+      }
       await api.saveConstitution(name, { content, frontmatter });
       setStatus("Saved successfully");
     } catch (error) {
@@ -331,9 +357,176 @@ export const ConstitutionPage: React.FC = () => {
     [],
   );
 
+  const tabs = [
+    {
+      id: "content",
+      label: "Content",
+      content: (
+        <div className="artefact-grid">
+          <Panel
+            title="Metadata"
+            actions={
+              <button className="primary" onClick={handleSave}>
+                Save
+              </button>
+            }
+          >
+            {externalPath && <div className="path-info">{externalPath}</div>}
+            <div className="form-group">
+              <label htmlFor="constitution-type">Type</label>
+              <select
+                id="constitution-type"
+                value={(frontmatter.type as string) || "global"}
+                onChange={(event) =>
+                  setFrontmatter({
+                    ...frontmatter,
+                    type: event.target.value,
+                  })
+                }
+              >
+                <option value="global">Global</option>
+                <option value="project">Project</option>
+              </select>
+            </div>
+          </Panel>
+          <Panel title="Markdown">
+            <textarea
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+              className="editor-input"
+            />
+          </Panel>
+          <Panel title="Preview">
+            <div
+              className="markdown"
+              dangerouslySetInnerHTML={{ __html: marked(content || "") }}
+            />
+          </Panel>
+        </div>
+      ),
+    },
+  ];
+  if (!isExternal) {
+    tabs.push(
+      {
+        id: "agent",
+        label: "Agent",
+        content: (
+          <Panel
+            title="Agent Conversation"
+            actions={
+              <div className="panel-action-buttons">
+                <button
+                  type="button"
+                  className="copy-button"
+                  onClick={scrollToBottom}
+                  aria-label="Scroll to last message"
+                  title="Scroll to last message"
+                  disabled={!chat.length}
+                >
+                  <ArrowDownIcon />
+                </button>
+                <button
+                  type="button"
+                  className={`copy-button${chat.length ? "" : " is-muted"}`}
+                  onClick={openSessionModal}
+                  aria-label="Choose a session"
+                  title="Choose a session"
+                >
+                  <DatabaseIcon />
+                </button>
+                <button
+                  type="button"
+                  className="copy-button"
+                  onClick={copyAllMessages}
+                  aria-label="Copy chat messages"
+                  title="Copy chat messages"
+                  disabled={!chat.length}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                </button>
+              </div>
+            }
+          >
+            <ChatWindow
+              chat={chat}
+              chatWindowRef={chatWindowRef}
+              loading={chatLoading}
+              emptyMessage="Start a conversation to discuss this constitution."
+              sessionId={sessionId}
+              onClearSession={() => setClearSessionModalOpen(true)}
+            />
+            {agentStatus && <div className="alert">{agentStatus}</div>}
+            <MentionPathTextarea
+              value={prompt}
+              onChange={setPrompt}
+              suggestions={mentionCommandPaths}
+              placeholder="Ask the agent to update governance rules..."
+            />
+            <div className="button-bar chat-controls">
+              <div className="chat-controls__left">
+                <AgentSelector
+                  selectId="agent-select"
+                  selectedAgent={normalizedSelectedAgent}
+                  onChange={setSelectedAgent}
+                  disabled={chatLoading}
+                />
+              </div>
+              <div className="chat-controls__right">
+                {chatLoading ? (
+                  <button className="danger" onClick={handleCancel}>
+                    Cancel
+                  </button>
+                ) : (
+                  <button
+                    className="primary"
+                    onClick={handleSend}
+                    disabled={!prompt.trim()}
+                  >
+                    Send
+                  </button>
+                )}
+              </div>
+            </div>
+          </Panel>
+        ),
+      },
+      {
+        id: "harnesses",
+        label: "Harnesses",
+        content: (
+          <HarnessesTab
+            loadHarnesses={loadHarnesses}
+            runHarness={runHarness}
+            getHarnessStatus={getHarnessStatus}
+            loadWorkflows={() => api.getWorkflows()}
+            saveWorkflows={(workflows) => api.saveWorkflows(workflows)}
+            listAgents={() => api.getAgents()}
+            onSendMessage={(message) => void handleSendMessage(message)}
+            agentCli={agentCli}
+            historyStorageKey={harnessHistoryStorageKey}
+            mentionPathSuggestions={mentionCommandPaths}
+          />
+        ),
+      },
+      {
+        id: "commands",
+        label: "Commands",
+        content: (
+          <CommandsTab
+            loadCommands={loadCommands}
+            onSendMessage={(message) => handleSendMessage(message)}
+          />
+        ),
+      },
+    );
+  }
+
   return (
     <div className="page">
-      <h1>Constitution: {name}</h1>
+      <h1>
+        Constitution: {isExternal ? linkedExternalMatter?.name ?? name : name}
+      </h1>
       {status && (
         <div
           className={`alert ${
@@ -349,191 +542,7 @@ export const ConstitutionPage: React.FC = () => {
           {status}
         </div>
       )}
-      <TabView
-        tabs={[
-          {
-            id: "content",
-            label: "Content",
-            content: (
-              <div className="artefact-grid">
-                <Panel
-                  title="Metadata"
-                  actions={
-                    <button className="primary" onClick={handleSave}>
-                      Save
-                    </button>
-                  }
-                >
-                  <div className="form-group">
-                    <label htmlFor="constitution-type">Type</label>
-                    <select
-                      id="constitution-type"
-                      value={(frontmatter.type as string) || "global"}
-                      onChange={(event) =>
-                        setFrontmatter({
-                          ...frontmatter,
-                          type: event.target.value,
-                        })
-                      }
-                    >
-                      <option value="global">Global</option>
-                      <option value="project">Project</option>
-                    </select>
-                  </div>
-                </Panel>
-                <Panel title="Markdown">
-                  <textarea
-                    value={content}
-                    onChange={(event) => setContent(event.target.value)}
-                    className="editor-input"
-                  />
-                </Panel>
-                <Panel title="Preview">
-                  <div
-                    className="markdown"
-                    dangerouslySetInnerHTML={{ __html: marked(content || "") }}
-                  />
-                </Panel>
-              </div>
-            ),
-          },
-          {
-            id: "agent",
-            label: "Agent",
-            content: (
-              <Panel
-                title="Agent Conversation"
-                actions={
-                  <div className="panel-action-buttons">
-                    <button
-                      type="button"
-                      className="copy-button"
-                      onClick={scrollToBottom}
-                      aria-label="Scroll to last message"
-                      title="Scroll to last message"
-                      disabled={!chat.length}
-                    >
-                      <ArrowDownIcon />
-                    </button>
-                    <button
-                      type="button"
-                      className={`copy-button${chat.length ? "" : " is-muted"}`}
-                      onClick={openSessionModal}
-                      aria-label="Choose a session"
-                      title="Choose a session"
-                    >
-                      <DatabaseIcon />
-                    </button>
-                    <button
-                      type="button"
-                      className="copy-button"
-                      onClick={copyAllMessages}
-                      aria-label="Copy chat messages"
-                      title="Copy chat messages"
-                      disabled={!chat.length}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                        focusable="false"
-                      >
-                        <rect
-                          x="9"
-                          y="9"
-                          width="13"
-                          height="13"
-                          rx="2"
-                          ry="2"
-                        />
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                      </svg>
-                    </button>
-                  </div>
-                }
-              >
-                <ChatWindow
-                  chat={chat}
-                  chatWindowRef={chatWindowRef}
-                  loading={chatLoading}
-                  emptyMessage="Start a conversation to discuss this constitution."
-                  sessionId={sessionId}
-                  onClearSession={() => setClearSessionModalOpen(true)}
-                />
-                {agentStatus && <div className="alert">{agentStatus}</div>}
-                <MentionPathTextarea
-                  value={prompt}
-                  onChange={setPrompt}
-                  suggestions={mentionCommandPaths}
-                  placeholder="Ask the agent to update governance rules..."
-                />
-                <div className="button-bar chat-controls">
-                  <div className="chat-controls__left">
-                    <AgentSelector
-                      selectId="agent-select"
-                      selectedAgent={normalizedSelectedAgent}
-                      onChange={setSelectedAgent}
-                      disabled={chatLoading}
-                    />
-                  </div>
-                  <div className="chat-controls__right">
-                    {chatLoading ? (
-                      <button className="danger" onClick={handleCancel}>
-                        Cancel
-                      </button>
-                    ) : (
-                      <button
-                        className="primary"
-                        onClick={handleSend}
-                        disabled={!prompt.trim()}
-                      >
-                        Send
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </Panel>
-            ),
-          },
-          {
-            id: "harnesses",
-            label: "Harnesses",
-            content: (
-              <HarnessesTab
-                loadHarnesses={loadHarnesses}
-                runHarness={runHarness}
-                getHarnessStatus={getHarnessStatus}
-                loadWorkflows={() => api.getWorkflows()}
-                saveWorkflows={(workflows) => api.saveWorkflows(workflows)}
-                listAgents={() => api.getAgents()}
-                onSendMessage={(message) => void handleSendMessage(message)}
-                agentCli={agentCli}
-                historyStorageKey={harnessHistoryStorageKey}
-                mentionPathSuggestions={mentionCommandPaths}
-              />
-            ),
-          },
-          {
-            id: "commands",
-            label: "Commands",
-            content: (
-              <CommandsTab
-                loadCommands={loadCommands}
-                onSendMessage={(message) => handleSendMessage(message)}
-              />
-            ),
-          },
-        ]}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      />
+      <TabView tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
       <ClearSessionModal
         open={clearSessionModalOpen}
         onCancel={handleCancelClearSession}

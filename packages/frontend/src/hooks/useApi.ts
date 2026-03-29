@@ -690,10 +690,13 @@ export type FileNode = {
 
 export type ArtefactSummary = {
   name: string;
+  routeName?: string;
   type?: string;
   tags?: string[];
   frontmatter?: Record<string, unknown>;
   content?: string;
+  isExternal?: boolean;
+  externalPath?: string;
 };
 
 export type MatterFile = {
