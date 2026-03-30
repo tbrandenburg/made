@@ -945,6 +945,53 @@ class TestConstitutionEndpoints:
         )
 
 
+class TestExternalMatterEndpoints:
+    """Test external matter read/write endpoints."""
+
+    @patch("app.read_external_matter")
+    def test_read_external_matter_success(self, mock_read):
+        mock_read.return_value = {
+            "path": "/home/user/.config/opencode/AGENTS.md",
+            "content": "body",
+            "frontmatter": {"type": "global"},
+        }
+
+        response = client.post(
+            "/api/external-matter/read",
+            json={"path": "~/.config/opencode/AGENTS.md"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["content"] == "body"
+        mock_read.assert_called_once_with("~/.config/opencode/AGENTS.md")
+
+    def test_read_external_matter_requires_path(self):
+        response = client.post("/api/external-matter/read", json={})
+        assert response.status_code == 400
+        assert "Path is required" in response.json()["detail"]
+
+    @patch("app.write_external_matter")
+    def test_write_external_matter_success(self, mock_write):
+        mock_write.return_value = {
+            "success": True,
+            "path": "/home/user/.config/opencode/AGENTS.md",
+        }
+        payload = {
+            "path": "/home/user/.config/opencode/AGENTS.md",
+            "content": "hello",
+            "frontmatter": {"type": "project"},
+        }
+        response = client.put("/api/external-matter/write", json=payload)
+
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+        mock_write.assert_called_once_with(
+            "/home/user/.config/opencode/AGENTS.md",
+            {"type": "project"},
+            "hello",
+        )
+
+
 class TestTaskEndpoints:
     """Test task-related endpoints."""
 

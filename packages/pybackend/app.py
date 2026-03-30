@@ -51,6 +51,7 @@ from knowledge_service import (
     read_knowledge_artefact,
     write_knowledge_artefact,
 )
+from external_matter_service import read_external_matter, write_external_matter
 from command_service import list_commands
 from harness_service import is_process_running, list_harnesses, run_harness
 from workflow_service import list_workspace_workflows, read_workflows, write_workflows
@@ -1085,6 +1086,48 @@ def knowledge_agent_sessions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
+
+
+@app.post("/api/external-matter/read")
+def external_matter_read(payload: dict = Body(...)):
+    path = payload.get("path")
+    if not isinstance(path, str) or not path.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Path is required"
+        )
+    try:
+        logger.info("Reading external matter '%s'", path)
+        return read_external_matter(path)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to read external matter '%s'", path)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.put("/api/external-matter/write")
+def external_matter_write(payload: dict = Body(...)):
+    path = payload.get("path")
+    if not isinstance(path, str) or not path.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Path is required"
+        )
+    try:
+        logger.info("Writing external matter '%s'", path)
+        return write_external_matter(
+            path, payload.get("frontmatter", {}), payload.get("content", "")
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to write external matter '%s'", path)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
 @app.get("/api/constitutions")

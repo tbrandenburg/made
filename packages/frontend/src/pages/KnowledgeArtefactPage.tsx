@@ -29,6 +29,7 @@ import { ClearSessionModal } from "../components/ClearSessionModal";
 import { SessionPickerModal } from "../components/SessionPickerModal";
 import { ArrowDownIcon } from "../components/icons/ArrowDownIcon";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
+import { TrashIcon } from "../components/icons/TrashIcon";
 import {
   AgentSelector,
   DEFAULT_AGENT_VALUE,
@@ -37,6 +38,7 @@ import { commandPathsFromDefinitions } from "../utils/pathMentions";
 import {
   getExternalMatter,
   isExternalMatterId,
+  removeExternalMatterLink,
   saveExternalMatter,
 } from "../utils/externalLinks";
 
@@ -131,9 +133,18 @@ export const KnowledgeArtefactPage: React.FC = () => {
         setStatus("Linked external artefact not found");
         return;
       }
-      setFrontmatter(linkedExternalMatter.frontmatter ?? {});
-      setContent(linkedExternalMatter.content ?? "");
       setExternalPath(linkedExternalMatter.path);
+      api
+        .readExternalMatter(linkedExternalMatter.path)
+        .then((data) => {
+          setFrontmatter(data.frontmatter ?? {});
+          setContent(data.content ?? "");
+          setStatus(null);
+        })
+        .catch((error) => {
+          console.error("Failed to load external artefact", error);
+          setStatus("Failed to load linked external artefact file");
+        });
       return;
     }
     api
@@ -191,6 +202,11 @@ export const KnowledgeArtefactPage: React.FC = () => {
     if (!name) return;
     try {
       if (isExternal) {
+        if (!externalPath) {
+          setStatus("Missing external artefact path");
+          return;
+        }
+        await api.writeExternalMatter({ path: externalPath, content, frontmatter });
         saveExternalMatter("knowledge", name, content, frontmatter);
         setStatus("Saved successfully");
         return;
@@ -202,6 +218,16 @@ export const KnowledgeArtefactPage: React.FC = () => {
       setStatus("Save failed");
     }
   };
+
+  const handleRemoveLink = useCallback(() => {
+    if (!name || !isExternal) return;
+    const confirmed = window.confirm(
+      "Remove this external knowledge link from MADE?",
+    );
+    if (!confirmed) return;
+    removeExternalMatterLink("knowledge", name);
+    navigate("/knowledge");
+  }, [isExternal, name, navigate]);
 
   const handleSendMessage = useCallback(
     async (message: string, options?: { clearPrompt?: boolean }) => {
@@ -368,9 +394,22 @@ export const KnowledgeArtefactPage: React.FC = () => {
           <Panel
             title="Metadata"
             actions={
-              <button className="primary" onClick={handleSave}>
-                Save
-              </button>
+              <div className="panel-action-buttons">
+                <button className="primary" onClick={handleSave}>
+                  Save
+                </button>
+                {isExternal && (
+                  <button
+                    type="button"
+                    className="copy-button"
+                    onClick={handleRemoveLink}
+                    aria-label="Remove external artefact link"
+                    title="Remove external artefact link"
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
+              </div>
             }
           >
             {externalPath && <div className="path-info">{externalPath}</div>}

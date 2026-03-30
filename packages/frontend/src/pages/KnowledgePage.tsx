@@ -4,7 +4,12 @@ import { api, ArtefactSummary } from "../hooks/useApi";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
-import { addExternalMatterLink, listExternalMatter } from "../utils/externalLinks";
+import { TrashIcon } from "../components/icons/TrashIcon";
+import {
+  addExternalMatterLink,
+  listExternalMatter,
+  removeExternalMatterLink,
+} from "../utils/externalLinks";
 import "../styles/page.css";
 
 export const KnowledgePage: React.FC = () => {
@@ -85,6 +90,12 @@ export const KnowledgePage: React.FC = () => {
     navigate(`/knowledge/${linked.id}`);
   };
 
+  const handleRemoveExternalLink = (id: string) => {
+    if (!window.confirm("Remove this linked knowledge artefact?")) return;
+    removeExternalMatterLink("knowledge", id);
+    loadArtefacts();
+  };
+
   return (
     <div className="page">
       <h1>Knowledge Base</h1>
@@ -115,6 +126,26 @@ export const KnowledgePage: React.FC = () => {
                             key={artefact.routeName ?? artefact.name}
                             title={artefact.name}
                             to={`/knowledge/${artefact.routeName ?? artefact.name}`}
+                            actions={
+                              artefact.isExternal &&
+                              artefact.routeName && (
+                                <button
+                                  type="button"
+                                  className="copy-button"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    handleRemoveExternalLink(
+                                      artefact.routeName as string,
+                                    );
+                                  }}
+                                  aria-label={`Remove linked artefact ${artefact.name}`}
+                                  title={`Remove linked artefact ${artefact.name}`}
+                                >
+                                  <TrashIcon />
+                                </button>
+                              )
+                            }
                           >
                             <div className="metadata">
                               <span className="badge">
@@ -149,6 +180,26 @@ export const KnowledgePage: React.FC = () => {
                             key={artefact.routeName ?? artefact.name}
                             title={artefact.name}
                             to={`/knowledge/${artefact.routeName ?? artefact.name}`}
+                            actions={
+                              artefact.isExternal &&
+                              artefact.routeName && (
+                                <button
+                                  type="button"
+                                  className="copy-button"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    handleRemoveExternalLink(
+                                      artefact.routeName as string,
+                                    );
+                                  }}
+                                  aria-label={`Remove linked artefact ${artefact.name}`}
+                                  title={`Remove linked artefact ${artefact.name}`}
+                                >
+                                  <TrashIcon />
+                                </button>
+                              )
+                            }
                           >
                             <div className="metadata">
                               <span className="badge">

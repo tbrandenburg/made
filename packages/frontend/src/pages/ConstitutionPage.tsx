@@ -29,6 +29,7 @@ import { ClearSessionModal } from "../components/ClearSessionModal";
 import { SessionPickerModal } from "../components/SessionPickerModal";
 import { ArrowDownIcon } from "../components/icons/ArrowDownIcon";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
+import { TrashIcon } from "../components/icons/TrashIcon";
 import {
   AgentSelector,
   DEFAULT_AGENT_VALUE,
@@ -37,6 +38,7 @@ import { commandPathsFromDefinitions } from "../utils/pathMentions";
 import {
   getExternalMatter,
   isExternalMatterId,
+  removeExternalMatterLink,
   saveExternalMatter,
 } from "../utils/externalLinks";
 
@@ -133,9 +135,18 @@ export const ConstitutionPage: React.FC = () => {
         setStatus("Linked external constitution not found");
         return;
       }
-      setFrontmatter(linkedExternalMatter.frontmatter ?? {});
-      setContent(linkedExternalMatter.content ?? "");
       setExternalPath(linkedExternalMatter.path);
+      api
+        .readExternalMatter(linkedExternalMatter.path)
+        .then((data) => {
+          setFrontmatter(data.frontmatter ?? {});
+          setContent(data.content ?? "");
+          setStatus(null);
+        })
+        .catch((error) => {
+          console.error("Failed to load external constitution", error);
+          setStatus("Failed to load linked external constitution file");
+        });
       return;
     }
     api
@@ -193,6 +204,11 @@ export const ConstitutionPage: React.FC = () => {
     if (!name) return;
     try {
       if (isExternal) {
+        if (!externalPath) {
+          setStatus("Missing external constitution path");
+          return;
+        }
+        await api.writeExternalMatter({ path: externalPath, content, frontmatter });
         saveExternalMatter("constitution", name, content, frontmatter);
         setStatus("Saved successfully");
         return;
@@ -204,6 +220,16 @@ export const ConstitutionPage: React.FC = () => {
       setStatus("Save failed");
     }
   };
+
+  const handleRemoveLink = useCallback(() => {
+    if (!name || !isExternal) return;
+    const confirmed = window.confirm(
+      "Remove this external constitution link from MADE?",
+    );
+    if (!confirmed) return;
+    removeExternalMatterLink("constitution", name);
+    navigate("/constitutions");
+  }, [isExternal, name, navigate]);
 
   const handleSendMessage = useCallback(
     async (message: string, options?: { clearPrompt?: boolean }) => {
@@ -366,9 +392,22 @@ export const ConstitutionPage: React.FC = () => {
           <Panel
             title="Metadata"
             actions={
-              <button className="primary" onClick={handleSave}>
-                Save
-              </button>
+              <div className="panel-action-buttons">
+                <button className="primary" onClick={handleSave}>
+                  Save
+                </button>
+                {isExternal && (
+                  <button
+                    type="button"
+                    className="copy-button"
+                    onClick={handleRemoveLink}
+                    aria-label="Remove external constitution link"
+                    title="Remove external constitution link"
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
+              </div>
             }
           >
             {externalPath && <div className="path-info">{externalPath}</div>}
