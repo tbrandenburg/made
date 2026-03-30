@@ -202,10 +202,22 @@ def _wait_for_workflow_process(
     workflow_id: str,
     process: subprocess.Popen[str],
     started_at: datetime,
+    stdin_input: str | None = None,
 ) -> None:
     global _successful_jobs, _failed_jobs
 
-    stdout, stderr = process.communicate()
+    try:
+        stdout, stderr = process.communicate(input=stdin_input)
+    except ValueError:
+        # Defensive fallback: stdin may already be closed by another thread/process
+        # which makes communicate() attempt to flush a closed stream.
+        logger.warning(
+            "Cron workflow '%s' had closed stdin before communicate(); falling back to wait/read",
+            workflow_id,
+        )
+        process.wait()
+        stdout = process.stdout.read() if process.stdout is not None else ""
+        stderr = process.stderr.read() if process.stderr is not None else ""
     stdout_tail = _tail_output(stdout)
     stderr_tail = _tail_output(stderr)
     returncode = process.returncode
@@ -309,14 +321,11 @@ def _run_scheduled_task(task_id: str, task_file_name: str) -> None:
         _running_process_by_job[task_id] = process
         _job_start_times[task_id] = started_at
 
-    if _uses_stdin_prompt(command) and process.stdin is not None:
-        process.stdin.write(prompt)
-        process.stdin.close()
-
     logger.info("Running scheduled task '%s' in '%s'", task_id, tasks_directory)
+    stdin_input = prompt if _uses_stdin_prompt(command) else None
     Thread(
         target=_wait_for_workflow_process,
-        args=(task_id, process, started_at),
+        args=(task_id, process, started_at, stdin_input),
         daemon=True,
     ).start()
 

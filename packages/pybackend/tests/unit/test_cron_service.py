@@ -400,8 +400,10 @@ def test_run_scheduled_task_uses_configured_agent_cli(
         text=True,
         stdin=cron_service.subprocess.PIPE,
     )
-    process.stdin.write.assert_called_once_with("# check things\n- task body")
-    process.stdin.close.assert_called_once_with()
+    mock_thread.assert_called_once()
+    assert (
+        mock_thread.call_args.kwargs["args"][3] == "# check things\n- task body"
+    )
 
 
 @patch("cron_service.get_tasks_directory")
@@ -433,8 +435,10 @@ def test_run_scheduled_task_falls_back_to_filename_prompt_when_content_empty(
 
     cron_service._run_scheduled_task("task:daily-report.md", "daily-report.md")
 
-    process.stdin.write.assert_called_once_with(
-        "Follow the instructions in `daily-report.md`"
+    mock_thread.assert_called_once()
+    assert (
+        mock_thread.call_args.kwargs["args"][3]
+        == "Follow the instructions in `daily-report.md`"
     )
 
 
@@ -454,6 +458,27 @@ def test_wait_for_workflow_process_keeps_last_stdout_lines_only():
     assert stored_stdout.startswith("line-11")
     assert stored_stdout.endswith("line-30")
     assert "line-10" not in stored_stdout
+
+
+def test_wait_for_workflow_process_handles_closed_stdin_during_communicate():
+    process = MagicMock()
+    process.communicate.side_effect = ValueError("I/O operation on closed file")
+    process.wait.return_value = 0
+    process.stdout.read.return_value = "stdout line"
+    process.stderr.read.return_value = ""
+    process.returncode = 0
+    process.poll.return_value = 0
+
+    started_at = cron_service.datetime(
+        2026, 1, 2, 3, 4, 5, tzinfo=cron_service.timezone.utc
+    )
+    cron_service._wait_for_workflow_process(
+        "task:daily-report.md", process, started_at, "prompt text"
+    )
+
+    process.wait.assert_called_once_with()
+    process.stdout.read.assert_called_once_with()
+    assert cron_service._last_stdout_by_job["task:daily-report.md"] == "stdout line"
 
 
 def test_get_cron_job_diagnostics_returns_empty_when_scheduler_not_running():
