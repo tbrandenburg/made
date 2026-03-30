@@ -15,6 +15,16 @@ const storageKey = (kind: ExternalMatterKind) => `${STORAGE_PREFIX}-${kind}`;
 
 const createId = (path: string) => `${ID_PREFIX}${encodeURIComponent(path)}`;
 
+const normalizeId = (id: string) => {
+  if (!id.startsWith(ID_PREFIX)) return id;
+  const rawPath = id.slice(ID_PREFIX.length);
+  try {
+    return createId(decodeURIComponent(rawPath));
+  } catch {
+    return createId(rawPath);
+  }
+};
+
 const nameFromPath = (path: string) => {
   const trimmed = path.trim();
   if (!trimmed) return "external-file";
@@ -84,7 +94,8 @@ export const getExternalMatter = (
   kind: ExternalMatterKind,
   id: string,
 ): ExternalMatter | null => {
-  const found = parseStored(kind).find((item) => item.id === id);
+  const normalizedId = normalizeId(id);
+  const found = parseStored(kind).find((item) => item.id === normalizedId);
   return found ?? null;
 };
 
@@ -94,9 +105,10 @@ export const saveExternalMatter = (
   content: string,
   frontmatter: Record<string, unknown>,
 ) => {
+  const normalizedId = normalizeId(id);
   const current = parseStored(kind);
   const next = current.map((item) =>
-    item.id === id ? { ...item, content, frontmatter } : item,
+    item.id === normalizedId ? { ...item, content, frontmatter } : item,
   );
   writeStored(kind, next);
 };
@@ -105,8 +117,9 @@ export const removeExternalMatterLink = (
   kind: ExternalMatterKind,
   id: string,
 ): boolean => {
+  const normalizedId = normalizeId(id);
   const current = parseStored(kind);
-  const next = current.filter((item) => item.id !== id);
+  const next = current.filter((item) => item.id !== normalizedId);
   if (next.length === current.length) return false;
   writeStored(kind, next);
   return true;

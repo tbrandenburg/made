@@ -5,6 +5,7 @@ import {
   getExternalMatter,
   listExternalMatter,
   removeExternalMatterLink,
+  saveExternalMatter,
 } from "./externalLinks";
 
 describe("externalLinks", () => {
@@ -30,5 +31,26 @@ describe("externalLinks", () => {
     expect(removeExternalMatterLink("knowledge", "external-missing")).toBe(
       false,
     );
+  });
+
+  it("resolves entries by decoded route IDs", () => {
+    const linked = addExternalMatterLink(
+      "constitution",
+      "~/.config/opencode/AGENTS.md",
+    );
+    expect(linked).not.toBeNull();
+
+    const decodedRouteId = `external-${linked!.path}`;
+    expect(getExternalMatter("constitution", decodedRouteId)).toEqual(linked);
+
+    saveExternalMatter("constitution", decodedRouteId, "updated", {
+      type: "global",
+    });
+    expect(getExternalMatter("constitution", linked!.id)?.content).toBe(
+      "updated",
+    );
+
+    expect(removeExternalMatterLink("constitution", decodedRouteId)).toBe(true);
+    expect(listExternalMatter("constitution")).toHaveLength(0);
   });
 });
