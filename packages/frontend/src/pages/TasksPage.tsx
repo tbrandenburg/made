@@ -117,12 +117,14 @@ const renderWorkflowDiagnosticsSummary = (diagnostics: WorkflowDiagnostics) => {
 };
 
 export const TasksPage: React.FC = () => {
+  const workflowLogsPerPage = 5;
   const [tasks, setTasks] = useState<ArtefactSummary[]>([]);
   const [activeTab, setActiveTab] = useState("tasks");
   const [workspaceWorkflows, setWorkspaceWorkflows] = useState<
     WorkspaceWorkflowSummary[]
   >([]);
   const [workflowLogs, setWorkflowLogs] = useState<WorkflowLogSummary[]>([]);
+  const [workflowLogsPage, setWorkflowLogsPage] = useState(1);
   const [logModal, setLogModal] = useState<{
     open: boolean;
     title: string;
@@ -153,6 +155,15 @@ export const TasksPage: React.FC = () => {
   };
   const templateTasks = tasks.filter(isTemplate);
   const documentTasks = tasks.filter((task) => !isTemplate(task));
+  const workflowLogsPageCount = Math.max(
+    1,
+    Math.ceil(workflowLogs.length / workflowLogsPerPage),
+  );
+  const workflowLogsPageStart = (workflowLogsPage - 1) * workflowLogsPerPage;
+  const visibleWorkflowLogs = workflowLogs.slice(
+    workflowLogsPageStart,
+    workflowLogsPageStart + workflowLogsPerPage,
+  );
   const getRepositoryName = (repository: string) => {
     const segments = repository.split(/[\\/]/).filter(Boolean);
     return segments[segments.length - 1] || repository;
@@ -175,10 +186,17 @@ export const TasksPage: React.FC = () => {
       .then(([workflowRes, logRes, processRes]) => {
         setWorkspaceWorkflows(workflowRes.workflows);
         setWorkflowLogs(logRes.logs);
+        setWorkflowLogsPage(1);
         setAgentProcesses(processRes.processes);
       })
       .catch((error) => console.error("Failed to load tasks page data", error));
   }, []);
+
+  useEffect(() => {
+    if (workflowLogsPage > workflowLogsPageCount) {
+      setWorkflowLogsPage(workflowLogsPageCount);
+    }
+  }, [workflowLogsPage, workflowLogsPageCount]);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -361,42 +379,71 @@ export const TasksPage: React.FC = () => {
                   {workflowLogs.length === 0 ? (
                     <div className="empty">No workflow logs found.</div>
                   ) : (
-                    <table className="git-table">
-                      <thead>
-                        <tr>
-                          <th>Filename</th>
-                          <th>Location</th>
-                          <th>Modified</th>
-                          <th>Size</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {workflowLogs.map((logFile) => (
-                          <tr key={`${logFile.location}:${logFile.name}`}>
-                            <td>{logFile.name}</td>
-                            <td>{logFile.path}</td>
-                            <td>{formatDateTime(logFile.modifiedAt)}</td>
-                            <td>{formatBytes(logFile.sizeBytes)}</td>
-                            <td>
-                              <button
-                                className="secondary"
-                                onClick={() => void openLogTail(logFile)}
-                                disabled={
-                                  loadingLog ===
-                                  `${logFile.location}:${logFile.name}`
-                                }
-                              >
-                                {loadingLog ===
-                                `${logFile.location}:${logFile.name}`
-                                  ? "Loading..."
-                                  : "View tail"}
-                              </button>
-                            </td>
+                    <>
+                      <table className="git-table">
+                        <thead>
+                          <tr>
+                            <th>Filename</th>
+                            <th>Location</th>
+                            <th>Modified</th>
+                            <th>Size</th>
+                            <th>Actions</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {visibleWorkflowLogs.map((logFile) => (
+                            <tr key={`${logFile.location}:${logFile.name}`}>
+                              <td>{logFile.name}</td>
+                              <td>{logFile.path}</td>
+                              <td>{formatDateTime(logFile.modifiedAt)}</td>
+                              <td>{formatBytes(logFile.sizeBytes)}</td>
+                              <td>
+                                <button
+                                  className="secondary"
+                                  onClick={() => void openLogTail(logFile)}
+                                  disabled={
+                                    loadingLog ===
+                                    `${logFile.location}:${logFile.name}`
+                                  }
+                                >
+                                  {loadingLog ===
+                                  `${logFile.location}:${logFile.name}`
+                                    ? "Loading..."
+                                    : "View tail"}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {workflowLogsPageCount > 1 && (
+                        <div className="meta-secondary">
+                          <button
+                            className="secondary"
+                            onClick={() =>
+                              setWorkflowLogsPage((page) => Math.max(1, page - 1))
+                            }
+                            disabled={workflowLogsPage === 1}
+                          >
+                            Previous
+                          </button>
+                          <span>
+                            Page {workflowLogsPage} of {workflowLogsPageCount}
+                          </span>
+                          <button
+                            className="secondary"
+                            onClick={() =>
+                              setWorkflowLogsPage((page) =>
+                                Math.min(workflowLogsPageCount, page + 1),
+                              )
+                            }
+                            disabled={workflowLogsPage === workflowLogsPageCount}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </Panel>
                 <Panel title="Running Agent CLI Processes">
