@@ -278,4 +278,35 @@ describe("TasksPage", () => {
       expect(api.terminateAgentProcess).toHaveBeenCalledWith(1234);
     });
   });
+
+  it("paginates available workflow logs with five rows per page", async () => {
+    vi.mocked(api.listTasks).mockResolvedValue({ tasks: [] });
+    vi.mocked(api.getWorkflowLogs).mockResolvedValue({
+      logs: Array.from({ length: 7 }, (_, index) => ({
+        location: "workspace",
+        name: `log-${index + 1}.txt`,
+        path: `/logs/log-${index + 1}.txt`,
+        modifiedAt: `2026-01-0${(index % 9) + 1}T10:00:00Z`,
+        sizeBytes: 120 + index,
+      })),
+    });
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("log-1.txt")).toBeInTheDocument();
+    expect(screen.getByText("log-5.txt")).toBeInTheDocument();
+    expect(screen.queryByText("log-6.txt")).not.toBeInTheDocument();
+    expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(await screen.findByText("log-6.txt")).toBeInTheDocument();
+    expect(screen.getByText("log-7.txt")).toBeInTheDocument();
+    expect(screen.queryByText("log-1.txt")).not.toBeInTheDocument();
+    expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+  });
 });
