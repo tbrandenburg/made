@@ -133,9 +133,18 @@ export const KnowledgeArtefactPage: React.FC = () => {
         setStatus("Linked external artefact not found");
         return;
       }
-      setFrontmatter(linkedExternalMatter.frontmatter ?? {});
-      setContent(linkedExternalMatter.content ?? "");
       setExternalPath(linkedExternalMatter.path);
+      api
+        .readExternalMatter(linkedExternalMatter.path)
+        .then((data) => {
+          setFrontmatter(data.frontmatter ?? {});
+          setContent(data.content ?? "");
+          setStatus(null);
+        })
+        .catch((error) => {
+          console.error("Failed to load external artefact", error);
+          setStatus("Failed to load linked external artefact file");
+        });
       return;
     }
     api
@@ -193,6 +202,11 @@ export const KnowledgeArtefactPage: React.FC = () => {
     if (!name) return;
     try {
       if (isExternal) {
+        if (!externalPath) {
+          setStatus("Missing external artefact path");
+          return;
+        }
+        await api.writeExternalMatter({ path: externalPath, content, frontmatter });
         saveExternalMatter("knowledge", name, content, frontmatter);
         setStatus("Saved successfully");
         return;

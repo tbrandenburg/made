@@ -135,9 +135,18 @@ export const ConstitutionPage: React.FC = () => {
         setStatus("Linked external constitution not found");
         return;
       }
-      setFrontmatter(linkedExternalMatter.frontmatter ?? {});
-      setContent(linkedExternalMatter.content ?? "");
       setExternalPath(linkedExternalMatter.path);
+      api
+        .readExternalMatter(linkedExternalMatter.path)
+        .then((data) => {
+          setFrontmatter(data.frontmatter ?? {});
+          setContent(data.content ?? "");
+          setStatus(null);
+        })
+        .catch((error) => {
+          console.error("Failed to load external constitution", error);
+          setStatus("Failed to load linked external constitution file");
+        });
       return;
     }
     api
@@ -195,6 +204,11 @@ export const ConstitutionPage: React.FC = () => {
     if (!name) return;
     try {
       if (isExternal) {
+        if (!externalPath) {
+          setStatus("Missing external constitution path");
+          return;
+        }
+        await api.writeExternalMatter({ path: externalPath, content, frontmatter });
         saveExternalMatter("constitution", name, content, frontmatter);
         setStatus("Saved successfully");
         return;

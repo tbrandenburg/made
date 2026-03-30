@@ -661,6 +661,16 @@ export const api = {
       `/tasks/${name}/agent/sessions?${params.toString()}`,
     );
   },
+  readExternalMatter: (path: string) =>
+    request<ExternalMatterPayload>("/external-matter/read", {
+      method: "POST",
+      body: JSON.stringify({ path }),
+    }),
+  writeExternalMatter: (payload: ExternalMatterPayload) =>
+    request<{ success: boolean; path: string }>("/external-matter/write", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
   getSettings: () => request<Record<string, unknown>>("/settings"),
   saveSettings: (settings: Record<string, unknown>) =>
     request("/settings", {
@@ -703,4 +713,10 @@ export type MatterFile = {
   content: string;
   data?: Record<string, unknown>;
   frontmatter?: Record<string, unknown>;
+};
+
+export type ExternalMatterPayload = {
+  path: string;
+  content: string;
+  frontmatter: Record<string, unknown>;
 };
