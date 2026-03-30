@@ -39,6 +39,15 @@ class AgentCLI(ABC):
     def cli_name(self) -> str:
         raise NotImplementedError
 
+    @abstractmethod
+    def build_prompt_command(self, prompt: str) -> list[str]:
+        """Build a base command used to send a prompt."""
+        raise NotImplementedError
+
+    def prompt_via_stdin(self) -> bool:
+        """Whether the base prompt command expects prompt content on stdin."""
+        return False
+
     def missing_command_error(self) -> str:
         return (
             f"Error: '{self.cli_name}' command not found. "
@@ -203,6 +212,13 @@ class OpenCodeAgentCLI(AgentCLI):
     @property
     def cli_name(self) -> str:
         return "opencode"
+
+    def build_prompt_command(self, prompt: str) -> list[str]:
+        _ = prompt
+        return [self.main_executable_name(), "run", "--format", "json"]
+
+    def prompt_via_stdin(self) -> bool:
+        return True
 
     def _to_milliseconds(self, raw_value: object) -> int | None:
         """Convert value to milliseconds timestamp."""

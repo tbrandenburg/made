@@ -51,6 +51,13 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
         """Return the CLI name identifier."""
         return "opencode"
 
+    def build_prompt_command(self, prompt: str) -> list[str]:
+        _ = prompt
+        return [self.main_executable_name(), "run", "--format", "json"]
+
+    def prompt_via_stdin(self) -> bool:
+        return True
+
     def _get_database_path(self) -> Path | None:
         """Get the path to OpenCode's SQLite database."""
         # Check environment variable first

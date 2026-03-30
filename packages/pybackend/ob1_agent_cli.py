@@ -34,6 +34,9 @@ class OB1AgentCLI(AgentCLI):
     def cli_name(self) -> str:
         return "ob1"
 
+    def build_prompt_command(self, prompt: str) -> list[str]:
+        return [self.main_executable_name(), "--output-format", "json", "--prompt", prompt]
+
     def run_agent(
         self,
         message: str,

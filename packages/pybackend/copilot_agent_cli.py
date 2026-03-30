@@ -36,6 +36,15 @@ class CopilotAgentCLI(AgentCLI):
         """Return the CLI name for error messages."""
         return "copilot"
 
+    def build_prompt_command(self, prompt: str) -> list[str]:
+        return [
+            self.main_executable_name(),
+            "-p",
+            prompt,
+            "--allow-all-tools",
+            "--silent",
+        ]
+
     def missing_command_error(self) -> str:
         """Return error message for missing CLI command."""
         return f"Error: '{self.cli_name}' command not found. Please ensure it is installed and in PATH."
