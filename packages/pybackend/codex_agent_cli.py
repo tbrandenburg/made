@@ -33,6 +33,13 @@ class CodexAgentCLI(AgentCLI):
         """Return the CLI name for error messages."""
         return "codex"
 
+    def build_prompt_command(self, prompt: str) -> list[str]:
+        _ = prompt
+        return [self.main_executable_name(), "exec", "--json"]
+
+    def prompt_via_stdin(self) -> bool:
+        return True
+
     def missing_command_error(self) -> str:
         """Return error message for missing CLI command."""
         return f"Error: '{self.cli_name}' command not found. Please ensure it is installed and in PATH."

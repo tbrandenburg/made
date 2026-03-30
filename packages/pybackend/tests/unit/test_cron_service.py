@@ -382,8 +382,8 @@ def test_run_scheduled_task_uses_configured_agent_cli(
     tasks_dir.mkdir(parents=True)
     mock_get_tasks_directory.return_value = tasks_dir
     mock_cli = MagicMock()
-    mock_cli.cli_name = "opencode"
-    mock_cli.main_executable_name.return_value = "opencode"
+    mock_cli.build_prompt_command.return_value = ["opencode", "run", "--format", "json"]
+    mock_cli.prompt_via_stdin.return_value = True
     mock_get_agent_cli.return_value = mock_cli
     mock_read_task.return_value = {"content": "# check things\n- task body"}
     mock_which.return_value = "/usr/bin/opencode"
@@ -431,8 +431,8 @@ def test_run_scheduled_task_falls_back_to_filename_prompt_when_content_empty(
     tasks_dir.mkdir(parents=True)
     mock_get_tasks_directory.return_value = tasks_dir
     mock_cli = MagicMock()
-    mock_cli.cli_name = "opencode"
-    mock_cli.main_executable_name.return_value = "opencode"
+    mock_cli.build_prompt_command.return_value = ["opencode", "run", "--format", "json"]
+    mock_cli.prompt_via_stdin.return_value = True
     mock_get_agent_cli.return_value = mock_cli
     mock_read_task.return_value = {"content": "   "}
     mock_which.return_value = "/usr/bin/opencode"
@@ -473,8 +473,8 @@ def test_run_scheduled_task_records_failure_when_cli_not_found(
     tasks_dir.mkdir(parents=True)
     mock_get_tasks_directory.return_value = tasks_dir
     mock_cli = MagicMock()
-    mock_cli.cli_name = "opencode"
-    mock_cli.main_executable_name.return_value = "opencode"
+    mock_cli.build_prompt_command.return_value = ["opencode", "run", "--format", "json"]
+    mock_cli.prompt_via_stdin.return_value = True
     mock_get_agent_cli.return_value = mock_cli
     mock_read_task.return_value = {"content": "run report"}
     mock_which.return_value = None

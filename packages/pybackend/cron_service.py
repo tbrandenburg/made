@@ -84,26 +84,11 @@ def _resolve_script_path(repo_path: Path, shell_script_path: str) -> Path:
 
 def _build_agent_cli_command(prompt: str) -> list[str]:
     agent_cli = get_agent_cli()
-    executable = agent_cli.main_executable_name()
-    selected_cli = agent_cli.cli_name
-
-    if selected_cli == "kiro-cli":
-        return [executable, "chat", "--no-interactive", "--trust-all-tools"]
-    if selected_cli == "copilot":
-        return [executable, "-p", prompt, "--allow-all-tools", "--silent"]
-    if selected_cli == "codex":
-        return [executable, "exec", "--json"]
-    if selected_cli == "ob1":
-        return [executable, "--output-format", "json", "--prompt", prompt]
-
-    # Defaults for both "opencode" and "opencode-legacy".
-    return [executable, "run", "--format", "json"]
+    return agent_cli.build_prompt_command(prompt)
 
 
-def _uses_stdin_prompt(command: list[str]) -> bool:
-    if len(command) < 2:
-        return False
-    return command[0] in {"opencode", "kiro-cli", "codex"}
+def _uses_stdin_prompt() -> bool:
+    return get_agent_cli().prompt_via_stdin()
 
 
 def _resolve_executable(command: list[str]) -> list[str]:
@@ -316,7 +301,7 @@ def _run_scheduled_task(task_id: str, task_file_name: str) -> None:
     if not prompt:
         prompt = f"Follow the instructions in `{task_file_name}`"
     command = _build_agent_cli_command(prompt)
-    use_stdin_prompt = _uses_stdin_prompt(command)
+    use_stdin_prompt = _uses_stdin_prompt()
     try:
         command = _resolve_executable(command)
     except (ValueError, FileNotFoundError) as exc:
