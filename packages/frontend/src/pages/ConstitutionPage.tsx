@@ -29,6 +29,7 @@ import { ClearSessionModal } from "../components/ClearSessionModal";
 import { SessionPickerModal } from "../components/SessionPickerModal";
 import { ArrowDownIcon } from "../components/icons/ArrowDownIcon";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
+import { TrashIcon } from "../components/icons/TrashIcon";
 import {
   AgentSelector,
   DEFAULT_AGENT_VALUE,
@@ -37,6 +38,7 @@ import { commandPathsFromDefinitions } from "../utils/pathMentions";
 import {
   getExternalMatter,
   isExternalMatterId,
+  removeExternalMatterLink,
   saveExternalMatter,
 } from "../utils/externalLinks";
 
@@ -205,6 +207,16 @@ export const ConstitutionPage: React.FC = () => {
     }
   };
 
+  const handleRemoveLink = useCallback(() => {
+    if (!name || !isExternal) return;
+    const confirmed = window.confirm(
+      "Remove this external constitution link from MADE?",
+    );
+    if (!confirmed) return;
+    removeExternalMatterLink("constitution", name);
+    navigate("/constitutions");
+  }, [isExternal, name, navigate]);
+
   const handleSendMessage = useCallback(
     async (message: string, options?: { clearPrompt?: boolean }) => {
       if (!name) return;
@@ -366,9 +378,22 @@ export const ConstitutionPage: React.FC = () => {
           <Panel
             title="Metadata"
             actions={
-              <button className="primary" onClick={handleSave}>
-                Save
-              </button>
+              <div className="panel-action-buttons">
+                <button className="primary" onClick={handleSave}>
+                  Save
+                </button>
+                {isExternal && (
+                  <button
+                    type="button"
+                    className="copy-button"
+                    onClick={handleRemoveLink}
+                    aria-label="Remove external constitution link"
+                    title="Remove external constitution link"
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
+              </div>
             }
           >
             {externalPath && <div className="path-info">{externalPath}</div>}

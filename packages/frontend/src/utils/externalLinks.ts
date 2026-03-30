@@ -101,4 +101,15 @@ export const saveExternalMatter = (
   writeStored(kind, next);
 };
 
+export const removeExternalMatterLink = (
+  kind: ExternalMatterKind,
+  id: string,
+): boolean => {
+  const current = parseStored(kind);
+  const next = current.filter((item) => item.id !== id);
+  if (next.length === current.length) return false;
+  writeStored(kind, next);
+  return true;
+};
+
 export const isExternalMatterId = (value: string) => value.startsWith(ID_PREFIX);
