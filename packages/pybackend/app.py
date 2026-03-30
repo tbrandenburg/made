@@ -21,6 +21,7 @@ from fastapi import (
     Form,
     HTTPException,
     Query,
+    Request,
     UploadFile,
     WebSocket,
     status,
@@ -1091,15 +1092,26 @@ def knowledge_agent_sessions(
 
 
 @app.post("/api/external-matter/read")
-def external_matter_read(payload: dict = Body(...)):
+def external_matter_read(request: Request, payload: dict = Body(...)):
+    client_host = request.client.host if request.client else "unknown"
+    logger.info(
+        "External matter read API called (client: %s, payload_keys: %s)",
+        client_host,
+        sorted(payload.keys()),
+    )
     path = payload.get("path")
     if not isinstance(path, str) or not path.strip():
+        logger.warning(
+            "External matter read rejected: missing path (client: %s)", client_host
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Path is required"
         )
     try:
         logger.info("Reading external matter '%s'", path)
-        return read_external_matter(path)
+        result = read_external_matter(path)
+        logger.info("External matter read succeeded for '%s' (client: %s)", path, client_host)
+        return result
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except ValueError as exc:
@@ -1112,17 +1124,30 @@ def external_matter_read(payload: dict = Body(...)):
 
 
 @app.put("/api/external-matter/write")
-def external_matter_write(payload: dict = Body(...)):
+def external_matter_write(request: Request, payload: dict = Body(...)):
+    client_host = request.client.host if request.client else "unknown"
+    logger.info(
+        "External matter write API called (client: %s, payload_keys: %s)",
+        client_host,
+        sorted(payload.keys()),
+    )
     path = payload.get("path")
     if not isinstance(path, str) or not path.strip():
+        logger.warning(
+            "External matter write rejected: missing path (client: %s)", client_host
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Path is required"
         )
     try:
         logger.info("Writing external matter '%s'", path)
-        return write_external_matter(
+        result = write_external_matter(
             path, payload.get("frontmatter", {}), payload.get("content", "")
         )
+        logger.info(
+            "External matter write succeeded for '%s' (client: %s)", path, client_host
+        )
+        return result
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except ValueError as exc:
