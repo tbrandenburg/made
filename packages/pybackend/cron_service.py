@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import shutil
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -102,6 +103,17 @@ def _uses_stdin_prompt(command: list[str]) -> bool:
     if len(command) < 2:
         return False
     return command[0] in {"opencode", "kiro-cli", "codex"}
+
+
+def _resolve_executable(command: list[str]) -> list[str]:
+    if not command:
+        raise ValueError("Empty command")
+
+    executable = command[0]
+    resolved = shutil.which(executable)
+    if resolved is None:
+        raise FileNotFoundError(f"Executable not found: {executable}")
+    return [resolved, *command[1:]]
 
 
 def _tail_output(value: str, max_lines: int = 20) -> str:
@@ -294,7 +306,7 @@ def _run_workflow_script(repo_path: Path, workflow_id: str, script_path: Path) -
 
 
 def _run_scheduled_task(task_id: str, task_file_name: str) -> None:
-    global _started_jobs
+    global _started_jobs, _failed_jobs
 
     started_at = datetime.now(timezone.utc)
     tasks_directory = get_tasks_directory()
@@ -303,6 +315,18 @@ def _run_scheduled_task(task_id: str, task_file_name: str) -> None:
     if not prompt:
         prompt = f"Follow the instructions in `{task_file_name}`"
     command = _build_agent_cli_command(prompt)
+    use_stdin_prompt = _uses_stdin_prompt(command)
+    try:
+        command = _resolve_executable(command)
+    except (ValueError, FileNotFoundError) as exc:
+        with _state_lock:
+            _started_jobs += 1
+            _failed_jobs += 1
+            _last_run_by_job[task_id] = datetime.now(timezone.utc)
+            _last_finished_by_job[task_id] = datetime.now(timezone.utc)
+            _last_error_by_job[task_id] = str(exc)
+        logger.warning("Skipping scheduled task '%s': %s", task_id, exc)
+        return
 
     popen_kwargs: dict[str, object] = {
         "cwd": str(tasks_directory),
@@ -310,7 +334,7 @@ def _run_scheduled_task(task_id: str, task_file_name: str) -> None:
         "stderr": subprocess.PIPE,
         "text": True,
     }
-    if _uses_stdin_prompt(command):
+    if use_stdin_prompt:
         popen_kwargs["stdin"] = subprocess.PIPE
 
     with _state_lock:
@@ -322,7 +346,7 @@ def _run_scheduled_task(task_id: str, task_file_name: str) -> None:
         _job_start_times[task_id] = started_at
 
     logger.info("Running scheduled task '%s' in '%s'", task_id, tasks_directory)
-    stdin_input = prompt if _uses_stdin_prompt(command) else None
+    stdin_input = prompt if use_stdin_prompt else None
     Thread(
         target=_wait_for_workflow_process,
         args=(task_id, process, started_at, stdin_input),

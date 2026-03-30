@@ -366,11 +366,13 @@ def test_start_cron_clock_registers_scheduled_tasks(
 @patch("cron_service.get_tasks_directory")
 @patch("cron_service.read_task")
 @patch("cron_service.read_settings")
+@patch("cron_service.shutil.which")
 @patch("cron_service.Thread")
 @patch("cron_service.subprocess.Popen")
 def test_run_scheduled_task_uses_configured_agent_cli(
     mock_popen,
     mock_thread,
+    mock_which,
     mock_read_settings,
     mock_read_task,
     mock_get_tasks_directory,
@@ -381,6 +383,7 @@ def test_run_scheduled_task_uses_configured_agent_cli(
     mock_get_tasks_directory.return_value = tasks_dir
     mock_read_settings.return_value = {"agentCli": "opencode"}
     mock_read_task.return_value = {"content": "# check things\n- task body"}
+    mock_which.return_value = "/usr/bin/opencode"
 
     process = MagicMock()
     process.stdin = MagicMock()
@@ -393,7 +396,7 @@ def test_run_scheduled_task_uses_configured_agent_cli(
     cron_service._run_scheduled_task("task:daily-report.md", "daily-report.md")
 
     mock_popen.assert_called_once_with(
-        ["opencode", "run", "--format", "json"],
+        ["/usr/bin/opencode", "run", "--format", "json"],
         cwd=str(tasks_dir),
         stdout=cron_service.subprocess.PIPE,
         stderr=cron_service.subprocess.PIPE,
@@ -409,11 +412,13 @@ def test_run_scheduled_task_uses_configured_agent_cli(
 @patch("cron_service.get_tasks_directory")
 @patch("cron_service.read_task")
 @patch("cron_service.read_settings")
+@patch("cron_service.shutil.which")
 @patch("cron_service.Thread")
 @patch("cron_service.subprocess.Popen")
 def test_run_scheduled_task_falls_back_to_filename_prompt_when_content_empty(
     mock_popen,
     mock_thread,
+    mock_which,
     mock_read_settings,
     mock_read_task,
     mock_get_tasks_directory,
@@ -424,6 +429,7 @@ def test_run_scheduled_task_falls_back_to_filename_prompt_when_content_empty(
     mock_get_tasks_directory.return_value = tasks_dir
     mock_read_settings.return_value = {"agentCli": "opencode"}
     mock_read_task.return_value = {"content": "   "}
+    mock_which.return_value = "/usr/bin/opencode"
 
     process = MagicMock()
     process.stdin = MagicMock()
@@ -439,6 +445,40 @@ def test_run_scheduled_task_falls_back_to_filename_prompt_when_content_empty(
     assert (
         mock_thread.call_args.kwargs["args"][3]
         == "Follow the instructions in `daily-report.md`"
+    )
+
+
+@patch("cron_service.get_tasks_directory")
+@patch("cron_service.read_task")
+@patch("cron_service.read_settings")
+@patch("cron_service.shutil.which")
+@patch("cron_service.Thread")
+@patch("cron_service.subprocess.Popen")
+def test_run_scheduled_task_records_failure_when_cli_not_found(
+    mock_popen,
+    mock_thread,
+    mock_which,
+    mock_read_settings,
+    mock_read_task,
+    mock_get_tasks_directory,
+    tmp_path,
+):
+    tasks_dir = tmp_path / ".made" / "tasks"
+    tasks_dir.mkdir(parents=True)
+    mock_get_tasks_directory.return_value = tasks_dir
+    mock_read_settings.return_value = {"agentCli": "opencode"}
+    mock_read_task.return_value = {"content": "run report"}
+    mock_which.return_value = None
+    cron_service._failed_jobs = 0
+
+    cron_service._run_scheduled_task("task:daily-report.md", "daily-report.md")
+
+    mock_popen.assert_not_called()
+    mock_thread.assert_not_called()
+    assert cron_service._failed_jobs == 1
+    assert (
+        cron_service._last_error_by_job["task:daily-report.md"]
+        == "Executable not found: opencode"
     )
 
 
