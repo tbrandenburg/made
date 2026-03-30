@@ -4,9 +4,11 @@ import { api, ArtefactSummary } from "../hooks/useApi";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
+import { TrashIcon } from "../components/icons/TrashIcon";
 import {
   addExternalMatterLink,
   listExternalMatter,
+  removeExternalMatterLink,
 } from "../utils/externalLinks";
 import "../styles/page.css";
 
@@ -80,6 +82,12 @@ export const ConstitutionsPage: React.FC = () => {
     navigate(`/constitutions/${linked.id}`);
   };
 
+  const handleRemoveExternalLink = (id: string) => {
+    if (!window.confirm("Remove this linked constitution?")) return;
+    removeExternalMatterLink("constitution", id);
+    loadConstitutions();
+  };
+
   return (
     <div className="page">
       <h1>Constitutions</h1>
@@ -110,6 +118,26 @@ export const ConstitutionsPage: React.FC = () => {
                             key={constitution.routeName ?? constitution.name}
                             title={constitution.name}
                             to={`/constitutions/${constitution.routeName ?? constitution.name}`}
+                            actions={
+                              constitution.isExternal &&
+                              constitution.routeName && (
+                                <button
+                                  type="button"
+                                  className="copy-button"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    handleRemoveExternalLink(
+                                      constitution.routeName as string,
+                                    );
+                                  }}
+                                  aria-label={`Remove linked constitution ${constitution.name}`}
+                                  title={`Remove linked constitution ${constitution.name}`}
+                                >
+                                  <TrashIcon />
+                                </button>
+                              )
+                            }
                           >
                             <div className="metadata">
                               {typeof constitution.frontmatter?.type ===
@@ -142,6 +170,26 @@ export const ConstitutionsPage: React.FC = () => {
                             key={constitution.routeName ?? constitution.name}
                             title={constitution.name}
                             to={`/constitutions/${constitution.routeName ?? constitution.name}`}
+                            actions={
+                              constitution.isExternal &&
+                              constitution.routeName && (
+                                <button
+                                  type="button"
+                                  className="copy-button"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    handleRemoveExternalLink(
+                                      constitution.routeName as string,
+                                    );
+                                  }}
+                                  aria-label={`Remove linked constitution ${constitution.name}`}
+                                  title={`Remove linked constitution ${constitution.name}`}
+                                >
+                                  <TrashIcon />
+                                </button>
+                              )
+                            }
                           >
                             <div className="metadata">
                               {typeof constitution.frontmatter?.type ===
