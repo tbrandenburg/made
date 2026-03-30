@@ -107,6 +107,8 @@ logging.basicConfig(
         logging.FileHandler(log_file, encoding="utf-8"),
     ],
 )
+# Keep APScheduler internals from spamming INFO logs while preserving warnings/errors.
+logging.getLogger("apscheduler").setLevel(logging.WARNING)
 logger = logging.getLogger("made.pybackend")
 
 
