@@ -8,12 +8,37 @@ interface TopBarProps {
   onToggleSidebar: () => void;
 }
 
-const formatBreadcrumb = (pathname: string) => {
+const toTitleCase = (value: string) =>
+  value.charAt(0).toUpperCase() + value.slice(1);
+
+const decodePathSegment = (segment: string) => {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+};
+
+const extractReadableExternalName = (segment: string) => {
+  if (!segment.startsWith("external-")) return null;
+  const rawPath = decodePathSegment(segment.slice("external-".length));
+  const pathParts = rawPath.replace(/\\/g, "/").split("/").filter(Boolean);
+  const fileName = pathParts[pathParts.length - 1] ?? rawPath;
+  const dotIndex = fileName.lastIndexOf(".");
+  const stem = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
+  return stem.trim() || "file";
+};
+
+export const formatBreadcrumb = (pathname: string) => {
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length === 0) return "MADE";
   return segments
-    .map((segment) => segment.replace(/-/g, " "))
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .map((segment) => {
+      const externalName = extractReadableExternalName(segment);
+      if (externalName) return `External ${externalName}`;
+      return decodePathSegment(segment).replace(/-/g, " ");
+    })
+    .map(toTitleCase)
     .join(" / ");
 };
 
