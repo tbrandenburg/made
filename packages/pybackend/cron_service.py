@@ -11,7 +11,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from config import get_workspace_home
 from settings_service import read_settings
-from task_service import get_tasks_directory, list_scheduled_tasks
+from task_service import get_tasks_directory, list_scheduled_tasks, read_task
 from workflow_service import read_workflows
 
 logger = logging.getLogger("made.pybackend.cron")
@@ -286,7 +286,10 @@ def _run_scheduled_task(task_id: str, task_file_name: str) -> None:
 
     started_at = datetime.now(timezone.utc)
     tasks_directory = get_tasks_directory()
-    prompt = f"Follow the instructions in `{task_file_name}`"
+    task_data = read_task(task_file_name)
+    prompt = str(task_data.get("content") or "").strip()
+    if not prompt:
+        prompt = f"Follow the instructions in `{task_file_name}`"
     command = _build_agent_cli_command(prompt)
 
     popen_kwargs: dict[str, object] = {

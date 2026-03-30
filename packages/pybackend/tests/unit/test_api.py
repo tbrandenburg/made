@@ -969,8 +969,9 @@ class TestTaskEndpoints:
         assert response.status_code == 200
         assert response.json() == mock_data
 
+    @patch("app.refresh_cron_clock")
     @patch("app.write_task")
-    def test_write_task_success(self, mock_write):
+    def test_write_task_success(self, mock_write, mock_refresh_cron_clock):
         payload = {"frontmatter": {"type": "task"}, "content": "- [x] Done"}
 
         response = client.put("/api/tasks/test-task", json=payload)
@@ -978,6 +979,7 @@ class TestTaskEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
+        mock_refresh_cron_clock.assert_called_once_with()
 
     @patch("app.send_agent_message")
     def test_task_agent_success(self, mock_agent):

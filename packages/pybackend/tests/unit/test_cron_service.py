@@ -364,6 +364,7 @@ def test_start_cron_clock_registers_scheduled_tasks(
 
 
 @patch("cron_service.get_tasks_directory")
+@patch("cron_service.read_task")
 @patch("cron_service.read_settings")
 @patch("cron_service.Thread")
 @patch("cron_service.subprocess.Popen")
@@ -371,6 +372,7 @@ def test_run_scheduled_task_uses_configured_agent_cli(
     mock_popen,
     mock_thread,
     mock_read_settings,
+    mock_read_task,
     mock_get_tasks_directory,
     tmp_path,
 ):
@@ -378,6 +380,7 @@ def test_run_scheduled_task_uses_configured_agent_cli(
     tasks_dir.mkdir(parents=True)
     mock_get_tasks_directory.return_value = tasks_dir
     mock_read_settings.return_value = {"agentCli": "opencode"}
+    mock_read_task.return_value = {"content": "# check things\n- task body"}
 
     process = MagicMock()
     process.stdin = MagicMock()
@@ -397,10 +400,42 @@ def test_run_scheduled_task_uses_configured_agent_cli(
         text=True,
         stdin=cron_service.subprocess.PIPE,
     )
+    process.stdin.write.assert_called_once_with("# check things\n- task body")
+    process.stdin.close.assert_called_once_with()
+
+
+@patch("cron_service.get_tasks_directory")
+@patch("cron_service.read_task")
+@patch("cron_service.read_settings")
+@patch("cron_service.Thread")
+@patch("cron_service.subprocess.Popen")
+def test_run_scheduled_task_falls_back_to_filename_prompt_when_content_empty(
+    mock_popen,
+    mock_thread,
+    mock_read_settings,
+    mock_read_task,
+    mock_get_tasks_directory,
+    tmp_path,
+):
+    tasks_dir = tmp_path / ".made" / "tasks"
+    tasks_dir.mkdir(parents=True)
+    mock_get_tasks_directory.return_value = tasks_dir
+    mock_read_settings.return_value = {"agentCli": "opencode"}
+    mock_read_task.return_value = {"content": "   "}
+
+    process = MagicMock()
+    process.stdin = MagicMock()
+    process.communicate.return_value = ("ok", "")
+    process.returncode = 0
+    process.poll.return_value = 0
+    mock_popen.return_value = process
+    mock_thread.return_value = MagicMock(start=MagicMock())
+
+    cron_service._run_scheduled_task("task:daily-report.md", "daily-report.md")
+
     process.stdin.write.assert_called_once_with(
         "Follow the instructions in `daily-report.md`"
     )
-    process.stdin.close.assert_called_once_with()
 
 
 def test_wait_for_workflow_process_keeps_last_stdout_lines_only():

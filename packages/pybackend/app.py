@@ -1243,6 +1243,7 @@ def task_write(name: str, payload: dict = Body(...)):
     try:
         logger.info("Updating task '%s'", name)
         write_task(name, payload.get("frontmatter", {}), payload.get("content", ""))
+        refresh_cron_clock()
         return {"success": True}
     except Exception as exc:
         logger.exception("Failed to update task '%s'", name)
