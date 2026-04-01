@@ -25,13 +25,27 @@
     "last_verified": "2026-04-01T13:05:00Z"
   },
   "T4_COMMIT_PUSH": {
-    "status": "in_progress",
-    "evidence": [],
-    "last_verified": "2026-04-01T13:05:00Z"
+    "status": "done",
+    "evidence": [
+      "git commit: 'Fix: add concurrency group to preview workflow to prevent ERR_NGROK_334 (#325)' SHA=acdb9f2",
+      "git push: push to fix/issue-325-security-deps succeeded",
+      "Files committed: .github/workflows/nodejs-frontend-preview.yml + dev/state/task-ledger.json"
+    ],
+    "last_verified": "2026-04-01T13:08:00Z"
   },
   "T5_OBSERVE_CI": {
-    "status": "pending",
-    "evidence": [],
-    "last_verified": "2026-04-01T13:05:00Z"
+    "status": "done",
+    "evidence": [
+      "gh pr checks 348: ALL PASSING",
+      "Docker Build: pass (49s) - run 23850060641",
+      "Docker Development Mode: pass (42s) - run 23850060641",
+      "Python Backend Tests with Coverage: pass (24s) - run 23850060654",
+      "Quality Assurance (Lint + Format + Unit Tests): pass (37s) - run 23850060654",
+      "System tests (E2E): pass (3m25s) - run 23850060654",
+      "preview: pass (5m59s) - run 23850060707",
+      "Vercel: pass - deployment completed",
+      "No failures. Concurrency fix resolved ERR_NGROK_334."
+    ],
+    "last_verified": "2026-04-01T13:18:00Z"
   }
 }
