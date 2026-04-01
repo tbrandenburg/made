@@ -244,7 +244,9 @@ def _wait_for_workflow_process(
             _last_error_by_job.pop(workflow_id, None)
         logger.info("Cron workflow '%s' completed", workflow_id)
         if stdout_tail:
-            logger.info("Cron workflow '%s' stdout: %s", workflow_id, stdout_tail)
+            logger.debug(
+                "Cron workflow '%s' stdout (tail): %s", workflow_id, stdout_tail
+            )
         return
 
     with _state_lock:
@@ -254,7 +256,7 @@ def _wait_for_workflow_process(
         "Cron workflow '%s' failed with exit code %s", workflow_id, returncode
     )
     if stdout_tail:
-        logger.warning("Cron workflow '%s' stdout: %s", workflow_id, stdout_tail)
+        logger.debug("Cron workflow '%s' stdout (tail): %s", workflow_id, stdout_tail)
     if stderr_tail:
         with _state_lock:
             _last_error_by_job[workflow_id] = stderr_tail
