@@ -838,6 +838,22 @@ class TestKnowledgeEndpoints:
         data = response.json()
         assert data["success"] is True
 
+    @patch("app.delete_knowledge_artefact")
+    def test_delete_knowledge_success(self, mock_delete):
+        response = client.delete("/api/knowledge/test-guide.md")
+
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+        mock_delete.assert_called_once_with("test-guide.md")
+
+    @patch("app.delete_knowledge_artefact")
+    def test_delete_knowledge_not_found(self, mock_delete):
+        mock_delete.side_effect = FileNotFoundError("Knowledge not found")
+
+        response = client.delete("/api/knowledge/test-guide.md")
+
+        assert response.status_code == 404
+
     @patch("app.send_agent_message")
     def test_knowledge_agent_success(self, mock_agent):
         """Test successful knowledge agent interaction."""
@@ -909,6 +925,22 @@ class TestConstitutionEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
+
+    @patch("app.delete_constitution")
+    def test_delete_constitution_success(self, mock_delete):
+        response = client.delete("/api/constitutions/test-const.md")
+
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+        mock_delete.assert_called_once_with("test-const.md")
+
+    @patch("app.delete_constitution")
+    def test_delete_constitution_not_found(self, mock_delete):
+        mock_delete.side_effect = FileNotFoundError("Constitution not found")
+
+        response = client.delete("/api/constitutions/test-const.md")
+
+        assert response.status_code == 404
 
     @patch("app.send_agent_message")
     def test_constitution_agent_success(self, mock_agent):

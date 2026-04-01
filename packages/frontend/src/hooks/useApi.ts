@@ -573,6 +573,10 @@ export const api = {
     request<{ agents: AvailableAgent[] }>(`/repositories/${name}/agents`),
   listKnowledge: () => request<{ artefacts: ArtefactSummary[] }>("/knowledge"),
   getKnowledge: (name: string) => request<MatterFile>(`/knowledge/${name}`),
+  deleteKnowledge: (name: string) =>
+    request(`/knowledge/${name}`, {
+      method: "DELETE",
+    }),
   saveKnowledge: (name: string, payload: MatterFile) =>
     request(`/knowledge/${name}`, {
       method: "PUT",
@@ -597,6 +601,10 @@ export const api = {
     request<{ constitutions: ArtefactSummary[] }>("/constitutions"),
   getConstitution: (name: string) =>
     request<MatterFile>(`/constitutions/${name}`),
+  deleteConstitution: (name: string) =>
+    request(`/constitutions/${name}`, {
+      method: "DELETE",
+    }),
   saveConstitution: (name: string, payload: MatterFile) =>
     request(`/constitutions/${name}`, {
       method: "PUT",
