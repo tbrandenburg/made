@@ -84,56 +84,45 @@ export const NestedArtefactPanels = <
 
     return (
       <div className="nested-tree-block">
-        {folderEntries.length > 0 && (
-          <div className="nested-tree-section">
-            <div className="meta-secondary">Folders</div>
-            <div className="panel-column">
-              {folderEntries.map(([folderName, folderNode]) => {
-                const nextPath = folderPath ? `${folderPath}/${folderName}` : folderName;
-                const isExpanded = Boolean(expandedFolders[nextPath]);
+        {folderEntries.map(([folderName, folderNode]) => {
+          const nextPath = folderPath ? `${folderPath}/${folderName}` : folderName;
+          const isExpanded = Boolean(expandedFolders[nextPath]);
 
-                return (
-                  <div key={nextPath} className="nested-folder-item">
-                    <button
-                      type="button"
-                      className="nested-folder-toggle"
-                      onClick={() => toggleFolder(nextPath)}
-                    >
-                      <span>{isExpanded ? "▾" : "▸"}</span>
-                      <span>{folderName}</span>
-                    </button>
-                    {isExpanded && depth < MAX_FOLDER_LEVEL && (
-                      <Panel title={folderName} className="nested-folder-panel">
-                        {renderNode(folderNode, nextPath, depth + 1)}
-                      </Panel>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+          return (
+            <section key={nextPath} className="panel nested-folder-panel">
+              <header className="panel-header">
+                <button
+                  type="button"
+                  className="nested-folder-toggle"
+                  onClick={() => toggleFolder(nextPath)}
+                  aria-expanded={isExpanded}
+                >
+                  <span>{isExpanded ? "▾" : "▸"}</span>
+                  <span>{folderName}</span>
+                </button>
+              </header>
+              {isExpanded && depth < MAX_FOLDER_LEVEL && (
+                <div className="panel-body">
+                  {renderNode(folderNode, nextPath, depth + 1)}
+                </div>
+              )}
+            </section>
+          );
+        })}
 
-        {sortedItems.length > 0 && (
-          <div className="nested-tree-section">
-            <div className="meta-secondary">Files</div>
-            <div className="panel-column">
-              {sortedItems.map(({ name, value }) => {
-                const routeName = value.routeName ?? value.name;
-                return (
-                  <Panel
-                    key={routeName}
-                    title={name}
-                    to={`${basePath}/${encodeURIComponent(routeName)}`}
-                    actions={renderActions?.(value)}
-                  >
-                    {renderMetadata(value)}
-                  </Panel>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {sortedItems.map(({ name, value }) => {
+          const routeName = value.routeName ?? value.name;
+          return (
+            <Panel
+              key={routeName}
+              title={name}
+              to={`${basePath}/${encodeURIComponent(routeName)}`}
+              actions={renderActions?.(value)}
+            >
+              {renderMetadata(value)}
+            </Panel>
+          );
+        })}
       </div>
     );
   };
