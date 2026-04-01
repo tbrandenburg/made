@@ -1,6 +1,8 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Panel } from "../components/Panel";
 import "../styles/page.css";
+import { StarIcon } from "../components/icons/StarIcon";
+import { getFavorites, toggleFavorite } from "../utils/favorites";
 import {
   getHistoryKindLabel,
   getNavigationHistory,
@@ -36,6 +38,11 @@ const QUICK_LINKS = [
 
 export const HomePage: React.FC = () => {
   const history = useMemo(() => getNavigationHistory(), []);
+  const [favorites, setFavorites] = useState(() => getFavorites());
+  const favoriteIds = useMemo(
+    () => new Set(favorites.map((entry) => entry.id)),
+    [favorites],
+  );
 
   return (
     <div className="page">
@@ -55,6 +62,24 @@ export const HomePage: React.FC = () => {
       </div>
 
       <section className="history-section">
+        <h2>Favorites</h2>
+        {favorites.length === 0 ? (
+          <p className="meta-secondary">
+            No favorite repositories, tasks, knowledge artefacts, or
+            constitutions yet.
+          </p>
+        ) : (
+          <div className="panel-grid">
+            {favorites.map((entry) => (
+              <Panel key={entry.id} title={entry.name} to={entry.path}>
+                <p>{getHistoryKindLabel(entry.kind)}</p>
+              </Panel>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="history-section">
         <h2>Recent history</h2>
         {history.length === 0 ? (
           <p className="meta-secondary">
@@ -69,6 +94,27 @@ export const HomePage: React.FC = () => {
                 title={entry.name}
                 to={entry.path}
                 className="history-panel"
+                actions={
+                  <button
+                    type="button"
+                    className="copy-button favorite-toggle"
+                    aria-label={
+                      favoriteIds.has(entry.id)
+                        ? `Remove ${entry.name} from favorites`
+                        : `Add ${entry.name} to favorites`
+                    }
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      toggleFavorite(entry);
+                      setFavorites(getFavorites());
+                    }}
+                  >
+                    <StarIcon
+                      filled={favoriteIds.has(entry.id)}
+                    />
+                  </button>
+                }
               >
                 <p>{getHistoryKindLabel(entry.kind)}</p>
                 <p className="meta-secondary">
