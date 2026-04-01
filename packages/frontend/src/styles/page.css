@@ -543,6 +543,16 @@
   gap: 0.35rem;
 }
 
+.favorite-toggle {
+  opacity: 1;
+  color: var(--muted);
+}
+
+.favorite-toggle:hover,
+.favorite-toggle:focus-visible {
+  color: var(--text);
+}
+
 .nested-tree-block {
   display: grid;
   gap: 0.8rem;
