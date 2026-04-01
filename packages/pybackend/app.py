@@ -46,7 +46,7 @@ from constitution_service import (
     read_constitution,
     write_constitution,
 )
-from task_service import list_tasks, read_task, write_task
+from task_service import delete_task, list_tasks, read_task, write_task
 from dashboard_service import get_dashboard_summary
 from knowledge_service import (
     delete_knowledge_artefact,
@@ -73,6 +73,7 @@ from repository_service import (
     create_repository,
     create_repository_file,
     clone_repository,
+    delete_repository,
     delete_repository_file,
     create_repository_worktree,
     remove_repository_worktree,
@@ -271,6 +272,18 @@ def create_repo(payload: dict = Body(...)):
         return create_repository(name)
     except ValueError as exc:
         logger.warning("Repository creation failed for '%s': %s", name, exc)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@app.delete("/api/repositories/{name}")
+def repository_delete(name: str):
+    try:
+        logger.info("Deleting repository '%s'", name)
+        return delete_repository(name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to delete repository '%s'", name)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
@@ -1345,6 +1358,20 @@ def task_write(name: str, payload: dict = Body(...)):
         return {"success": True}
     except Exception as exc:
         logger.exception("Failed to update task '%s'", name)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@app.delete("/api/tasks/{name}")
+def task_delete(name: str):
+    try:
+        logger.info("Deleting task '%s'", name)
+        delete_task(name)
+        refresh_cron_clock()
+        return {"success": True}
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to delete task '%s'", name)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 

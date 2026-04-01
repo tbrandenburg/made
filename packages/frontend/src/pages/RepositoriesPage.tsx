@@ -32,6 +32,11 @@ export const RepositoriesPage: React.FC = () => {
     open: boolean;
     name: string | null;
   }>({ open: false, name: null });
+  const [deleteRepositoryModal, setDeleteRepositoryModal] = useState<{
+    open: boolean;
+    name: string | null;
+  }>({ open: false, name: null });
+  const [isDeletingRepository, setIsDeletingRepository] = useState(false);
   const [alert, setAlert] = useState<{
     type: "success" | "error";
     message: string;
@@ -141,6 +146,25 @@ export const RepositoriesPage: React.FC = () => {
       setIsRemovingWorktree(false);
     }
   };
+
+  const handleDeleteRepository = async () => {
+    if (!deleteRepositoryModal.name) return;
+    setIsDeletingRepository(true);
+    try {
+      await api.deleteRepository(deleteRepositoryModal.name);
+      setAlert({ type: "success", message: "Repository deleted successfully" });
+      setDeleteRepositoryModal({ open: false, name: null });
+      loadRepositories();
+    } catch (error) {
+      setAlert({
+        type: "error",
+        message:
+          error instanceof Error ? error.message : "Failed to delete repository",
+      });
+    } finally {
+      setIsDeletingRepository(false);
+    }
+  };
   const handleClone = async () => {
     const trimmedUrl = cloneUrl.trim();
     const trimmedName = cloneName.trim();
@@ -243,6 +267,22 @@ export const RepositoriesPage: React.FC = () => {
                               <TrashIcon />
                             </button>
                           ) : null}
+                          <button
+                            type="button"
+                            className="copy-button"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setDeleteRepositoryModal({
+                                open: true,
+                                name: repo.name,
+                              });
+                            }}
+                            aria-label={`Delete repository ${repo.name}`}
+                            title={`Delete repository ${repo.name}`}
+                          >
+                            <TrashIcon />
+                          </button>
                         </div>
                       }
                     >
@@ -381,6 +421,37 @@ export const RepositoriesPage: React.FC = () => {
               </button>
             ))
           )}
+        </div>
+      </Modal>
+      <Modal
+        open={deleteRepositoryModal.open}
+        title="Delete Repository"
+        onClose={() => {
+          if (!isDeletingRepository) {
+            setDeleteRepositoryModal({ open: false, name: null });
+          }
+        }}
+      >
+        <p>
+          Are you sure you want to delete repository
+          {deleteRepositoryModal.name ? ` ${deleteRepositoryModal.name}` : ""}?
+        </p>
+        <p className="muted">This action cannot be undone.</p>
+        <div className="modal-actions">
+          <button
+            className="secondary"
+            onClick={() => setDeleteRepositoryModal({ open: false, name: null })}
+            disabled={isDeletingRepository}
+          >
+            Cancel
+          </button>
+          <button
+            className="danger"
+            onClick={handleDeleteRepository}
+            disabled={isDeletingRepository}
+          >
+            {isDeletingRepository ? "Deleting..." : "Delete"}
+          </button>
         </div>
       </Modal>
       <Modal

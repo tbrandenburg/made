@@ -249,6 +249,16 @@ def clone_repository(
     return get_repository_info(repo_name)
 
 
+def delete_repository(repo_name: str) -> Dict[str, str]:
+    workspace = get_workspace_home()
+    repo_path = workspace / repo_name
+    if not repo_path.exists() or not repo_path.is_dir():
+        raise FileNotFoundError("Repository not found")
+
+    shutil.rmtree(repo_path)
+    return {"deleted": repo_name}
+
+
 def build_directory_node(current_path: Path, base_path: Path) -> FileNode:
     relative_path = current_path.relative_to(base_path)
     children: list[FileNode] = []
