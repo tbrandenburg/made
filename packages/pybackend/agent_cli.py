@@ -111,8 +111,8 @@ class AgentCLI(ABC):
                     tool_info = [f"Tool: {tool_name}"]
                     for key, value in tool_args.items():
                         value_str = str(value)
-                        if len(value_str) > 200:
-                            value_str = value_str[:200] + "..."
+                        if len(value_str) > 90:
+                            value_str = value_str[:90] + "..."
                         tool_info.append(f"  {key}: {value_str}")
                     return "\n".join(tool_info)
                 else:
