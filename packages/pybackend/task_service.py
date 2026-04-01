@@ -12,16 +12,27 @@ def get_tasks_directory() -> Path:
     return made_dir / "tasks"
 
 
+def _task_file_path(file_name: str) -> Path:
+    dir_path = get_tasks_directory().resolve()
+    normalized = (file_name or "").strip()
+    if not normalized:
+        raise ValueError("Task name is required")
+    candidate = (dir_path / normalized).resolve()
+    if dir_path not in [candidate, *candidate.parents]:
+        raise ValueError("Task path must stay within tasks directory")
+    return candidate
+
+
 def list_tasks():
     dir_path = get_tasks_directory()
     tasks = []
-    for entry in dir_path.iterdir():
+    for entry in dir_path.rglob("*.md"):
         if entry.is_file() and entry.name.endswith(".md"):
             parsed = frontmatter.loads(entry.read_text(encoding="utf-8"))
             data = parsed.metadata or {}
             tasks.append(
                 {
-                    "name": entry.name,
+                    "name": entry.relative_to(dir_path).as_posix(),
                     "tags": data.get("tags", []),
                     "content": parsed.content,
                     "frontmatter": data,
@@ -31,8 +42,9 @@ def list_tasks():
 
 
 def read_task(file_name: str):
-    dir_path = get_tasks_directory()
-    file_path = dir_path / file_name
+    file_path = _task_file_path(file_name)
+    if not file_path.exists() or not file_path.is_file():
+        raise FileNotFoundError("Task not found")
     parsed = frontmatter.loads(file_path.read_text(encoding="utf-8"))
     return {
         "content": parsed.content,
@@ -42,15 +54,14 @@ def read_task(file_name: str):
 
 
 def write_task(file_name: str, frontmatter_data, content: str) -> None:
-    dir_path = get_tasks_directory()
-    file_path = dir_path / file_name
+    file_path = _task_file_path(file_name)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
     post = frontmatter.Post(content, **(frontmatter_data or {}))
     file_path.write_text(frontmatter.dumps(post), encoding="utf-8")
 
 
 def delete_task(file_name: str) -> None:
-    dir_path = get_tasks_directory()
-    file_path = dir_path / file_name
+    file_path = _task_file_path(file_name)
     if not file_path.exists() or not file_path.is_file():
         raise FileNotFoundError("Task not found")
     file_path.unlink()
@@ -60,7 +71,7 @@ def list_scheduled_tasks() -> list[dict[str, Any]]:
     dir_path = get_tasks_directory()
     scheduled_tasks: list[dict[str, Any]] = []
 
-    for entry in dir_path.iterdir():
+    for entry in dir_path.rglob("*.md"):
         if not (entry.is_file() and entry.name.endswith(".md")):
             continue
 
@@ -80,7 +91,7 @@ def list_scheduled_tasks() -> list[dict[str, Any]]:
 
         scheduled_tasks.append(
             {
-                "name": entry.name,
+                "name": entry.relative_to(dir_path).as_posix(),
                 "schedule": schedule.strip(),
                 "path": entry,
             }

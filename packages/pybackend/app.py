@@ -988,42 +988,7 @@ def knowledge_list():
         )
 
 
-@app.get("/api/knowledge/{name}")
-def knowledge_item(name: str):
-    try:
-        logger.info("Reading knowledge artefact '%s'", name)
-        return read_knowledge_artefact(name)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-
-
-@app.put("/api/knowledge/{name}")
-def knowledge_write(name: str, payload: dict = Body(...)):
-    try:
-        logger.info("Updating knowledge artefact '%s'", name)
-        write_knowledge_artefact(
-            name, payload.get("frontmatter", {}), payload.get("content", "")
-        )
-        return {"success": True}
-    except Exception as exc:
-        logger.exception("Failed to update knowledge artefact '%s'", name)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
-
-@app.delete("/api/knowledge/{name}")
-def knowledge_delete(name: str):
-    try:
-        logger.info("Deleting knowledge artefact '%s'", name)
-        delete_knowledge_artefact(name)
-        return {"success": True}
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except Exception as exc:
-        logger.exception("Failed to delete knowledge artefact '%s'", name)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
-
-@app.post("/api/knowledge/{name}/agent")
+@app.post("/api/knowledge/{name:path}/agent")
 def knowledge_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
     session_id = payload.get("sessionId")
@@ -1047,12 +1012,12 @@ def knowledge_agent(name: str, payload: dict = Body(...)):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
 
-@app.get("/api/knowledge/{name}/agent/status")
+@app.get("/api/knowledge/{name:path}/agent/status")
 def knowledge_agent_status(name: str):
     return get_channel_status(f"knowledge:{name}")
 
 
-@app.post("/api/knowledge/{name}/agent/cancel")
+@app.post("/api/knowledge/{name:path}/agent/cancel")
 def knowledge_agent_cancel(name: str):
     if not cancel_agent_message(f"knowledge:{name}"):
         raise HTTPException(
@@ -1062,7 +1027,7 @@ def knowledge_agent_cancel(name: str):
     return {"success": True}
 
 
-@app.get("/api/knowledge/{name}/agent/history")
+@app.get("/api/knowledge/{name:path}/agent/history")
 def knowledge_agent_history(
     name: str,
     session_id: str | None = Query(default=None),
@@ -1098,7 +1063,7 @@ def knowledge_agent_history(
         )
 
 
-@app.get("/api/knowledge/{name}/agent/sessions")
+@app.get("/api/knowledge/{name:path}/agent/sessions")
 def knowledge_agent_sessions(
     name: str,
     limit: int = Query(default=10, ge=1, le=50),
@@ -1117,6 +1082,41 @@ def knowledge_agent_sessions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
+
+
+@app.get("/api/knowledge/{name:path}")
+def knowledge_item(name: str):
+    try:
+        logger.info("Reading knowledge artefact '%s'", name)
+        return read_knowledge_artefact(name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@app.put("/api/knowledge/{name:path}")
+def knowledge_write(name: str, payload: dict = Body(...)):
+    try:
+        logger.info("Updating knowledge artefact '%s'", name)
+        write_knowledge_artefact(
+            name, payload.get("frontmatter", {}), payload.get("content", "")
+        )
+        return {"success": True}
+    except Exception as exc:
+        logger.exception("Failed to update knowledge artefact '%s'", name)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@app.delete("/api/knowledge/{name:path}")
+def knowledge_delete(name: str):
+    try:
+        logger.info("Deleting knowledge artefact '%s'", name)
+        delete_knowledge_artefact(name)
+        return {"success": True}
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to delete knowledge artefact '%s'", name)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
 @app.post("/api/external-matter/read")
@@ -1197,42 +1197,7 @@ def constitutions():
         )
 
 
-@app.get("/api/constitutions/{name}")
-def constitution_item(name: str):
-    try:
-        logger.info("Reading constitution '%s'", name)
-        return read_constitution(name)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-
-
-@app.put("/api/constitutions/{name}")
-def constitution_write(name: str, payload: dict = Body(...)):
-    try:
-        logger.info("Updating constitution '%s'", name)
-        write_constitution(
-            name, payload.get("frontmatter", {}), payload.get("content", "")
-        )
-        return {"success": True}
-    except Exception as exc:
-        logger.exception("Failed to update constitution '%s'", name)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
-
-@app.delete("/api/constitutions/{name}")
-def constitution_delete(name: str):
-    try:
-        logger.info("Deleting constitution '%s'", name)
-        delete_constitution(name)
-        return {"success": True}
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except Exception as exc:
-        logger.exception("Failed to delete constitution '%s'", name)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
-
-@app.post("/api/constitutions/{name}/agent")
+@app.post("/api/constitutions/{name:path}/agent")
 def constitution_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
     session_id = payload.get("sessionId")
@@ -1256,12 +1221,12 @@ def constitution_agent(name: str, payload: dict = Body(...)):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
 
-@app.get("/api/constitutions/{name}/agent/status")
+@app.get("/api/constitutions/{name:path}/agent/status")
 def constitution_agent_status(name: str):
     return get_channel_status(f"constitution:{name}")
 
 
-@app.post("/api/constitutions/{name}/agent/cancel")
+@app.post("/api/constitutions/{name:path}/agent/cancel")
 def constitution_agent_cancel(name: str):
     if not cancel_agent_message(f"constitution:{name}"):
         raise HTTPException(
@@ -1271,7 +1236,7 @@ def constitution_agent_cancel(name: str):
     return {"success": True}
 
 
-@app.get("/api/constitutions/{name}/agent/history")
+@app.get("/api/constitutions/{name:path}/agent/history")
 def constitution_agent_history(
     name: str,
     session_id: str | None = Query(default=None),
@@ -1307,7 +1272,7 @@ def constitution_agent_history(
         )
 
 
-@app.get("/api/constitutions/{name}/agent/sessions")
+@app.get("/api/constitutions/{name:path}/agent/sessions")
 def constitution_agent_sessions(
     name: str,
     limit: int = Query(default=10, ge=1, le=50),
@@ -1328,6 +1293,41 @@ def constitution_agent_sessions(
         )
 
 
+@app.get("/api/constitutions/{name:path}")
+def constitution_item(name: str):
+    try:
+        logger.info("Reading constitution '%s'", name)
+        return read_constitution(name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@app.put("/api/constitutions/{name:path}")
+def constitution_write(name: str, payload: dict = Body(...)):
+    try:
+        logger.info("Updating constitution '%s'", name)
+        write_constitution(
+            name, payload.get("frontmatter", {}), payload.get("content", "")
+        )
+        return {"success": True}
+    except Exception as exc:
+        logger.exception("Failed to update constitution '%s'", name)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@app.delete("/api/constitutions/{name:path}")
+def constitution_delete(name: str):
+    try:
+        logger.info("Deleting constitution '%s'", name)
+        delete_constitution(name)
+        return {"success": True}
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to delete constitution '%s'", name)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
 @app.get("/api/tasks")
 def tasks():
     try:
@@ -1340,42 +1340,7 @@ def tasks():
         )
 
 
-@app.get("/api/tasks/{name}")
-def task_item(name: str):
-    try:
-        logger.info("Reading task '%s'", name)
-        return read_task(name)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-
-
-@app.put("/api/tasks/{name}")
-def task_write(name: str, payload: dict = Body(...)):
-    try:
-        logger.info("Updating task '%s'", name)
-        write_task(name, payload.get("frontmatter", {}), payload.get("content", ""))
-        refresh_cron_clock()
-        return {"success": True}
-    except Exception as exc:
-        logger.exception("Failed to update task '%s'", name)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
-
-@app.delete("/api/tasks/{name}")
-def task_delete(name: str):
-    try:
-        logger.info("Deleting task '%s'", name)
-        delete_task(name)
-        refresh_cron_clock()
-        return {"success": True}
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except Exception as exc:
-        logger.exception("Failed to delete task '%s'", name)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
-
-@app.post("/api/tasks/{name}/agent")
+@app.post("/api/tasks/{name:path}/agent")
 def task_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
     session_id = payload.get("sessionId")
@@ -1397,12 +1362,12 @@ def task_agent(name: str, payload: dict = Body(...)):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
 
-@app.get("/api/tasks/{name}/agent/status")
+@app.get("/api/tasks/{name:path}/agent/status")
 def task_agent_status(name: str):
     return get_channel_status(f"task:{name}")
 
 
-@app.post("/api/tasks/{name}/agent/cancel")
+@app.post("/api/tasks/{name:path}/agent/cancel")
 def task_agent_cancel(name: str):
     if not cancel_agent_message(f"task:{name}"):
         raise HTTPException(
@@ -1412,7 +1377,7 @@ def task_agent_cancel(name: str):
     return {"success": True}
 
 
-@app.get("/api/tasks/{name}/agent/history")
+@app.get("/api/tasks/{name:path}/agent/history")
 def task_agent_history(
     name: str,
     session_id: str | None = Query(default=None),
@@ -1448,7 +1413,7 @@ def task_agent_history(
         )
 
 
-@app.get("/api/tasks/{name}/agent/sessions")
+@app.get("/api/tasks/{name:path}/agent/sessions")
 def task_agent_sessions(
     name: str,
     limit: int = Query(default=10, ge=1, le=50),
@@ -1465,6 +1430,41 @@ def task_agent_sessions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
+
+
+@app.get("/api/tasks/{name:path}")
+def task_item(name: str):
+    try:
+        logger.info("Reading task '%s'", name)
+        return read_task(name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@app.put("/api/tasks/{name:path}")
+def task_write(name: str, payload: dict = Body(...)):
+    try:
+        logger.info("Updating task '%s'", name)
+        write_task(name, payload.get("frontmatter", {}), payload.get("content", ""))
+        refresh_cron_clock()
+        return {"success": True}
+    except Exception as exc:
+        logger.exception("Failed to update task '%s'", name)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@app.delete("/api/tasks/{name:path}")
+def task_delete(name: str):
+    try:
+        logger.info("Deleting task '%s'", name)
+        delete_task(name)
+        refresh_cron_clock()
+        return {"success": True}
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to delete task '%s'", name)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
 @app.get("/api/repositories/{name}/agent/history")
