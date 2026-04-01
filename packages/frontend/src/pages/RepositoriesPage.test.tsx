@@ -15,6 +15,7 @@ vi.mock("../hooks/useApi", async () => {
     api: {
       ...actual.api,
       listRepositories: vi.fn(),
+      deleteRepository: vi.fn(),
       removeRepositoryWorktree: vi.fn(),
       listRepositoryTemplates: vi.fn(),
       applyRepositoryTemplate: vi.fn(),
@@ -152,5 +153,38 @@ describe("RepositoriesPage", () => {
     expect(
       await screen.findByText("Template 'starter-kit' applied successfully."),
     ).toBeInTheDocument();
+  });
+
+  it("deletes a repository after confirmation", async () => {
+    vi.mocked(api.listRepositories).mockResolvedValue({
+      repositories: [
+        {
+          name: "main-repo",
+          path: "/tmp/main-repo",
+          hasGit: true,
+          isWorktreeChild: false,
+          lastCommit: null,
+          branch: "main",
+          technology: "TypeScript",
+          license: "MIT",
+        },
+      ],
+    });
+    vi.mocked(api.deleteRepository).mockResolvedValue({
+      deleted: "main-repo",
+    });
+
+    render(
+      <MemoryRouter>
+        <RepositoriesPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByLabelText("Delete repository main-repo"));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(api.deleteRepository).toHaveBeenCalledWith("main-repo");
+    });
   });
 });

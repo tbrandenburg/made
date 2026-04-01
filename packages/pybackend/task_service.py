@@ -48,6 +48,14 @@ def write_task(file_name: str, frontmatter_data, content: str) -> None:
     file_path.write_text(frontmatter.dumps(post), encoding="utf-8")
 
 
+def delete_task(file_name: str) -> None:
+    dir_path = get_tasks_directory()
+    file_path = dir_path / file_name
+    if not file_path.exists() or not file_path.is_file():
+        raise FileNotFoundError("Task not found")
+    file_path.unlink()
+
+
 def list_scheduled_tasks() -> list[dict[str, Any]]:
     dir_path = get_tasks_directory()
     scheduled_tasks: list[dict[str, Any]] = []

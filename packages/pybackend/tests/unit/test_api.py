@@ -414,6 +414,16 @@ class TestRepositoryEndpoints:
         assert response.status_code == 201
         mock_create.assert_called_once_with("test-repo")
 
+    @patch("app.delete_repository")
+    def test_delete_repository_success(self, mock_delete):
+        mock_delete.return_value = {"deleted": "test-repo"}
+
+        response = client.delete("/api/repositories/test-repo")
+
+        assert response.status_code == 200
+        assert response.json() == {"deleted": "test-repo"}
+        mock_delete.assert_called_once_with("test-repo")
+
     def test_create_repository_no_name(self):
         """Test repository creation without name."""
         response = client.post("/api/repositories", json={})
@@ -1058,6 +1068,16 @@ class TestTaskEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
+        mock_refresh_cron_clock.assert_called_once_with()
+
+    @patch("app.refresh_cron_clock")
+    @patch("app.delete_task")
+    def test_delete_task_success(self, mock_delete, mock_refresh_cron_clock):
+        response = client.delete("/api/tasks/test-task")
+
+        assert response.status_code == 200
+        assert response.json() == {"success": True}
+        mock_delete.assert_called_once_with("test-task")
         mock_refresh_cron_clock.assert_called_once_with()
 
     @patch("app.send_agent_message")

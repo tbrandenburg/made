@@ -10,6 +10,7 @@ import {
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
+import { TrashIcon } from "../components/icons/TrashIcon";
 import "../styles/page.css";
 
 type WorkflowDiagnostics = WorkspaceWorkflowSummary["diagnostics"];
@@ -132,6 +133,11 @@ export const TasksPage: React.FC = () => {
   }>({ open: false, title: "", content: "" });
   const [loadingLog, setLoadingLog] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [deleteModal, setDeleteModal] = useState<{
+    open: boolean;
+    name: string;
+  }>({ open: false, name: "" });
+  const [deletingTask, setDeletingTask] = useState(false);
   const [agentProcesses, setAgentProcesses] = useState<AgentProcessSummary[]>([]);
   const [terminatingAgentPid, setTerminatingAgentPid] = useState<number | null>(
     null,
@@ -211,6 +217,23 @@ export const TasksPage: React.FC = () => {
     setNewName("");
     loadTasks();
     navigate(`/tasks/${filename}`);
+  };
+
+  const handleDeleteTask = async () => {
+    if (!deleteModal.name) return;
+    setDeletingTask(true);
+    try {
+      await api.deleteTask(deleteModal.name);
+      setDeleteModal({ open: false, name: "" });
+      loadTasks();
+    } catch (error) {
+      console.error("Failed to delete task", error);
+      alert(
+        `Failed to delete task: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    } finally {
+      setDeletingTask(false);
+    }
   };
 
   const handleTerminate = (workflow: WorkspaceWorkflowSummary) => {
@@ -506,6 +529,21 @@ export const TasksPage: React.FC = () => {
                             key={task.name}
                             title={task.name}
                             to={`/tasks/${task.name}`}
+                            actions={
+                              <button
+                                type="button"
+                                className="copy-button"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  setDeleteModal({ open: true, name: task.name });
+                                }}
+                                aria-label={`Delete task ${task.name}`}
+                                title={`Delete task ${task.name}`}
+                              >
+                                <TrashIcon />
+                              </button>
+                            }
                           >
                             <div className="metadata">
                               {typeof task.frontmatter?.schedule === "string" &&
@@ -533,6 +571,21 @@ export const TasksPage: React.FC = () => {
                             key={task.name}
                             title={task.name}
                             to={`/tasks/${task.name}`}
+                            actions={
+                              <button
+                                type="button"
+                                className="copy-button"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  setDeleteModal({ open: true, name: task.name });
+                                }}
+                                aria-label={`Delete task ${task.name}`}
+                                title={`Delete task ${task.name}`}
+                              >
+                                <TrashIcon />
+                              </button>
+                            }
                           >
                             <div className="metadata">
                               {typeof task.frontmatter?.schedule === "string" &&
@@ -584,6 +637,38 @@ export const TasksPage: React.FC = () => {
           </button>
           <button className="primary" onClick={handleCreate}>
             Create
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={deleteModal.open}
+        title="Delete Task"
+        onClose={() => {
+          if (!deletingTask) {
+            setDeleteModal({ open: false, name: "" });
+          }
+        }}
+      >
+        <p>
+          Are you sure you want to delete task
+          {deleteModal.name ? ` ${deleteModal.name}` : ""}?
+        </p>
+        <p className="muted">This action cannot be undone.</p>
+        <div className="modal-actions">
+          <button
+            className="secondary"
+            onClick={() => setDeleteModal({ open: false, name: "" })}
+            disabled={deletingTask}
+          >
+            Cancel
+          </button>
+          <button
+            className="danger"
+            onClick={() => void handleDeleteTask()}
+            disabled={deletingTask}
+          >
+            {deletingTask ? "Deleting..." : "Delete"}
           </button>
         </div>
       </Modal>

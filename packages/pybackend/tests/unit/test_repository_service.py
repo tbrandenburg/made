@@ -7,6 +7,7 @@ from repository_service import (
     apply_repository_template,
     clone_repository,
     create_repository_worktree,
+    delete_repository,
     get_repository_file_git_details,
     get_repository_git_status,
     get_repository_info,
@@ -308,6 +309,23 @@ def test_remove_repository_worktree_rejects_non_worktree(monkeypatch, tmp_path):
 
     with pytest.raises(ValueError, match="Repository is not a worktree"):
         remove_repository_worktree("repo")
+
+
+def test_delete_repository(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    repo_path = workspace / "repo"
+    repo_path.mkdir()
+    (repo_path / "README.md").write_text("hello", encoding="utf-8")
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+
+    result = delete_repository("repo")
+
+    assert result == {"deleted": "repo"}
+    assert not repo_path.exists()
+
+
 def test_get_repository_info_detects_git_worktree_child(monkeypatch, tmp_path):
     workspace = tmp_path / "workspace"
     repo_path = workspace / "child-wt1"

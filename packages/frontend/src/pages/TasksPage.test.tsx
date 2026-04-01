@@ -16,6 +16,7 @@ vi.mock("../hooks/useApi", async () => {
       ...actual.api,
       listTasks: vi.fn(),
       saveTask: vi.fn(),
+      deleteTask: vi.fn(),
       getWorkspaceWorkflows: vi.fn(),
       getWorkflowLogs: vi.fn(),
       getAgentProcesses: vi.fn(),
@@ -308,5 +309,30 @@ describe("TasksPage", () => {
     expect(screen.getByText("log-7.txt")).toBeInTheDocument();
     expect(screen.queryByText("log-1.txt")).not.toBeInTheDocument();
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+  });
+
+  it("deletes a task after confirmation", async () => {
+    vi.mocked(api.listTasks).mockResolvedValue({
+      tasks: [
+        {
+          name: "cleanup.md",
+          frontmatter: { type: "task" },
+        },
+      ],
+    });
+    vi.mocked(api.deleteTask).mockResolvedValue({});
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByLabelText("Delete task cleanup.md"));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(api.deleteTask).toHaveBeenCalledWith("cleanup.md");
+    });
   });
 });

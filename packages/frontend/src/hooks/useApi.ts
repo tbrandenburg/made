@@ -340,6 +340,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ name }),
     }),
+  deleteRepository: (name: string) =>
+    request<{ deleted: string }>(`/repositories/${name}`, {
+      method: "DELETE",
+    }),
   cloneRepository: (url: string, name?: string, branch?: string) =>
     request<RepositorySummary>("/repositories/clone", {
       method: "POST",
@@ -627,6 +631,10 @@ export const api = {
     request(`/constitutions/${name}/agent/cancel`, { method: "POST" }),
   listTasks: () => request<{ tasks: ArtefactSummary[] }>("/tasks"),
   getTask: (name: string) => request<MatterFile>(`/tasks/${name}`),
+  deleteTask: (name: string) =>
+    request(`/tasks/${name}`, {
+      method: "DELETE",
+    }),
   saveTask: (name: string, payload: MatterFile) =>
     request(`/tasks/${name}`, {
       method: "PUT",
