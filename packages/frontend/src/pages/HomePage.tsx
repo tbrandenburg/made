@@ -1,6 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Panel } from "../components/Panel";
 import "../styles/page.css";
+import {
+  getHistoryKindLabel,
+  getNavigationHistory,
+} from "../utils/navigationHistory";
 
 const QUICK_LINKS = [
   {
@@ -31,6 +35,8 @@ const QUICK_LINKS = [
 ];
 
 export const HomePage: React.FC = () => {
+  const history = useMemo(() => getNavigationHistory(), []);
+
   return (
     <div className="page">
       <header className="page-header">
@@ -47,6 +53,32 @@ export const HomePage: React.FC = () => {
           </Panel>
         ))}
       </div>
+
+      <section className="history-section">
+        <h2>Recent history</h2>
+        {history.length === 0 ? (
+          <p className="meta-secondary">
+            No visited repositories, tasks, knowledge artefacts, or
+            constitutions yet.
+          </p>
+        ) : (
+          <div className="panel-grid">
+            {history.map((entry) => (
+              <Panel
+                key={entry.id}
+                title={entry.name}
+                to={entry.path}
+                className="history-panel"
+              >
+                <p>{getHistoryKindLabel(entry.kind)}</p>
+                <p className="meta-secondary">
+                  {new Date(entry.visitedAt).toLocaleString()}
+                </p>
+              </Panel>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 };
