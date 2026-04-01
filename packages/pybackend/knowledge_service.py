@@ -44,3 +44,9 @@ def write_knowledge_artefact(file_name: str, frontmatter_data, content: str) -> 
     file_path = dir_path / file_name
     post = frontmatter.Post(content, **(frontmatter_data or {}))
     file_path.write_text(frontmatter.dumps(post), encoding="utf-8")
+
+
+def delete_knowledge_artefact(file_name: str) -> None:
+    dir_path = get_knowledge_directory()
+    file_path = dir_path / file_name
+    file_path.unlink()

@@ -17,6 +17,17 @@ export const ConstitutionsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("constitutions");
   const [createOpen, setCreateOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [removeModal, setRemoveModal] = useState<{
+    open: boolean;
+    name: string;
+    routeName?: string;
+    isExternal: boolean;
+  }>({
+    open: false,
+    name: "",
+    routeName: undefined,
+    isExternal: false,
+  });
   const [newName, setNewName] = useState("");
   const [linkPath, setLinkPath] = useState("");
   const navigate = useNavigate();
@@ -82,9 +93,28 @@ export const ConstitutionsPage: React.FC = () => {
     navigate(`/constitutions/${linked.id}`);
   };
 
-  const handleRemoveExternalLink = (id: string) => {
-    if (!window.confirm("Remove this linked constitution?")) return;
-    removeExternalMatterLink("constitution", id);
+  const openRemoveModal = (constitution: ArtefactSummary) => {
+    setRemoveModal({
+      open: true,
+      name: constitution.name,
+      routeName: constitution.routeName,
+      isExternal: Boolean(constitution.isExternal),
+    });
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!removeModal.name) return;
+    if (removeModal.isExternal && removeModal.routeName) {
+      removeExternalMatterLink("constitution", removeModal.routeName);
+    } else {
+      await api.deleteConstitution(removeModal.name);
+    }
+    setRemoveModal({
+      open: false,
+      name: "",
+      routeName: undefined,
+      isExternal: false,
+    });
     loadConstitutions();
   };
 
@@ -119,20 +149,18 @@ export const ConstitutionsPage: React.FC = () => {
                             title={constitution.name}
                             to={`/constitutions/${constitution.routeName ?? constitution.name}`}
                             actions={
-                              constitution.isExternal &&
-                              constitution.routeName && (
+                              (!constitution.isExternal ||
+                                constitution.routeName) && (
                                 <button
                                   type="button"
                                   className="copy-button"
                                   onClick={(event) => {
                                     event.preventDefault();
                                     event.stopPropagation();
-                                    handleRemoveExternalLink(
-                                      constitution.routeName as string,
-                                    );
+                                    openRemoveModal(constitution);
                                   }}
-                                  aria-label={`Remove linked constitution ${constitution.name}`}
-                                  title={`Remove linked constitution ${constitution.name}`}
+                                  aria-label={`Remove constitution ${constitution.name}`}
+                                  title={`Remove constitution ${constitution.name}`}
                                 >
                                   <TrashIcon />
                                 </button>
@@ -171,20 +199,18 @@ export const ConstitutionsPage: React.FC = () => {
                             title={constitution.name}
                             to={`/constitutions/${constitution.routeName ?? constitution.name}`}
                             actions={
-                              constitution.isExternal &&
-                              constitution.routeName && (
+                              (!constitution.isExternal ||
+                                constitution.routeName) && (
                                 <button
                                   type="button"
                                   className="copy-button"
                                   onClick={(event) => {
                                     event.preventDefault();
                                     event.stopPropagation();
-                                    handleRemoveExternalLink(
-                                      constitution.routeName as string,
-                                    );
+                                    openRemoveModal(constitution);
                                   }}
-                                  aria-label={`Remove linked constitution ${constitution.name}`}
-                                  title={`Remove linked constitution ${constitution.name}`}
+                                  aria-label={`Remove constitution ${constitution.name}`}
+                                  title={`Remove constitution ${constitution.name}`}
                                 >
                                   <TrashIcon />
                                 </button>
@@ -269,6 +295,46 @@ export const ConstitutionsPage: React.FC = () => {
           </button>
           <button className="primary" onClick={handleLink}>
             Link
+          </button>
+        </div>
+      </Modal>
+      <Modal
+        open={removeModal.open}
+        title={
+          removeModal.isExternal
+            ? "Remove Linked Constitution"
+            : "Remove Constitution"
+        }
+        onClose={() =>
+          setRemoveModal({
+            open: false,
+            name: "",
+            routeName: undefined,
+            isExternal: false,
+          })
+        }
+      >
+        <p>
+          {removeModal.isExternal
+            ? `Are you sure you want to remove the linked constitution ${removeModal.name}?`
+            : `Are you sure you want to remove ${removeModal.name}?`}
+        </p>
+        <div className="modal-actions">
+          <button
+            className="secondary"
+            onClick={() =>
+              setRemoveModal({
+                open: false,
+                name: "",
+                routeName: undefined,
+                isExternal: false,
+              })
+            }
+          >
+            Cancel
+          </button>
+          <button className="primary" onClick={() => void handleConfirmRemove()}>
+            Remove
           </button>
         </div>
       </Modal>

@@ -17,6 +17,17 @@ export const KnowledgePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("artefacts");
   const [createOpen, setCreateOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [removeModal, setRemoveModal] = useState<{
+    open: boolean;
+    name: string;
+    routeName?: string;
+    isExternal: boolean;
+  }>({
+    open: false,
+    name: "",
+    routeName: undefined,
+    isExternal: false,
+  });
   const [newName, setNewName] = useState("");
   const [newTags, setNewTags] = useState("");
   const [linkPath, setLinkPath] = useState("");
@@ -90,9 +101,28 @@ export const KnowledgePage: React.FC = () => {
     navigate(`/knowledge/${linked.id}`);
   };
 
-  const handleRemoveExternalLink = (id: string) => {
-    if (!window.confirm("Remove this linked knowledge artefact?")) return;
-    removeExternalMatterLink("knowledge", id);
+  const openRemoveModal = (artefact: ArtefactSummary) => {
+    setRemoveModal({
+      open: true,
+      name: artefact.name,
+      routeName: artefact.routeName,
+      isExternal: Boolean(artefact.isExternal),
+    });
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!removeModal.name) return;
+    if (removeModal.isExternal && removeModal.routeName) {
+      removeExternalMatterLink("knowledge", removeModal.routeName);
+    } else {
+      await api.deleteKnowledge(removeModal.name);
+    }
+    setRemoveModal({
+      open: false,
+      name: "",
+      routeName: undefined,
+      isExternal: false,
+    });
     loadArtefacts();
   };
 
@@ -127,20 +157,17 @@ export const KnowledgePage: React.FC = () => {
                             title={artefact.name}
                             to={`/knowledge/${artefact.routeName ?? artefact.name}`}
                             actions={
-                              artefact.isExternal &&
-                              artefact.routeName && (
+                              (!artefact.isExternal || artefact.routeName) && (
                                 <button
                                   type="button"
                                   className="copy-button"
                                   onClick={(event) => {
                                     event.preventDefault();
                                     event.stopPropagation();
-                                    handleRemoveExternalLink(
-                                      artefact.routeName as string,
-                                    );
+                                    openRemoveModal(artefact);
                                   }}
-                                  aria-label={`Remove linked artefact ${artefact.name}`}
-                                  title={`Remove linked artefact ${artefact.name}`}
+                                  aria-label={`Remove artefact ${artefact.name}`}
+                                  title={`Remove artefact ${artefact.name}`}
                                 >
                                   <TrashIcon />
                                 </button>
@@ -181,20 +208,17 @@ export const KnowledgePage: React.FC = () => {
                             title={artefact.name}
                             to={`/knowledge/${artefact.routeName ?? artefact.name}`}
                             actions={
-                              artefact.isExternal &&
-                              artefact.routeName && (
+                              (!artefact.isExternal || artefact.routeName) && (
                                 <button
                                   type="button"
                                   className="copy-button"
                                   onClick={(event) => {
                                     event.preventDefault();
                                     event.stopPropagation();
-                                    handleRemoveExternalLink(
-                                      artefact.routeName as string,
-                                    );
+                                    openRemoveModal(artefact);
                                   }}
-                                  aria-label={`Remove linked artefact ${artefact.name}`}
-                                  title={`Remove linked artefact ${artefact.name}`}
+                                  aria-label={`Remove artefact ${artefact.name}`}
+                                  title={`Remove artefact ${artefact.name}`}
                                 >
                                   <TrashIcon />
                                 </button>
@@ -289,6 +313,42 @@ export const KnowledgePage: React.FC = () => {
           </button>
           <button className="primary" onClick={handleLink}>
             Link
+          </button>
+        </div>
+      </Modal>
+      <Modal
+        open={removeModal.open}
+        title={removeModal.isExternal ? "Remove Linked Artefact" : "Remove Artefact"}
+        onClose={() =>
+          setRemoveModal({
+            open: false,
+            name: "",
+            routeName: undefined,
+            isExternal: false,
+          })
+        }
+      >
+        <p>
+          {removeModal.isExternal
+            ? `Are you sure you want to remove the linked artefact ${removeModal.name}?`
+            : `Are you sure you want to remove ${removeModal.name}?`}
+        </p>
+        <div className="modal-actions">
+          <button
+            className="secondary"
+            onClick={() =>
+              setRemoveModal({
+                open: false,
+                name: "",
+                routeName: undefined,
+                isExternal: false,
+              })
+            }
+          >
+            Cancel
+          </button>
+          <button className="primary" onClick={() => void handleConfirmRemove()}>
+            Remove
           </button>
         </div>
       </Modal>

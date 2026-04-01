@@ -41,6 +41,7 @@ from agent_service import (
     terminate_agent_process,
 )
 from constitution_service import (
+    delete_constitution,
     list_constitutions,
     read_constitution,
     write_constitution,
@@ -48,6 +49,7 @@ from constitution_service import (
 from task_service import list_tasks, read_task, write_task
 from dashboard_service import get_dashboard_summary
 from knowledge_service import (
+    delete_knowledge_artefact,
     list_knowledge_artefacts,
     read_knowledge_artefact,
     write_knowledge_artefact,
@@ -995,6 +997,19 @@ def knowledge_write(name: str, payload: dict = Body(...)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
+@app.delete("/api/knowledge/{name}")
+def knowledge_delete(name: str):
+    try:
+        logger.info("Deleting knowledge artefact '%s'", name)
+        delete_knowledge_artefact(name)
+        return {"success": True}
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to delete knowledge artefact '%s'", name)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
 @app.post("/api/knowledge/{name}/agent")
 def knowledge_agent(name: str, payload: dict = Body(...)):
     message = payload.get("message")
@@ -1188,6 +1203,19 @@ def constitution_write(name: str, payload: dict = Body(...)):
         return {"success": True}
     except Exception as exc:
         logger.exception("Failed to update constitution '%s'", name)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@app.delete("/api/constitutions/{name}")
+def constitution_delete(name: str):
+    try:
+        logger.info("Deleting constitution '%s'", name)
+        delete_constitution(name)
+        return {"success": True}
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to delete constitution '%s'", name)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 

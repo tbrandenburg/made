@@ -43,3 +43,9 @@ def write_constitution(file_name: str, frontmatter_data, content: str) -> None:
     file_path = dir_path / file_name
     post = frontmatter.Post(content, **(frontmatter_data or {}))
     file_path.write_text(frontmatter.dumps(post), encoding="utf-8")
+
+
+def delete_constitution(file_name: str) -> None:
+    dir_path = get_constitution_directory()
+    file_path = dir_path / file_name
+    file_path.unlink()
