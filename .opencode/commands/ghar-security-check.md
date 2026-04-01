@@ -16,7 +16,8 @@ Analyze this repository's dependencies for security vulnerabilities using packag
    - For Go: `go list -json -m all` then check for known vulnerabilities (go is pre-installed)
    
 2. **Additional Tools** (Only if project files indicate they're needed AND can be quickly installed):
-   - For Python: Try `pip install pip-audit --quiet` then `pip-audit` if pip-audit not available
+   - For Python with uv: Use `uv run --with pip-audit pip-audit` from the project directory (e.g., `cd packages/pybackend && uv run --with pip-audit pip-audit`) to scan the project's virtual environment — do NOT use `pip install pip-audit` followed by `pip-audit`, as that scans the system Python environment instead of the project's managed dependencies
+   - For Python without uv: Try `pip install pip-audit --quiet` then `pip-audit`
    - For Rust: Only suggest `cargo audit` if Cargo.toml exists (don't install Rust)
    - For Java: Only suggest security checks if pom.xml/build.gradle exists (don't install Java tools)
    - For .NET: Only suggest if .csproj exists (don't install dotnet)

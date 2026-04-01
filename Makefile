@@ -27,7 +27,7 @@ help:
 	@echo "  qa            Run all quality assurance tasks (lint + format + test)"
 	@echo "  qa-quick      Run all quick quality assurance tasks (lint + format + unit-test)"
 	@echo "  test-coverage Run full test suite with coverage reporting (70% minimum)"
-	@echo "  security-audit Run npm security audit to check for vulnerabilities"
+	@echo "  security-audit Run security audit for Python (pip-audit) and npm dependencies"
 	@echo ""
 	@echo "Docker:"
 	@echo "  docker-build   Build all Docker images"
@@ -133,10 +133,12 @@ test-coverage:
 
 # Security Tasks
 security-audit:
-	@echo "🔒 Running npm security audit..."
-	@echo "🔍 Checking root dependencies..."
+	@echo "🔒 Running security audits..."
+	@echo "🔍 Checking Python backend dependencies (pip-audit via uv)..."
+	cd $(PYBACKEND_DIR) && uv run --with pip-audit pip-audit
+	@echo "🔍 Checking root Node.js dependencies..."
 	npm audit --audit-level moderate
-	@echo "🔍 Checking frontend dependencies..."
+	@echo "🔍 Checking frontend Node.js dependencies..."
 	cd packages/frontend && npm audit --audit-level moderate
 	@echo "📋 Security audit completed"
 

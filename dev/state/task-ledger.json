@@ -1,0 +1,51 @@
+{
+  "T1_ANALYZE_PR348": {
+    "status": "done",
+    "evidence": [
+      "gh run list --branch fix/issue-325-security-deps: run 23849376199 (NodeJS Frontend Preview) = failure, run 23849376195 (Tests) = success, run 23849376256 (Docker) = success",
+      "gh run view 23849376199 --log-failed: ERR_NGROK_334 - endpoint 'shawana-unsympathised-botfly.ngrok-free.dev' is already online",
+      "5xWhy: Why1=ngrok fails | Why2=previous run's 5-min keep-alive still holds static endpoint | Why3=commit df2c58a triggered run 4 mins into first run's keep-alive | Why4=two commits pushed within 3 min each triggered a workflow | Why5=no concurrency group in workflow to cancel superseded runs"
+    ],
+    "last_verified": "2026-04-01T13:00:00Z"
+  },
+  "T2_PLAN_FIX": {
+    "status": "done",
+    "evidence": [
+      "Root cause: no concurrency group in nodejs-frontend-preview.yml causes ERR_NGROK_334 when two workflow runs overlap on same ngrok static endpoint",
+      "Fix: add 'concurrency: group: preview-${{ github.ref }} cancel-in-progress: true' to nodejs-frontend-preview.yml"
+    ],
+    "last_verified": "2026-04-01T13:00:00Z"
+  },
+  "T3_IMPLEMENT_FIX": {
+    "status": "done",
+    "evidence": [
+      "Edit: added concurrency block (lines 16-18) to .github/workflows/nodejs-frontend-preview.yml",
+      "Verified: file now has 'concurrency: group: preview-${{ github.ref }} cancel-in-progress: true' before jobs section"
+    ],
+    "last_verified": "2026-04-01T13:05:00Z"
+  },
+  "T4_COMMIT_PUSH": {
+    "status": "done",
+    "evidence": [
+      "git commit: 'Fix: add concurrency group to preview workflow to prevent ERR_NGROK_334 (#325)' SHA=acdb9f2",
+      "git push: push to fix/issue-325-security-deps succeeded",
+      "Files committed: .github/workflows/nodejs-frontend-preview.yml + dev/state/task-ledger.json"
+    ],
+    "last_verified": "2026-04-01T13:08:00Z"
+  },
+  "T5_OBSERVE_CI": {
+    "status": "done",
+    "evidence": [
+      "gh pr checks 348: ALL PASSING",
+      "Docker Build: pass (49s) - run 23850060641",
+      "Docker Development Mode: pass (42s) - run 23850060641",
+      "Python Backend Tests with Coverage: pass (24s) - run 23850060654",
+      "Quality Assurance (Lint + Format + Unit Tests): pass (37s) - run 23850060654",
+      "System tests (E2E): pass (3m25s) - run 23850060654",
+      "preview: pass (5m59s) - run 23850060707",
+      "Vercel: pass - deployment completed",
+      "No failures. Concurrency fix resolved ERR_NGROK_334."
+    ],
+    "last_verified": "2026-04-01T13:18:00Z"
+  }
+}
