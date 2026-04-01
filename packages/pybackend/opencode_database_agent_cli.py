@@ -320,13 +320,23 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                             elif part_type == "tool":
                                 # Tool invocations - create separate tool message
                                 tool_name = part_data.get("tool", "")
+                                tool_args = part_data.get("args", {})
+
                                 if tool_name:
+                                    # Format tool call with arguments (following Kiro pattern)
+                                    tool_info = [f"Tool: {tool_name}"]
+                                    for key, value in tool_args.items():
+                                        value_str = str(value)
+                                        if len(value_str) > 200:
+                                            value_str = value_str[:200] + "..."
+                                        tool_info.append(f"  {key}: {value_str}")
+
                                     messages.append(
                                         HistoryMessage(
                                             message_id=f"{msg_id}_tool_{part['id']}",
                                             role=role,
                                             content_type="tool_use",
-                                            content=tool_name,
+                                            content="\n".join(tool_info),
                                             timestamp=part_timestamp,
                                         )
                                     )

@@ -97,9 +97,30 @@ class AgentCLI(ABC):
         if part_type in {"reasoning"}:
             return str(part.get("text") or "")
         if part_type in {"tool_use", "tool"}:
-            for key in ("tool", "name", "id"):
+            # Check for tool name first
+            tool_name = None
+            for key in ("tool", "name"):
                 if part.get(key):
-                    return str(part[key])
+                    tool_name = str(part[key])
+                    break
+
+            if tool_name:
+                # Format with arguments if available (following Kiro pattern)
+                tool_args = part.get("args", {})
+                if tool_args:
+                    tool_info = [f"Tool: {tool_name}"]
+                    for key, value in tool_args.items():
+                        value_str = str(value)
+                        if len(value_str) > 200:
+                            value_str = value_str[:200] + "..."
+                        tool_info.append(f"  {key}: {value_str}")
+                    return "\n".join(tool_info)
+                else:
+                    return f"Tool: {tool_name}"
+
+            # Fallback to ID if no name found
+            if part.get("id"):
+                return str(part["id"])
             return ""
         return ""
 
