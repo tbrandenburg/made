@@ -528,3 +528,17 @@
   line-height: 1.4;
   white-space: pre-wrap;
 }
+
+.history-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.history-section h2 {
+  margin: 0;
+}
+
+.history-panel .panel-body {
+  gap: 0.35rem;
+}

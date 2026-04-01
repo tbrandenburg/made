@@ -15,6 +15,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { TasksPage } from "./pages/TasksPage";
 import { TaskPage } from "./pages/TaskPage";
 import "./styles/layout.css";
+import { recordNavigationVisit } from "./utils/navigationHistory";
 
 const AppShell: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -36,6 +37,10 @@ const AppShell: React.FC = () => {
 
   useEffect(() => {
     setSidebarOpen(window.innerWidth > 1024);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    recordNavigationVisit(location.pathname);
   }, [location.pathname]);
 
   return (
