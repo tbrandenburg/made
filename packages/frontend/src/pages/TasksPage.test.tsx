@@ -53,6 +53,32 @@ describe("TasksPage", () => {
     expect(screen.getByText("0 9 * * 1-5")).toHaveClass("success");
   });
 
+  it("renders nested task folders and encoded task links", async () => {
+    vi.mocked(api.listTasks).mockResolvedValue({
+      tasks: [
+        {
+          name: "Engineering/Operations/nightly-check.md",
+          frontmatter: { type: "task" },
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Engineering/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Operations/ }));
+
+    const nestedTaskTitle = await screen.findByText("nightly-check.md");
+    expect(nestedTaskTitle.closest("a")).toHaveAttribute(
+      "href",
+      "/tasks/Engineering%2FOperations%2Fnightly-check.md",
+    );
+  });
+
   it("shows workspace workflows with repository names and links to harness tab", async () => {
     vi.mocked(api.listTasks).mockResolvedValue({ tasks: [] });
     vi.mocked(api.getWorkspaceWorkflows).mockResolvedValue({

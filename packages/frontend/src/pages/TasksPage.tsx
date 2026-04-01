@@ -11,6 +11,7 @@ import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
 import { TrashIcon } from "../components/icons/TrashIcon";
+import { NestedArtefactPanels } from "../components/NestedArtefactPanels";
 import "../styles/page.css";
 
 type WorkflowDiagnostics = WorkspaceWorkflowSummary["diagnostics"];
@@ -304,6 +305,34 @@ export const TasksPage: React.FC = () => {
     }
   };
 
+  const renderTaskActions = (task: ArtefactSummary) => (
+    <button
+      type="button"
+      className="copy-button"
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setDeleteModal({ open: true, name: task.name });
+      }}
+      aria-label={`Delete task ${task.name}`}
+      title={`Delete task ${task.name}`}
+    >
+      <TrashIcon />
+    </button>
+  );
+
+  const renderTaskMetadata = (task: ArtefactSummary) => (
+    <div className="metadata">
+      {typeof task.frontmatter?.schedule === "string" &&
+        task.frontmatter.schedule.trim() && (
+          <span className="badge success">{String(task.frontmatter.schedule)}</span>
+        )}
+      {typeof task.frontmatter?.type === "string" && (
+        <span className="badge">{String(task.frontmatter.type)}</span>
+      )}
+    </div>
+  );
+
   return (
     <div className="page">
       <h1>Tasks</h1>
@@ -523,86 +552,22 @@ export const TasksPage: React.FC = () => {
                 <div className="panel-column">
                   {templateTasks.length > 0 && (
                     <Panel title="Templates">
-                      <div className="panel-column">
-                        {templateTasks.map((task) => (
-                          <Panel
-                            key={task.name}
-                            title={task.name}
-                            to={`/tasks/${task.name}`}
-                            actions={
-                              <button
-                                type="button"
-                                className="copy-button"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  setDeleteModal({ open: true, name: task.name });
-                                }}
-                                aria-label={`Delete task ${task.name}`}
-                                title={`Delete task ${task.name}`}
-                              >
-                                <TrashIcon />
-                              </button>
-                            }
-                          >
-                            <div className="metadata">
-                              {typeof task.frontmatter?.schedule === "string" &&
-                                task.frontmatter.schedule.trim() && (
-                                  <span className="badge success">
-                                    {String(task.frontmatter.schedule)}
-                                  </span>
-                                )}
-                              {typeof task.frontmatter?.type === "string" && (
-                                <span className="badge">
-                                  {String(task.frontmatter.type)}
-                                </span>
-                              )}
-                            </div>
-                          </Panel>
-                        ))}
-                      </div>
+                      <NestedArtefactPanels
+                        items={templateTasks}
+                        basePath="/tasks"
+                        renderActions={renderTaskActions}
+                        renderMetadata={renderTaskMetadata}
+                      />
                     </Panel>
                   )}
                   {documentTasks.length > 0 && (
                     <Panel title="Tasks">
-                      <div className="panel-column">
-                        {documentTasks.map((task) => (
-                          <Panel
-                            key={task.name}
-                            title={task.name}
-                            to={`/tasks/${task.name}`}
-                            actions={
-                              <button
-                                type="button"
-                                className="copy-button"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  setDeleteModal({ open: true, name: task.name });
-                                }}
-                                aria-label={`Delete task ${task.name}`}
-                                title={`Delete task ${task.name}`}
-                              >
-                                <TrashIcon />
-                              </button>
-                            }
-                          >
-                            <div className="metadata">
-                              {typeof task.frontmatter?.schedule === "string" &&
-                                task.frontmatter.schedule.trim() && (
-                                  <span className="badge success">
-                                    {String(task.frontmatter.schedule)}
-                                  </span>
-                                )}
-                              {typeof task.frontmatter?.type === "string" && (
-                                <span className="badge">
-                                  {String(task.frontmatter.type)}
-                                </span>
-                              )}
-                            </div>
-                          </Panel>
-                        ))}
-                      </div>
+                      <NestedArtefactPanels
+                        items={documentTasks}
+                        basePath="/tasks"
+                        renderActions={renderTaskActions}
+                        renderMetadata={renderTaskMetadata}
+                      />
                     </Panel>
                   )}
                   {tasks.length === 0 && (

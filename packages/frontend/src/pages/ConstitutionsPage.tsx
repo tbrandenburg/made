@@ -5,6 +5,7 @@ import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
 import { TrashIcon } from "../components/icons/TrashIcon";
+import { NestedArtefactPanels } from "../components/NestedArtefactPanels";
 import {
   addExternalMatterLink,
   listExternalMatter,
@@ -118,6 +119,39 @@ export const ConstitutionsPage: React.FC = () => {
     loadConstitutions();
   };
 
+  const renderConstitutionActions = (constitution: ArtefactSummary) =>
+    (!constitution.isExternal || constitution.routeName) && (
+      <button
+        type="button"
+        className="copy-button"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          openRemoveModal(constitution);
+        }}
+        aria-label={`Remove constitution ${constitution.name}`}
+        title={`Remove constitution ${constitution.name}`}
+      >
+        <TrashIcon />
+      </button>
+    );
+
+  const renderConstitutionMetadata = (constitution: ArtefactSummary) => (
+    <div className="metadata">
+      {typeof constitution.frontmatter?.type === "string" && (
+        <span className="badge">{String(constitution.frontmatter.type)}</span>
+      )}
+      {constitution.isExternal && (
+        <>
+          <span className="badge external">External</span>
+          {constitution.externalPath && (
+            <span className="path-info">{constitution.externalPath}</span>
+          )}
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div className="page">
       <h1>Constitutions</h1>
@@ -142,102 +176,22 @@ export const ConstitutionsPage: React.FC = () => {
                 <div className="panel-column">
                   {templateConstitutions.length > 0 && (
                     <Panel title="Templates">
-                      <div className="panel-column">
-                        {templateConstitutions.map((constitution) => (
-                          <Panel
-                            key={constitution.routeName ?? constitution.name}
-                            title={constitution.name}
-                            to={`/constitutions/${constitution.routeName ?? constitution.name}`}
-                            actions={
-                              (!constitution.isExternal ||
-                                constitution.routeName) && (
-                                <button
-                                  type="button"
-                                  className="copy-button"
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    openRemoveModal(constitution);
-                                  }}
-                                  aria-label={`Remove constitution ${constitution.name}`}
-                                  title={`Remove constitution ${constitution.name}`}
-                                >
-                                  <TrashIcon />
-                                </button>
-                              )
-                            }
-                          >
-                            <div className="metadata">
-                              {typeof constitution.frontmatter?.type ===
-                                "string" && (
-                                <span className="badge">
-                                  {String(constitution.frontmatter.type)}
-                                </span>
-                              )}
-                              {constitution.isExternal && (
-                                <>
-                                  <span className="badge external">External</span>
-                                  {constitution.externalPath && (
-                                    <span className="path-info">
-                                      {constitution.externalPath}
-                                    </span>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </Panel>
-                        ))}
-                      </div>
+                      <NestedArtefactPanels
+                        items={templateConstitutions}
+                        basePath="/constitutions"
+                        renderActions={renderConstitutionActions}
+                        renderMetadata={renderConstitutionMetadata}
+                      />
                     </Panel>
                   )}
                   {documentConstitutions.length > 0 && (
                     <Panel title="Documents">
-                      <div className="panel-column">
-                        {documentConstitutions.map((constitution) => (
-                          <Panel
-                            key={constitution.routeName ?? constitution.name}
-                            title={constitution.name}
-                            to={`/constitutions/${constitution.routeName ?? constitution.name}`}
-                            actions={
-                              (!constitution.isExternal ||
-                                constitution.routeName) && (
-                                <button
-                                  type="button"
-                                  className="copy-button"
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    openRemoveModal(constitution);
-                                  }}
-                                  aria-label={`Remove constitution ${constitution.name}`}
-                                  title={`Remove constitution ${constitution.name}`}
-                                >
-                                  <TrashIcon />
-                                </button>
-                              )
-                            }
-                          >
-                            <div className="metadata">
-                              {typeof constitution.frontmatter?.type ===
-                                "string" && (
-                                <span className="badge">
-                                  {String(constitution.frontmatter.type)}
-                                </span>
-                              )}
-                              {constitution.isExternal && (
-                                <>
-                                  <span className="badge external">External</span>
-                                  {constitution.externalPath && (
-                                    <span className="path-info">
-                                      {constitution.externalPath}
-                                    </span>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </Panel>
-                        ))}
-                      </div>
+                      <NestedArtefactPanels
+                        items={documentConstitutions}
+                        basePath="/constitutions"
+                        renderActions={renderConstitutionActions}
+                        renderMetadata={renderConstitutionMetadata}
+                      />
                     </Panel>
                   )}
                   {constitutions.length === 0 && (
