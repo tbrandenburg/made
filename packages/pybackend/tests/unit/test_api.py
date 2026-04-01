@@ -848,6 +848,19 @@ class TestKnowledgeEndpoints:
         data = response.json()
         assert data["success"] is True
 
+    @patch("app.write_knowledge_artefact")
+    def test_write_knowledge_nested_path_success(self, mock_write):
+        payload = {"frontmatter": {"title": "Test"}, "content": "Test content"}
+
+        response = client.put("/api/knowledge/folder1/folder2/test-guide.md", json=payload)
+
+        assert response.status_code == 200
+        mock_write.assert_called_once_with(
+            "folder1/folder2/test-guide.md",
+            {"title": "Test"},
+            "Test content",
+        )
+
     @patch("app.delete_knowledge_artefact")
     def test_delete_knowledge_success(self, mock_delete):
         response = client.delete("/api/knowledge/test-guide.md")
@@ -935,6 +948,21 @@ class TestConstitutionEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
+
+    @patch("app.write_constitution")
+    def test_write_constitution_nested_path_success(self, mock_write):
+        payload = {"frontmatter": {"title": "Rules"}, "content": "New rules"}
+
+        response = client.put(
+            "/api/constitutions/folder1/folder2/test-const.md", json=payload
+        )
+
+        assert response.status_code == 200
+        mock_write.assert_called_once_with(
+            "folder1/folder2/test-const.md",
+            {"title": "Rules"},
+            "New rules",
+        )
 
     @patch("app.delete_constitution")
     def test_delete_constitution_success(self, mock_delete):
@@ -1068,6 +1096,21 @@ class TestTaskEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
+        mock_refresh_cron_clock.assert_called_once_with()
+
+    @patch("app.refresh_cron_clock")
+    @patch("app.write_task")
+    def test_write_task_nested_path_success(self, mock_write, mock_refresh_cron_clock):
+        payload = {"frontmatter": {"type": "task"}, "content": "- [x] Done"}
+
+        response = client.put("/api/tasks/folder1/folder2/test-task.md", json=payload)
+
+        assert response.status_code == 200
+        mock_write.assert_called_once_with(
+            "folder1/folder2/test-task.md",
+            {"type": "task"},
+            "- [x] Done",
+        )
         mock_refresh_cron_clock.assert_called_once_with()
 
     @patch("app.refresh_cron_clock")

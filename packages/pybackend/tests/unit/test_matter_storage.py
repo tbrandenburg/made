@@ -57,3 +57,34 @@ def test_write_knowledge_creates_file(tmp_path, monkeypatch):
     stored = read_knowledge_artefact(name)
     assert stored["content"] == content
     assert stored["frontmatter"] == metadata
+
+
+def test_write_task_creates_nested_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("MADE_HOME", str(tmp_path))
+
+    from task_service import get_tasks_directory, read_task, write_task
+
+    name = "folder1/folder2/task.md"
+    content = "run checks"
+    metadata = {"type": "task", "tags": ["automation"]}
+
+    write_task(name, metadata, content)
+
+    tasks_dir = get_tasks_directory()
+    file_path = tasks_dir / "folder1" / "folder2" / "task.md"
+    assert file_path.exists()
+
+    stored = read_task(name)
+    assert stored["content"] == content
+    assert stored["frontmatter"] == metadata
+
+
+def test_list_constitutions_includes_nested_paths(tmp_path, monkeypatch):
+    monkeypatch.setenv("MADE_HOME", str(tmp_path))
+
+    from constitution_service import list_constitutions, write_constitution
+
+    write_constitution("global/runtime/policy.md", {"tags": ["global"]}, "text")
+
+    constitutions = list_constitutions()
+    assert constitutions[0]["name"] == "global/runtime/policy.md"
