@@ -63,4 +63,33 @@ describe("KnowledgePage", () => {
       expect(api.deleteKnowledge).toHaveBeenCalledWith("guide.md");
     });
   });
+
+  it("renders nested folders and links nested artefacts with encoded paths", async () => {
+    vi.mocked(api.listKnowledge).mockResolvedValue({
+      artefacts: [
+        {
+          name: "Engineering/Architecture/guide.md",
+          type: "document",
+          tags: [],
+          content: "",
+          frontmatter: {},
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <KnowledgePage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Engineering/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Architecture/ }));
+
+    const nestedTitle = await screen.findByText("guide.md");
+    expect(nestedTitle.closest("a")).toHaveAttribute(
+      "href",
+      "/knowledge/Engineering%2FArchitecture%2Fguide.md",
+    );
+  });
 });

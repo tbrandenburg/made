@@ -5,6 +5,7 @@ import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
 import { TrashIcon } from "../components/icons/TrashIcon";
+import { NestedArtefactPanels } from "../components/NestedArtefactPanels";
 import {
   addExternalMatterLink,
   listExternalMatter,
@@ -126,6 +127,40 @@ export const KnowledgePage: React.FC = () => {
     loadArtefacts();
   };
 
+  const renderArtefactActions = (artefact: ArtefactSummary) =>
+    (!artefact.isExternal || artefact.routeName) && (
+      <button
+        type="button"
+        className="copy-button"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          openRemoveModal(artefact);
+        }}
+        aria-label={`Remove artefact ${artefact.name}`}
+        title={`Remove artefact ${artefact.name}`}
+      >
+        <TrashIcon />
+      </button>
+    );
+
+  const renderArtefactMetadata = (artefact: ArtefactSummary) => (
+    <div className="metadata">
+      <span className="badge">{artefact.type ?? "document"}</span>
+      {artefact.tags && artefact.tags.length > 0 && (
+        <span className="badge">{artefact.tags.join(", ")}</span>
+      )}
+      {artefact.isExternal && (
+        <>
+          <span className="badge external">External</span>
+          {artefact.externalPath && (
+            <span className="path-info">{artefact.externalPath}</span>
+          )}
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div className="page">
       <h1>Knowledge Base</h1>
@@ -150,104 +185,22 @@ export const KnowledgePage: React.FC = () => {
                 <div className="panel-column">
                   {templateArtefacts.length > 0 && (
                     <Panel title="Templates">
-                      <div className="panel-column">
-                        {templateArtefacts.map((artefact) => (
-                          <Panel
-                            key={artefact.routeName ?? artefact.name}
-                            title={artefact.name}
-                            to={`/knowledge/${artefact.routeName ?? artefact.name}`}
-                            actions={
-                              (!artefact.isExternal || artefact.routeName) && (
-                                <button
-                                  type="button"
-                                  className="copy-button"
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    openRemoveModal(artefact);
-                                  }}
-                                  aria-label={`Remove artefact ${artefact.name}`}
-                                  title={`Remove artefact ${artefact.name}`}
-                                >
-                                  <TrashIcon />
-                                </button>
-                              )
-                            }
-                          >
-                            <div className="metadata">
-                              <span className="badge">
-                                {artefact.type ?? "document"}
-                              </span>
-                              {artefact.tags && artefact.tags.length > 0 && (
-                                <span className="badge">
-                                  {artefact.tags.join(", ")}
-                                </span>
-                              )}
-                              {artefact.isExternal && (
-                                <>
-                                  <span className="badge external">External</span>
-                                  {artefact.externalPath && (
-                                    <span className="path-info">
-                                      {artefact.externalPath}
-                                    </span>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </Panel>
-                        ))}
-                      </div>
+                      <NestedArtefactPanels
+                        items={templateArtefacts}
+                        basePath="/knowledge"
+                        renderActions={renderArtefactActions}
+                        renderMetadata={renderArtefactMetadata}
+                      />
                     </Panel>
                   )}
                   {documentArtefacts.length > 0 && (
                     <Panel title="Documents">
-                      <div className="panel-column">
-                        {documentArtefacts.map((artefact) => (
-                          <Panel
-                            key={artefact.routeName ?? artefact.name}
-                            title={artefact.name}
-                            to={`/knowledge/${artefact.routeName ?? artefact.name}`}
-                            actions={
-                              (!artefact.isExternal || artefact.routeName) && (
-                                <button
-                                  type="button"
-                                  className="copy-button"
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    openRemoveModal(artefact);
-                                  }}
-                                  aria-label={`Remove artefact ${artefact.name}`}
-                                  title={`Remove artefact ${artefact.name}`}
-                                >
-                                  <TrashIcon />
-                                </button>
-                              )
-                            }
-                          >
-                            <div className="metadata">
-                              <span className="badge">
-                                {artefact.type ?? "document"}
-                              </span>
-                              {artefact.tags && artefact.tags.length > 0 && (
-                                <span className="badge">
-                                  {artefact.tags.join(", ")}
-                                </span>
-                              )}
-                              {artefact.isExternal && (
-                                <>
-                                  <span className="badge external">External</span>
-                                  {artefact.externalPath && (
-                                    <span className="path-info">
-                                      {artefact.externalPath}
-                                    </span>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </Panel>
-                        ))}
-                      </div>
+                      <NestedArtefactPanels
+                        items={documentArtefacts}
+                        basePath="/knowledge"
+                        renderActions={renderArtefactActions}
+                        renderMetadata={renderArtefactMetadata}
+                      />
                     </Panel>
                   )}
                   {artefacts.length === 0 && (

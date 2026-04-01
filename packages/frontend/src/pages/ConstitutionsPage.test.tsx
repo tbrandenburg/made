@@ -65,4 +65,32 @@ describe("ConstitutionsPage", () => {
       expect(api.deleteConstitution).toHaveBeenCalledWith("governance.md");
     });
   });
+
+  it("renders nested constitution folders", async () => {
+    vi.mocked(api.listConstitutions).mockResolvedValue({
+      constitutions: [
+        {
+          name: "Global/Runtime/policy.md",
+          type: "global",
+          tags: [],
+          content: "",
+          frontmatter: {},
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <ConstitutionsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Global/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Runtime/ }));
+
+    expect(await screen.findByRole("link", { name: "policy.md" })).toHaveAttribute(
+      "href",
+      "/constitutions/Global%2FRuntime%2Fpolicy.md",
+    );
+  });
 });
