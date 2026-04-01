@@ -9,7 +9,7 @@ export interface HistoryEntry {
 }
 
 const STORAGE_KEY = "made.navigation-history.v1";
-const MAX_ENTRIES = 40;
+const MAX_ENTRIES = 10;
 
 const isHistoryKind = (value: string): value is HistoryKind =>
   value === "repository" ||

@@ -55,4 +55,16 @@ describe("navigationHistory", () => {
     expect(getHistoryKindLabel("knowledge")).toBe("Knowledge");
     expect(getHistoryKindLabel("constitution")).toBe("Constitution");
   });
+
+  it("caps history to the latest 10 unique entries", () => {
+    for (let index = 1; index <= 12; index += 1) {
+      recordNavigationVisit(`/repositories/repo-${index}`);
+    }
+
+    const history = getNavigationHistory();
+
+    expect(history).toHaveLength(10);
+    expect(history[0].name).toBe("repo-12");
+    expect(history[9].name).toBe("repo-3");
+  });
 });
