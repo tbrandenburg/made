@@ -542,3 +542,41 @@
 .history-panel .panel-body {
   gap: 0.35rem;
 }
+
+.nested-tree-block {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.nested-tree-section {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.nested-folder-item {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.nested-folder-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: fit-content;
+  padding: 0.2rem 0.35rem;
+  border-radius: 0.6rem;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.nested-folder-toggle:hover,
+.nested-folder-toggle:focus-visible {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.nested-folder-panel {
+  margin-left: 0.85rem;
+}
