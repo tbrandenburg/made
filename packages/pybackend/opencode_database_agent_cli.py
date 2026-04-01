@@ -320,7 +320,8 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                             elif part_type == "tool":
                                 # Tool invocations - create separate tool message
                                 tool_name = part_data.get("tool", "")
-                                tool_args = part_data.get("args", {})
+                                # Tool arguments are stored in state.input
+                                tool_args = part_data.get("state", {}).get("input", {})
 
                                 if tool_name:
                                     # Format tool call with arguments (following Kiro pattern)
