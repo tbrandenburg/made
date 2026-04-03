@@ -57,7 +57,6 @@ async function request<T>(
       const isIdempotent = !options.method || 
         ["GET", "HEAD", "OPTIONS"].includes(options.method.toUpperCase());
 
-
       if (attempt < maxRetries && isNetworkError && isIdempotent) {
         console.log(
           `API attempt ${attempt} failed due to network error, retrying in ${retryDelay}ms...`,
@@ -127,7 +126,6 @@ async function requestForm<T>(
 
       const isIdempotent = !options.method || 
         ["GET", "HEAD", "OPTIONS"].includes(options.method.toUpperCase());
-
 
       if (attempt < maxRetries && isNetworkError && isIdempotent) {
         console.log(
