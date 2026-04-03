@@ -1103,6 +1103,7 @@ export const RepositoryPage: React.FC = () => {
 
   const handleSendMessage = async (prompt?: string) => {
     if (!name) return;
+    if (chatLoading) return;
     const message = (prompt ?? pendingPrompt).trim();
     if (!message) return;
     const timestamp = new Date().toISOString();
