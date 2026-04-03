@@ -3,13 +3,14 @@
 **Issue**: #358 (https://github.com/tbrandenburg/made/issues/358)
 **Type**: BUG
 **Investigated**: 2026-04-03T10:22:00Z
+**Updated**: 2026-04-03T10:30:00Z (Added parallel session analysis)
 
 ### Assessment
 
 | Metric     | Value    | Reasoning                                                                                                                                   |
 | ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Severity   | HIGH     | Duplicate agent runs waste API tokens ($), confuse users with duplicate responses, and create inconsistent session state                   |
-| Complexity | MEDIUM   | Frontend fix is simple but requires understanding HTTP method semantics; affects 4 agent endpoints; needs comprehensive test coverage      |
+| Complexity | **HIGH** | **Frontend fix + architectural concurrency limitation: channel = repository (not session), blocking parallel users on same repo**          |
 | Confidence | HIGH     | Root cause precisely identified with git blame to commit d1d85ec5, complete kill chain documented, evidence from real session database    |
 
 ---
@@ -18,13 +19,18 @@
 
 The made chat frontend blindly retries POST requests on network errors with identical request bodies, causing duplicate message processing. When the backend blocks HTTP threads for 2-5 minutes during agent execution, browsers timeout before responses arrive. The frontend retry mechanism then re-submits the same message after the first request completes, triggering duplicate agent runs.
 
+**🚨 CRITICAL DISCOVERY**: The backend channel system uses `channel = repository_name` (not `session_id`), meaning **only one agent can run per repository across ALL sessions**. This creates a broader concurrency limitation where multiple users working on the same project are blocked by each other.
+
 ---
 
 ## Analysis
 
 ### Root Cause / Change Rationale
 
-The core issue is an architectural mismatch between a **synchronously blocking backend** and a **blind frontend retry mechanism** that doesn't respect HTTP method idempotency semantics.
+The core issue has **two layers**:
+
+1. **Layer 1 (Immediate)**: Architectural mismatch between a synchronously blocking backend and a blind frontend retry mechanism that doesn't respect HTTP method idempotency semantics
+2. **Layer 2 (Architectural)**: Channel-based concurrency control uses repository-level locking instead of session-level locking, preventing parallel sessions on the same project
 
 ### Evidence Chain
 
@@ -44,8 +50,37 @@ Evidence: `packages/pybackend/agent_service.py:518-526` - `result = agent_cli.ru
 ↓ **BECAUSE**: The retry condition only checks for network errors, not HTTP method semantics
 Evidence: `packages/frontend/src/hooks/useApi.ts:51-55` - No method type checking in `isNetworkError` condition
 
-**ROOT CAUSE**: Missing idempotency check in retry logic allows POST/PUT/PATCH/DELETE methods to be retried with identical bodies
+**ROOT CAUSE 1 (Retry Loop)**: Missing idempotency check in retry logic allows POST/PUT/PATCH/DELETE methods to be retried with identical bodies
 Evidence: `packages/frontend/src/hooks/useApi.ts:57` - `if (attempt < maxRetries && isNetworkError)` lacks method validation
+
+**ROOT CAUSE 2 (Parallel Session Blocking)**: Channel system uses repository-wide locking instead of session-based locking
+Evidence: `packages/pybackend/app.py:502` - `send_agent_message(name, message, session_id, ...)` where `name` (repo) becomes channel, not `session_id`
+
+### Channel System Analysis
+
+**Channel Identifier Construction:**
+- **Repository Agent**: `channel = name` (repository name) - `packages/pybackend/app.py:502`
+- **Task Agent**: `channel = f"task:{name}"` (task name) - `packages/pybackend/app.py:1360`
+- **Knowledge/Constitution**: Similar pattern with artifact identifiers
+
+**Concurrency Limitation:**
+```python
+# packages/pybackend/agent_service.py:148-153
+def _mark_channel_processing(channel: str) -> bool:
+    with _processing_lock:
+        if channel in _processing_channels:  # Global lock per repo
+            return False  # HTTP 409 Conflict to ALL sessions
+        _processing_channels[channel] = datetime.now(UTC)
+        return True
+```
+
+**Real-World Impact:**
+```
+User A (Session 1): Working on "my-project" → Starts agent → Channel locked
+User B (Session 2): Working on "my-project" → Gets HTTP 409 Conflict 
+User A (Session 1): Agent completes after 3 minutes → Channel cleared
+User B (Session 2): Retries/resubmits → Now works, but delayed 3 minutes
+```
 
 ### Affected Files
 
@@ -412,18 +447,21 @@ cd packages/pybackend && python -m pytest tests/unit/test_api.py::test_repositor
 
 ### Manual Verification
 
-1. **Start application**: `make run`
-2. **Send agent message**: Use any agent interface to send a message
-3. **Simulate network timeout**: 
-   - Open DevTools → Network tab
-   - Send message, then quickly set "Offline" mode
-   - Wait for timeout, then set "Online" mode
-4. **Verify single message**: Check session database or frontend state - should show only ONE message, not duplicates
-5. **Test GET requests still retry**: 
-   - Set "Offline" mode
-   - Navigate between pages (triggers GET requests)
-   - Set "Online" mode  
-   - Verify requests succeed after retry
+1. **Test Retry Loop Fix**:
+   - Start app: `make run`
+   - Send agent message to any repository
+   - DevTools → Network → "Offline" mode (simulate timeout)
+   - Set "Online" mode → **Verify**: Only ONE message in session (no duplicates)
+
+2. **Test Parallel Session Blocking** (Documents current limitation):
+   - User A: Start agent on repository "test-repo" 
+   - User B: Try to start agent on same repository "test-repo"
+   - **Expected**: User B gets HTTP 409 Conflict until User A completes
+   - **Future Goal**: Both should work in parallel with session-based channels
+
+3. **Test GET Requests Still Retry**:
+   - Set "Offline" mode, navigate between pages (triggers GET requests)
+   - Set "Online" mode → Verify requests succeed after retry
 
 ### Database Verification (Session #358 Pattern)
 
@@ -441,6 +479,38 @@ WHERE m.session_id = '{new_test_session_id}'
 ORDER BY p.time_created;
 ```
 
+**Expected**: No duplicate user messages with identical text and timing gaps of 2-5 minutes.
+
+---
+
+## Architectural Implications
+
+### Current Multi-User Workflow Issues
+
+**Scenario: Team Collaboration**
+```
+Developer A: Working on feature branch → Runs agent for 3 minutes
+Developer B: Working on same repo → Blocked, gets 409 errors  
+Developer C: Reviewing PR in same repo → Also blocked
+```
+
+**Impact**: 
+- 🚫 **No concurrent development** on popular repositories
+- 🚫 **Demo failures** when multiple people access the same project
+- 🚫 **Poor user experience** with cryptic 409 errors
+
+### Recommended Follow-Up Issue
+
+**Title**: "Enable concurrent agent sessions per repository"  
+**Description**: Current channel system locks entire repositories, blocking multiple users. Redesign to session-based locking.  
+**Epic**: Multi-user concurrent development support
+
+**Acceptance Criteria**:
+- [ ] Multiple users can run agents simultaneously on same repository
+- [ ] Session isolation prevents cross-talk between concurrent runs  
+- [ ] Maintain data consistency and prevent workspace conflicts
+- [ ] Update API documentation with new concurrency model
+
 ---
 
 ## Scope Boundaries
@@ -451,42 +521,81 @@ ORDER BY p.time_created;
 - `packages/frontend/src/hooks/useApi.test.ts` - Comprehensive test coverage
 - HTTP method idempotency semantics enforcement
 
-**OUT OF SCOPE (do not touch):**
+**OUT OF SCOPE (immediate fix):**
 
 - Backend `agent_service.py` - Synchronous blocking is a separate architectural concern  
 - Frontend components (`RepositoryPage.tsx`, etc.) - Error handling UX is already adequate
-- Adding request deduplication headers/keys - Would require backend changes
-- WebSocket/SSE migration - Major architectural change for future consideration
 - Changing retry delay/count configuration - Current values (3 retries, 1s delay) are reasonable
+
+**OUT OF SCOPE (requires separate architecture issue):**
+
+- **Channel system redesign** - Moving from repository-level to session-level locking
+- **WebSocket/SSE migration** - Major architectural change for future consideration
+- **Request deduplication headers/keys** - Alternative approach requiring backend changes
 
 ---
 
 ## Alternative Solutions Considered
 
-### Option A: Request Deduplication (Backend)
+### Option A: Frontend Retry Fix Only (CHOSEN for immediate deployment)
+- **Pros**: Fixes intra-session duplicates, respects HTTP semantics, surgical change
+- **Cons**: Doesn't address cross-session blocking limitation
+- **Verdict**: ✅ **Deploy immediately, address architecture separately**
+
+### Option B: Session-Based Channel System (Future architecture)
+```python
+# Instead of:
+channel = name  # Repository-wide lock (current)
+
+# Use:
+channel = f"{name}:{session_id}"  # Per-session lock (future)
+```
+- **Pros**: Enables true parallel sessions on same repository
+- **Cons**: Major backend architectural change, requires testing of concurrent agent runs
+- **Verdict**: **Separate issue/epic for multi-user concurrency**
+
+### Option C: Request Deduplication (Backend Alternative)
 - **Pros**: Bulletproof protection against any duplicate scenarios
 - **Cons**: Requires backend changes, request ID generation, storage overhead
-- **Verdict**: Overkill for this specific frontend retry issue
+- **Verdict**: More complex than needed for retry loop issue
 
-### Option B: Disable All Retries
+### Option D: Disable All Retries
 - **Pros**: Simplest fix, eliminates all retry-related issues  
 - **Cons**: Breaks legitimate GET request retry behavior for flaky networks
 - **Verdict**: Too aggressive, removes valuable retry functionality
 
-### Option C: Async Agent Processing
+### Option E: Async Agent Processing (Future Enhancement)
 - **Pros**: Eliminates root cause of long-running synchronous requests
 - **Cons**: Major architectural change, requires WebSocket/polling, significant scope
-- **Verdict**: Future enhancement, not needed to fix immediate bug
+- **Verdict**: Future enhancement, addresses both timeout and concurrency issues
 
-### Option D: Idempotency Check (CHOSEN)
-- **Pros**: Surgical fix, preserves GET retry behavior, follows HTTP semantics
-- **Cons**: Requires understanding of HTTP method types
-- **Verdict**: ✅ **Best balance of safety and functionality**
+---
+
+## Deployment Strategy
+
+### Phase 1: Immediate Fix (This PR)
+**Target**: Stop intra-session retry loops
+- ✅ Deploy frontend idempotency fix
+- ✅ Add comprehensive test coverage  
+- ✅ Document channel concurrency limitation
+
+### Phase 2: Architecture Enhancement (Separate Issue)
+**Target**: Enable parallel sessions per repository
+- Backend: Redesign channel system to use `f"{repo}:{session_id}"`
+- Testing: Validate concurrent agent runs don't conflict
+- Documentation: Update API documentation for concurrency model
+
+### Phase 3: Long-term (Future Roadmap)  
+**Target**: Eliminate synchronous blocking entirely
+- WebSocket/SSE for real-time agent responses
+- Async agent processing with status polling
+- Complete elimination of HTTP timeout issues
 
 ---
 
 ## Metadata
 
-- **Investigated by**: Claude
+- **Investigated by**: Claude  
 - **Timestamp**: 2026-04-03T10:22:00Z
+- **Updated**: 2026-04-03T10:30:00Z (Added parallel session analysis)
 - **Artifact**: `.claude/PRPs/issues/issue-358.md`
