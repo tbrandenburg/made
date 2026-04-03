@@ -54,7 +54,10 @@ async function request<T>(
           (error.message.includes("fetch") ||
             error.message.includes("Failed to fetch")));
 
-      if (attempt < maxRetries && isNetworkError) {
+      const isIdempotent = !options.method || 
+        ["GET", "HEAD", "OPTIONS"].includes(options.method.toUpperCase());
+
+      if (attempt < maxRetries && isNetworkError && isIdempotent) {
         console.log(
           `API attempt ${attempt} failed due to network error, retrying in ${retryDelay}ms...`,
         );
@@ -121,7 +124,10 @@ async function requestForm<T>(
           (error.message.includes("fetch") ||
             error.message.includes("Failed to fetch")));
 
-      if (attempt < maxRetries && isNetworkError) {
+      const isIdempotent = !options.method || 
+        ["GET", "HEAD", "OPTIONS"].includes(options.method.toUpperCase());
+
+      if (attempt < maxRetries && isNetworkError && isIdempotent) {
         console.log(
           `API attempt ${attempt} failed due to network error, retrying in ${retryDelay}ms...`,
         );
