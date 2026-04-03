@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { marked } from "marked";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
@@ -41,10 +41,17 @@ import {
   removeExternalMatterLink,
   saveExternalMatter,
 } from "../utils/externalLinks";
+import {
+  getChatBootstrapParams,
+  hasConsumedChatBootstrap,
+  markChatBootstrapConsumed,
+  stripChatBootstrapParams,
+} from "../utils/chatQueryParams";
 
 export const ConstitutionPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("content");
   const [frontmatter, setFrontmatter] = useState<Record<string, unknown>>({});
   const [content, setContent] = useState("");
@@ -90,6 +97,7 @@ export const ConstitutionPage: React.FC = () => {
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
   const [externalPath, setExternalPath] = useState<string | null>(null);
   const chatWindowRef = useRef<HTMLDivElement>(null);
+  const chatInputId = "constitution-agent-prompt";
   const isExternal = Boolean(name && isExternalMatterId(name));
   const linkedExternalMatter = useMemo(
     () => (isExternal && name ? getExternalMatter("constitution", name) : null),
@@ -105,6 +113,44 @@ export const ConstitutionPage: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [chat]);
+
+  useEffect(() => {
+    const { sessionId: incomingSessionId, message: incomingMessage } =
+      getChatBootstrapParams(searchParams);
+    if (!incomingSessionId && !incomingMessage) return;
+
+    const { nextParams, changed } = stripChatBootstrapParams(searchParams);
+    if (changed) {
+      setSearchParams(nextParams, { replace: true });
+    }
+
+    const path = window.location.pathname;
+    if (
+      hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)
+    ) {
+      return;
+    }
+    markChatBootstrapConsumed(path, incomingSessionId, incomingMessage);
+
+    if (incomingSessionId && incomingSessionId !== sessionId) {
+      setSessionId(incomingSessionId);
+    }
+    if (incomingMessage) {
+      setPrompt(incomingMessage);
+    }
+    setActiveTab("agent");
+
+    requestAnimationFrame(() => {
+      const textarea = document.getElementById(
+        chatInputId,
+      ) as HTMLTextAreaElement | null;
+      textarea?.focus();
+      textarea?.setSelectionRange(
+        textarea.value.length,
+        textarea.value.length,
+      );
+    });
+  }, [searchParams, setSearchParams, sessionId, setSessionId]);
 
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
@@ -497,6 +543,7 @@ export const ConstitutionPage: React.FC = () => {
             />
             {agentStatus && <div className="alert">{agentStatus}</div>}
             <MentionPathTextarea
+              id={chatInputId}
               value={prompt}
               onChange={setPrompt}
               suggestions={mentionCommandPaths}

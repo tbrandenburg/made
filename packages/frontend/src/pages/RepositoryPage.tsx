@@ -54,6 +54,12 @@ import {
   buildMentionPathSections,
   commandPathsFromDefinitions,
 } from "../utils/pathMentions";
+import {
+  getChatBootstrapParams,
+  hasConsumedChatBootstrap,
+  markChatBootstrapConsumed,
+  stripChatBootstrapParams,
+} from "../utils/chatQueryParams";
 
 const stripCommandFrontmatter = (content: string) => {
   const delimiterPattern =
@@ -368,7 +374,7 @@ export const RepositoryPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("agent");
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [repository, setRepository] = useState<RepositorySummary | null>(null);
   const [fileTree, setFileTree] = useState<FileNode | null>(null);
   const [fileActionError, setFileActionError] = useState<string | null>(null);
@@ -549,6 +555,45 @@ export const RepositoryPage: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [chat]);
+
+  useEffect(() => {
+    const { sessionId: incomingSessionId, message: incomingMessage } =
+      getChatBootstrapParams(searchParams);
+    if (!incomingSessionId && !incomingMessage) return;
+
+    const { nextParams, changed } = stripChatBootstrapParams(searchParams);
+    if (changed) {
+      setSearchParams(nextParams, { replace: true });
+    }
+
+    const path = window.location.pathname;
+    if (
+      hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)
+    ) {
+      return;
+    }
+    markChatBootstrapConsumed(path, incomingSessionId, incomingMessage);
+
+    if (incomingSessionId && incomingSessionId !== sessionId) {
+      setSessionId(incomingSessionId);
+    }
+    if (incomingMessage) {
+      setPendingPrompt(incomingMessage);
+    }
+    setActiveTab("agent");
+
+    requestAnimationFrame(() => {
+      const textarea = document.getElementById(
+        chatInputId,
+      ) as HTMLTextAreaElement | null;
+      textarea?.focus();
+      textarea?.setSelectionRange(
+        textarea.value.length,
+        textarea.value.length,
+      );
+    });
+  }, [searchParams, setSearchParams, sessionId, setSessionId]);
+
   useEffect(() => {
     const tab = searchParams.get("tab");
     if (tab) {
@@ -602,6 +647,7 @@ export const RepositoryPage: React.FC = () => {
   const [movePath, setMovePath] = useState("");
   const [loadingFile, setLoadingFile] = useState(false);
   const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
+  const chatInputId = "repository-agent-prompt";
 
   useEffect(() => {
     const search = splitMentionSearch(mentionQuery);
@@ -1706,6 +1752,7 @@ export const RepositoryPage: React.FC = () => {
           />
           {chatError && <div className="alert">{chatError}</div>}
           <MentionPathTextarea
+            id={chatInputId}
             value={pendingPrompt}
             onChange={setPendingPrompt}
             placeholder="Describe the change or ask the agent..."

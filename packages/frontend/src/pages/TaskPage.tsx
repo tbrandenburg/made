@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { marked } from "marked";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
@@ -34,10 +34,17 @@ import {
   DEFAULT_AGENT_VALUE,
 } from "../components/AgentSelector";
 import { commandPathsFromDefinitions } from "../utils/pathMentions";
+import {
+  getChatBootstrapParams,
+  hasConsumedChatBootstrap,
+  markChatBootstrapConsumed,
+  stripChatBootstrapParams,
+} from "../utils/chatQueryParams";
 
 export const TaskPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("content");
   const [frontmatter, setFrontmatter] = useState<Record<string, unknown>>({});
   const [content, setContent] = useState("");
@@ -77,6 +84,7 @@ export const TaskPage: React.FC = () => {
   const [sessionListLoading, setSessionListLoading] = useState(false);
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
   const chatWindowRef = useRef<HTMLDivElement>(null);
+  const chatInputId = "task-agent-prompt";
 
   const scrollToBottom = () => {
     if (chatWindowRef.current) {
@@ -87,6 +95,44 @@ export const TaskPage: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [chat]);
+
+  useEffect(() => {
+    const { sessionId: incomingSessionId, message: incomingMessage } =
+      getChatBootstrapParams(searchParams);
+    if (!incomingSessionId && !incomingMessage) return;
+
+    const { nextParams, changed } = stripChatBootstrapParams(searchParams);
+    if (changed) {
+      setSearchParams(nextParams, { replace: true });
+    }
+
+    const path = window.location.pathname;
+    if (
+      hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)
+    ) {
+      return;
+    }
+    markChatBootstrapConsumed(path, incomingSessionId, incomingMessage);
+
+    if (incomingSessionId && incomingSessionId !== sessionId) {
+      setSessionId(incomingSessionId);
+    }
+    if (incomingMessage) {
+      setPrompt(incomingMessage);
+    }
+    setActiveTab("agent");
+
+    requestAnimationFrame(() => {
+      const textarea = document.getElementById(
+        chatInputId,
+      ) as HTMLTextAreaElement | null;
+      textarea?.focus();
+      textarea?.setSelectionRange(
+        textarea.value.length,
+        textarea.value.length,
+      );
+    });
+  }, [searchParams, setSearchParams, sessionId, setSessionId]);
 
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
@@ -478,6 +524,7 @@ export const TaskPage: React.FC = () => {
                 />
                 {agentStatus && <div className="alert">{agentStatus}</div>}
                 <MentionPathTextarea
+                  id={chatInputId}
                   value={prompt}
                   onChange={setPrompt}
                   suggestions={mentionCommandPaths}
