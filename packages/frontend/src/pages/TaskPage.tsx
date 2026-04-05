@@ -97,6 +97,7 @@ export const TaskPage: React.FC = () => {
   }, [chat]);
 
   useEffect(() => {
+    if (!name) return;
     const { sessionId: incomingSessionId, message: incomingMessage } =
       getChatBootstrapParams(searchParams);
     if (!incomingSessionId && !incomingMessage) return;
@@ -106,9 +107,31 @@ export const TaskPage: React.FC = () => {
       setSearchParams(nextParams, { replace: true });
     }
 
-    if (incomingSessionId && incomingSessionId !== sessionId) {
+    const switchSessionIfNeeded = async () => {
+      if (!incomingSessionId || incomingSessionId === sessionId) {
+        return;
+      }
+
       setSessionId(incomingSessionId);
-    }
+      setChat([]);
+      setChatLoading(true);
+      try {
+        const history = await api.getTaskAgentHistory(name, incomingSessionId);
+        const mapped = mapHistoryToMessages(history.messages || []);
+        setChat(mapped);
+        setAgentStatus(null);
+      } catch (error) {
+        console.error("Failed to load session history", error);
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to load session history";
+        setAgentStatus(message);
+      } finally {
+        setChatLoading(false);
+      }
+    };
+    void switchSessionIfNeeded();
 
     const path = window.location.pathname;
     if (
@@ -132,7 +155,7 @@ export const TaskPage: React.FC = () => {
         textarea.value.length,
       );
     });
-  }, [searchParams, setSearchParams, sessionId, setSessionId]);
+  }, [api, name, searchParams, sessionId, setSearchParams, setSessionId]);
 
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;

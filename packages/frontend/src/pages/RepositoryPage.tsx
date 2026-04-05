@@ -568,6 +568,7 @@ export const RepositoryPage: React.FC = () => {
 
     if (incomingSessionId && incomingSessionId !== sessionId) {
       setSessionId(incomingSessionId);
+      setChat([]);
     }
 
     const path = window.location.pathname;
