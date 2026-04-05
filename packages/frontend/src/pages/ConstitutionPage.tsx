@@ -124,6 +124,10 @@ export const ConstitutionPage: React.FC = () => {
       setSearchParams(nextParams, { replace: true });
     }
 
+    if (incomingSessionId && incomingSessionId !== sessionId) {
+      setSessionId(incomingSessionId);
+    }
+
     const path = window.location.pathname;
     if (
       hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)
@@ -131,10 +135,6 @@ export const ConstitutionPage: React.FC = () => {
       return;
     }
     markChatBootstrapConsumed(path, incomingSessionId, incomingMessage);
-
-    if (incomingSessionId && incomingSessionId !== sessionId) {
-      setSessionId(incomingSessionId);
-    }
     if (incomingMessage) {
       setPrompt(incomingMessage);
     }
