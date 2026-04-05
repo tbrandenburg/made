@@ -566,6 +566,11 @@ export const RepositoryPage: React.FC = () => {
       setSearchParams(nextParams, { replace: true });
     }
 
+    if (incomingSessionId && incomingSessionId !== sessionId) {
+      setSessionId(incomingSessionId);
+      setChat([]);
+    }
+
     const path = window.location.pathname;
     if (
       hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)
@@ -573,10 +578,6 @@ export const RepositoryPage: React.FC = () => {
       return;
     }
     markChatBootstrapConsumed(path, incomingSessionId, incomingMessage);
-
-    if (incomingSessionId && incomingSessionId !== sessionId) {
-      setSessionId(incomingSessionId);
-    }
     if (incomingMessage) {
       setPendingPrompt(incomingMessage);
     }
