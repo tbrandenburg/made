@@ -566,10 +566,34 @@ export const RepositoryPage: React.FC = () => {
       setSearchParams(nextParams, { replace: true });
     }
 
-    if (incomingSessionId && incomingSessionId !== sessionId) {
+    const switchSessionIfNeeded = async () => {
+      if (!name || !incomingSessionId || incomingSessionId === sessionId) {
+        return;
+      }
+
       setSessionId(incomingSessionId);
       setChat([]);
-    }
+      setChatLoading(true);
+      try {
+        const history = await api.getRepositoryAgentHistory(
+          name,
+          incomingSessionId,
+        );
+        const mapped = mapHistoryToMessages(history.messages || []);
+        setChat(mapped);
+        setChatError(null);
+      } catch (error) {
+        console.error("Failed to load session history", error);
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to load session history";
+        setChatError(message);
+      } finally {
+        setChatLoading(false);
+      }
+    };
+    void switchSessionIfNeeded();
 
     const path = window.location.pathname;
     if (
@@ -593,7 +617,14 @@ export const RepositoryPage: React.FC = () => {
         textarea.value.length,
       );
     });
-  }, [searchParams, setSearchParams, sessionId, setSessionId]);
+  }, [
+    api,
+    name,
+    searchParams,
+    sessionId,
+    setSearchParams,
+    setSessionId,
+  ]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
