@@ -101,6 +101,7 @@ export const TaskPage: React.FC = () => {
     const { sessionId: incomingSessionId, message: incomingMessage } =
       getChatBootstrapParams(searchParams);
     if (!incomingSessionId && !incomingMessage) return;
+    let cancelled = false;
 
     const { nextParams, changed } = stripChatBootstrapParams(searchParams);
     if (changed) {
@@ -117,10 +118,12 @@ export const TaskPage: React.FC = () => {
       setChatLoading(true);
       try {
         const history = await api.getTaskAgentHistory(name, incomingSessionId);
+        if (cancelled) return;
         const mapped = mapHistoryToMessages(history.messages || []);
         setChat(mapped);
         setAgentStatus(null);
       } catch (error) {
+        if (cancelled) return;
         console.error("Failed to load session history", error);
         const message =
           error instanceof Error
@@ -128,6 +131,7 @@ export const TaskPage: React.FC = () => {
             : "Failed to load session history";
         setAgentStatus(message);
       } finally {
+        if (cancelled) return;
         setChatLoading(false);
       }
     };
@@ -155,6 +159,10 @@ export const TaskPage: React.FC = () => {
         textarea.value.length,
       );
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [api, name, searchParams, sessionId, setSearchParams, setSessionId]);
 
   const copyAllMessages = useCallback(() => {

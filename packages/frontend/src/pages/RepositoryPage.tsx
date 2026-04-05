@@ -560,6 +560,7 @@ export const RepositoryPage: React.FC = () => {
     const { sessionId: incomingSessionId, message: incomingMessage } =
       getChatBootstrapParams(searchParams);
     if (!incomingSessionId && !incomingMessage) return;
+    let cancelled = false;
 
     const { nextParams, changed } = stripChatBootstrapParams(searchParams);
     if (changed) {
@@ -579,10 +580,12 @@ export const RepositoryPage: React.FC = () => {
           name,
           incomingSessionId,
         );
+        if (cancelled) return;
         const mapped = mapHistoryToMessages(history.messages || []);
         setChat(mapped);
         setChatError(null);
       } catch (error) {
+        if (cancelled) return;
         console.error("Failed to load session history", error);
         const message =
           error instanceof Error
@@ -590,6 +593,7 @@ export const RepositoryPage: React.FC = () => {
             : "Failed to load session history";
         setChatError(message);
       } finally {
+        if (cancelled) return;
         setChatLoading(false);
       }
     };
@@ -617,6 +621,10 @@ export const RepositoryPage: React.FC = () => {
         textarea.value.length,
       );
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     api,
     name,
