@@ -560,21 +560,48 @@ export const RepositoryPage: React.FC = () => {
     const { sessionId: incomingSessionId, message: incomingMessage } =
       getChatBootstrapParams(searchParams);
     if (!incomingSessionId && !incomingMessage) return;
+    let cancelled = false;
 
     const { nextParams, changed } = stripChatBootstrapParams(searchParams);
     if (changed) {
       setSearchParams(nextParams, { replace: true });
     }
 
-    if (incomingSessionId && incomingSessionId !== sessionId) {
+    const switchSessionIfNeeded = async () => {
+      if (!name || !incomingSessionId || incomingSessionId === sessionId) {
+        return;
+      }
+
       setSessionId(incomingSessionId);
       setChat([]);
-    }
+      setChatLoading(true);
+      try {
+        const history = await api.getRepositoryAgentHistory(
+          name,
+          incomingSessionId,
+        );
+        if (cancelled) return;
+        const mapped = mapHistoryToMessages(history.messages || []);
+        setChat(mapped);
+        setChatError(null);
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Failed to load session history", error);
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to load session history";
+        setChatError(message);
+      } finally {
+        if (!cancelled) {
+          setChatLoading(false);
+        }
+      }
+    };
+    void switchSessionIfNeeded();
 
     const path = window.location.pathname;
-    if (
-      hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)
-    ) {
+    if (hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)) {
       return;
     }
     markChatBootstrapConsumed(path, incomingSessionId, incomingMessage);
@@ -588,12 +615,13 @@ export const RepositoryPage: React.FC = () => {
         chatInputId,
       ) as HTMLTextAreaElement | null;
       textarea?.focus();
-      textarea?.setSelectionRange(
-        textarea.value.length,
-        textarea.value.length,
-      );
+      textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
     });
-  }, [searchParams, setSearchParams, sessionId, setSessionId]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, name, searchParams, sessionId, setSearchParams, setSessionId]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");

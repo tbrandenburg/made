@@ -101,6 +101,7 @@ export const TaskPage: React.FC = () => {
     const { sessionId: incomingSessionId, message: incomingMessage } =
       getChatBootstrapParams(searchParams);
     if (!incomingSessionId && !incomingMessage) return;
+    let cancelled = false;
 
     const { nextParams, changed } = stripChatBootstrapParams(searchParams);
     if (changed) {
@@ -117,10 +118,12 @@ export const TaskPage: React.FC = () => {
       setChatLoading(true);
       try {
         const history = await api.getTaskAgentHistory(name, incomingSessionId);
+        if (cancelled) return;
         const mapped = mapHistoryToMessages(history.messages || []);
         setChat(mapped);
         setAgentStatus(null);
       } catch (error) {
+        if (cancelled) return;
         console.error("Failed to load session history", error);
         const message =
           error instanceof Error
@@ -128,15 +131,15 @@ export const TaskPage: React.FC = () => {
             : "Failed to load session history";
         setAgentStatus(message);
       } finally {
-        setChatLoading(false);
+        if (!cancelled) {
+          setChatLoading(false);
+        }
       }
     };
     void switchSessionIfNeeded();
 
     const path = window.location.pathname;
-    if (
-      hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)
-    ) {
+    if (hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)) {
       return;
     }
     markChatBootstrapConsumed(path, incomingSessionId, incomingMessage);
@@ -150,11 +153,12 @@ export const TaskPage: React.FC = () => {
         chatInputId,
       ) as HTMLTextAreaElement | null;
       textarea?.focus();
-      textarea?.setSelectionRange(
-        textarea.value.length,
-        textarea.value.length,
-      );
+      textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [api, name, searchParams, sessionId, setSearchParams, setSessionId]);
 
   const copyAllMessages = useCallback(() => {
@@ -469,7 +473,9 @@ export const TaskPage: React.FC = () => {
                 <Panel title="Preview">
                   <div
                     className="markdown"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(content || "") }}
+                    dangerouslySetInnerHTML={{
+                      __html: renderMarkdown(content || ""),
+                    }}
                   />
                 </Panel>
               </div>

@@ -119,6 +119,7 @@ export const ConstitutionPage: React.FC = () => {
     const { sessionId: incomingSessionId, message: incomingMessage } =
       getChatBootstrapParams(searchParams);
     if (!incomingSessionId && !incomingMessage) return;
+    let cancelled = false;
 
     const { nextParams, changed } = stripChatBootstrapParams(searchParams);
     if (changed) {
@@ -138,10 +139,12 @@ export const ConstitutionPage: React.FC = () => {
           name,
           incomingSessionId,
         );
+        if (cancelled) return;
         const mapped = mapHistoryToMessages(history.messages || []);
         setChat(mapped);
         setAgentStatus(null);
       } catch (error) {
+        if (cancelled) return;
         console.error("Failed to load session history", error);
         const message =
           error instanceof Error
@@ -149,15 +152,15 @@ export const ConstitutionPage: React.FC = () => {
             : "Failed to load session history";
         setAgentStatus(message);
       } finally {
-        setChatLoading(false);
+        if (!cancelled) {
+          setChatLoading(false);
+        }
       }
     };
     void switchSessionIfNeeded();
 
     const path = window.location.pathname;
-    if (
-      hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)
-    ) {
+    if (hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)) {
       return;
     }
     markChatBootstrapConsumed(path, incomingSessionId, incomingMessage);
@@ -171,11 +174,12 @@ export const ConstitutionPage: React.FC = () => {
         chatInputId,
       ) as HTMLTextAreaElement | null;
       textarea?.focus();
-      textarea?.setSelectionRange(
-        textarea.value.length,
-        textarea.value.length,
-      );
+      textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [api, name, searchParams, sessionId, setSearchParams, setSessionId]);
 
   const copyAllMessages = useCallback(() => {
@@ -280,7 +284,11 @@ export const ConstitutionPage: React.FC = () => {
           setStatus("Missing external constitution path");
           return;
         }
-        await api.writeExternalMatter({ path: externalPath, content, frontmatter });
+        await api.writeExternalMatter({
+          path: externalPath,
+          content,
+          frontmatter,
+        });
         saveExternalMatter("constitution", name, content, frontmatter);
         setStatus("Saved successfully");
         return;
@@ -510,7 +518,9 @@ export const ConstitutionPage: React.FC = () => {
           <Panel title="Preview">
             <div
               className="markdown"
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(content || "") }}
+              dangerouslySetInnerHTML={{
+                __html: renderMarkdown(content || ""),
+              }}
             />
           </Panel>
         </div>
@@ -554,7 +564,22 @@ export const ConstitutionPage: React.FC = () => {
                   title="Copy chat messages"
                   disabled={!chat.length}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
                 </button>
               </div>
             }
@@ -637,7 +662,7 @@ export const ConstitutionPage: React.FC = () => {
   return (
     <div className="page">
       <h1>
-        Constitution: {isExternal ? linkedExternalMatter?.name ?? name : name}
+        Constitution: {isExternal ? (linkedExternalMatter?.name ?? name) : name}
       </h1>
       {status && (
         <div
