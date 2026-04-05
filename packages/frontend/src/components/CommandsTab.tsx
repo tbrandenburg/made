@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { marked } from "marked";
+import { renderMarkdown } from "../utils/markdown";
 import { Panel } from "./Panel";
 import { Modal } from "./Modal";
 import { CommandDefinition } from "../hooks/useApi";
@@ -411,7 +411,7 @@ export const CommandsTab: React.FC<CommandsTabProps> = ({
           <div
             className="markdown"
             dangerouslySetInnerHTML={{
-              __html: marked(commandPreviewContent),
+              __html: renderMarkdown(commandPreviewContent),
             }}
           />
         ) : (
