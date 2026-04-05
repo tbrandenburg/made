@@ -117,6 +117,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
     const { sessionId: incomingSessionId, message: incomingMessage } =
       getChatBootstrapParams(searchParams);
     if (!incomingSessionId && !incomingMessage) return;
+    let cancelled = false;
 
     const { nextParams, changed } = stripChatBootstrapParams(searchParams);
     if (changed) {
@@ -136,10 +137,12 @@ export const KnowledgeArtefactPage: React.FC = () => {
           name,
           incomingSessionId,
         );
+        if (cancelled) return;
         const mapped = mapHistoryToMessages(history.messages || []);
         setChat(mapped);
         setAgentStatus(null);
       } catch (error) {
+        if (cancelled) return;
         console.error("Failed to load session history", error);
         const message =
           error instanceof Error
@@ -147,15 +150,15 @@ export const KnowledgeArtefactPage: React.FC = () => {
             : "Failed to load session history";
         setAgentStatus(message);
       } finally {
-        setChatLoading(false);
+        if (!cancelled) {
+          setChatLoading(false);
+        }
       }
     };
     void switchSessionIfNeeded();
 
     const path = window.location.pathname;
-    if (
-      hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)
-    ) {
+    if (hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)) {
       return;
     }
     markChatBootstrapConsumed(path, incomingSessionId, incomingMessage);
@@ -169,11 +172,12 @@ export const KnowledgeArtefactPage: React.FC = () => {
         chatInputId,
       ) as HTMLTextAreaElement | null;
       textarea?.focus();
-      textarea?.setSelectionRange(
-        textarea.value.length,
-        textarea.value.length,
-      );
+      textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [api, name, searchParams, sessionId, setSearchParams, setSessionId]);
 
   const copyAllMessages = useCallback(() => {
@@ -278,7 +282,11 @@ export const KnowledgeArtefactPage: React.FC = () => {
           setStatus("Missing external artefact path");
           return;
         }
-        await api.writeExternalMatter({ path: externalPath, content, frontmatter });
+        await api.writeExternalMatter({
+          path: externalPath,
+          content,
+          frontmatter,
+        });
         saveExternalMatter("knowledge", name, content, frontmatter);
         setStatus("Saved successfully");
         return;
@@ -528,7 +536,9 @@ export const KnowledgeArtefactPage: React.FC = () => {
           <Panel title="Preview">
             <div
               className="markdown"
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(content || "") }}
+              dangerouslySetInnerHTML={{
+                __html: renderMarkdown(content || ""),
+              }}
             />
           </Panel>
         </div>
@@ -668,7 +678,9 @@ export const KnowledgeArtefactPage: React.FC = () => {
 
   return (
     <div className="page">
-      <h1>Artefact: {isExternal ? linkedExternalMatter?.name ?? name : name}</h1>
+      <h1>
+        Artefact: {isExternal ? (linkedExternalMatter?.name ?? name) : name}
+      </h1>
       {status && (
         <div
           className={`alert ${
@@ -682,7 +694,11 @@ export const KnowledgeArtefactPage: React.FC = () => {
           {status}
         </div>
       )}
-      <TabView tabs={visibleTabs} activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabView
+        tabs={visibleTabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
       <ClearSessionModal
         open={clearSessionModalOpen}
         onCancel={handleCancelClearSession}

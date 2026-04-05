@@ -31,6 +31,7 @@ These are rules which should guide you, but can be overwritten by experts or pro
 This guide outlines the minimal test levels absolutely required for **Python FastAPI** backend and **React** frontend.
 Follow this mandatory guideline even if not instructed.
 Focus on lightweight, fast feedback — only essential tests are included.
+- Before pushing changes, run `make qa-quick` from repository root and address any failures.
 
 ### CI/CD Note for Backend Pytest
 - If CI runs `python -m pytest packages/pybackend/tests/unit` directly, install backend dependencies first (e.g., `cd packages/pybackend && uv sync` or `python -m pip install -e packages/pybackend`) to avoid missing-import collection errors.
