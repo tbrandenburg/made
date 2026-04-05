@@ -1,5 +1,5 @@
 import React from "react";
-import { marked } from "marked";
+import { renderMarkdown } from "../utils/markdown";
 import { ChatMessage } from "../types/chat";
 
 interface ChatWindowProps {
@@ -113,7 +113,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             className="markdown"
             dangerouslySetInnerHTML={{
               __html: strippedMessage.trim()
-                ? marked(strippedMessage)
+                ? renderMarkdown(strippedMessage)
                 : "<em>Empty message</em>",
             }}
           />

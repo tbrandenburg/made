@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { marked } from "marked";
+import { renderMarkdown } from "../utils/markdown";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
@@ -2196,7 +2196,7 @@ export const RepositoryPage: React.FC = () => {
                 <div
                   className="markdown"
                   dangerouslySetInnerHTML={{
-                    __html: marked(editorContent || ""),
+                    __html: renderMarkdown(editorContent || ""),
                   }}
                 />
               ) : (
@@ -2393,7 +2393,7 @@ export const RepositoryPage: React.FC = () => {
           <div
             className="markdown"
             dangerouslySetInnerHTML={{
-              __html: marked(commandPreviewContent),
+              __html: renderMarkdown(commandPreviewContent),
             }}
           />
         ) : (

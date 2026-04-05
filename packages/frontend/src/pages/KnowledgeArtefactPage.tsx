@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { marked } from "marked";
+import { renderMarkdown } from "../utils/markdown";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { ChatWindow } from "../components/ChatWindow";
@@ -502,7 +502,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
           <Panel title="Preview">
             <div
               className="markdown"
-              dangerouslySetInnerHTML={{ __html: marked(content || "") }}
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(content || "") }}
             />
           </Panel>
         </div>
