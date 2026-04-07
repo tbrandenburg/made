@@ -38,7 +38,9 @@ describe("useApi retry behavior", () => {
 
   describe("non-idempotent methods (POST, PUT, PATCH, DELETE)", () => {
     it("should NOT retry POST requests on network error", async () => {
-      window.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+      window.fetch = vi
+        .fn()
+        .mockRejectedValue(new TypeError("Failed to fetch"));
 
       await expect(
         api.sendAgentMessage("test-repo", "hello world"),
@@ -51,11 +53,13 @@ describe("useApi retry behavior", () => {
     });
 
     it("should NOT retry DELETE requests on network error", async () => {
-      window.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+      window.fetch = vi
+        .fn()
+        .mockRejectedValue(new TypeError("Failed to fetch"));
 
-      await expect(
-        api.deleteRepository("test-repo"),
-      ).rejects.toThrow("Failed to fetch");
+      await expect(api.deleteRepository("test-repo")).rejects.toThrow(
+        "Failed to fetch",
+      );
 
       expect(window.fetch).toHaveBeenCalledTimes(1);
     });
@@ -66,7 +70,9 @@ describe("useApi retry behavior", () => {
       window.fetch = vi
         .fn()
         .mockResolvedValueOnce(new Response("Server Error", { status: 500 }))
-        .mockResolvedValueOnce(new Response(JSON.stringify({ repositories: [] }), { status: 200 }));
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ repositories: [] }), { status: 200 }),
+        );
 
       const result = await api.listRepositories();
 
@@ -80,7 +86,9 @@ describe("useApi retry behavior", () => {
 
   describe("integration with agent endpoints", () => {
     it("should not retry sendAgentMessage on network timeout", async () => {
-      window.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+      window.fetch = vi
+        .fn()
+        .mockRejectedValue(new TypeError("Failed to fetch"));
 
       await expect(
         api.sendAgentMessage("test-repo", "test message"),
@@ -90,7 +98,9 @@ describe("useApi retry behavior", () => {
     });
 
     it("should not retry sendKnowledgeAgent on network timeout", async () => {
-      window.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+      window.fetch = vi
+        .fn()
+        .mockRejectedValue(new TypeError("Failed to fetch"));
 
       await expect(
         api.sendKnowledgeAgent("test message", "artefact-id"),
@@ -100,7 +110,9 @@ describe("useApi retry behavior", () => {
     });
 
     it("should not retry sendConstitutionAgent on network timeout", async () => {
-      window.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+      window.fetch = vi
+        .fn()
+        .mockRejectedValue(new TypeError("Failed to fetch"));
 
       await expect(
         api.sendConstitutionAgent("test message", "constitution-id"),
@@ -110,7 +122,9 @@ describe("useApi retry behavior", () => {
     });
 
     it("should not retry sendTaskAgent on network timeout", async () => {
-      window.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+      window.fetch = vi
+        .fn()
+        .mockRejectedValue(new TypeError("Failed to fetch"));
 
       await expect(
         api.sendTaskAgent("test message", "task-id"),

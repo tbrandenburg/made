@@ -36,7 +36,11 @@ export const usePersistentChat = (
 
   useEffect(() => {
     if (!storageKey) return;
-    localStorage.setItem(storageKey, JSON.stringify(chat));
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(chat));
+    } catch (error) {
+      console.warn("Failed to persist chat history to localStorage", error);
+    }
   }, [chat, storageKey]);
 
   return [chat, setChat] as const;

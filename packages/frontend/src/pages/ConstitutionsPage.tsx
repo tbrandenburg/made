@@ -169,7 +169,10 @@ export const ConstitutionsPage: React.FC = () => {
                   >
                     Create Constitution
                   </button>
-                  <button className="secondary" onClick={() => setLinkOpen(true)}>
+                  <button
+                    className="secondary"
+                    onClick={() => setLinkOpen(true)}
+                  >
                     Link Constitution
                   </button>
                 </div>
@@ -287,7 +290,10 @@ export const ConstitutionsPage: React.FC = () => {
           >
             Cancel
           </button>
-          <button className="primary" onClick={() => void handleConfirmRemove()}>
+          <button
+            className="primary"
+            onClick={() => void handleConfirmRemove()}
+          >
             Remove
           </button>
         </div>

@@ -53,7 +53,9 @@ export const hasConsumedChatBootstrap = (
   pathname: string,
   sessionId: string | null,
   message: string | null,
-) => sessionStorage.getItem(buildConsumedKey(pathname, sessionId, message)) === "1";
+) =>
+  sessionStorage.getItem(buildConsumedKey(pathname, sessionId, message)) ===
+  "1";
 
 export const markChatBootstrapConsumed = (
   pathname: string,

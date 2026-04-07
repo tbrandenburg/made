@@ -442,7 +442,7 @@ Message input: **stdin**
 # Workflow YAML Input
 
 ```yaml
-{{WORKFLOW_YAML}}
+{ { WORKFLOW_YAML } }
 ```
 
 Steps must be translated into Bash step sections.

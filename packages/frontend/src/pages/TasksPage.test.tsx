@@ -295,7 +295,9 @@ describe("TasksPage", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText("Running Agent CLI Processes")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Running Agent CLI Processes"),
+    ).toBeInTheDocument();
     expect(screen.getByText("codex")).toBeInTheDocument();
     expect(screen.getByText("/workspace/made")).toBeInTheDocument();
 

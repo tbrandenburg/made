@@ -47,7 +47,9 @@ const buildTree = <T extends { name: string }>(items: T[]): TreeNode<T> => {
   return root;
 };
 
-interface NestedArtefactPanelsProps<T extends { name: string; routeName?: string }> {
+interface NestedArtefactPanelsProps<
+  T extends { name: string; routeName?: string },
+> {
   items: T[];
   basePath: string;
   renderMetadata: (item: T) => React.ReactNode;
@@ -62,9 +64,9 @@ export const NestedArtefactPanels = <
   renderMetadata,
   renderActions,
 }: NestedArtefactPanelsProps<T>) => {
-  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>(
-    {},
-  );
+  const [expandedFolders, setExpandedFolders] = useState<
+    Record<string, boolean>
+  >({});
 
   const tree = useMemo(() => buildTree(items), [items]);
 
@@ -80,12 +82,16 @@ export const NestedArtefactPanels = <
       a.localeCompare(b),
     );
 
-    const sortedItems = [...node.items].sort((a, b) => a.name.localeCompare(b.name));
+    const sortedItems = [...node.items].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
 
     return (
       <div className="nested-tree-block">
         {folderEntries.map(([folderName, folderNode]) => {
-          const nextPath = folderPath ? `${folderPath}/${folderName}` : folderName;
+          const nextPath = folderPath
+            ? `${folderPath}/${folderName}`
+            : folderName;
           const isExpanded = Boolean(expandedFolders[nextPath]);
 
           return (

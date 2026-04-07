@@ -88,9 +88,8 @@ describe("ConstitutionsPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Global/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Runtime/ }));
 
-    expect(await screen.findByRole("link", { name: "policy.md" })).toHaveAttribute(
-      "href",
-      "/constitutions/Global%2FRuntime%2Fpolicy.md",
-    );
+    expect(
+      await screen.findByRole("link", { name: "policy.md" }),
+    ).toHaveAttribute("href", "/constitutions/Global%2FRuntime%2Fpolicy.md");
   });
 });

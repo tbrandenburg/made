@@ -4,7 +4,9 @@ import { formatBreadcrumb } from "./TopBar";
 describe("formatBreadcrumb", () => {
   it("formats external matter ids using a readable file stem", () => {
     expect(
-      formatBreadcrumb("/constitutions/external-~%2F.config%2Fopencode%2FAGENTS.md"),
+      formatBreadcrumb(
+        "/constitutions/external-~%2F.config%2Fopencode%2FAGENTS.md",
+      ),
     ).toBe("Constitutions / External AGENTS");
   });
 

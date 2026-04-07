@@ -54,7 +54,8 @@ async function request<T>(
           (error.message.includes("fetch") ||
             error.message.includes("Failed to fetch")));
 
-      const isIdempotent = !options.method || 
+      const isIdempotent =
+        !options.method ||
         ["GET", "HEAD", "OPTIONS"].includes(options.method.toUpperCase());
 
       if (attempt < maxRetries && isNetworkError && isIdempotent) {
@@ -124,7 +125,8 @@ async function requestForm<T>(
           (error.message.includes("fetch") ||
             error.message.includes("Failed to fetch")));
 
-      const isIdempotent = !options.method || 
+      const isIdempotent =
+        !options.method ||
         ["GET", "HEAD", "OPTIONS"].includes(options.method.toUpperCase());
 
       if (attempt < maxRetries && isNetworkError && isIdempotent) {

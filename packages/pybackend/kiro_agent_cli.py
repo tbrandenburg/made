@@ -36,7 +36,12 @@ class KiroAgentCLI(AgentCLI):
 
     def build_prompt_command(self, prompt: str) -> list[str]:
         _ = prompt
-        return [self.main_executable_name(), "chat", "--no-interactive", "--trust-all-tools"]
+        return [
+            self.main_executable_name(),
+            "chat",
+            "--no-interactive",
+            "--trust-all-tools",
+        ]
 
     def prompt_via_stdin(self) -> bool:
         return True
