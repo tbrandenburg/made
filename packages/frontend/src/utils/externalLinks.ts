@@ -39,17 +39,16 @@ const parseStored = (kind: ExternalMatterKind): ExternalMatter[] => {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (item): item is ExternalMatter =>
-        Boolean(
-          item &&
-            typeof item.id === "string" &&
-            typeof item.path === "string" &&
-            typeof item.name === "string" &&
-            typeof item.content === "string" &&
-            item.frontmatter &&
-            typeof item.frontmatter === "object",
-        ),
+    return parsed.filter((item): item is ExternalMatter =>
+      Boolean(
+        item &&
+        typeof item.id === "string" &&
+        typeof item.path === "string" &&
+        typeof item.name === "string" &&
+        typeof item.content === "string" &&
+        item.frontmatter &&
+        typeof item.frontmatter === "object",
+      ),
     );
   } catch (error) {
     console.warn("Failed to parse external matter from localStorage", error);
@@ -65,7 +64,8 @@ const writeStored = (kind: ExternalMatterKind, values: ExternalMatter[]) => {
   }
 };
 
-export const listExternalMatter = (kind: ExternalMatterKind) => parseStored(kind);
+export const listExternalMatter = (kind: ExternalMatterKind) =>
+  parseStored(kind);
 
 export const addExternalMatterLink = (
   kind: ExternalMatterKind,
@@ -125,4 +125,5 @@ export const removeExternalMatterLink = (
   return true;
 };
 
-export const isExternalMatterId = (value: string) => value.startsWith(ID_PREFIX);
+export const isExternalMatterId = (value: string) =>
+  value.startsWith(ID_PREFIX);

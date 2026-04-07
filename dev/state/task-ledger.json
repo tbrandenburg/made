@@ -146,5 +146,113 @@
       "SUCCESS: Security fix resolved the lodash vulnerability, all CI checks now pass"
     ],
     "last_verified": "2026-04-03T06:53:00Z"
+  },
+  "TASK_1_ANALYZE_PR364": {
+    "status": "done",
+    "evidence": [
+      "gh pr view 364: PR title 'Load chat session history from bootstrap params and handle session switching for agent pages'",
+      "PR state: OPEN, mergeable: CONFLICTING, mergeStateStatus: DIRTY",
+      "git merge origin/main: CONFLICTS in 4 files - ConstitutionPage.tsx, KnowledgeArtefactPage.tsx, RepositoryPage.tsx, TaskPage.tsx",
+      "Conflict pattern: PR branch adds complex session switching logic with async history loading, main branch has simpler sessionId setting",
+      "Files modified: all 4 agent page components with session bootstrap improvements"
+    ],
+    "last_verified": "2026-04-05T00:00:00Z"
+  },
+  "TASK_2_ROOT_CAUSE_5XWHY_PR364": {
+    "status": "done",
+    "evidence": [
+      "Why1: Why does PR 364 have merge conflicts? Because both PR 363 (merged) and PR 364 modified same session handling logic in same 4 files",
+      "Why2: Why did both PRs modify same code? Because both worked on same feature - fixing chat bootstrap session switching - with different approaches",
+      "Why3: Why were two PRs created for same issue? Because PR 364 was created before PR 363 merged, both developers working on same task simultaneously",
+      "Why4: Why no coordination between efforts? Because development workflow lacks task assignment/tracking to prevent duplicate work",
+      "Why5: Why parallel development on same issue allowed? Because no mature workflow with issue assignment, branch naming, or WIP visibility"
+    ],
+    "last_verified": "2026-04-05T00:00:00Z"
+  },
+  "TASK_3_PLAN_FIX_PR364": {
+    "status": "done",
+    "evidence": [
+      "Conflict analysis: PR 363 (merged) added simple setSessionId before bootstrap check, PR 364 adds sophisticated async session switching with history loading",
+      "Resolution strategy: Accept PR 364's superior functionality - it's a superset/improvement over PR 363",
+      "Plan: 1) Keep PR 364's early guard 'if (!name) return', 2) Keep PR 364's switchSessionIfNeeded async logic, 3) Remove conflicting simple setSessionId from main, 4) Update dependency arrays with api+name",
+      "PR 364 changes are more advanced: loads session history, handles errors, manages loading state vs PR 363's basic session setting"
+    ],
+    "last_verified": "2026-04-05T00:00:00Z"
+  },
+  "TASK_4_IMPLEMENT_PLAN_PR364": {
+    "status": "done",
+    "evidence": [
+      "Resolved ConstitutionPage.tsx: kept PR 364's switchSessionIfNeeded async logic with api.getConstitutionAgentHistory",
+      "Resolved KnowledgeArtefactPage.tsx: kept PR 364's switchSessionIfNeeded async logic with api.getKnowledgeAgentHistory", 
+      "Resolved TaskPage.tsx: kept PR 364's switchSessionIfNeeded async logic with api.getTaskAgentHistory",
+      "Resolved RepositoryPage.tsx: kept PR 364's setChat([]) when switching sessions",
+      "git add: marked all 4 resolved files as staged",
+      "npx tsc --noEmit: TypeScript compilation successful, no errors"
+    ],
+    "last_verified": "2026-04-05T00:00:00Z"
+  },
+  "TASK_5_COMMIT_PUSH_PR364": {
+    "status": "done",
+    "evidence": [
+      "git commit 9e726ae: 'Resolve merge conflicts: integrate PR 364's advanced session switching with PR 363's timing fixes'",
+      "git push: successfully pushed to origin/codex/verify-session-referencing-method",
+      "Committed files: ConstitutionPage.tsx, KnowledgeArtefactPage.tsx, RepositoryPage.tsx, TaskPage.tsx with merge resolution"
+    ],
+    "last_verified": "2026-04-05T00:00:00Z"
+  },
+  "TASK_6_OBSERVE_CI_PR364": {
+    "status": "done",
+    "evidence": [
+      "gh pr checks 364: ALL PASSING ✅",
+      "Quality Assurance (Lint + Format + Unit Tests): PASS (34s)",
+      "Python Backend Tests with Coverage: PASS (25s)",
+      "System tests (E2E): PASS (3m24s)",
+      "Docker Build: PASS (48s)",
+      "Docker Development Mode: PASS (43s)",
+      "preview: PASS (5m56s)",
+      "Vercel: PASS - deployment completed",
+      "SUCCESS: Merge conflict resolution successful, all CI checks passing"
+    ],
+    "last_verified": "2026-04-05T00:00:00Z"
+  },
+  "TASK_1_ANALYZE_PR371": {
+    "status": "done",
+    "evidence": [
+      "gh pr checks 371: Docker Build = FAIL, other checks = PASS",
+      "Docker build error: 'src/hooks/usePersistentChat.test.tsx(21,11): error TS2353: Object literal may only specify known properties, and 'sender' does not exist in type 'ChatMessage''",
+      "Root cause analysis: test file has incorrect ChatMessage structure - uses 'sender' field instead of 'role' field",
+      "5xWhy: Why1=TypeScript compilation fails? Because test uses 'sender' field not in ChatMessage interface | Why2=Why 'sender' field used? Because test author assumed 'sender' property exists for user/agent role | Why3=Why wrong assumption? Because ChatMessage interface uses 'role' not 'sender' field | Why4=Why test not checked before PR? Because TypeScript check not run locally before commit | Why5=Why type mismatch allowed? Because no pre-commit hooks enforcing TypeScript compilation"
+    ],
+    "last_verified": "2026-04-07T14:50:00Z"
+  },
+  "TASK_2_PLAN_FIX_PR371": {
+    "status": "done",
+    "evidence": [
+      "Root cause: test file uses incorrect ChatMessage interface - 'sender' instead of 'role'",
+      "ChatMessage interface analysis: role: 'user' | 'agent', not sender field",
+      "Plan: Replace 'sender: \"user\"' with 'role: \"user\"' in test file line 21",
+      "Verification: run TypeScript compilation and tests locally before commit"
+    ],
+    "last_verified": "2026-04-07T14:55:00Z"
+  },
+  "TASK_3_IMPLEMENT_FIX_PR371": {
+    "status": "done",
+    "evidence": [
+      "Edit: changed 'sender: \"user\"' to 'role: \"user\"' in usePersistentChat.test.tsx line 21",
+      "npx tsc --noEmit: TypeScript compilation successful, no errors",
+      "npm test usePersistentChat.test.tsx: 1 test passed",
+      "make qa-quick: All quality assurance checks passed - formatting, linting, unit tests (344 passed, 1 skipped)"
+    ],
+    "last_verified": "2026-04-07T15:10:00Z"
+  },
+  "TASK_4_COMMIT_PUSH_PR371": {
+    "status": "pending",
+    "evidence": [],
+    "last_verified": "2026-04-07T14:50:00Z"
+  },
+  "TASK_5_OBSERVE_CI_PR371": {
+    "status": "pending",
+    "evidence": [],
+    "last_verified": "2026-04-07T14:50:00Z"
   }
 }

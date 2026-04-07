@@ -18,7 +18,7 @@ const TestComponent = ({
         {
           id: "message-1",
           text: nextMessage,
-          sender: "user",
+          role: "user",
           timestamp: "2026-04-07T00:00:00.000Z",
         },
       ]);

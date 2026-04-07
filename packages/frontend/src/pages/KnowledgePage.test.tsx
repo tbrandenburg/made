@@ -84,7 +84,9 @@ describe("KnowledgePage", () => {
     );
 
     fireEvent.click(await screen.findByRole("button", { name: /Engineering/ }));
-    fireEvent.click(await screen.findByRole("button", { name: /Architecture/ }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Architecture/ }),
+    );
 
     const nestedTitle = await screen.findByText("guide.md");
     expect(nestedTitle.closest("a")).toHaveAttribute(

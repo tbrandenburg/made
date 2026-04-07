@@ -159,7 +159,9 @@ export const RepositoriesPage: React.FC = () => {
       setAlert({
         type: "error",
         message:
-          error instanceof Error ? error.message : "Failed to delete repository",
+          error instanceof Error
+            ? error.message
+            : "Failed to delete repository",
       });
     } finally {
       setIsDeletingRepository(false);
@@ -440,7 +442,9 @@ export const RepositoriesPage: React.FC = () => {
         <div className="modal-actions">
           <button
             className="secondary"
-            onClick={() => setDeleteRepositoryModal({ open: false, name: null })}
+            onClick={() =>
+              setDeleteRepositoryModal({ open: false, name: null })
+            }
             disabled={isDeletingRepository}
           >
             Cancel

@@ -178,7 +178,10 @@ export const KnowledgePage: React.FC = () => {
                   >
                     Create Artefact
                   </button>
-                  <button className="secondary" onClick={() => setLinkOpen(true)}>
+                  <button
+                    className="secondary"
+                    onClick={() => setLinkOpen(true)}
+                  >
                     Link Artefact
                   </button>
                 </div>
@@ -271,7 +274,9 @@ export const KnowledgePage: React.FC = () => {
       </Modal>
       <Modal
         open={removeModal.open}
-        title={removeModal.isExternal ? "Remove Linked Artefact" : "Remove Artefact"}
+        title={
+          removeModal.isExternal ? "Remove Linked Artefact" : "Remove Artefact"
+        }
         onClose={() =>
           setRemoveModal({
             open: false,
@@ -300,7 +305,10 @@ export const KnowledgePage: React.FC = () => {
           >
             Cancel
           </button>
-          <button className="primary" onClick={() => void handleConfirmRemove()}>
+          <button
+            className="primary"
+            onClick={() => void handleConfirmRemove()}
+          >
             Remove
           </button>
         </div>

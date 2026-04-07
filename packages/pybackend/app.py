@@ -169,7 +169,11 @@ def _start_shell(repo_path: Path) -> tuple[int, subprocess.Popen, str]:
         "/usr/bin/sh",
     ]
     shell = next(
-        (candidate for candidate in fallback_shells if candidate and shutil.which(candidate)),
+        (
+            candidate
+            for candidate in fallback_shells
+            if candidate and shutil.which(candidate)
+        ),
         "/bin/sh",
     )
     try:
@@ -1138,7 +1142,9 @@ def external_matter_read(request: Request, payload: dict = Body(...)):
     try:
         logger.info("Reading external matter '%s'", path)
         result = read_external_matter(path)
-        logger.info("External matter read succeeded for '%s' (client: %s)", path, client_host)
+        logger.info(
+            "External matter read succeeded for '%s' (client: %s)", path, client_host
+        )
         return result
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))

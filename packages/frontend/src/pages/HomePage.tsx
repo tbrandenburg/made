@@ -110,9 +110,7 @@ export const HomePage: React.FC = () => {
                       setFavorites(getFavorites());
                     }}
                   >
-                    <StarIcon
-                      filled={favoriteIds.has(entry.id)}
-                    />
+                    <StarIcon filled={favoriteIds.has(entry.id)} />
                   </button>
                 }
               >

@@ -139,7 +139,9 @@ export const TasksPage: React.FC = () => {
     name: string;
   }>({ open: false, name: "" });
   const [deletingTask, setDeletingTask] = useState(false);
-  const [agentProcesses, setAgentProcesses] = useState<AgentProcessSummary[]>([]);
+  const [agentProcesses, setAgentProcesses] = useState<AgentProcessSummary[]>(
+    [],
+  );
   const [terminatingAgentPid, setTerminatingAgentPid] = useState<number | null>(
     null,
   );
@@ -325,7 +327,9 @@ export const TasksPage: React.FC = () => {
     <div className="metadata">
       {typeof task.frontmatter?.schedule === "string" &&
         task.frontmatter.schedule.trim() && (
-          <span className="badge success">{String(task.frontmatter.schedule)}</span>
+          <span className="badge success">
+            {String(task.frontmatter.schedule)}
+          </span>
         )}
       {typeof task.frontmatter?.type === "string" && (
         <span className="badge">{String(task.frontmatter.type)}</span>
@@ -367,7 +371,8 @@ export const TasksPage: React.FC = () => {
                           const repositoryName = getRepositoryName(
                             workflow.repository,
                           );
-                          const isScheduledTask = workflow.id.startsWith("task:");
+                          const isScheduledTask =
+                            workflow.id.startsWith("task:");
                           const scheduledTaskName = isScheduledTask
                             ? workflow.id.slice("task:".length)
                             : null;
@@ -384,7 +389,9 @@ export const TasksPage: React.FC = () => {
                               <td>{workflow.schedule || "-"}</td>
                               <td>
                                 {isScheduledTask && scheduledTaskName ? (
-                                  <Link to={`/tasks/${encodeURIComponent(scheduledTaskName)}`}>
+                                  <Link
+                                    to={`/tasks/${encodeURIComponent(scheduledTaskName)}`}
+                                  >
                                     {workflow.name}
                                   </Link>
                                 ) : (
@@ -473,7 +480,9 @@ export const TasksPage: React.FC = () => {
                           <button
                             className="secondary"
                             onClick={() =>
-                              setWorkflowLogsPage((page) => Math.max(1, page - 1))
+                              setWorkflowLogsPage((page) =>
+                                Math.max(1, page - 1),
+                              )
                             }
                             disabled={workflowLogsPage === 1}
                           >
@@ -489,7 +498,9 @@ export const TasksPage: React.FC = () => {
                                 Math.min(workflowLogsPageCount, page + 1),
                               )
                             }
-                            disabled={workflowLogsPage === workflowLogsPageCount}
+                            disabled={
+                              workflowLogsPage === workflowLogsPageCount
+                            }
                           >
                             Next
                           </button>

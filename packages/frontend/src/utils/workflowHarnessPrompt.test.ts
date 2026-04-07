@@ -49,7 +49,9 @@ describe("buildWorkflowHarnessPrompt", () => {
     expect(prompt).toContain("run_step() {");
     expect(prompt).toContain("run_step step1");
     expect(prompt).toContain("• No arguments → execute workflow normally");
-    expect(prompt).toContain("### Subprocess output visibility (stdout/stderr)");
+    expect(prompt).toContain(
+      "### Subprocess output visibility (stdout/stderr)",
+    );
     expect(prompt).toContain('"$step_name" 2>&1 | tee -a "$LOG_FILE"');
     expect(prompt).toContain(".harness/release-workflow.sh --dry-run");
   });

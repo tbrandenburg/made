@@ -167,6 +167,11 @@ def list_workspace_workflows(
             }
         )
 
-    workflows.sort(key=lambda workflow: (str(workflow.get("repository") or ""), str(workflow.get("name") or "")))
+    workflows.sort(
+        key=lambda workflow: (
+            str(workflow.get("repository") or ""),
+            str(workflow.get("name") or ""),
+        )
+    )
 
     return {"workflows": workflows}

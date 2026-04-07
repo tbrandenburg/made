@@ -180,7 +180,9 @@ describe("RepositoriesPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByLabelText("Delete repository main-repo"));
+    fireEvent.click(
+      await screen.findByLabelText("Delete repository main-repo"),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => {
