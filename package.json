@@ -24,6 +24,7 @@
   "overrides": {
     "axios": ">=1.15.0",
     "picomatch": "4.0.4",
-    "lodash": "4.18.1"
+    "lodash": "4.18.1",
+    "follow-redirects": ">=1.16.0"
   }
 }
