@@ -391,7 +391,8 @@ textarea {
   background: var(--surface);
   border-radius: 1rem;
   padding: 1rem;
-  max-height: 320px;
+  min-height: 320px;
+  max-height: min(65vh, 720px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
