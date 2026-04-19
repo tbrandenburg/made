@@ -13,6 +13,7 @@ const agentCliOptions = [
   "copilot",
   "codex",
   "ob1",
+  "claude",
 ];
 
 export const SettingsPage: React.FC = () => {
