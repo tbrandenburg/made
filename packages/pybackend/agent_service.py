@@ -37,10 +37,10 @@ REGISTERED_AGENT_CLI_CLASSES: tuple[type[AgentCLI], ...] = (
 )
 
 
-def get_agent_cli():
+def get_agent_cli(context_path: Path | None = None):
     """Get the appropriate AgentCLI implementation based on settings."""
     try:
-        settings = read_settings()
+        settings = read_settings(context_path)
         agent_cli_setting = settings.get("agentCli", "opencode")
 
         if agent_cli_setting == "kiro":
@@ -340,7 +340,7 @@ def export_chat_history(
     )
 
     # Use typed interface
-    agent_cli = get_agent_cli()
+    agent_cli = get_agent_cli(working_dir)
     start_time = time.monotonic()
     result = agent_cli.export_session(session_id, working_dir)
     duration_seconds = time.monotonic() - start_time
@@ -386,7 +386,7 @@ def list_chat_sessions(
         limit,
     )
 
-    agent_cli = get_agent_cli()
+    agent_cli = get_agent_cli(working_dir)
     start_time = time.monotonic()
     result = agent_cli.list_sessions(working_dir)
     duration_seconds = time.monotonic() - start_time
@@ -432,7 +432,7 @@ def list_agents(repository_name: str | None = None) -> list[dict[str, object]]:
             else None
         )
 
-    agent_cli = get_agent_cli()
+    agent_cli = get_agent_cli(list_cwd)
     start_time = time.monotonic()
     result = agent_cli.list_agents(cwd=list_cwd)
     duration_seconds = time.monotonic() - start_time
@@ -516,7 +516,7 @@ def send_agent_message(
             response = "Agent request cancelled."
         else:
             # Use typed interface
-            agent_cli = get_agent_cli()
+            agent_cli = get_agent_cli(working_dir)
             start_time = time.monotonic()
             resolved_model = model if model and model != "default" else None
             result = agent_cli.run_agent(
@@ -557,7 +557,7 @@ def send_agent_message(
                 )
 
     except FileNotFoundError:
-        response = get_agent_cli().missing_command_error()
+        response = get_agent_cli(working_dir).missing_command_error()
         logger.error("Agent command not found for channel %s", channel)
 
         # Return error immediately - no process to poll

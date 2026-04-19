@@ -129,6 +129,40 @@ class TestAgentCliSetting(unittest.TestCase):
                 cli = get_agent_cli()
                 self.assertIsInstance(cli, OpenCodeDatabaseAgentCLI)
 
+    def test_repository_settings_override_global_agent_cli(self):
+        """Test repository-level .made/settings.json overrides global settings."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo_path = root / "repo"
+            (repo_path / ".made").mkdir(parents=True)
+            local_settings = repo_path / ".made" / "settings.json"
+            local_settings.write_text(json.dumps({"agentCli": "kiro"}))
+
+            global_settings = root / "global-settings.json"
+            global_settings.write_text(json.dumps({"agentCli": "opencode"}))
+
+            with patch(
+                "settings_service.get_settings_path", return_value=global_settings
+            ):
+                cli = get_agent_cli(repo_path)
+                self.assertIsInstance(cli, KiroAgentCLI)
+
+    def test_global_settings_used_when_repository_override_missing(self):
+        """Test global settings are used when repository-level settings are absent."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo_path = root / "repo"
+            repo_path.mkdir(parents=True)
+
+            global_settings = root / "global-settings.json"
+            global_settings.write_text(json.dumps({"agentCli": "copilot"}))
+
+            with patch(
+                "settings_service.get_settings_path", return_value=global_settings
+            ):
+                cli = get_agent_cli(repo_path)
+                self.assertIsInstance(cli, CopilotAgentCLI)
+
 
 if __name__ == "__main__":
     unittest.main()
