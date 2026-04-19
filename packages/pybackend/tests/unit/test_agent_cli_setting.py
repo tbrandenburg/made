@@ -12,6 +12,7 @@ from opencode_database_agent_cli import OpenCodeDatabaseAgentCLI
 from copilot_agent_cli import CopilotAgentCLI
 from kiro_agent_cli import KiroAgentCLI
 from codex_agent_cli import CodexAgentCLI
+from claude_agent_cli import ClaudeCodeAgentCLI
 
 
 class TestAgentCliSetting(unittest.TestCase):
@@ -77,6 +78,19 @@ class TestAgentCliSetting(unittest.TestCase):
                 cli = get_agent_cli()
                 self.assertIsInstance(cli, CodexAgentCLI)
                 self.assertEqual(cli.cli_name, "codex")
+
+    def test_agent_cli_setting_claude_selection(self):
+        """Test that 'claude' setting returns ClaudeCodeAgentCLI."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_file = Path(temp_dir) / "settings.json"
+            settings_file.write_text(json.dumps({"agentCli": "claude"}))
+
+            with patch(
+                "settings_service.get_settings_path", return_value=settings_file
+            ):
+                cli = get_agent_cli()
+                self.assertIsInstance(cli, ClaudeCodeAgentCLI)
+                self.assertEqual(cli.cli_name, "claude")
 
     def test_agent_cli_setting_invalid_value_defaults_to_opencode(self):
         """Test that invalid agentCli values default to OpenCodeDatabaseAgentCLI."""
