@@ -122,6 +122,18 @@ def _resolve_message_timestamp(message_info: dict[str, object]) -> int | None:
     return None
 
 
+def _is_missing_session_error(error_message: str | None) -> bool:
+    if not error_message:
+        return False
+
+    normalized = error_message.lower()
+    return (
+        "session file not found" in normalized
+        or "session not found" in normalized
+        or "no such session" in normalized
+    )
+
+
 def _resolve_part_timestamp(
     part: dict[str, object], fallback: int | None
 ) -> int | None:
@@ -360,6 +372,8 @@ def export_chat_history(
         )
         if "command not found" in (result.error_message or ""):
             raise FileNotFoundError(result.error_message)
+        if _is_missing_session_error(result.error_message):
+            raise FileNotFoundError(result.error_message or "Session not found")
         raise RuntimeError(result.error_message or "Failed to export session history")
 
     # Filter messages by start timestamp if provided
