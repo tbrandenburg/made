@@ -429,8 +429,8 @@ class TestAgentService:
             list_chat_sessions("test-repo", limit=5)
 
     @patch("agent_service.get_agent_cli")
-    def test_export_chat_history_missing_session_raises_not_found(self, mock_get_cli):
-        """Test missing sessions are mapped to FileNotFoundError."""
+    def test_export_chat_history_missing_session_returns_empty(self, mock_get_cli):
+        """Test missing sessions return an empty history payload."""
         from agent_service import export_chat_history
         from agent_results import ExportResult
 
@@ -443,8 +443,32 @@ class TestAgentService:
             error_message="Session file not found for ID: 1",
         )
 
-        with pytest.raises(FileNotFoundError, match="Session file not found"):
-            export_chat_history("1", None, "test-repo")
+        assert export_chat_history("1", None, "test-repo") == {
+            "sessionId": "1",
+            "messages": [],
+        }
+
+    @patch("agent_service.get_agent_cli")
+    def test_export_chat_history_missing_session_with_directory_error_returns_empty(
+        self, mock_get_cli
+    ):
+        """Treat session-not-found variants as empty history."""
+        from agent_service import export_chat_history
+        from agent_results import ExportResult
+
+        mock_cli = Mock()
+        mock_get_cli.return_value = mock_cli
+        mock_cli.export_session.return_value = ExportResult(
+            success=False,
+            session_id="1",
+            messages=[],
+            error_message="Session 1 not found in directory /tmp/repo",
+        )
+
+        assert export_chat_history("1", None, "test-repo") == {
+            "sessionId": "1",
+            "messages": [],
+        }
 
     def test_parse_agent_list_includes_details(self):
         """Parse agent list output including detail lines."""
