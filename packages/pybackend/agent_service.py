@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import signal
 import subprocess
 import time
@@ -131,6 +132,7 @@ def _is_missing_session_error(error_message: str | None) -> bool:
         "session file not found" in normalized
         or "session not found" in normalized
         or "no such session" in normalized
+        or bool(re.search(r"\bsession\b.*\bnot found\b", normalized))
     )
 
 
@@ -364,6 +366,14 @@ def export_chat_history(
     )
 
     if not result.success:
+        if _is_missing_session_error(result.error_message):
+            logger.warning(
+                "Chat history requested for unknown session (channel: %s, session: %s); returning empty history",
+                channel or "<unspecified>",
+                session_id,
+            )
+            return {"sessionId": session_id, "messages": []}
+
         logger.error(
             "Exporting chat history failed (channel: %s, session: %s): %s",
             channel or "<unspecified>",
@@ -372,8 +382,6 @@ def export_chat_history(
         )
         if "command not found" in (result.error_message or ""):
             raise FileNotFoundError(result.error_message)
-        if _is_missing_session_error(result.error_message):
-            raise FileNotFoundError(result.error_message or "Session not found")
         raise RuntimeError(result.error_message or "Failed to export session history")
 
     # Filter messages by start timestamp if provided
