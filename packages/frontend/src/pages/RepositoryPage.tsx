@@ -22,6 +22,7 @@ import {
 } from "../components/AgentSelector";
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
+import { usePersistentStringList } from "../hooks/usePersistentStringList";
 import { useAgentCli } from "../hooks/useAgentCli";
 import {
   api,
@@ -391,6 +392,13 @@ export const RepositoryPage: React.FC = () => {
         : `repository-session-${agentCli}`,
     [agentCli, name],
   );
+  const savedSessionStorageKey = useMemo(
+    () =>
+      name
+        ? `repository-saved-sessions-${name}-${agentCli}`
+        : `repository-saved-sessions-${agentCli}`,
+    [agentCli, name],
+  );
   const modelStorageKey = useMemo(
     () => (name ? `repository-model-${name}` : "repository-model"),
     [name],
@@ -401,6 +409,9 @@ export const RepositoryPage: React.FC = () => {
   );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);
+  const [savedSessionIds, setSavedSessionIds] = usePersistentStringList(
+    savedSessionStorageKey,
+  );
   const [pendingPrompt, setPendingPrompt] = useState("");
   const [selectedModel, setSelectedModel] = usePersistentString(
     modelStorageKey,
@@ -1285,6 +1296,22 @@ export const RepositoryPage: React.FC = () => {
     }
   };
 
+  const handleSaveSession = useCallback(() => {
+    if (!sessionId) return;
+    setSavedSessionIds((previous) =>
+      previous.includes(sessionId) ? previous : [sessionId, ...previous],
+    );
+  }, [sessionId, setSavedSessionIds]);
+
+  const handleRemoveSavedSession = useCallback(
+    (savedId: string) => {
+      setSavedSessionIds((previous) =>
+        previous.filter((session) => session !== savedId),
+      );
+    },
+    [setSavedSessionIds],
+  );
+
   const getCommandArgumentPlan = (command: CommandDefinition) => {
     const labelsFromHint = extractArgumentLabels(command.argumentHint);
 
@@ -1778,6 +1805,10 @@ export const RepositoryPage: React.FC = () => {
             emptyMessage="No conversation yet."
             sessionId={sessionId}
             onClearSession={() => setClearSessionModalOpen(true)}
+            onSaveSession={handleSaveSession}
+            isSessionSaved={Boolean(
+              sessionId && savedSessionIds.includes(sessionId),
+            )}
           />
           {chatError && <div className="alert">{chatError}</div>}
           <MentionPathTextarea
@@ -2364,8 +2395,10 @@ export const RepositoryPage: React.FC = () => {
         loading={sessionListLoading}
         error={sessionListError}
         sessions={sessionOptions}
+        savedSessionIds={savedSessionIds}
         onClose={() => setSessionModalOpen(false)}
         onSelect={handleSessionSelect}
+        onRemoveSavedSession={handleRemoveSavedSession}
       />
 
       <ClearSessionModal

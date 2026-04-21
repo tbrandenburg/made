@@ -1,6 +1,8 @@
 import React from "react";
 import { renderMarkdown } from "../utils/markdown";
 import { ChatMessage } from "../types/chat";
+import { SaveIcon } from "./icons/SaveIcon";
+import { TrashIcon } from "./icons/TrashIcon";
 
 interface ChatWindowProps {
   chat: ChatMessage[];
@@ -9,6 +11,8 @@ interface ChatWindowProps {
   emptyMessage: string;
   sessionId?: string | null;
   onClearSession?: () => void;
+  onSaveSession?: () => void;
+  isSessionSaved?: boolean;
 }
 
 const formatTimestamp = (message: ChatMessage) => {
@@ -61,28 +65,6 @@ const CopyIcon: React.FC = () => (
   </svg>
 );
 
-const TrashIcon: React.FC = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-    focusable="false"
-  >
-    <path d="M3 6h18" />
-    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-    <path d="M10 11v6" />
-    <path d="M14 11v6" />
-  </svg>
-);
-
 export const ChatWindow: React.FC<ChatWindowProps> = ({
   chat,
   chatWindowRef,
@@ -90,6 +72,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   emptyMessage,
   sessionId,
   onClearSession,
+  onSaveSession,
+  isSessionSaved,
 }) => (
   <div className="chat-window" ref={chatWindowRef}>
     {chat.map((message) => {
@@ -132,6 +116,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     {sessionId && (
       <div className="chat-session-id" aria-label="Session ID">
         <span>Session ID: {sessionId}</span>
+        <button
+          type="button"
+          className="icon-button-small"
+          aria-label={isSessionSaved ? "Session saved" : "Save session"}
+          title={isSessionSaved ? "Session already saved" : "Save session"}
+          onClick={onSaveSession}
+          disabled={!onSaveSession || isSessionSaved}
+        >
+          <SaveIcon />
+        </button>
         <button
           type="button"
           className="icon-button-small"
