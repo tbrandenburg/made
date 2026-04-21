@@ -91,6 +91,14 @@ export const TaskPage: React.FC = () => {
   const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
+  const savedSessionTitles = useMemo(
+    () =>
+      sessionOptions.reduce<Record<string, string>>((titles, session) => {
+        titles[session.id] = session.title;
+        return titles;
+      }, {}),
+    [sessionOptions],
+  );
   const [sessionListError, setSessionListError] = useState<string | null>(null);
   const [sessionListLoading, setSessionListLoading] = useState(false);
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
@@ -662,6 +670,7 @@ export const TaskPage: React.FC = () => {
         error={sessionListError}
         sessions={sessionOptions}
         savedSessionIds={savedSessionIds}
+        savedSessionTitles={savedSessionTitles}
         onClose={() => setSessionModalOpen(false)}
         onSelect={handleSessionSelect}
         onRemoveSavedSession={handleRemoveSavedSession}
