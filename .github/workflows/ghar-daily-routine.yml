@@ -27,7 +27,7 @@ jobs:
       issue_number: ${{ steps.find-issue.outputs.issue_number }}
       has_issue: ${{ steps.find-issue.outputs.has_issue }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
           
       - name: Find uncommented issue
         id: find-issue

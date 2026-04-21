@@ -24,10 +24,10 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       
       - name: React with eyes emoji
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             // Handle both issue comments and PR review comments
@@ -140,7 +140,7 @@ jobs:
     
     steps:      
       - name: Comment execution results
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const hasCommand = '${{ needs.parse-and-check.outputs.has-command }}' === 'true';

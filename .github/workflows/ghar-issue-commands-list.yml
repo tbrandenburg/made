@@ -13,7 +13,7 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       
       - name: List available commands and agents
         id: list-tools
@@ -50,7 +50,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
       
       - name: Comment on issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const author = context.payload.issue.user.login;
