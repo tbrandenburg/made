@@ -15,6 +15,7 @@ import { CommandsTab } from "../components/CommandsTab";
 import { HarnessesTab } from "../components/HarnessesTab";
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
+import { usePersistentStringList } from "../hooks/usePersistentStringList";
 import { useAgentCli } from "../hooks/useAgentCli";
 import { api, ChatSession } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
@@ -58,6 +59,13 @@ export const TaskPage: React.FC = () => {
       name ? `task-session-${name}-${agentCli}` : `task-session-${agentCli}`,
     [agentCli, name],
   );
+  const savedSessionStorageKey = useMemo(
+    () =>
+      name
+        ? `task-saved-sessions-${name}-${agentCli}`
+        : `task-saved-sessions-${agentCli}`,
+    [agentCli, name],
+  );
   const harnessHistoryStorageKey = useMemo(
     () => (name ? `task-harness-history-${name}` : "task-harness-history"),
     [name],
@@ -68,6 +76,9 @@ export const TaskPage: React.FC = () => {
   );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);
+  const [savedSessionIds, setSavedSessionIds] = usePersistentStringList(
+    savedSessionStorageKey,
+  );
   const [selectedAgent, setSelectedAgent] = usePersistentString(
     agentStorageKey,
     DEFAULT_AGENT_VALUE,
@@ -376,6 +387,22 @@ export const TaskPage: React.FC = () => {
     }
   };
 
+  const handleSaveSession = useCallback(() => {
+    if (!sessionId) return;
+    setSavedSessionIds((previous) =>
+      previous.includes(sessionId) ? previous : [sessionId, ...previous],
+    );
+  }, [sessionId, setSavedSessionIds]);
+
+  const handleRemoveSavedSession = useCallback(
+    (savedId: string) => {
+      setSavedSessionIds((previous) =>
+        previous.filter((session) => session !== savedId),
+      );
+    },
+    [setSavedSessionIds],
+  );
+
   const loadCommands = useCallback(async () => {
     const response = await api.getCommands();
     const commands = response.commands || [];
@@ -550,6 +577,10 @@ export const TaskPage: React.FC = () => {
                   emptyMessage="Start a conversation to discuss this task."
                   sessionId={sessionId}
                   onClearSession={() => setClearSessionModalOpen(true)}
+                  onSaveSession={handleSaveSession}
+                  isSessionSaved={Boolean(
+                    sessionId && savedSessionIds.includes(sessionId),
+                  )}
                 />
                 {agentStatus && <div className="alert">{agentStatus}</div>}
                 <MentionPathTextarea
@@ -630,8 +661,10 @@ export const TaskPage: React.FC = () => {
         loading={sessionListLoading}
         error={sessionListError}
         sessions={sessionOptions}
+        savedSessionIds={savedSessionIds}
         onClose={() => setSessionModalOpen(false)}
         onSelect={handleSessionSelect}
+        onRemoveSavedSession={handleRemoveSavedSession}
       />
     </div>
   );
