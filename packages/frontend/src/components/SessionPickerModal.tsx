@@ -9,6 +9,7 @@ interface SessionPickerModalProps {
   error: string | null;
   sessions: ChatSession[];
   savedSessionIds: string[];
+  savedSessionTitles?: Record<string, string>;
   onClose: () => void;
   onSelect: (session: ChatSession) => void;
   onRemoveSavedSession: (sessionId: string) => void;
@@ -20,6 +21,7 @@ export const SessionPickerModal: React.FC<SessionPickerModalProps> = ({
   error,
   sessions,
   savedSessionIds,
+  savedSessionTitles = {},
   onClose,
   onSelect,
   onRemoveSavedSession,
@@ -30,7 +32,7 @@ export const SessionPickerModal: React.FC<SessionPickerModalProps> = ({
       (id) =>
         sessionById.get(id) || {
           id,
-          title: "Saved session",
+          title: savedSessionTitles[id] || "Saved session",
           updated: "Not in recent sessions",
         },
     )
@@ -47,6 +49,7 @@ export const SessionPickerModal: React.FC<SessionPickerModalProps> = ({
       <button
         type="button"
         className="session-pill-select"
+        title={session.title}
         onClick={() => onSelect(session)}
       >
         <span className="session-pill-id">{session.id}</span>
@@ -74,6 +77,9 @@ export const SessionPickerModal: React.FC<SessionPickerModalProps> = ({
       {!loading && (
         <div className="session-list">
           {savedSessions.map((session) => renderSessionPill(session, true))}
+          {savedSessions.length > 0 && regularSessions.length > 0 && (
+            <div className="session-list-divider" aria-hidden="true" />
+          )}
           {regularSessions.map((session) => renderSessionPill(session))}
           {!savedSessions.length && !regularSessions.length && !error && (
             <p className="muted">No sessions available.</p>

@@ -502,6 +502,11 @@ textarea {
   overflow-y: auto;
 }
 
+.session-list-divider {
+  border-top: 1px dashed #fff;
+  margin: 0.5rem 0;
+}
+
 .session-pill {
   position: relative;
   width: 100%;
