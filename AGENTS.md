@@ -17,6 +17,7 @@ These rules overwrite all other rules, even in case of conflict with the experts
 - Follow KISS principle - do not overengineer. Simplicity stays and wins!
 - Follow DRY principle - do not repeat yourself and structure code modularly
 - Always test the main or user-facing functionality: keep tests simple, high-value, and maintainable — prefer acceptance/system tests over microtests, avoid overtesting, and follow the Testing Pyramid and KISS principles
+- **NEVER shutdown or interrupt development servers running on standard ports (3000, 5173) when working within the made workspace** — these are critical for the development workflow
 
 ### General Guidelines
 
