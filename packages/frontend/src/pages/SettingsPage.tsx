@@ -10,6 +10,7 @@ const agentCliOptions = [
   "opencode",
   "opencode-legacy",
   "kiro",
+  "pi",
   "copilot",
   "codex",
   "ob1",
