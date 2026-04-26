@@ -16,6 +16,7 @@ from kiro_agent_cli import KiroAgentCLI
 from codex_agent_cli import CodexAgentCLI
 from ob1_agent_cli import OB1AgentCLI
 from claude_agent_cli import ClaudeCodeAgentCLI
+from pi_agent_cli import PiAgentCLI
 from config import ensure_directory, get_made_directory, get_workspace_home
 from settings_service import read_settings
 
@@ -35,6 +36,7 @@ REGISTERED_AGENT_CLI_CLASSES: tuple[type[AgentCLI], ...] = (
     CodexAgentCLI,
     OB1AgentCLI,
     ClaudeCodeAgentCLI,
+    PiAgentCLI,
 )
 
 
@@ -54,6 +56,8 @@ def get_agent_cli(context_path: Path | None = None):
             return OB1AgentCLI()
         elif agent_cli_setting == "claude":
             return ClaudeCodeAgentCLI()
+        elif agent_cli_setting == "pi":
+            return PiAgentCLI()
         elif agent_cli_setting == "opencode":
             return OpenCodeDatabaseAgentCLI()
         elif agent_cli_setting == "opencode-legacy":

@@ -13,7 +13,7 @@ def get_settings_path() -> Path:
 
 def _default_settings() -> dict[str, str]:
     return {
-        # Supported values: "opencode", "opencode-legacy", "kiro", "copilot", "codex", "ob1", "claude"
+        # Supported values: "opencode", "opencode-legacy", "kiro", "copilot", "codex", "ob1", "claude", "pi"
         "agentCli": "opencode",
     }
 
