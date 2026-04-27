@@ -215,6 +215,38 @@ def test_start_cron_clock_replaces_stale_pid_owner(
 
 
 @patch("cron_service.get_made_directory")
+def test_claim_cron_ownership_retries_after_stale_pid_race(
+    mock_made_directory, tmp_path
+):
+    pid_file = tmp_path / ".made" / cron_service.CRON_PID_FILENAME
+    pid_file.parent.mkdir(parents=True)
+    pid_file.write_text("999\n", encoding="utf-8")
+    mock_made_directory.return_value = tmp_path / ".made"
+
+    original_os_open = cron_service.os.open
+    open_calls = 0
+
+    def fake_open(path, flags, mode):
+        nonlocal open_calls
+        open_calls += 1
+        if open_calls == 1:
+            raise FileExistsError
+        return original_os_open(path, flags, mode)
+
+    with (
+        patch("cron_service.os.getpid", return_value=4321),
+        patch("cron_service.os.kill", side_effect=OSError),
+        patch("cron_service.os.open", side_effect=fake_open),
+    ):
+        claimed_file, owner_pid = cron_service._claim_cron_ownership()
+
+    assert claimed_file == pid_file
+    assert owner_pid == 4321
+    assert open_calls == 2
+    assert pid_file.read_text(encoding="utf-8") == "4321\n"
+
+
+@patch("cron_service.get_made_directory")
 def test_stop_cron_clock_removes_owned_pid_file(mock_made_directory, tmp_path):
     pid_file = tmp_path / ".made" / cron_service.CRON_PID_FILENAME
     pid_file.parent.mkdir(parents=True)
@@ -275,6 +307,47 @@ def test_start_cron_clock_releases_pid_on_partial_startup_failure(
         else:
             raise AssertionError("Expected start_cron_clock() to raise RuntimeError")
 
+    assert not pid_file.exists()
+
+
+@patch("cron_service.get_made_directory")
+@patch("cron_service.BackgroundScheduler")
+@patch("cron_service.list_scheduled_tasks")
+@patch("cron_service.read_workflows")
+@patch("cron_service.get_workspace_home")
+def test_start_cron_clock_releases_pid_when_timeout_monitor_setup_fails(
+    mock_workspace_home,
+    mock_read_workflows,
+    mock_list_scheduled_tasks,
+    mock_scheduler_cls,
+    mock_made_directory,
+    tmp_path,
+):
+    pid_file = tmp_path / ".made" / cron_service.CRON_PID_FILENAME
+    mock_made_directory.return_value = tmp_path / ".made"
+    mock_workspace_home.return_value = tmp_path
+    mock_read_workflows.return_value = {"workflows": []}
+    mock_list_scheduled_tasks.return_value = []
+    mock_scheduler = MagicMock()
+
+    def add_job_side_effect(*args, **kwargs):
+        if kwargs.get("id") == "_job_timeout_monitor":
+            raise RuntimeError("monitor boom")
+        return None
+
+    mock_scheduler.add_job.side_effect = add_job_side_effect
+    mock_scheduler_cls.return_value = mock_scheduler
+
+    with patch("cron_service.os.getpid", return_value=8765):
+        try:
+            cron_service.start_cron_clock()
+        except RuntimeError as exc:
+            assert str(exc) == "monitor boom"
+        else:
+            raise AssertionError("Expected start_cron_clock() to raise RuntimeError")
+
+    mock_scheduler.start.assert_not_called()
+    assert cron_service._scheduler is None
     assert not pid_file.exists()
 
 

@@ -150,24 +150,35 @@ def _release_cron_ownership(pid_file: Path, owner_pid: int) -> None:
 def _claim_cron_ownership() -> tuple[Path, int]:
     pid_file = _get_cron_pid_file_path()
     current_pid = os.getpid()
-    owner_pid = _read_cron_owner_pid(pid_file)
-    if owner_pid is not None and owner_pid != current_pid:
-        if _is_process_running(owner_pid):
-            logger.warning(
-                "Cron clock startup refused: pid %s already owns '%s'",
-                owner_pid,
-                pid_file,
-            )
-            raise RuntimeError(
-                f"Cron clock already owned by live process pid={owner_pid}"
-            )
-        logger.info(
-            "Replacing stale cron owner pid %s from '%s'",
-            owner_pid,
-            pid_file,
-        )
-    _write_cron_owner_pid(pid_file, current_pid)
-    return pid_file, current_pid
+    while True:
+        try:
+            fd = os.open(pid_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        except FileExistsError:
+            owner_pid = _read_cron_owner_pid(pid_file)
+            if owner_pid is not None and owner_pid != current_pid:
+                if _is_process_running(owner_pid):
+                    logger.warning(
+                        "Cron clock startup refused: pid %s already owns '%s'",
+                        owner_pid,
+                        pid_file,
+                    )
+                    raise RuntimeError(
+                        f"Cron clock already owned by live process pid={owner_pid}"
+                    )
+                logger.info(
+                    "Replacing stale cron owner pid %s from '%s'",
+                    owner_pid,
+                    pid_file,
+                )
+            try:
+                pid_file.unlink()
+            except FileNotFoundError:
+                pass
+            continue
+
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(f"{current_pid}\n")
+        return pid_file, current_pid
 
 
 def _build_agent_cli_command(prompt: str) -> list[str]:
@@ -544,9 +555,6 @@ def start_cron_clock() -> None:
                     "Skipping task '%s': invalid cron '%s'", task_name, schedule
                 )
 
-        scheduler.start()
-        _scheduler = scheduler
-
         # Start job timeout monitor
         scheduler.add_job(
             _monitor_job_timeouts,
@@ -555,6 +563,9 @@ def start_cron_clock() -> None:
             id="_job_timeout_monitor",
             replace_existing=True,
         )
+
+        scheduler.start()
+        _scheduler = scheduler
 
         with _state_lock:
             _started_jobs = 0
