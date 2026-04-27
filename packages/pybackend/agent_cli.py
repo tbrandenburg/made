@@ -590,18 +590,11 @@ class OpenCodeAgentCLI(AgentCLI):
                             )
 
             if process.returncode == 0:
-                # Process management only - extract session_id but no parsing
-                extracted_session_id = session_id  # Default to input session_id
-                if stdout:
-                    for line in stdout.strip().split("\n"):
-                        if line:
-                            try:
-                                data = json.loads(line)
-                                if isinstance(data, dict) and "session_id" in data:
-                                    extracted_session_id = str(data["session_id"])
-                                    break
-                            except json.JSONDecodeError:
-                                continue
+                extracted_session_id, response_parts = self._parse_opencode_output(
+                    stdout or ""
+                )
+                if extracted_session_id is None:
+                    extracted_session_id = session_id
 
                 # Generate session_id if none provided and none extracted
                 if not extracted_session_id:
@@ -612,7 +605,7 @@ class OpenCodeAgentCLI(AgentCLI):
                 return RunResult(
                     success=True,
                     session_id=extracted_session_id,
-                    response_parts=[],  # No response parsing - export API handles content
+                    response_parts=response_parts,
                 )
             else:
                 if cancel_event and cancel_event.is_set():

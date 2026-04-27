@@ -1,6 +1,8 @@
 """Unit tests for OpenCodeAgentCLI parsing functions."""
 
 import unittest
+from pathlib import Path
+from unittest.mock import patch, Mock
 
 from agent_cli import OpenCodeAgentCLI
 
@@ -31,7 +33,7 @@ class TestOpenCodeAgentCLIParsing(unittest.TestCase):
         """Test _parse_opencode_output with simple text."""
         stdout = '{"type":"text","timestamp":1000,"sessionID":"ses_123","part":{"type":"text","text":"Hello"}}'
         session_id, parts = self.cli._parse_opencode_output(stdout)
-        
+
         assert session_id == "ses_123"
         assert len(parts) == 1
         assert parts[0].text == "Hello"
@@ -40,33 +42,55 @@ class TestOpenCodeAgentCLIParsing(unittest.TestCase):
 
     def test_parse_opencode_output_multiple_texts(self):
         """Test _parse_opencode_output with multiple text parts."""
-        stdout = '\n'.join([
-            '{"type":"text","timestamp":1000,"sessionID":"ses_123","part":{"text":"First"}}',
-            '{"type":"text","timestamp":2000,"sessionID":"ses_123","part":{"text":"Second"}}',
-        ])
+        stdout = "\n".join(
+            [
+                '{"type":"text","timestamp":1000,"sessionID":"ses_123","part":{"text":"First"}}',
+                '{"type":"text","timestamp":2000,"sessionID":"ses_123","part":{"text":"Second"}}',
+            ]
+        )
         session_id, parts = self.cli._parse_opencode_output(stdout)
-        
+
         assert session_id == "ses_123"
         assert len(parts) == 2
         assert parts[0].text == "First"
         assert parts[0].part_type == "thinking"  # First text is thinking
         assert parts[1].text == "Second"
-        assert parts[1].part_type == "final"     # Last text is final
+        assert parts[1].part_type == "final"  # Last text is final
 
     def test_parse_opencode_output_with_tool(self):
         """Test _parse_opencode_output with tool usage."""
-        stdout = '\n'.join([
-            '{"type":"text","timestamp":1000,"sessionID":"ses_123","part":{"text":"Before"}}',
-            '{"type":"tool_use","timestamp":1500,"sessionID":"ses_123","part":{"tool":"bash"}}',
-            '{"type":"text","timestamp":2000,"sessionID":"ses_123","part":{"text":"After"}}',
-        ])
+        stdout = "\n".join(
+            [
+                '{"type":"text","timestamp":1000,"sessionID":"ses_123","part":{"text":"Before"}}',
+                '{"type":"tool_use","timestamp":1500,"sessionID":"ses_123","part":{"tool":"bash"}}',
+                '{"type":"text","timestamp":2000,"sessionID":"ses_123","part":{"text":"After"}}',
+            ]
+        )
         session_id, parts = self.cli._parse_opencode_output(stdout)
-        
+
         assert len(parts) == 3
         assert parts[0].part_type == "thinking"
         assert parts[1].part_type == "tool"
         assert parts[1].text == "bash"
         assert parts[2].part_type == "final"
+
+    @patch("agent_cli.subprocess.run")
+    def test_run_agent_returns_parsed_response_parts(self, mock_run):
+        """Test run_agent parses JSON stdout into response parts."""
+        mock_run.return_value = Mock(
+            returncode=0,
+            stdout='{"type":"text","timestamp":1000,"sessionID":"ses_123","part":{"text":"Hello"}}',
+            stderr="",
+        )
+
+        result = self.cli.run_agent("Hello", None, None, None, Path("."))
+
+        assert result.success is True
+        assert result.session_id == "ses_123"
+        assert len(result.response_parts) == 1
+        assert result.response_parts[0].text == "Hello"
+        assert result.response_parts[0].part_type == "final"
+        assert result.combined_response == "Hello"
 
     def test_parse_session_table(self):
         """Test _parse_session_table parsing."""
@@ -74,9 +98,9 @@ class TestOpenCodeAgentCLIParsing(unittest.TestCase):
 ───────────────────────────────────────────────────────────────────────────
 ses_123abc                      Test session                    2025-01-01 10:00
 ses_456def                      Another session                 2025-01-02 11:00"""
-        
+
         sessions = self.cli._parse_session_table(output, 10)
-        
+
         assert len(sessions) == 2
         assert sessions[0].session_id == "ses_123abc"
         assert sessions[0].title == "Test session"
@@ -90,9 +114,9 @@ ses_456def                      Another session                 2025-01-02 11:00
 
 plan (secondary)
   allow: think"""
-        
+
         agents = self.cli._parse_agent_list(output)
-        
+
         assert len(agents) == 2
         assert agents[0].name == "build"
         assert agents[0].agent_type == "primary"
@@ -105,16 +129,16 @@ plan (secondary)
         messages = [
             {
                 "info": {"role": "user", "id": "msg_1"},
-                "parts": [{"type": "text", "text": "Hello", "id": "part_1"}]
+                "parts": [{"type": "text", "text": "Hello", "id": "part_1"}],
             },
             {
                 "info": {"role": "assistant", "id": "msg_2"},
-                "parts": [{"type": "text", "text": "Hi there", "id": "part_2"}]
-            }
+                "parts": [{"type": "text", "text": "Hi there", "id": "part_2"}],
+            },
         ]
-        
+
         history = self.cli._parse_export_messages(messages, None)
-        
+
         assert len(history) == 2
         assert history[0].role == "user"
         assert history[0].content == "Hello"
@@ -131,18 +155,13 @@ plan (secondary)
 
     def test_resolve_message_timestamp(self):
         """Test _resolve_message_timestamp extraction."""
-        message_info = {
-            "time": {"created": 1000, "updated": 2000}
-        }
+        message_info = {"time": {"created": 1000, "updated": 2000}}
         result = self.cli._resolve_message_timestamp(message_info)
         assert result == 1000  # Should pick 'created' first
 
     def test_resolve_part_timestamp(self):
         """Test _resolve_part_timestamp extraction."""
-        part = {
-            "time": {"end": 1500, "start": 1000},
-            "timestamp": 2000
-        }
+        part = {"time": {"end": 1500, "start": 1000}, "timestamp": 2000}
         result = self.cli._resolve_part_timestamp(part, None)
         assert result == 1500  # Should pick 'end' from time first
 

@@ -93,8 +93,10 @@ class ClaudeCodeAgentCLI(AgentCLI):
         return [
             self.main_executable_name(),
             "--print",
-            "--output-format", "json",
-            "--permission-mode", "bypassPermissions",
+            "--output-format",
+            "json",
+            "--permission-mode",
+            "bypassPermissions",
             prompt,
         ]
 
@@ -219,17 +221,21 @@ class ClaudeCodeAgentCLI(AgentCLI):
         cmd = [
             self.main_executable_name(),
             "--print",
-            "--output-format", "json",
-            "--permission-mode", "bypassPermissions",
+            "--output-format",
+            "json",
+            "--permission-mode",
+            "bypassPermissions",
         ]
 
         # Scope Bash to cwd; all other built-in file tools work freely within
         # the subprocess cwd already.
         if cwd:
-            cmd.extend([
-                "--allowedTools",
-                f"Read,Write,Edit,Glob,Grep,Bash(* {cwd}/*)",
-            ])
+            cmd.extend(
+                [
+                    "--allowedTools",
+                    f"Read,Write,Edit,Glob,Grep,Bash(* {cwd}/*)",
+                ]
+            )
 
         if session_id:
             cmd.extend(["--resume", session_id])
@@ -348,9 +354,7 @@ class ClaudeCodeAgentCLI(AgentCLI):
                 error_message=f"Error reading session: {str(e)}",
             )
 
-    def _find_session_file(
-        self, session_id: str, cwd: Path | None
-    ) -> Path | None:
+    def _find_session_file(self, session_id: str, cwd: Path | None) -> Path | None:
         """Locate the JSONL file for a session ID."""
         # Search all project dirs under ~/.claude/projects/
         if not CLAUDE_SESSIONS_BASE.exists():
@@ -434,7 +438,8 @@ class ClaudeCodeAgentCLI(AgentCLI):
                             result_content = block.get("content", "")
                             if isinstance(result_content, list):
                                 result_content = " ".join(
-                                    c.get("text", "") for c in result_content
+                                    c.get("text", "")
+                                    for c in result_content
                                     if c.get("type") == "text"
                                 )
                             messages.append(
@@ -483,20 +488,21 @@ class ClaudeCodeAgentCLI(AgentCLI):
                 # Glob for any project dir whose name ends with the leaf dirname
                 leaf = cwd.name
                 candidates = [
-                    p for p in CLAUDE_SESSIONS_BASE.iterdir()
+                    p
+                    for p in CLAUDE_SESSIONS_BASE.iterdir()
                     if p.is_dir() and p.name.endswith(f"-{leaf}")
                 ]
                 project_dirs = candidates or [
                     p for p in CLAUDE_SESSIONS_BASE.iterdir() if p.is_dir()
                 ]
         else:
-            project_dirs = [
-                p for p in CLAUDE_SESSIONS_BASE.iterdir() if p.is_dir()
-            ]
+            project_dirs = [p for p in CLAUDE_SESSIONS_BASE.iterdir() if p.is_dir()]
 
         for project_dir in project_dirs:
             for session_file in sorted(
-                project_dir.glob("*.jsonl"), key=lambda f: f.stat().st_mtime, reverse=True
+                project_dir.glob("*.jsonl"),
+                key=lambda f: f.stat().st_mtime,
+                reverse=True,
             ):
                 session_id = session_file.stem
                 title, updated = _extract_session_summary(session_file)
@@ -540,7 +546,9 @@ class ClaudeCodeAgentCLI(AgentCLI):
 
             if result.returncode != 0:
                 error_msg = (result.stderr or "").strip() or "Failed to list agents"
-                return AgentListResult(success=False, agents=[], error_message=error_msg)
+                return AgentListResult(
+                    success=False, agents=[], error_message=error_msg
+                )
 
             agents = _parse_agents_output(result.stdout or "")
             return AgentListResult(success=True, agents=agents)
@@ -558,6 +566,7 @@ class ClaudeCodeAgentCLI(AgentCLI):
 # ------------------------------------------------------------------ #
 #  Helpers                                                             #
 # ------------------------------------------------------------------ #
+
 
 def _encode_cwd(cwd: Path) -> str:
     """
@@ -585,7 +594,8 @@ def _iso_to_ms(value: Any) -> int | None:
         return int(value)
     if isinstance(value, str):
         try:
-            from datetime import datetime, timezone
+            from datetime import datetime
+
             dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
             return int(dt.timestamp() * 1000)
         except ValueError:
@@ -604,6 +614,7 @@ def _extract_session_summary(session_file: Path) -> tuple[str, str]:
     try:
         mtime = session_file.stat().st_mtime
         from datetime import datetime
+
         updated = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
 
         with open(session_file, "r", encoding="utf-8") as f:
@@ -665,7 +676,11 @@ def _parse_agents_output(output: str) -> list[AgentInfo]:
         row_match = agent_row_pattern.match(line)
         if row_match:
             name, model = row_match.group(1).strip(), row_match.group(2).strip()
-            agents.append(AgentInfo(name=name, agent_type=current_section, details=[f"model: {model}"]))
+            agents.append(
+                AgentInfo(
+                    name=name, agent_type=current_section, details=[f"model: {model}"]
+                )
+            )
 
     return agents
 
@@ -703,6 +718,7 @@ def _discover_agents_from_claude_md(cwd: Path) -> list[AgentInfo]:
 #  Smoke test                                                          #
 # ------------------------------------------------------------------ #
 
+
 def _smoke_test() -> None:
     """Quick interface smoke test (does NOT call the real Claude API)."""
     import sys
@@ -717,7 +733,9 @@ def _smoke_test() -> None:
 
     print("\n--- list_agents ---")
     agents_result = cli.list_agents(cwd)
-    print(f"success={agents_result.success}, agents={[a.name for a in agents_result.agents]}")
+    print(
+        f"success={agents_result.success}, agents={[a.name for a in agents_result.agents]}"
+    )
 
     print("\n--- list_sessions ---")
     sessions_result = cli.list_sessions(cwd)

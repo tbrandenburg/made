@@ -276,5 +276,11 @@ class PiAgentCLI(AgentCLI):
         # pi has no agent listing command
         return AgentListResult(
             success=True,
-            agents=[AgentInfo(name="pi", agent_type="Built-in", details=["pi.dev coding assistant"])],
+            agents=[
+                AgentInfo(
+                    name="pi",
+                    agent_type="Built-in",
+                    details=["pi.dev coding assistant"],
+                )
+            ],
         )
