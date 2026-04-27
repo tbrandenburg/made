@@ -133,10 +133,6 @@ def _read_cron_owner_pid(pid_file: Path) -> int | None:
         return None
 
 
-def _write_cron_owner_pid(pid_file: Path, pid: int) -> None:
-    pid_file.write_text(f"{pid}\n", encoding="utf-8")
-
-
 def _release_cron_ownership(pid_file: Path, owner_pid: int) -> None:
     current_owner = _read_cron_owner_pid(pid_file)
     if current_owner != owner_pid:

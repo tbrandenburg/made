@@ -3,6 +3,14 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 import cron_service
+import pytest
+
+
+def _create_pid_file(tmp_path, pid):
+    pid_file = tmp_path / ".made" / cron_service.CRON_PID_FILENAME
+    pid_file.parent.mkdir(parents=True)
+    pid_file.write_text(f"{pid}\n", encoding="utf-8")
+    return pid_file
 
 
 def teardown_function():
@@ -157,9 +165,7 @@ def test_start_cron_clock_refuses_live_pid_owner(
     mock_made_directory,
     tmp_path,
 ):
-    pid_file = tmp_path / ".made" / cron_service.CRON_PID_FILENAME
-    pid_file.parent.mkdir(parents=True)
-    pid_file.write_text("321\n", encoding="utf-8")
+    pid_file = _create_pid_file(tmp_path, 321)
     mock_made_directory.return_value = tmp_path / ".made"
 
     with (
@@ -167,12 +173,8 @@ def test_start_cron_clock_refuses_live_pid_owner(
         patch("cron_service._read_process_state", return_value="S"),
     ):
         mock_kill.return_value = None
-        try:
+        with pytest.raises(RuntimeError, match="pid=321"):
             cron_service.start_cron_clock()
-        except RuntimeError as exc:
-            assert "pid=321" in str(exc)
-        else:
-            raise AssertionError("Expected start_cron_clock() to raise RuntimeError")
 
     mock_scheduler_cls.assert_not_called()
     assert pid_file.read_text(encoding="utf-8") == "321\n"
@@ -193,9 +195,7 @@ def test_start_cron_clock_replaces_stale_pid_owner(
 ):
     repo = tmp_path / "repo-a"
     repo.mkdir()
-    pid_file = tmp_path / ".made" / cron_service.CRON_PID_FILENAME
-    pid_file.parent.mkdir(parents=True)
-    pid_file.write_text("999\n", encoding="utf-8")
+    pid_file = _create_pid_file(tmp_path, 999)
 
     mock_made_directory.return_value = tmp_path / ".made"
     mock_workspace_home.return_value = tmp_path
@@ -218,9 +218,7 @@ def test_start_cron_clock_replaces_stale_pid_owner(
 def test_claim_cron_ownership_retries_after_stale_pid_race(
     mock_made_directory, tmp_path
 ):
-    pid_file = tmp_path / ".made" / cron_service.CRON_PID_FILENAME
-    pid_file.parent.mkdir(parents=True)
-    pid_file.write_text("999\n", encoding="utf-8")
+    pid_file = _create_pid_file(tmp_path, 999)
     mock_made_directory.return_value = tmp_path / ".made"
 
     original_os_open = cron_service.os.open
@@ -248,9 +246,7 @@ def test_claim_cron_ownership_retries_after_stale_pid_race(
 
 @patch("cron_service.get_made_directory")
 def test_stop_cron_clock_removes_owned_pid_file(mock_made_directory, tmp_path):
-    pid_file = tmp_path / ".made" / cron_service.CRON_PID_FILENAME
-    pid_file.parent.mkdir(parents=True)
-    pid_file.write_text("1234\n", encoding="utf-8")
+    pid_file = _create_pid_file(tmp_path, 1234)
     mock_made_directory.return_value = tmp_path / ".made"
     cron_service._scheduler = MagicMock()
 
@@ -262,9 +258,7 @@ def test_stop_cron_clock_removes_owned_pid_file(mock_made_directory, tmp_path):
 
 @patch("cron_service.get_made_directory")
 def test_stop_cron_clock_keeps_foreign_pid_file(mock_made_directory, tmp_path):
-    pid_file = tmp_path / ".made" / cron_service.CRON_PID_FILENAME
-    pid_file.parent.mkdir(parents=True)
-    pid_file.write_text("5555\n", encoding="utf-8")
+    pid_file = _create_pid_file(tmp_path, 5555)
     mock_made_directory.return_value = tmp_path / ".made"
     cron_service._scheduler = MagicMock()
 
@@ -300,12 +294,8 @@ def test_start_cron_clock_releases_pid_on_partial_startup_failure(
     mock_scheduler_cls.return_value = mock_scheduler
 
     with patch("cron_service.os.getpid", return_value=8765):
-        try:
+        with pytest.raises(RuntimeError, match="boom"):
             cron_service.start_cron_clock()
-        except RuntimeError as exc:
-            assert str(exc) == "boom"
-        else:
-            raise AssertionError("Expected start_cron_clock() to raise RuntimeError")
 
     assert not pid_file.exists()
 
@@ -339,12 +329,8 @@ def test_start_cron_clock_releases_pid_when_timeout_monitor_setup_fails(
     mock_scheduler_cls.return_value = mock_scheduler
 
     with patch("cron_service.os.getpid", return_value=8765):
-        try:
+        with pytest.raises(RuntimeError, match="monitor boom"):
             cron_service.start_cron_clock()
-        except RuntimeError as exc:
-            assert str(exc) == "monitor boom"
-        else:
-            raise AssertionError("Expected start_cron_clock() to raise RuntimeError")
 
     mock_scheduler.start.assert_not_called()
     assert cron_service._scheduler is None
