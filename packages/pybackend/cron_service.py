@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import subprocess
 from datetime import datetime, timezone
@@ -11,7 +12,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from agent_service import get_agent_cli
-from config import get_workspace_home
+from config import ensure_directory, get_made_directory, get_workspace_home
 from task_service import get_tasks_directory, list_scheduled_tasks, read_task
 from workflow_service import read_workflows
 
@@ -38,6 +39,7 @@ _job_start_times: dict[str, datetime] = {}
 DEFAULT_MAX_RUNTIME_MINUTES = 120  # 2 hours default
 _workflow_max_runtime: dict[str, int] = {}
 WORKFLOW_LOG_PREFIX = "made-"
+CRON_PID_FILENAME = "cron.pid"
 WORKFLOW_LOG_LOCATIONS: dict[str, Path] = {
     "var": Path("/var/log"),
     "tmp": Path("/tmp/made-harness-logs"),
@@ -80,6 +82,92 @@ def _resolve_script_path(repo_path: Path, shell_script_path: str) -> Path:
     if script_path.is_absolute():
         return script_path
     return repo_path / script_path
+
+
+def _get_cron_pid_file_path() -> Path:
+    made_dir = ensure_directory(get_made_directory())
+    return made_dir / CRON_PID_FILENAME
+
+
+def _read_process_state(pid: int) -> str | None:
+    proc_stat = Path("/proc") / str(pid) / "stat"
+    if not proc_stat.exists():
+        return None
+    try:
+        content = proc_stat.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    if ") " not in content:
+        return None
+    _, remainder = content.split(") ", 1)
+    if not remainder:
+        return None
+    return remainder.split(" ", 1)[0]
+
+
+def _is_process_running(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    state = _read_process_state(pid)
+    if state in {"Z", "X"}:
+        return False
+    return True
+
+
+def _read_cron_owner_pid(pid_file: Path) -> int | None:
+    if not pid_file.exists():
+        return None
+    try:
+        value = pid_file.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    if not value:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _write_cron_owner_pid(pid_file: Path, pid: int) -> None:
+    pid_file.write_text(f"{pid}\n", encoding="utf-8")
+
+
+def _release_cron_ownership(pid_file: Path, owner_pid: int) -> None:
+    current_owner = _read_cron_owner_pid(pid_file)
+    if current_owner != owner_pid:
+        return
+    try:
+        pid_file.unlink()
+    except FileNotFoundError:
+        return
+
+
+def _claim_cron_ownership() -> tuple[Path, int]:
+    pid_file = _get_cron_pid_file_path()
+    current_pid = os.getpid()
+    owner_pid = _read_cron_owner_pid(pid_file)
+    if owner_pid is not None and owner_pid != current_pid:
+        if _is_process_running(owner_pid):
+            logger.warning(
+                "Cron clock startup refused: pid %s already owns '%s'",
+                owner_pid,
+                pid_file,
+            )
+            raise RuntimeError(
+                f"Cron clock already owned by live process pid={owner_pid}"
+            )
+        logger.info(
+            "Replacing stale cron owner pid %s from '%s'",
+            owner_pid,
+            pid_file,
+        )
+    _write_cron_owner_pid(pid_file, current_pid)
+    return pid_file, current_pid
 
 
 def _build_agent_cli_command(prompt: str) -> list[str]:
@@ -355,130 +443,143 @@ def start_cron_clock() -> None:
     if _scheduler is not None:
         return
 
-    scheduler = BackgroundScheduler()
-    configured_jobs = 0
-    invalid_jobs = 0
+    pid_file, owner_pid = _claim_cron_ownership()
 
-    for repo_path in get_workspace_home().iterdir():
-        if not repo_path.is_dir():
-            continue
+    try:
+        scheduler = BackgroundScheduler()
+        configured_jobs = 0
+        invalid_jobs = 0
 
-        repo_name = repo_path.name
-        workflows = read_workflows(repo_name).get("workflows", [])
-        for workflow in workflows:
-            if not workflow.get("enabled"):
+        for repo_path in get_workspace_home().iterdir():
+            if not repo_path.is_dir():
                 continue
 
-            schedule = workflow.get("schedule")
-            shell_script_path = workflow.get("shellScriptPath")
-            workflow_id = workflow.get("id") or "workflow"
-            if not isinstance(schedule, str) or not schedule.strip():
-                logger.warning(
-                    "Skipping workflow '%s' in '%s': missing schedule",
-                    workflow_id,
-                    repo_name,
+            repo_name = repo_path.name
+            workflows = read_workflows(repo_name).get("workflows", [])
+            for workflow in workflows:
+                if not workflow.get("enabled"):
+                    continue
+
+                schedule = workflow.get("schedule")
+                shell_script_path = workflow.get("shellScriptPath")
+                workflow_id = workflow.get("id") or "workflow"
+                if not isinstance(schedule, str) or not schedule.strip():
+                    logger.warning(
+                        "Skipping workflow '%s' in '%s': missing schedule",
+                        workflow_id,
+                        repo_name,
+                    )
+                    continue
+                if (
+                    not isinstance(shell_script_path, str)
+                    or not shell_script_path.strip()
+                ):
+                    logger.warning(
+                        "Skipping workflow '%s' in '%s': missing shellScriptPath",
+                        workflow_id,
+                        repo_name,
+                    )
+                    continue
+
+                script_path = _resolve_script_path(repo_path, shell_script_path)
+                if not script_path.exists() or not script_path.is_file():
+                    logger.warning(
+                        "Skipping workflow '%s' in '%s': script not found at '%s'",
+                        workflow_id,
+                        repo_name,
+                        script_path,
+                    )
+                    continue
+
+                job_id = f"{repo_name}:{workflow_id}"
+
+                # Configure runtime limits
+                max_runtime = workflow.get(
+                    "maxRuntimeMinutes", DEFAULT_MAX_RUNTIME_MINUTES
                 )
-                continue
-            if not isinstance(shell_script_path, str) or not shell_script_path.strip():
-                logger.warning(
-                    "Skipping workflow '%s' in '%s': missing shellScriptPath",
-                    workflow_id,
-                    repo_name,
-                )
-                continue
+                if max_runtime:
+                    _workflow_max_runtime[job_id] = max_runtime
 
-            script_path = _resolve_script_path(repo_path, shell_script_path)
-            if not script_path.exists() or not script_path.is_file():
-                logger.warning(
-                    "Skipping workflow '%s' in '%s': script not found at '%s'",
-                    workflow_id,
-                    repo_name,
-                    script_path,
-                )
-                continue
+                try:
+                    scheduler.add_job(
+                        _run_workflow_script,
+                        CronTrigger.from_crontab(schedule),
+                        id=job_id,
+                        replace_existing=True,
+                        max_instances=1,
+                        coalesce=True,
+                        misfire_grace_time=300,
+                        args=[repo_path, job_id, script_path],
+                    )
+                    configured_jobs += 1
+                except ValueError:
+                    invalid_jobs += 1
+                    logger.warning(
+                        "Skipping workflow '%s' in '%s': invalid cron '%s'",
+                        workflow_id,
+                        repo_name,
+                        schedule,
+                    )
 
-            job_id = f"{repo_name}:{workflow_id}"
-
-            # Configure runtime limits
-            max_runtime = workflow.get("maxRuntimeMinutes", DEFAULT_MAX_RUNTIME_MINUTES)
-            if max_runtime:
-                _workflow_max_runtime[job_id] = max_runtime
+        for task in list_scheduled_tasks():
+            task_name = str(task.get("name") or "task.md")
+            schedule = str(task.get("schedule") or "").strip()
+            job_id = f"task:{task_name}"
 
             try:
                 scheduler.add_job(
-                    _run_workflow_script,
+                    _run_scheduled_task,
                     CronTrigger.from_crontab(schedule),
                     id=job_id,
                     replace_existing=True,
                     max_instances=1,
                     coalesce=True,
                     misfire_grace_time=300,
-                    args=[repo_path, job_id, script_path],
+                    args=[job_id, task_name],
                 )
                 configured_jobs += 1
             except ValueError:
                 invalid_jobs += 1
                 logger.warning(
-                    "Skipping workflow '%s' in '%s': invalid cron '%s'",
-                    workflow_id,
-                    repo_name,
-                    schedule,
+                    "Skipping task '%s': invalid cron '%s'", task_name, schedule
                 )
 
-    for task in list_scheduled_tasks():
-        task_name = str(task.get("name") or "task.md")
-        schedule = str(task.get("schedule") or "").strip()
-        job_id = f"task:{task_name}"
+        scheduler.start()
+        _scheduler = scheduler
 
-        try:
-            scheduler.add_job(
-                _run_scheduled_task,
-                CronTrigger.from_crontab(schedule),
-                id=job_id,
-                replace_existing=True,
-                max_instances=1,
-                coalesce=True,
-                misfire_grace_time=300,
-                args=[job_id, task_name],
-            )
-            configured_jobs += 1
-        except ValueError:
-            invalid_jobs += 1
-            logger.warning("Skipping task '%s': invalid cron '%s'", task_name, schedule)
+        # Start job timeout monitor
+        scheduler.add_job(
+            _monitor_job_timeouts,
+            "interval",
+            minutes=1,
+            id="_job_timeout_monitor",
+            replace_existing=True,
+        )
 
-    scheduler.start()
-    _scheduler = scheduler
+        with _state_lock:
+            _started_jobs = 0
+            _successful_jobs = 0
+            _failed_jobs = 0
+            _configured_jobs = configured_jobs
+            _invalid_jobs = invalid_jobs
+            _started_at = datetime.now(timezone.utc)
+            _last_run_by_job.clear()
+            _last_finished_by_job.clear()
+            _last_duration_ms_by_job.clear()
+            _last_exit_code_by_job.clear()
+            _last_error_by_job.clear()
+            _last_stdout_by_job.clear()
+            _last_stderr_by_job.clear()
+            _running_process_by_job.clear()
 
-    # Start job timeout monitor
-    scheduler.add_job(
-        _monitor_job_timeouts,
-        "interval",
-        minutes=1,
-        id="_job_timeout_monitor",
-        replace_existing=True,
-    )
-
-    with _state_lock:
-        _started_jobs = 0
-        _successful_jobs = 0
-        _failed_jobs = 0
-        _configured_jobs = configured_jobs
-        _invalid_jobs = invalid_jobs
-        _started_at = datetime.now(timezone.utc)
-        _last_run_by_job.clear()
-        _last_finished_by_job.clear()
-        _last_duration_ms_by_job.clear()
-        _last_exit_code_by_job.clear()
-        _last_error_by_job.clear()
-        _last_stdout_by_job.clear()
-        _last_stderr_by_job.clear()
-        _running_process_by_job.clear()
-
-    logger.info(
-        "Cron clock started with %s configured jobs (%s invalid schedules)",
-        configured_jobs,
-        invalid_jobs,
-    )
+        logger.info(
+            "Cron clock started with %s configured jobs (%s invalid schedules)",
+            configured_jobs,
+            invalid_jobs,
+        )
+    except Exception:
+        _release_cron_ownership(pid_file, owner_pid)
+        raise
 
 
 def stop_cron_clock() -> None:
@@ -497,6 +598,7 @@ def stop_cron_clock() -> None:
             _running_process_by_job.pop(workflow_id, None)
 
     _scheduler = None
+    _release_cron_ownership(_get_cron_pid_file_path(), os.getpid())
     logger.info("Cron clock stopped")
 
 

@@ -1,6 +1,6 @@
-from unittest.mock import MagicMock, patch
 from datetime import timedelta
 import subprocess
+from unittest.mock import MagicMock, patch
 
 import cron_service
 
@@ -19,6 +19,7 @@ def teardown_function():
     cron_service._workflow_max_runtime = {}
 
 
+@patch("cron_service.get_made_directory")
 @patch("cron_service.CronTrigger.from_crontab")
 @patch("cron_service.BackgroundScheduler")
 @patch("cron_service.list_scheduled_tasks")
@@ -30,6 +31,7 @@ def test_start_cron_clock_registers_only_enabled_workflows_with_existing_scripts
     mock_list_scheduled_tasks,
     mock_scheduler_cls,
     mock_from_crontab,
+    mock_made_directory,
     tmp_path,
 ):
     repo = tmp_path / "repo-a"
@@ -38,6 +40,7 @@ def test_start_cron_clock_registers_only_enabled_workflows_with_existing_scripts
     script.parent.mkdir(parents=True)
     script.write_text("echo hi", encoding="utf-8")
 
+    mock_made_directory.return_value = tmp_path / ".made"
     mock_workspace_home.return_value = tmp_path
     mock_list_scheduled_tasks.return_value = []
     mock_read_workflows.return_value = {
@@ -91,6 +94,7 @@ def test_start_cron_clock_registers_only_enabled_workflows_with_existing_scripts
     assert status["trafficLight"] == "ok"
 
 
+@patch("cron_service.get_made_directory")
 @patch("cron_service.BackgroundScheduler")
 @patch("cron_service.list_scheduled_tasks")
 @patch("cron_service.read_workflows")
@@ -100,6 +104,7 @@ def test_start_cron_clock_marks_invalid_cron_as_warning(
     mock_read_workflows,
     mock_list_scheduled_tasks,
     mock_scheduler_cls,
+    mock_made_directory,
     tmp_path,
 ):
     repo = tmp_path / "repo-a"
@@ -107,6 +112,7 @@ def test_start_cron_clock_marks_invalid_cron_as_warning(
     script = repo / "run.sh"
     script.write_text("echo hi", encoding="utf-8")
 
+    mock_made_directory.return_value = tmp_path / ".made"
     mock_workspace_home.return_value = tmp_path
     mock_list_scheduled_tasks.return_value = []
     mock_read_workflows.return_value = {
@@ -142,6 +148,134 @@ def test_start_cron_clock_marks_invalid_cron_as_warning(
     assert status["configuredJobs"] == 0
     assert status["invalidSchedules"] == 1
     assert status["trafficLight"] == "warning"
+
+
+@patch("cron_service.get_made_directory")
+@patch("cron_service.BackgroundScheduler")
+def test_start_cron_clock_refuses_live_pid_owner(
+    mock_scheduler_cls,
+    mock_made_directory,
+    tmp_path,
+):
+    pid_file = tmp_path / ".made" / cron_service.CRON_PID_FILENAME
+    pid_file.parent.mkdir(parents=True)
+    pid_file.write_text("321\n", encoding="utf-8")
+    mock_made_directory.return_value = tmp_path / ".made"
+
+    with (
+        patch("cron_service.os.kill") as mock_kill,
+        patch("cron_service._read_process_state", return_value="S"),
+    ):
+        mock_kill.return_value = None
+        try:
+            cron_service.start_cron_clock()
+        except RuntimeError as exc:
+            assert "pid=321" in str(exc)
+        else:
+            raise AssertionError("Expected start_cron_clock() to raise RuntimeError")
+
+    mock_scheduler_cls.assert_not_called()
+    assert pid_file.read_text(encoding="utf-8") == "321\n"
+
+
+@patch("cron_service.get_made_directory")
+@patch("cron_service.BackgroundScheduler")
+@patch("cron_service.list_scheduled_tasks")
+@patch("cron_service.read_workflows")
+@patch("cron_service.get_workspace_home")
+def test_start_cron_clock_replaces_stale_pid_owner(
+    mock_workspace_home,
+    mock_read_workflows,
+    mock_list_scheduled_tasks,
+    mock_scheduler_cls,
+    mock_made_directory,
+    tmp_path,
+):
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    pid_file = tmp_path / ".made" / cron_service.CRON_PID_FILENAME
+    pid_file.parent.mkdir(parents=True)
+    pid_file.write_text("999\n", encoding="utf-8")
+
+    mock_made_directory.return_value = tmp_path / ".made"
+    mock_workspace_home.return_value = tmp_path
+    mock_read_workflows.return_value = {"workflows": []}
+    mock_list_scheduled_tasks.return_value = []
+    mock_scheduler = MagicMock()
+    mock_scheduler_cls.return_value = mock_scheduler
+
+    with (
+        patch("cron_service.os.getpid", return_value=4321),
+        patch("cron_service.os.kill", side_effect=OSError),
+    ):
+        cron_service.start_cron_clock()
+
+    assert pid_file.read_text(encoding="utf-8") == "4321\n"
+    mock_scheduler.start.assert_called_once_with()
+
+
+@patch("cron_service.get_made_directory")
+def test_stop_cron_clock_removes_owned_pid_file(mock_made_directory, tmp_path):
+    pid_file = tmp_path / ".made" / cron_service.CRON_PID_FILENAME
+    pid_file.parent.mkdir(parents=True)
+    pid_file.write_text("1234\n", encoding="utf-8")
+    mock_made_directory.return_value = tmp_path / ".made"
+    cron_service._scheduler = MagicMock()
+
+    with patch("cron_service.os.getpid", return_value=1234):
+        cron_service.stop_cron_clock()
+
+    assert not pid_file.exists()
+
+
+@patch("cron_service.get_made_directory")
+def test_stop_cron_clock_keeps_foreign_pid_file(mock_made_directory, tmp_path):
+    pid_file = tmp_path / ".made" / cron_service.CRON_PID_FILENAME
+    pid_file.parent.mkdir(parents=True)
+    pid_file.write_text("5555\n", encoding="utf-8")
+    mock_made_directory.return_value = tmp_path / ".made"
+    cron_service._scheduler = MagicMock()
+
+    with patch("cron_service.os.getpid", return_value=1234):
+        cron_service.stop_cron_clock()
+
+    assert pid_file.exists()
+    assert pid_file.read_text(encoding="utf-8") == "5555\n"
+
+
+@patch("cron_service.get_made_directory")
+@patch("cron_service.BackgroundScheduler")
+@patch("cron_service.list_scheduled_tasks")
+@patch("cron_service.read_workflows")
+@patch("cron_service.get_workspace_home")
+def test_start_cron_clock_releases_pid_on_partial_startup_failure(
+    mock_workspace_home,
+    mock_read_workflows,
+    mock_list_scheduled_tasks,
+    mock_scheduler_cls,
+    mock_made_directory,
+    tmp_path,
+):
+    repo = tmp_path / "repo-a"
+    repo.mkdir()
+    pid_file = tmp_path / ".made" / cron_service.CRON_PID_FILENAME
+    mock_made_directory.return_value = tmp_path / ".made"
+    mock_workspace_home.return_value = tmp_path
+    mock_read_workflows.return_value = {"workflows": []}
+    mock_list_scheduled_tasks.return_value = []
+    mock_scheduler = MagicMock()
+    mock_scheduler.start.side_effect = RuntimeError("boom")
+    mock_scheduler_cls.return_value = mock_scheduler
+
+    with patch("cron_service.os.getpid", return_value=8765):
+        try:
+            cron_service.start_cron_clock()
+        except RuntimeError as exc:
+            assert str(exc) == "boom"
+        else:
+            raise AssertionError("Expected start_cron_clock() to raise RuntimeError")
+
+    assert not pid_file.exists()
 
 
 @patch("cron_service.subprocess.Popen")
@@ -407,9 +541,7 @@ def test_run_scheduled_task_uses_configured_agent_cli(
         stdin=cron_service.subprocess.PIPE,
     )
     mock_thread.assert_called_once()
-    assert (
-        mock_thread.call_args.kwargs["args"][3] == "# check things\n- task body"
-    )
+    assert mock_thread.call_args.kwargs["args"][3] == "# check things\n- task body"
 
 
 @patch("cron_service.get_tasks_directory")
