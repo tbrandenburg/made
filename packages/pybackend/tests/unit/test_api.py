@@ -28,6 +28,7 @@ class TestHealthEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "ok"
+        assert "version" in data
         assert data["workspace"] == "/test/workspace"
         assert data["made"] == "/test/made"
 
@@ -1398,3 +1399,26 @@ class TestWorkflowEndpoints:
 
         assert response.status_code == 500
         assert "Cron refresh failed" in response.json()["detail"]
+
+
+class TestVersionEndpoint:
+    """Test the /api/version endpoint."""
+
+    def test_version_returns_version_string(self):
+        """Version endpoint returns a version field."""
+        response = client.get("/api/version")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "version" in data
+        assert isinstance(data["version"], str)
+        assert len(data["version"]) > 0
+
+    def test_version_includes_metadata_fields(self):
+        """Version endpoint returns all required metadata fields."""
+        response = client.get("/api/version")
+
+        data = response.json()
+        assert "commit_sha" in data
+        assert "build_date" in data
+        assert "environment" in data

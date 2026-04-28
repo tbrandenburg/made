@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import fcntl
+import importlib.metadata
 import json
 import logging
 import os
@@ -11,6 +12,8 @@ import subprocess
 import termios
 from copy import deepcopy
 from pathlib import Path
+
+_VERSION = importlib.metadata.version("made-pybackend")
 
 from uvicorn.config import LOGGING_CONFIG
 
@@ -209,8 +212,19 @@ def _save_workflows_and_refresh_cron(
 def health_check():
     return {
         "status": "ok",
+        "version": _VERSION,
         "workspace": str(get_workspace_home()),
         "made": str(get_made_directory()),
+    }
+
+
+@app.get("/api/version")
+def get_version():
+    return {
+        "version": _VERSION,
+        "commit_sha": os.environ.get("COMMIT_SHA", "unknown"),
+        "build_date": os.environ.get("BUILD_DATE", "unknown"),
+        "environment": os.environ.get("ENVIRONMENT", "development"),
     }
 
 
