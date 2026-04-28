@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from threading import Lock, Thread
+from threading import Lock, Thread, main_thread, current_thread
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -576,7 +576,14 @@ def _signal_handler(signum, frame):
 
 
 def register_signal_handlers() -> None:
-    """Register signal handlers for graceful shutdown."""
+    """Register signal handlers for graceful shutdown.
+
+    Only registers when called from the main thread — signal.signal()
+    raises ValueError in worker threads (e.g. during tests with TestClient).
+    """
+    if current_thread() is not main_thread():
+        logger.debug("Skipping signal handler registration: not in main thread")
+        return
     signal.signal(signal.SIGTERM, _signal_handler)
     signal.signal(signal.SIGINT, _signal_handler)
 
