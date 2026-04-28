@@ -13,8 +13,6 @@ import termios
 from copy import deepcopy
 from pathlib import Path
 
-_VERSION = importlib.metadata.version("made-pybackend")
-
 from uvicorn.config import LOGGING_CONFIG
 
 from fastapi import (
@@ -102,6 +100,8 @@ from config import (
     get_backend_host,
     get_backend_port,
 )
+
+_VERSION = importlib.metadata.version("made-pybackend")
 
 log_dir = ensure_directory(get_made_directory() / "logs")
 log_file = log_dir / "backend.log"

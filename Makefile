@@ -11,7 +11,7 @@ MADE_WORKSPACE_HOME ?= $(abspath $(CURDIR)/workspace/)
 export MADE_HOME
 export MADE_WORKSPACE_HOME
 
-.PHONY: help lint format test unit-test system-test qa qa-quick build run stop restart clean install install-node install-pybackend test-coverage security-audit docker-build docker-up docker-down docker-dev docker-clean release tag-release
+.PHONY: help lint format test unit-test system-test qa qa-quick build run stop restart clean install install-node install-pybackend install-hooks test-coverage security-audit docker-build docker-up docker-down docker-dev docker-clean release tag-release
 
 # Default target
 help:
@@ -43,7 +43,7 @@ help:
 	@echo "  restart   Stop and then start all services"
 	@echo ""
 	@echo "Maintenance:"
-	@echo "  install   Install/sync dependencies"
+	@echo "  install   Install/sync dependencies and git hooks"
 	@echo "  clean     Clean build artifacts and cache"
 	@echo ""
 	@echo "Example usage:"
@@ -193,7 +193,7 @@ stop:
 restart: stop run
 
 # Maintenance Tasks
-install: install-node install-pybackend
+install: install-node install-pybackend install-hooks
 	@echo "✅ Dependencies installed for frontend and Python backend"
 
 install-node:
@@ -204,6 +204,12 @@ install-node:
 install-pybackend:
 	@echo "⚙️ Syncing Python backend dependencies..."
 	cd $(PYBACKEND_DIR) && uv sync
+
+install-hooks:
+	@echo "⚙️ Installing git hooks..."
+	cp scripts/hooks/pre-push .git/hooks/pre-push
+	chmod +x .git/hooks/pre-push
+	@echo "✅ Git hooks installed (pre-push runs make qa-quick)"
 
 clean:
 	@echo "🧹 Cleaning build artifacts and cache..."
