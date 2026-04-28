@@ -24,6 +24,7 @@ PID_FILE_NAME = "backend-cron.pid"
 
 def _get_pid_file_path() -> Path:
     from config import get_made_directory
+
     return get_made_directory() / PID_FILE_NAME
 
 
@@ -75,6 +76,7 @@ def _release_cron_ownership() -> None:
                 logger.info("Released cron ownership for PID %d", os.getpid())
         except (ValueError, OSError) as e:
             logger.warning("Failed to release PID file: %s", e)
+
 
 _scheduler: BackgroundScheduler | None = None
 _state_lock = Lock()

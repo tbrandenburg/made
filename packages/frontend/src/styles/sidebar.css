@@ -60,3 +60,10 @@
     transform: translateX(0);
   }
 }
+
+.sidebar-version {
+  font-size: 0.7rem;
+  text-align: center;
+  color: var(--muted);
+  margin-top: -1rem;
+}

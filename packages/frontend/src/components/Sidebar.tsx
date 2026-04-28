@@ -7,7 +7,7 @@ import {
   Squares2X2Icon,
 } from "@heroicons/react/24/outline";
 import { RecurringTasksIcon } from "./icons/RecurringTasksIcon";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import "../styles/sidebar.css";
 
@@ -33,9 +33,19 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ open, onNavigate }) => {
+  const [version, setVersion] = useState<string>("");
+
+  useEffect(() => {
+    fetch("/api/version")
+      .then((res) => res.json())
+      .then((data: { version: string }) => setVersion(data.version))
+      .catch(() => setVersion(""));
+  }, []);
+
   return (
     <nav className={`sidebar ${open ? "open" : ""}`}>
       <div className="sidebar-header">MADE</div>
+      {version && <div className="sidebar-version">v{version}</div>}
       <ul>
         {MENU_ITEMS.map((item) => {
           const Icon = item.icon;

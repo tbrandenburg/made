@@ -1,37 +1,30 @@
 {
-  "TASK_1_ANALYZE_PR384": {
+  "T1": {
     "status": "done",
     "evidence": [
-      "gh pr checks 384: Quality Assurance (Lint + Format + Unit Tests) = FAIL",
-      "gh run view 24555659089 --log-failed: python-multipart 0.0.22 has CVE-2026-40347, fix versions: 0.0.26",
-      "5xWhy: Why1=CI security-audit fails → Why2=pip-audit found CVE-2026-40347 in python-multipart 0.0.22 → Why3=pyproject.toml has python-multipart>=0.0.9 which allows 0.0.22 → Why4=PR only changed CSS, did not update python-multipart constraint → Why5=no automated dep-update process keeps python-multipart current"
+      "PR #395 analyzed: lint errors found in backend (ruff): 18 errors including unused imports, line length issues",
+      "make lint output shows: Found 18 errors in packages/pybackend/*.py"
     ],
-    "last_verified": "2026-04-17T08:42:00Z"
+    "last_verified": "2026-04-28T00:00:00Z"
   },
-  "TASK_2_PLAN_FIX_PR384": {
-    "status": "done",
-    "evidence": [
-      "Plan: bump python-multipart from >=0.0.9 to >=0.0.26 in packages/pybackend/pyproject.toml, run uv sync, verify pip-audit passes"
-    ],
-    "last_verified": "2026-04-17T08:42:00Z"
-  },
-  "TASK_3_IMPLEMENT_FIX_PR384": {
-    "status": "done",
-    "evidence": [
-      "Edit: python-multipart>=0.0.9 → >=0.0.26 in packages/pybackend/pyproject.toml",
-      "uv sync: python-multipart 0.0.22 → 0.0.26 installed",
-      "pip-audit: No known vulnerabilities found"
-    ],
-    "last_verified": "2026-04-17T08:44:00Z"
-  },
-  "TASK_4_COMMIT_PUSH_PR384": {
+  "T2": {
     "status": "in_progress",
     "evidence": [],
-    "last_verified": "2026-04-17T08:44:00Z"
+    "last_verified": "2026-04-28T00:00:00Z"
   },
-  "TASK_5_OBSERVE_CI_PR384": {
+  "T3": {
     "status": "pending",
     "evidence": [],
-    "last_verified": "2026-04-17T08:44:00Z"
+    "last_verified": "2026-04-28T00:00:00Z"
+  },
+  "T4": {
+    "status": "pending",
+    "evidence": [],
+    "last_verified": "2026-04-28T00:00:00Z"
+  },
+  "T5": {
+    "status": "pending",
+    "evidence": [],
+    "last_verified": "2026-04-28T00:00:00Z"
   }
 }

@@ -34,6 +34,15 @@ Follow this mandatory guideline even if not instructed.
 Focus on lightweight, fast feedback — only essential tests are included.
 - Before pushing changes, run `make qa-quick` from repository root and address any failures.
 
+### Pre-push quality gate (mandatory)
+
+A git `pre-push` hook is stored in `scripts/hooks/pre-push` and installed by `make install`.
+It runs `make qa-quick` (lint + format + unit-test) automatically before every `git push`.
+
+- **Never bypass this hook** (`--no-verify`) unless CI is explicitly broken and you are pushing a hotfix.
+- If the hook is missing after a fresh clone, run `make install` or `make install-hooks` to restore it.
+- When adding new linting rules, ensure they pass locally via `make lint` before committing.
+
 ### CI/CD Note for Backend Pytest
 - If CI runs `python -m pytest packages/pybackend/tests/unit` directly, install backend dependencies first (e.g., `cd packages/pybackend && uv sync` or `python -m pip install -e packages/pybackend`) to avoid missing-import collection errors.
 - If CI runs `python -m pytest` outside the `uv` environment, dependencies like `fastapi` can be missing. Prefer running tests with `uv run` (for example: `uv run --project packages/pybackend python -m pytest packages/pybackend/tests/unit`) or activate the `.venv` created by `uv sync` before executing pytest.
@@ -57,6 +66,7 @@ Focus on lightweight, fast feedback — only essential tests are included.
 - Use **Node.js 18 or newer** for the frontend.
 - Run `npm install` to install frontend dependencies.
 - Run `cd packages/pybackend && uv sync` to install backend dependencies.
+- **Run `make install` (preferred) — installs all dependencies AND sets up the pre-push git hook.**
 - Ensure the environment variable `PORT` is respected (default: `3000`).
 - The app must listen on `0.0.0.0` (not `localhost`) to enable public preview.
 - The vite configuration has to be set up for allowing following remote hosts for previews (allowedHosts): .ngrok-free.dev, .ngrok.io, .ngrok.app
@@ -64,6 +74,10 @@ Focus on lightweight, fast feedback — only essential tests are included.
 ## Build & Run Instructions
 1. **Install dependencies**
    ```bash
+   # Install all dependencies and git hooks (recommended)
+   make install
+
+   # Or manually:
    # Frontend dependencies
    npm install
    

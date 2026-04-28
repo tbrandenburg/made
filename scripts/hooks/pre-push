@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Pre-push hook: run lint + format + unit tests before every push.
+# To skip in a genuine emergency only: git push --no-verify
+set -e
+echo "Running qa-quick (lint + format + unit-test) before push..."
+make qa-quick
