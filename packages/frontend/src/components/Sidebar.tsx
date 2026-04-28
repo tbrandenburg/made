@@ -45,7 +45,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onNavigate }) => {
   return (
     <nav className={`sidebar ${open ? "open" : ""}`}>
       <div className="sidebar-header">MADE</div>
-      {version && <div className="sidebar-version">v{version}</div>}
       <ul>
         {MENU_ITEMS.map((item) => {
           const Icon = item.icon;
@@ -65,6 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onNavigate }) => {
           );
         })}
       </ul>
+      {version && <div className="sidebar-version">v{version}</div>}
     </nav>
   );
 };
