@@ -48,16 +48,20 @@ def _claim_cron_ownership() -> bool:
     if pid_path.exists():
         try:
             existing_pid = int(pid_path.read_text().strip())
+            if existing_pid == os.getpid():
+                # Same process (e.g. multiple TestClient contexts) — allow re-entry
+                logger.debug("Cron ownership re-claimed by same PID %d", os.getpid())
+                return True
             if _is_process_alive(existing_pid):
-                logger.warning(f"Cron service already owned by PID {existing_pid}")
+                logger.warning("Cron service already owned by PID %d", existing_pid)
                 return False
             else:
-                logger.info(f"Removing stale PID file for dead process {existing_pid}")
+                logger.info("Removing stale PID file for dead process %d", existing_pid)
         except (ValueError, OSError) as e:
-            logger.warning(f"Invalid PID file content: {e}")
+            logger.warning("Invalid PID file content: %s", e)
 
     pid_path.write_text(str(os.getpid()))
-    logger.info(f"Claimed cron ownership with PID {os.getpid()}")
+    logger.info("Claimed cron ownership with PID %d", os.getpid())
     return True
 
 
@@ -68,9 +72,9 @@ def _release_cron_ownership() -> None:
         try:
             if int(pid_path.read_text().strip()) == os.getpid():
                 pid_path.unlink()
-                logger.info(f"Released cron ownership for PID {os.getpid()}")
+                logger.info("Released cron ownership for PID %d", os.getpid())
         except (ValueError, OSError) as e:
-            logger.warning(f"Failed to release PID file: {e}")
+            logger.warning("Failed to release PID file: %s", e)
 
 _scheduler: BackgroundScheduler | None = None
 _state_lock = Lock()
@@ -569,7 +573,7 @@ def stop_cron_clock() -> None:
 
 def _signal_handler(signum, frame):
     """Handle shutdown signals to ensure clean PID file cleanup."""
-    logger.info(f"Received signal {signum}, shutting down cron service gracefully...")
+    logger.info("Received signal %d, shutting down cron service gracefully...", signum)
     if _scheduler is not None:
         stop_cron_clock()
     raise SystemExit(0)
