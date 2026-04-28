@@ -416,10 +416,11 @@ def start_cron_clock() -> None:
 
     # Cross-process singleton guard
     if not _claim_cron_ownership():
-        raise RuntimeError(
+        logger.warning(
             "Another MADE backend instance is already running the cron service. "
-            "Run 'make stop' or kill the existing process before starting."
+            "Skipping cron scheduler startup to avoid duplicate job execution."
         )
+        return
 
     scheduler = BackgroundScheduler()
     configured_jobs = 0

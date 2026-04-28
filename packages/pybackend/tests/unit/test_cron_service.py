@@ -665,10 +665,11 @@ def test_release_cron_ownership_preserves_other_pid(tmp_path):
 
 
 @patch("cron_service._claim_cron_ownership")
-def test_start_cron_clock_raises_when_ownership_fails(mock_claim):
-    """Test start_cron_clock raises RuntimeError when ownership claim fails."""
+def test_start_cron_clock_skips_when_ownership_fails(mock_claim):
+    """Test start_cron_clock returns without starting scheduler when ownership claim fails."""
     mock_claim.return_value = False
 
-    import pytest
-    with pytest.raises(RuntimeError, match="already running"):
-        cron_service.start_cron_clock()
+    cron_service.start_cron_clock()
+
+    # Scheduler should not have been started — _scheduler stays None
+    assert cron_service._scheduler is None
