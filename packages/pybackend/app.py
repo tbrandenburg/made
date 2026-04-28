@@ -65,6 +65,7 @@ from cron_service import (
     list_workflow_logs,
     read_workflow_log_tail,
     refresh_cron_clock,
+    register_signal_handlers,
     start_cron_clock,
     stop_cron_clock,
 )
@@ -118,6 +119,7 @@ logger = logging.getLogger("made.pybackend")
 
 @contextlib.asynccontextmanager
 async def lifespan(_: FastAPI):
+    register_signal_handlers()
     start_cron_clock()
     try:
         yield

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import signal
 import shutil
 import subprocess
 from datetime import datetime, timezone
@@ -16,6 +18,55 @@ from task_service import get_tasks_directory, list_scheduled_tasks, read_task
 from workflow_service import read_workflows
 
 logger = logging.getLogger("made.pybackend.cron")
+
+PID_FILE_NAME = "backend-cron.pid"
+
+
+def _get_pid_file_path() -> Path:
+    from config import get_made_directory
+    return get_made_directory() / PID_FILE_NAME
+
+
+def _is_process_alive(pid: int) -> bool:
+    """Check if a process with given PID is still running."""
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _claim_cron_ownership() -> bool:
+    """Atomically claim ownership of cron service. Returns True if successful."""
+    pid_path = _get_pid_file_path()
+    pid_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if pid_path.exists():
+        try:
+            existing_pid = int(pid_path.read_text().strip())
+            if _is_process_alive(existing_pid):
+                logger.warning(f"Cron service already owned by PID {existing_pid}")
+                return False
+            else:
+                logger.info(f"Removing stale PID file for dead process {existing_pid}")
+        except (ValueError, OSError) as e:
+            logger.warning(f"Invalid PID file content: {e}")
+
+    pid_path.write_text(str(os.getpid()))
+    logger.info(f"Claimed cron ownership with PID {os.getpid()}")
+    return True
+
+
+def _release_cron_ownership() -> None:
+    """Release cron ownership if we own it."""
+    pid_path = _get_pid_file_path()
+    if pid_path.exists():
+        try:
+            if int(pid_path.read_text().strip()) == os.getpid():
+                pid_path.unlink()
+                logger.info(f"Released cron ownership for PID {os.getpid()}")
+        except (ValueError, OSError) as e:
+            logger.warning(f"Failed to release PID file: {e}")
 
 _scheduler: BackgroundScheduler | None = None
 _state_lock = Lock()
@@ -355,6 +406,13 @@ def start_cron_clock() -> None:
     if _scheduler is not None:
         return
 
+    # Cross-process singleton guard
+    if not _claim_cron_ownership():
+        raise RuntimeError(
+            "Another MADE backend instance is already running the cron service. "
+            "Run 'make stop' or kill the existing process before starting."
+        )
+
     scheduler = BackgroundScheduler()
     configured_jobs = 0
     invalid_jobs = 0
@@ -497,7 +555,22 @@ def stop_cron_clock() -> None:
             _running_process_by_job.pop(workflow_id, None)
 
     _scheduler = None
+    _release_cron_ownership()
     logger.info("Cron clock stopped")
+
+
+def _signal_handler(signum, frame):
+    """Handle shutdown signals to ensure clean PID file cleanup."""
+    logger.info(f"Received signal {signum}, shutting down cron service gracefully...")
+    if _scheduler is not None:
+        stop_cron_clock()
+    raise SystemExit(0)
+
+
+def register_signal_handlers() -> None:
+    """Register signal handlers for graceful shutdown."""
+    signal.signal(signal.SIGTERM, _signal_handler)
+    signal.signal(signal.SIGINT, _signal_handler)
 
 
 def refresh_cron_clock() -> dict[str, object]:
