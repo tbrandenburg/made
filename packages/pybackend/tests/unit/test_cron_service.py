@@ -594,3 +594,82 @@ def test_get_long_running_jobs_returns_running_jobs_above_threshold():
 
     assert len(result) == 1
     assert result[0]["workflow_id"] == "long"
+
+
+# --- PID file singleton tests ---
+
+import os
+
+
+def test_claim_cron_ownership_succeeds_when_no_existing_file(tmp_path):
+    """Test claiming ownership when no PID file exists."""
+    with patch("cron_service._get_pid_file_path") as mock_path:
+        mock_path.return_value = tmp_path / "backend-cron.pid"
+
+        assert cron_service._claim_cron_ownership() is True
+        assert (tmp_path / "backend-cron.pid").read_text().strip() == str(os.getpid())
+
+
+def test_claim_cron_ownership_fails_when_process_alive(tmp_path):
+    """Test ownership claim fails when another process is alive."""
+    pid_file = tmp_path / "backend-cron.pid"
+    pid_file.write_text("99999")
+
+    with patch("cron_service._get_pid_file_path") as mock_path, \
+         patch("cron_service._is_process_alive") as mock_alive:
+        mock_path.return_value = pid_file
+        mock_alive.return_value = True
+
+        assert cron_service._claim_cron_ownership() is False
+
+
+def test_claim_cron_ownership_succeeds_when_process_dead(tmp_path):
+    """Test claiming ownership when PID file has dead process."""
+    pid_file = tmp_path / "backend-cron.pid"
+    pid_file.write_text("99999")
+
+    with patch("cron_service._get_pid_file_path") as mock_path, \
+         patch("cron_service._is_process_alive") as mock_alive:
+        mock_path.return_value = pid_file
+        mock_alive.return_value = False
+
+        assert cron_service._claim_cron_ownership() is True
+        assert pid_file.read_text().strip() == str(os.getpid())
+
+
+def test_release_cron_ownership_removes_own_pid(tmp_path):
+    """Test release removes PID file when it matches current process."""
+    pid_file = tmp_path / "backend-cron.pid"
+    pid_file.write_text(str(os.getpid()))
+
+    with patch("cron_service._get_pid_file_path") as mock_path:
+        mock_path.return_value = pid_file
+
+        cron_service._release_cron_ownership()
+
+        assert not pid_file.exists()
+
+
+def test_release_cron_ownership_preserves_other_pid(tmp_path):
+    """Test release does not remove PID file from other process."""
+    pid_file = tmp_path / "backend-cron.pid"
+    pid_file.write_text("99999")
+
+    with patch("cron_service._get_pid_file_path") as mock_path:
+        mock_path.return_value = pid_file
+
+        cron_service._release_cron_ownership()
+
+        assert pid_file.exists()
+        assert pid_file.read_text().strip() == "99999"
+
+
+@patch("cron_service._claim_cron_ownership")
+def test_start_cron_clock_skips_when_ownership_fails(mock_claim):
+    """Test start_cron_clock returns without starting scheduler when ownership claim fails."""
+    mock_claim.return_value = False
+
+    cron_service.start_cron_clock()
+
+    # Scheduler should not have been started — _scheduler stays None
+    assert cron_service._scheduler is None
