@@ -32,6 +32,10 @@ def _is_process_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
         return True
+    except PermissionError:
+        return True  # process exists but belongs to another user
+    except ProcessLookupError:
+        return False
     except OSError:
         return False
 
@@ -504,7 +508,11 @@ def start_cron_clock() -> None:
             invalid_jobs += 1
             logger.warning("Skipping task '%s': invalid cron '%s'", task_name, schedule)
 
-    scheduler.start()
+    try:
+        scheduler.start()
+    except Exception:
+        _release_cron_ownership()
+        raise
     _scheduler = scheduler
 
     # Start job timeout monitor
