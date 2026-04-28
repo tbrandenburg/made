@@ -67,6 +67,9 @@ test.describe('MADE journeys', () => {
     await page.route('**/api/constitutions', (route) =>
       route.fulfill({ json: { constitutions: [{ name: 'global.md', frontmatter: { type: 'global' } }] } })
     );
+    await page.route('**/api/version', (route) =>
+      route.fulfill({ json: { version: '0.0.0-test', commit_sha: 'test', build_date: 'test', environment: 'test' } })
+    );
   });
 
   test('welcome and dashboard overview', async ({ page }) => {
