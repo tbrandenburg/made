@@ -30,6 +30,7 @@ import {
   ChatSession,
   FileNode,
   HarnessDefinition,
+  RepositoryTodo,
   RepositoryFileGitDetails,
   RepositorySummary,
   RepositoryGitStatus,
@@ -681,6 +682,11 @@ export const RepositoryPage: React.FC = () => {
   const [fileCommentText, setFileCommentText] = useState("");
   const [createModal, setCreateModal] = useState(false);
   const [uploadModal, setUploadModal] = useState(false);
+  const [todoModalOpen, setTodoModalOpen] = useState(false);
+  const [newTodoText, setNewTodoText] = useState("");
+  const [todos, setTodos] = useState<RepositoryTodo[]>([]);
+  const [todoLoading, setTodoLoading] = useState(false);
+  const [todoError, setTodoError] = useState<string | null>(null);
   const [renameModal, setRenameModal] = useState<{
     open: boolean;
     from: string | null;
@@ -1534,6 +1540,46 @@ export const RepositoryPage: React.FC = () => {
     setUploadFile(null);
   };
 
+  const loadTodos = useCallback(async () => {
+    if (!name) return;
+    setTodoLoading(true);
+    try {
+      const response = await api.getRepositoryTodos(name);
+      setTodos(response.todos || []);
+      setTodoError(null);
+    } catch (error) {
+      setTodoError(
+        error instanceof Error ? error.message : "Unable to load todos",
+      );
+    } finally {
+      setTodoLoading(false);
+    }
+  }, [name]);
+
+  useEffect(() => {
+    void loadTodos();
+  }, [loadTodos]);
+
+  const handleAddTodo = async () => {
+    if (!name || !newTodoText.trim()) return;
+    const response = await api.addRepositoryTodo(name, newTodoText.trim());
+    setTodos(response.todos || []);
+    setNewTodoText("");
+    setTodoModalOpen(false);
+  };
+
+  const handleToggleTodo = async (index: number, done: boolean) => {
+    if (!name) return;
+    const response = await api.updateRepositoryTodo(name, index, done);
+    setTodos(response.todos || []);
+  };
+
+  const handleDeleteTodo = async (index: number) => {
+    if (!name) return;
+    const response = await api.deleteRepositoryTodo(name, index);
+    setTodos(response.todos || []);
+  };
+
   const handleUploadFile = async () => {
     if (!name) return;
     const trimmedPath = uploadPath.trim();
@@ -2030,6 +2076,56 @@ export const RepositoryPage: React.FC = () => {
             </div>
           </Panel>
         </div>
+      ),
+    },
+    {
+      id: "todo",
+      label: "Todo",
+      content: (
+        <Panel
+          title="Repository Todos"
+          actions={
+            <button className="primary" onClick={() => setTodoModalOpen(true)}>
+              Add Todo
+            </button>
+          }
+        >
+          {todoError && <div className="alert error">{todoError}</div>}
+          {todoLoading ? (
+            <div className="alert">Loading todos...</div>
+          ) : (
+            <div className="file-browser">
+              {todos.length === 0 ? (
+                <div className="empty">No todos in .made/TODO.md</div>
+              ) : (
+                todos.map((todo, index) => (
+                  <div className="file-node" key={`${todo.text}-${index}`}>
+                    <div className="file-row">
+                      <input
+                        type="checkbox"
+                        checked={todo.done}
+                        onChange={(event) =>
+                          void handleToggleTodo(index, event.target.checked)
+                        }
+                      />
+                      <div className="file-name">{todo.text}</div>
+                      <div className="file-actions">
+                        <button
+                          type="button"
+                          className="copy-button file-action-button"
+                          onClick={() => void handleDeleteTodo(index)}
+                          aria-label={`Delete todo ${todo.text}`}
+                        >
+                          <TrashIcon />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </Panel>
       ),
     },
     {
@@ -2579,6 +2675,31 @@ export const RepositoryPage: React.FC = () => {
           </button>
           <button className="primary" onClick={handleCreateFile}>
             Create
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={todoModalOpen}
+        title="Add Todo"
+        onClose={() => setTodoModalOpen(false)}
+      >
+        <div className="form-group">
+          <label htmlFor="new-todo">Todo</label>
+          <textarea
+            id="new-todo"
+            value={newTodoText}
+            onChange={(event) => setNewTodoText(event.target.value)}
+            placeholder="Describe a task..."
+            rows={4}
+          />
+        </div>
+        <div className="modal-actions">
+          <button className="secondary" onClick={() => setTodoModalOpen(false)}>
+            Cancel
+          </button>
+          <button className="primary" onClick={() => void handleAddTodo()}>
+            Add
           </button>
         </div>
       </Modal>
