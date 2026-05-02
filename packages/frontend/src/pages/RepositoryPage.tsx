@@ -565,6 +565,13 @@ export const RepositoryPage: React.FC = () => {
     });
   }, [chat]);
 
+  const copyToClipboard = useCallback((content: string, label: string) => {
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText(content).catch((error) => {
+      console.error(`Failed to copy ${label}`, error);
+    });
+  }, []);
+
   const scrollToBottom = () => {
     if (chatWindowRef.current) {
       chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
@@ -2168,7 +2175,7 @@ export const RepositoryPage: React.FC = () => {
                   actions={
                     <button
                       type="button"
-                      className="secondary comment-action"
+                      className="primary"
                       onClick={() => openFileCommentModal("diff")}
                     >
                       Comment
@@ -2235,13 +2242,25 @@ export const RepositoryPage: React.FC = () => {
               }
               actions={
                 selectedFile && (
-                  <button
-                    className="primary"
-                    onClick={handleSaveFile}
-                    disabled={loadingFile}
-                  >
-                    Save File
-                  </button>
+                  <div className="panel-action-buttons">
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={handleSaveFile}
+                      disabled={loadingFile}
+                    >
+                      Save File
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary comment-action"
+                      onClick={() =>
+                        copyToClipboard(editorContent, "editor content")
+                      }
+                    >
+                      Copy Raw
+                    </button>
+                  </div>
                 )
               }
             >
@@ -2271,13 +2290,24 @@ export const RepositoryPage: React.FC = () => {
               title="Preview"
               actions={
                 selectedFile && (
-                  <button
-                    type="button"
-                    className="secondary comment-action"
-                    onClick={() => openFileCommentModal("preview")}
-                  >
-                    Comment
-                  </button>
+                  <div className="panel-action-buttons">
+                    <button
+                      type="button"
+                      className="secondary comment-action"
+                      onClick={() => openFileCommentModal("preview")}
+                    >
+                      Comment
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary comment-action"
+                      onClick={() =>
+                        copyToClipboard(editorContent, "preview content")
+                      }
+                    >
+                      Copy Preview
+                    </button>
+                  </div>
                 )
               }
             >
