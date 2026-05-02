@@ -254,6 +254,11 @@ export type HarnessDefinition = {
   source: string;
 };
 
+export type RepositoryTodo = {
+  text: string;
+  done: boolean;
+};
+
 export type TemplateApplyResponse = {
   repository: string;
   template: string;
@@ -530,6 +535,28 @@ export const api = {
   getRepositoryWorkflows: (name: string) =>
     request<{ workflows: WorkflowDefinition[] }>(
       `/repositories/${name}/workflows`,
+    ),
+  getRepositoryTodos: (name: string) =>
+    request<{ todos: RepositoryTodo[] }>(`/repositories/${name}/todos`),
+  addRepositoryTodo: (name: string, text: string) =>
+    request<{ todos: RepositoryTodo[] }>(`/repositories/${name}/todos`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+  updateRepositoryTodo: (name: string, index: number, done: boolean) =>
+    request<{ todos: RepositoryTodo[] }>(
+      `/repositories/${name}/todos/${index}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ done }),
+      },
+    ),
+  deleteRepositoryTodo: (name: string, index: number) =>
+    request<{ todos: RepositoryTodo[] }>(
+      `/repositories/${name}/todos/${index}`,
+      {
+        method: "DELETE",
+      },
     ),
   saveRepositoryWorkflows: (name: string, workflows: WorkflowDefinition[]) =>
     request<{ workflows: WorkflowDefinition[] }>(

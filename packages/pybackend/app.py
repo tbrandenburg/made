@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import pty
+import re
 import shutil
 import struct
 import subprocess
@@ -556,6 +557,87 @@ def delete_repository_file_endpoint(name: str, payload: dict = Body(...)):
             "Failed to delete file '%s' from repository '%s'", file_path, name
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+def _parse_todo_lines(content: str) -> list[dict]:
+    todos: list[dict] = []
+    for line in content.splitlines():
+        match = re.match(r"^\s*[-*]\s+\[( |x|X)\]\s+(.*)$", line)
+        if not match:
+            continue
+        todos.append(
+            {"text": match.group(2).strip(), "done": match.group(1).lower() == "x"}
+        )
+    return todos
+
+
+def _format_todo_lines(todos: list[dict]) -> str:
+    if not todos:
+        return ""
+    return "\n".join(
+        f"- [{'x' if bool(todo.get('done')) else ' '}] {str(todo.get('text', '')).strip()}"
+        for todo in todos
+        if str(todo.get("text", "")).strip()
+    )
+
+
+@app.get("/api/repositories/{name}/todos")
+def list_repository_todos_endpoint(name: str):
+    try:
+        content = read_repository_file(name, ".made/TODO.md")
+        return {"todos": _parse_todo_lines(content)}
+    except FileNotFoundError:
+        return {"todos": []}
+
+
+@app.post("/api/repositories/{name}/todos")
+def add_repository_todo_endpoint(name: str, payload: dict = Body(...)):
+    text = str(payload.get("text", "")).strip()
+    if not text:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Todo text is required"
+        )
+    try:
+        existing = _parse_todo_lines(read_repository_file(name, ".made/TODO.md"))
+    except FileNotFoundError:
+        existing = []
+    existing.append({"text": text, "done": False})
+    write_repository_file(name, ".made/TODO.md", _format_todo_lines(existing))
+    return {"todos": existing}
+
+
+@app.put("/api/repositories/{name}/todos/{index}")
+def update_repository_todo_endpoint(name: str, index: int, payload: dict = Body(...)):
+    try:
+        todos = _parse_todo_lines(read_repository_file(name, ".made/TODO.md"))
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="TODO file not found"
+        )
+    if index < 0 or index >= len(todos):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Todo not found"
+        )
+    todos[index]["done"] = bool(payload.get("done", False))
+    write_repository_file(name, ".made/TODO.md", _format_todo_lines(todos))
+    return {"todos": todos}
+
+
+@app.delete("/api/repositories/{name}/todos/{index}")
+def delete_repository_todo_endpoint(name: str, index: int):
+    try:
+        todos = _parse_todo_lines(read_repository_file(name, ".made/TODO.md"))
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="TODO file not found"
+        )
+    if index < 0 or index >= len(todos):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Todo not found"
+        )
+    todos.pop(index)
+    write_repository_file(name, ".made/TODO.md", _format_todo_lines(todos))
+    return {"todos": todos}
 
 
 @app.post("/api/repositories/{name}/agent")
