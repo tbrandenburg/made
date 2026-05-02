@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import fcntl
+import html
 import importlib.metadata
 import json
 import logging
@@ -12,6 +13,7 @@ import subprocess
 import termios
 from copy import deepcopy
 from pathlib import Path
+from urllib.parse import quote
 
 from uvicorn.config import LOGGING_CONFIG
 
@@ -29,6 +31,7 @@ from fastapi import (
 )
 from fastapi.websockets import WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
 
 from agent_service import (
     ChannelBusyError,
@@ -387,6 +390,59 @@ def repository_files(name: str, path: str = Query(".")):
         return list_repository_files(name, path)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@app.get("/api/repositories/{name}/web")
+@app.get("/api/repositories/{name}/web/{path:path}")
+def repository_web(name: str, path: str = ""):
+    try:
+        repo_path = _repository_path(name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+    safe_relative = Path(path or "").as_posix().lstrip("/")
+    target = (repo_path / safe_relative).resolve()
+
+    if repo_path not in target.parents and target != repo_path:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid web path",
+        )
+
+    if target.is_dir():
+        index_file = target / "index.html"
+        if index_file.is_file():
+            return FileResponse(index_file)
+
+        request_path = safe_relative.rstrip("/")
+        base_url = f"/api/repositories/{quote(name)}/web"
+        current_url = f"{base_url}/{request_path}" if request_path else base_url
+        entries = []
+        if request_path:
+            parent_path = request_path.rsplit("/", 1)[0]
+            parent_url = f"{base_url}/{parent_path}" if parent_path else base_url
+            entries.append(f'<li><a href="{parent_url}">..</a></li>')
+        for child in sorted(
+            target.iterdir(), key=lambda item: (item.is_file(), item.name.lower())
+        ):
+            child_relative = "/".join(
+                segment for segment in [request_path, child.name] if segment
+            )
+            child_url = f"{base_url}/{quote(child_relative, safe='/')}"
+            label = f"{child.name}/" if child.is_dir() else child.name
+            entries.append(f'<li><a href="{child_url}">{html.escape(label)}</a></li>')
+        listing = "\n".join(entries) or "<li><em>(empty)</em></li>"
+        return HTMLResponse(
+            f"<html><body><h1>Index of {html.escape(current_url)}</h1><ul>{listing}</ul></body></html>"
+        )
+
+    if not target.exists() or not target.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Web file not found",
+        )
+
+    return FileResponse(target)
 
 
 @app.get("/api/repositories/{name}/file")

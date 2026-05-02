@@ -594,6 +594,44 @@ class TestRepositoryEndpoints:
         data = response.json()
         assert data["content"] == mock_content
 
+    def test_repository_web_serves_index_html(self, tmp_path):
+        repo_path = tmp_path / "test-repo"
+        repo_path.mkdir()
+        (repo_path / "index.html").write_text("<h1>Hello</h1>", encoding="utf-8")
+
+        with patch("app._repository_path", return_value=repo_path):
+            response = client.get("/api/repositories/test-repo/web")
+
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "<h1>Hello</h1>" in response.text
+
+    def test_repository_web_missing_file_returns_not_found(self, tmp_path):
+        repo_path = tmp_path / "test-repo"
+        repo_path.mkdir()
+
+        with patch("app._repository_path", return_value=repo_path):
+            response = client.get("/api/repositories/test-repo/web/missing.html")
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Web file not found"
+
+    def test_repository_web_lists_directory_when_index_missing(self, tmp_path):
+        repo_path = tmp_path / "test-repo"
+        docs_path = repo_path / "docs"
+        docs_path.mkdir(parents=True)
+        (docs_path / "guide.html").write_text("guide", encoding="utf-8")
+        (docs_path / "assets").mkdir()
+
+        with patch("app._repository_path", return_value=repo_path):
+            response = client.get("/api/repositories/test-repo/web/docs")
+
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "Index of /api/repositories/test-repo/web/docs" in response.text
+        assert 'href="/api/repositories/test-repo/web/docs/guide.html"' in response.text
+        assert 'href="/api/repositories/test-repo/web/docs/assets"' in response.text
+
     def test_read_repository_file_no_path(self):
         """Test reading repository file without path."""
         response = client.get("/api/repositories/test-repo/file")
