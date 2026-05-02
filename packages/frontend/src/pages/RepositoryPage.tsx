@@ -824,9 +824,6 @@ export const RepositoryPage: React.FC = () => {
   useEffect(() => {
     loadCommands();
   }, [loadCommands]);
-  useEffect(() => {
-    void loadTodos();
-  }, [loadTodos]);
 
   const loadHarnesses = useCallback(() => {
     if (!name) return;
@@ -1551,6 +1548,10 @@ export const RepositoryPage: React.FC = () => {
       setTodoLoading(false);
     }
   }, [name]);
+
+  useEffect(() => {
+    void loadTodos();
+  }, [loadTodos]);
 
   const handleAddTodo = async () => {
     if (!name || !newTodoText.trim()) return;

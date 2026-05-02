@@ -1,30 +1,45 @@
 {
-  "T1": {
+  "TASK_1": {
     "status": "done",
     "evidence": [
-      "PR #395 analyzed: lint errors found in backend (ruff): 18 errors including unused imports, line length issues",
-      "make lint output shows: Found 18 errors in packages/pybackend/*.py"
+      "gh pr checks 403: Docker Build=fail, System tests (E2E)=fail",
+      "Docker Build error: src/pages/RepositoryPage.tsx(829,7): error TS2448: Block-scoped variable 'loadTodos' used before its declaration.",
+      "E2E error: getByRole('heading', { name: 'Repository: demo-project' }) not found",
+      "Root cause analysis (5xWhy):",
+      "Why 1: Docker build fails -> TypeScript compilation error TS2448/TS2454",
+      "Why 2: TS error -> loadTodos used in useEffect at line 829 before declaration at line 1539",
+      "Why 3: Declared after use -> loadTodos useCallback placed too late in component (after other hooks that reference it)",
+      "Why 4: Wrong ordering -> Codex agent put the useEffect([loadTodos]) hook near other useEffects (line ~828) but defined loadTodos useCallback much later (~line 1539)",
+      "Why 5: Root cause -> JavaScript/TypeScript block-scoped variables (const) are not hoisted, so forward references in useEffect dependency arrays cause compile errors",
+      "E2E Why 1: Test fails on 'Repository: demo-project' heading -> heading not visible",
+      "E2E Why 2: Heading not visible -> page navigation to repo page not completing",
+      "E2E Why 3: Page not loading -> TypeScript build error means production JS has issues OR heading text changed",
+      "E2E Why 4: Heading text check -> grep shows h1 still says 'Repository: {name}' at line 2496",
+      "E2E Why 5: Root cause -> E2E runs against dev server, the TS error doesn't affect dev (vite transpiles without strict type checking), so E2E failure is likely pre-existing or caused by tab navigation changes breaking the heading"
     ],
-    "last_verified": "2026-04-28T00:00:00Z"
+    "last_verified": "2026-05-02T10:45:00Z"
   },
-  "T2": {
+  "TASK_2": {
+    "status": "done",
+    "evidence": [
+      "Plan: Move loadTodos useCallback declaration to before the useEffect that depends on it (around line 824)",
+      "For E2E: Investigate if heading is still rendered correctly after Todo tab addition"
+    ],
+    "last_verified": "2026-05-02T10:45:00Z"
+  },
+  "TASK_3": {
     "status": "in_progress",
     "evidence": [],
-    "last_verified": "2026-04-28T00:00:00Z"
+    "last_verified": "2026-05-02T10:45:00Z"
   },
-  "T3": {
+  "TASK_4": {
     "status": "pending",
     "evidence": [],
-    "last_verified": "2026-04-28T00:00:00Z"
+    "last_verified": "2026-05-02T10:45:00Z"
   },
-  "T4": {
+  "TASK_5": {
     "status": "pending",
     "evidence": [],
-    "last_verified": "2026-04-28T00:00:00Z"
-  },
-  "T5": {
-    "status": "pending",
-    "evidence": [],
-    "last_verified": "2026-04-28T00:00:00Z"
+    "last_verified": "2026-05-02T10:45:00Z"
   }
 }
