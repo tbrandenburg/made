@@ -696,6 +696,9 @@ export const RepositoryPage: React.FC = () => {
   const [loadingFile, setLoadingFile] = useState(false);
   const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
   const chatInputId = "repository-agent-prompt";
+  const webPreviewUrl = name
+    ? `/api/repositories/${encodeURIComponent(name)}/web`
+    : "";
 
   useEffect(() => {
     const search = splitMentionSearch(mentionQuery);
@@ -2028,6 +2031,24 @@ export const RepositoryPage: React.FC = () => {
       content: (
         <Panel title="Repository Terminal">
           <TerminalTab repositoryName={name || undefined} />
+        </Panel>
+      ),
+    },
+    {
+      id: "web-browser",
+      label: "Web Browser",
+      content: (
+        <Panel title="Repository Web Preview">
+          <iframe
+            src={webPreviewUrl}
+            style={{
+              border: "1px solid var(--border)",
+              borderRadius: "10px",
+              height: "70vh",
+              width: "100%",
+            }}
+            title="Repository web browser"
+          />
         </Panel>
       ),
     },

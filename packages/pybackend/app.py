@@ -29,6 +29,7 @@ from fastapi import (
 )
 from fastapi.websockets import WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from agent_service import (
     ChannelBusyError,
@@ -387,6 +388,35 @@ def repository_files(name: str, path: str = Query(".")):
         return list_repository_files(name, path)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@app.get("/api/repositories/{name}/web")
+@app.get("/api/repositories/{name}/web/{path:path}")
+def repository_web(name: str, path: str = ""):
+    try:
+        repo_path = _repository_path(name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+    safe_relative = Path(path or "").as_posix().lstrip("/")
+    target = (repo_path / safe_relative).resolve()
+
+    if repo_path not in target.parents and target != repo_path:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid web path",
+        )
+
+    if target.is_dir():
+        target = target / "index.html"
+
+    if not target.exists() or not target.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Web file not found",
+        )
+
+    return FileResponse(target)
 
 
 @app.get("/api/repositories/{name}/file")
