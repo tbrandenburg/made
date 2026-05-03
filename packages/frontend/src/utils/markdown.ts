@@ -74,7 +74,7 @@ const resolveRepositoryAssetUrl = (
 const getPurify = () => {
   const win = (globalThis as { window?: Window }).window;
   if (!win) return null;
-  return DOMPurify(win);
+  return DOMPurify(win as unknown as DOMPurify.WindowLike);
 };
 
 const sanitizeHtml = (html: string) => {
