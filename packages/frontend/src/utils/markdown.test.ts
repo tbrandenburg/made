@@ -11,9 +11,7 @@ describe("renderMarkdown", () => {
   });
 
   it("adds target=_blank and rel to links that have no target", () => {
-    const html = renderMarkdown(
-      '<a href="https://example.com">Example</a>',
-    );
+    const html = renderMarkdown('<a href="https://example.com">Example</a>');
 
     expect(html).toContain('target="_blank"');
     expect(html).toContain('rel="noopener noreferrer"');
@@ -25,6 +23,18 @@ describe("renderMarkdown", () => {
     expect(html).toContain("<img");
     expect(html).toContain('src="https://example.com/cat.png"');
     expect(html).toContain('alt="A cat"');
+  });
+
+  it("resolves repository-relative image paths into web URLs", () => {
+    const html = renderMarkdown("![Diagram](../assets/flow.png)", {
+      repositoryName: "sample repo",
+      currentFilePath: "docs/guides/intro.md",
+    });
+
+    expect(html).toContain("<img");
+    expect(html).toContain(
+      'src="http://localhost:3000/api/repositories/sample%20repo/web/docs/assets/flow.png"',
+    );
   });
 
   it("removes unsafe image urls", () => {

@@ -1,5 +1,5 @@
 import React from "react";
-import { renderMarkdown } from "../utils/markdown";
+import { MarkdownRenderOptions, renderMarkdown } from "../utils/markdown";
 import { ChatMessage } from "../types/chat";
 import { SaveIcon } from "./icons/SaveIcon";
 import { TrashIcon } from "./icons/TrashIcon";
@@ -13,6 +13,7 @@ interface ChatWindowProps {
   onClearSession?: () => void;
   onSaveSession?: () => void;
   isSessionSaved?: boolean;
+  markdownOptions?: MarkdownRenderOptions;
 }
 
 const formatTimestamp = (message: ChatMessage) => {
@@ -74,6 +75,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onClearSession,
   onSaveSession,
   isSessionSaved,
+  markdownOptions,
 }) => (
   <div className="chat-window" ref={chatWindowRef}>
     {chat.map((message) => {
@@ -97,7 +99,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             className="markdown"
             dangerouslySetInnerHTML={{
               __html: strippedMessage.trim()
-                ? renderMarkdown(strippedMessage)
+                ? renderMarkdown(strippedMessage, markdownOptions)
                 : "<em>Empty message</em>",
             }}
           />

@@ -1,6 +1,11 @@
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 
+export type MarkdownRenderOptions = {
+  repositoryName?: string;
+  currentFilePath?: string;
+};
+
 const addExternalLinkAttributes = (html: string) =>
   html.replace(/<a\s+([^>]*?)>/g, (_, attributes: string) => {
     let updatedAttributes = attributes;
@@ -16,11 +21,60 @@ const addExternalLinkAttributes = (html: string) =>
     return `<a ${updatedAttributes}>`;
   });
 
+const isRelativePath = (value: string) =>
+  !!value &&
+  !value.startsWith("#") &&
+  !/^[a-z][a-z0-9+.-]*:/i.test(value) &&
+  !value.startsWith("//");
+
+const resolveRepositoryAssetUrl = (
+  source: string,
+  repositoryName?: string,
+  currentFilePath?: string,
+): string => {
+  if (!repositoryName || !currentFilePath || !isRelativePath(source))
+    return source;
+
+  try {
+    const baseDirectory = currentFilePath.includes("/")
+      ? currentFilePath.slice(0, currentFilePath.lastIndexOf("/"))
+      : "";
+
+    const relativePath = source.startsWith("/")
+      ? source.slice(1)
+      : [baseDirectory, source].filter(Boolean).join("/");
+
+    const normalized = relativePath
+      .split("/")
+      .reduce<string[]>((segments, segment) => {
+        if (!segment || segment === ".") return segments;
+        if (segment === "..") {
+          if (segments.length > 0) segments.pop();
+          return segments;
+        }
+        segments.push(segment);
+        return segments;
+      }, [])
+      .join("/");
+
+    const origin =
+      (globalThis as { window?: Window }).window?.location?.origin || "";
+    const encodedPath = normalized
+      .split("/")
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+
+    return `${origin}/api/repositories/${encodeURIComponent(repositoryName)}/web/${encodedPath}`;
+  } catch {
+    return source;
+  }
+};
+
 // DOMPurify is a factory — always bind explicitly to the current window
 const getPurify = () => {
   const win = (globalThis as { window?: Window }).window;
   if (!win) return null;
-  return DOMPurify(win);
+  return DOMPurify(win as unknown as DOMPurify.WindowLike);
 };
 
 const sanitizeHtml = (html: string) => {
@@ -85,4 +139,28 @@ marked.use({
   },
 });
 
-export const renderMarkdown = (content: string) => marked(content) as string;
+export const renderMarkdown = (
+  content: string,
+  options?: MarkdownRenderOptions,
+) => {
+  const rendered = marked.parse(content, {
+    async: false,
+  }) as string;
+
+  if (!options?.repositoryName || !options.currentFilePath) {
+    return rendered;
+  }
+
+  return rendered.replace(
+    /<img\b([^>]*?)\bsrc="([^"]*)"([^>]*)>/gi,
+    (_, before: string, src: string, after: string) => {
+      const nextSrc = resolveRepositoryAssetUrl(
+        src,
+        options.repositoryName,
+        options.currentFilePath,
+      );
+
+      return `<img${before}src="${nextSrc}"${after}>`;
+    },
+  );
+};
