@@ -11,9 +11,7 @@ describe("renderMarkdown", () => {
   });
 
   it("adds target=_blank and rel to links that have no target", () => {
-    const html = renderMarkdown(
-      '<a href="https://example.com">Example</a>',
-    );
+    const html = renderMarkdown('<a href="https://example.com">Example</a>');
 
     expect(html).toContain('target="_blank"');
     expect(html).toContain('rel="noopener noreferrer"');

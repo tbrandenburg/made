@@ -407,6 +407,15 @@ export const api = {
       method: "POST",
     });
   },
+  downloadRepositoryFolderZip: async (name: string, folderPath: string) => {
+    const response = await fetch(
+      `${API_BASE}/repositories/${encodeURIComponent(name)}/folder/archive?path=${encodeURIComponent(folderPath)}`,
+    );
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    return response.blob();
+  },
   sendAgentMessage: (
     name: string,
     message: string,
