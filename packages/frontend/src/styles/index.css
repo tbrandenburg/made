@@ -584,6 +584,14 @@ textarea {
   text-underline-offset: 0.18em;
 }
 
+.markdown img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+  margin: 0.75rem 0;
+}
+
 .chat-message .markdown p:first-child {
   margin-top: 0;
 }
