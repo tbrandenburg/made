@@ -2411,7 +2411,10 @@ export const RepositoryPage: React.FC = () => {
                 <div
                   className="markdown"
                   dangerouslySetInnerHTML={{
-                    __html: renderMarkdown(editorContent || ""),
+                    __html: renderMarkdown(editorContent || "", {
+                      repositoryName: name || undefined,
+                      currentFilePath: selectedFile || undefined,
+                    }),
                   }}
                 />
               ) : (
