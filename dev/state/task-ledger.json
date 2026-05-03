@@ -2,6 +2,21 @@
   "T1": {
     "status": "done",
     "evidence": [
+<<<<<<< HEAD
+      "PR #407: CI Docker Build failed with TypeScript error in src/utils/markdown.ts(23,20): error TS2345: Argument of type 'Window' is not assignable to parameter of type 'WindowLike'",
+      "5xWhy RCA: 1) Why did Docker build fail? -> tsc type check error in markdown.ts. 2) Why type error? -> DOMPurify(win) called with Window type that does not satisfy WindowLike. 3) Why does Window not satisfy WindowLike? -> DOMPurify's WindowLike is Pick<typeof globalThis, ...> which references globalThis properties not in lib.dom.d.ts Window. 4) Why mismatch? -> TypeScript lib.dom.d.ts Window and globalThis differ in stricter builds (the PR likely changed tsconfig or dompurify version changed its types). 5) Why was this not caught locally? -> Local dev server uses Vite which skips tsc; only the Docker build runs tsc && vite build, so error only appeared in CI."
+    ],
+    "last_verified": "2026-05-03T17:30:00Z"
+  },
+  "TASK_2": {
+    "status": "done",
+    "evidence": [
+      "Fix plan: Cast win to DOMPurify.WindowLike (or use 'as unknown as DOMPurify.WindowLike') to satisfy TypeScript. Alternative: use DOMPurify.sanitize directly with window check. Simplest fix: cast the window object."
+    ],
+    "last_verified": "2026-05-03T17:30:00Z"
+  },
+  "TASK_3": {
+=======
       "gh pr checks 406 -> Docker Build: fail",
       "gh run view 25285764665 -> error TS2345: Argument of type 'Window' is not assignable to parameter of type 'WindowLike'",
       "Location: packages/frontend/src/utils/markdown.ts(77,20)",
@@ -10,6 +25,7 @@
     "last_verified": "2026-05-03T17:30:00Z"
   },
   "T2": {
+>>>>>>> origin/main
     "status": "in_progress",
     "evidence": [],
     "last_verified": "2026-05-03T17:30:00Z"
@@ -23,10 +39,13 @@
     "status": "pending",
     "evidence": [],
     "last_verified": "2026-05-03T17:30:00Z"
+<<<<<<< HEAD
+=======
   },
   "T5": {
     "status": "pending",
     "evidence": [],
     "last_verified": "2026-05-03T17:30:00Z"
+>>>>>>> origin/main
   }
 }

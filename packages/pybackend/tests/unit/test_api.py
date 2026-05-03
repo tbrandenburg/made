@@ -638,6 +638,18 @@ class TestRepositoryEndpoints:
 
         assert response.status_code == 422  # FastAPI validation error
 
+    def test_download_repository_folder_archive_success(self, tmp_path):
+        repo_path = tmp_path / "test-repo"
+        docs_path = repo_path / "docs"
+        docs_path.mkdir(parents=True)
+        (docs_path / "guide.md").write_text("hello", encoding="utf-8")
+
+        with patch("app.get_workspace_home", return_value=tmp_path):
+            response = client.get("/api/repositories/test-repo/folder/archive?path=docs")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/zip"
+
     @patch("app.write_repository_file")
     def test_write_repository_file_success(self, mock_write):
         """Test successful repository file writing."""

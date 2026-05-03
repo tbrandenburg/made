@@ -24,7 +24,9 @@ def teardown_function():
 @patch("cron_service.list_scheduled_tasks")
 @patch("cron_service.read_workflows")
 @patch("cron_service.get_workspace_home")
+@patch("cron_service._claim_cron_ownership", return_value=True)
 def test_start_cron_clock_registers_only_enabled_workflows_with_existing_scripts(
+    mock_claim_ownership,
     mock_workspace_home,
     mock_read_workflows,
     mock_list_scheduled_tasks,
@@ -95,7 +97,9 @@ def test_start_cron_clock_registers_only_enabled_workflows_with_existing_scripts
 @patch("cron_service.list_scheduled_tasks")
 @patch("cron_service.read_workflows")
 @patch("cron_service.get_workspace_home")
+@patch("cron_service._claim_cron_ownership", return_value=True)
 def test_start_cron_clock_marks_invalid_cron_as_warning(
+    mock_claim_ownership,
     mock_workspace_home,
     mock_read_workflows,
     mock_list_scheduled_tasks,
@@ -331,7 +335,9 @@ def test_get_cron_job_diagnostics_includes_runtime_metadata():
 @patch("cron_service.list_scheduled_tasks")
 @patch("cron_service.read_workflows")
 @patch("cron_service.get_workspace_home")
+@patch("cron_service._claim_cron_ownership", return_value=True)
 def test_start_cron_clock_registers_scheduled_tasks(
+    mock_claim_ownership,
     mock_workspace_home,
     mock_read_workflows,
     mock_list_scheduled_tasks,

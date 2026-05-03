@@ -12,6 +12,7 @@ import shutil
 import struct
 import subprocess
 import termios
+import tempfile
 from copy import deepcopy
 from pathlib import Path
 from urllib.parse import quote
@@ -32,7 +33,7 @@ from fastapi import (
 )
 from fastapi.websockets import WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 
 from agent_service import (
     ChannelBusyError,
@@ -458,6 +459,41 @@ def read_repository_file_endpoint(name: str, path: str = Query(...)):
         return {"content": content}
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@app.get("/api/repositories/{name}/folder/archive")
+def download_repository_folder_archive(name: str, path: str = Query(".")):
+    workspace = get_workspace_home()
+    repo_path = (workspace / name).resolve()
+    target_path = (repo_path / path).resolve()
+    if not repo_path.exists() or not repo_path.is_dir():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found"
+        )
+    if not str(target_path).startswith(str(repo_path)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid path"
+        )
+    if not target_path.exists() or not target_path.is_dir():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Folder not found"
+        )
+
+    safe_name = Path(path).name if path not in {".", ""} else name
+    with tempfile.TemporaryDirectory(prefix="made-archive-") as tmp_dir:
+        archive_base = Path(tmp_dir) / safe_name
+        archive_file = shutil.make_archive(
+            str(archive_base),
+            "zip",
+            root_dir=target_path,
+            base_dir=".",
+        )
+        archive_bytes = Path(archive_file).read_bytes()
+        return Response(
+            content=archive_bytes,
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}.zip"'},
+        )
 
 
 @app.put("/api/repositories/{name}/file")

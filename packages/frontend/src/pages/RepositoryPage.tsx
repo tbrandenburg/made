@@ -47,6 +47,7 @@ import { ClearSessionModal } from "../components/ClearSessionModal";
 import { ArrowDownIcon } from "../components/icons/ArrowDownIcon";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
 import { DownloadIcon } from "../components/icons/DownloadIcon";
+import { Box3dIcon } from "../components/icons/Box3dIcon";
 import { EditIcon } from "../components/icons/EditIcon";
 import { MoveIcon } from "../components/icons/MoveIcon";
 import { TagIcon } from "../components/icons/TagIcon";
@@ -1632,6 +1633,32 @@ export const RepositoryPage: React.FC = () => {
     }
   };
 
+  const handleDownloadFolderZip = async (
+    folderPath: string,
+    folderName: string,
+  ) => {
+    if (!name) return;
+    setFileActionError(null);
+    try {
+      const blob = await api.downloadRepositoryFolderZip(name, folderPath);
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${folderName}.zip`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download folder archive", error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to download folder archive";
+      setFileActionError(message);
+    }
+  };
+
   const handleRenameFile = async () => {
     if (!name || !renameModal.from || !renamePath.trim()) return;
     try {
@@ -1751,6 +1778,17 @@ export const RepositoryPage: React.FC = () => {
                 title={`Download ${node.name}`}
               >
                 <DownloadIcon />
+              </button>
+            )}
+            {isFolder && (
+              <button
+                className="copy-button"
+                type="button"
+                onClick={() => handleDownloadFolderZip(node.path, node.name)}
+                aria-label={`Download ${node.name} as zip`}
+                title={`Download ${node.name} as zip`}
+              >
+                <Box3dIcon />
               </button>
             )}
             {!isFolder && (
