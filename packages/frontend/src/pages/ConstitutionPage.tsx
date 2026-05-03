@@ -630,6 +630,9 @@ export const ConstitutionPage: React.FC = () => {
               isSessionSaved={Boolean(
                 sessionId && savedSessionIds.includes(sessionId),
               )}
+              markdownOptions={{
+                currentFilePath: name || undefined,
+              }}
             />
             {agentStatus && <div className="alert">{agentStatus}</div>}
             <MentionPathTextarea

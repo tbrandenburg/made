@@ -25,6 +25,18 @@ describe("renderMarkdown", () => {
     expect(html).toContain('alt="A cat"');
   });
 
+  it("resolves repository-relative image paths into web URLs", () => {
+    const html = renderMarkdown("![Diagram](../assets/flow.png)", {
+      repositoryName: "sample repo",
+      currentFilePath: "docs/guides/intro.md",
+    });
+
+    expect(html).toContain("<img");
+    expect(html).toContain(
+      'src="http://localhost:3000/api/repositories/sample%20repo/web/docs/assets/flow.png"',
+    );
+  });
+
   it("removes unsafe image urls", () => {
     const html = renderMarkdown('![Injected](javascript:alert("xss"))');
 

@@ -1,7 +1,8 @@
 {
-  "TASK_1": {
+  "T1": {
     "status": "done",
     "evidence": [
+<<<<<<< HEAD
       "PR #407: CI Docker Build failed with TypeScript error in src/utils/markdown.ts(23,20): error TS2345: Argument of type 'Window' is not assignable to parameter of type 'WindowLike'",
       "5xWhy RCA: 1) Why did Docker build fail? -> tsc type check error in markdown.ts. 2) Why type error? -> DOMPurify(win) called with Window type that does not satisfy WindowLike. 3) Why does Window not satisfy WindowLike? -> DOMPurify's WindowLike is Pick<typeof globalThis, ...> which references globalThis properties not in lib.dom.d.ts Window. 4) Why mismatch? -> TypeScript lib.dom.d.ts Window and globalThis differ in stricter builds (the PR likely changed tsconfig or dompurify version changed its types). 5) Why was this not caught locally? -> Local dev server uses Vite which skips tsc; only the Docker build runs tsc && vite build, so error only appeared in CI."
     ],
@@ -15,18 +16,36 @@
     "last_verified": "2026-05-03T17:30:00Z"
   },
   "TASK_3": {
+=======
+      "gh pr checks 406 -> Docker Build: fail",
+      "gh run view 25285764665 -> error TS2345: Argument of type 'Window' is not assignable to parameter of type 'WindowLike'",
+      "Location: packages/frontend/src/utils/markdown.ts(77,20)",
+      "Root cause (5xWhy): 1) Docker build fails -> 2) tsc compilation fails -> 3) DOMPurify(win) where win is Window doesn't match WindowLike type -> 4) DOMPurify type expects WindowLike (specific subset of globalThis) but Window is a superset with more properties -> 5) The code cast (globalThis as {window?: Window}).window returns Window but DOMPurify factory needs WindowLike which is a more specific structural type. Fix: cast win to 'DOMPurify.WindowLike' or use 'as unknown as DOMPurify.WindowLike'"
+    ],
+    "last_verified": "2026-05-03T17:30:00Z"
+  },
+  "T2": {
+>>>>>>> origin/main
     "status": "in_progress",
     "evidence": [],
     "last_verified": "2026-05-03T17:30:00Z"
   },
-  "TASK_4": {
+  "T3": {
     "status": "pending",
     "evidence": [],
     "last_verified": "2026-05-03T17:30:00Z"
   },
-  "TASK_5": {
+  "T4": {
     "status": "pending",
     "evidence": [],
     "last_verified": "2026-05-03T17:30:00Z"
+<<<<<<< HEAD
+=======
+  },
+  "T5": {
+    "status": "pending",
+    "evidence": [],
+    "last_verified": "2026-05-03T17:30:00Z"
+>>>>>>> origin/main
   }
 }
