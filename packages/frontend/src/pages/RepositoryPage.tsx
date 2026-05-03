@@ -1873,6 +1873,10 @@ export const RepositoryPage: React.FC = () => {
             isSessionSaved={Boolean(
               sessionId && savedSessionIds.includes(sessionId),
             )}
+            markdownOptions={{
+              repositoryName: name || undefined,
+              currentFilePath: selectedFile || "README.md",
+            }}
           />
           {chatError && <div className="alert">{chatError}</div>}
           <MentionPathTextarea
