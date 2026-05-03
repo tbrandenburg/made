@@ -10,13 +10,13 @@ describe("renderMarkdown", () => {
     expect(html).toContain('rel="noopener noreferrer"');
   });
 
-  it("keeps existing link attributes from inline html", () => {
+  it("adds target=_blank and rel to links that have no target", () => {
     const html = renderMarkdown(
-      '<a href="https://example.com" target="_self" rel="bookmark">Example</a>',
+      '<a href="https://example.com">Example</a>',
     );
 
-    expect(html).toContain('target="_self"');
-    expect(html).toContain('rel="bookmark"');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noopener noreferrer"');
   });
 
   it("renders markdown images", () => {

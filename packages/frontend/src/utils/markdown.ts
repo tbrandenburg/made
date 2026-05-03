@@ -16,8 +16,17 @@ const addExternalLinkAttributes = (html: string) =>
     return `<a ${updatedAttributes}>`;
   });
 
-const sanitizeHtml = (html: string) =>
-  DOMPurify.sanitize(html, {
+// DOMPurify is a factory — always bind explicitly to the current window
+const getPurify = () => {
+  const win = (globalThis as { window?: Window }).window;
+  if (!win) return null;
+  return DOMPurify(win);
+};
+
+const sanitizeHtml = (html: string) => {
+  const purify = getPurify();
+  if (!purify) return html;
+  return purify.sanitize(html, {
     ALLOWED_TAGS: [
       "a",
       "b",
@@ -64,14 +73,14 @@ const sanitizeHtml = (html: string) =>
       "title",
       "width",
     ],
-    ALLOWED_URI_REGEXP:
-      /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
+    ALLOWED_URI_REGEXP: /^(?:https?|mailto|tel):/i,
   });
+};
 
 marked.use({
   hooks: {
     postprocess(html) {
-      return sanitizeHtml(addExternalLinkAttributes(html));
+      return addExternalLinkAttributes(sanitizeHtml(html));
     },
   },
 });

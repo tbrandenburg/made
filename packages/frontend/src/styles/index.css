@@ -585,11 +585,11 @@ textarea {
 }
 
 .markdown img {
-  display: block;
   max-width: 100%;
   height: auto;
-  border-radius: 0.75rem;
-  margin: 0.75rem 0;
+  border-radius: 6px;
+  display: block;
+  margin: 0.5rem 0;
 }
 
 .chat-message .markdown p:first-child {
