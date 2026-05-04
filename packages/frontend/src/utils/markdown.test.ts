@@ -44,4 +44,29 @@ describe("renderMarkdown", () => {
     expect(html).not.toContain("javascript:alert");
     expect(html).not.toContain("src=");
   });
+
+  describe("chat image rendering", () => {
+    it("resolves relative image src before sanitization when repositoryName given", () => {
+      const html = renderMarkdown("![Diagram](./assets/flow.png)", {
+        repositoryName: "my-repo",
+        currentFilePath: "docs/README.md",
+      });
+      expect(html).toContain("<img");
+      expect(html).not.toContain('src=""');
+      expect(html).toContain(
+        "/api/repositories/my-repo/web/docs/assets/flow.png",
+      );
+    });
+
+    it("sanitizes output even without repositoryName", () => {
+      const html = renderMarkdown("<script>alert(1)</script>");
+      expect(html).not.toContain("<script>");
+    });
+
+    it("does not preserve relative src when repositoryName is absent", () => {
+      const html = renderMarkdown("![Pic](./image.png)");
+      // relative path stripped by DOMPurify since no resolution occurred
+      expect(html).not.toContain('src="./image.png"');
+    });
+  });
 });

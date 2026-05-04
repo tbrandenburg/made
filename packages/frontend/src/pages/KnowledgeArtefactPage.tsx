@@ -646,6 +646,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
               sessionId && savedSessionIds.includes(sessionId),
             )}
             markdownOptions={{
+              repositoryName: name || undefined,
               currentFilePath: name || undefined,
             }}
           />
