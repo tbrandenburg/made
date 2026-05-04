@@ -127,14 +127,14 @@ const sanitizeHtml = (html: string) => {
       "title",
       "width",
     ],
-    ALLOWED_URI_REGEXP: /^(?:https?|mailto|tel):/i,
+    ALLOWED_URI_REGEXP: /^(?:https?|mailto|tel:|\/)/i,
   });
 };
 
 marked.use({
   hooks: {
     postprocess(html) {
-      return addExternalLinkAttributes(sanitizeHtml(html));
+      return html; // sanitization moved to renderMarkdown after URL resolution
     },
   },
 });
@@ -147,20 +147,21 @@ export const renderMarkdown = (
     async: false,
   }) as string;
 
-  if (!options?.repositoryName || !options.currentFilePath) {
-    return rendered;
-  }
+  // Resolve repository asset URLs BEFORE sanitization
+  const withResolvedUrls = options?.repositoryName
+    ? rendered.replace(
+        /<img\b([^>]*?)\bsrc="([^"]*)"([^>]*)>/gi,
+        (_, before: string, src: string, after: string) => {
+          const nextSrc = resolveRepositoryAssetUrl(
+            src,
+            options.repositoryName,
+            options.currentFilePath,
+          );
+          return `<img${before}src="${nextSrc}"${after}>`;
+        },
+      )
+    : rendered;
 
-  return rendered.replace(
-    /<img\b([^>]*?)\bsrc="([^"]*)"([^>]*)>/gi,
-    (_, before: string, src: string, after: string) => {
-      const nextSrc = resolveRepositoryAssetUrl(
-        src,
-        options.repositoryName,
-        options.currentFilePath,
-      );
-
-      return `<img${before}src="${nextSrc}"${after}>`;
-    },
-  );
+  // Sanitize AFTER URL resolution so resolved https:// URLs pass URI check
+  return addExternalLinkAttributes(sanitizeHtml(withResolvedUrls));
 };
