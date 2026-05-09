@@ -611,7 +611,7 @@ requires-dist = [
     { name = "python-frontmatter", specifier = "==1.0.0" },
     { name = "python-multipart", specifier = ">=0.0.26" },
     { name = "pyyaml", specifier = ">=6.0.2" },
-    { name = "requests", specifier = ">=2.32.4" },
+    { name = "requests", specifier = ">=2.33.0" },
     { name = "ruff", specifier = ">=0.1.0" },
     { name = "urllib3", specifier = ">=2.6.3" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
