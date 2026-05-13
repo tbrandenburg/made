@@ -320,16 +320,39 @@ def _get_working_directory(channel: str) -> Path:
         workspace = get_workspace_home()
         repo_path = workspace / channel
         if repo_path.exists() and repo_path.is_dir():
+            logger.info(
+                "Resolved agent working directory to repository path (channel: %s, cwd: %s)",
+                channel,
+                repo_path,
+            )
             return repo_path
+        logger.warning(
+            "Repository channel did not resolve to an existing directory; falling back to backend directory (channel: %s, candidate: %s, cwd: %s)",
+            channel,
+            repo_path,
+            Path(__file__).parent,
+        )
         return Path(__file__).parent
 
     made_dir = get_made_directory()
 
     if channel.startswith("knowledge:"):
-        return ensure_directory(made_dir / "knowledge")
+        knowledge_dir = ensure_directory(made_dir / "knowledge")
+        logger.info(
+            "Resolved agent working directory to knowledge directory (channel: %s, cwd: %s)",
+            channel,
+            knowledge_dir,
+        )
+        return knowledge_dir
 
     # For constitution chats, default to the constitutions directory inside .made
-    return ensure_directory(made_dir / "constitutions")
+    constitutions_dir = ensure_directory(made_dir / "constitutions")
+    logger.info(
+        "Resolved agent working directory to constitutions directory (channel: %s, cwd: %s)",
+        channel,
+        constitutions_dir,
+    )
+    return constitutions_dir
 
 
 def export_chat_history(
@@ -526,6 +549,11 @@ def send_agent_message(
 
     working_dir = _get_working_directory(channel)
     active_session = session_id
+    logger.info(
+        "Selected agent working directory for message dispatch (channel: %s, cwd: %s)",
+        channel,
+        working_dir,
+    )
 
     if session_id:
         _conversation_sessions[channel] = session_id
