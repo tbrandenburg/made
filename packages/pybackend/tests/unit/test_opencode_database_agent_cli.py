@@ -522,6 +522,8 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
             [
                 "opencode",
                 "run",
+                "--dir",
+                "/test",
                 "-s",
                 "session1",
                 "--agent",
