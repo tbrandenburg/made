@@ -383,7 +383,7 @@ The examples below show different CLI formats. The generator MUST use the approp
 
 Base command:
 
-    opencode run --format json
+    opencode run --dir "{{WORKING_DIRECTORY}}" --format json
 
 Options:
 

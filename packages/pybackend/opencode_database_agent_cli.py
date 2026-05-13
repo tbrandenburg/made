@@ -498,7 +498,7 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
         """Run agent with message using CLI subprocess and return structured result."""
         try:
             # Build command inline
-            command = ["opencode", "run"]
+            command = ["opencode", "run", "--dir", str(cwd)]
             if session_id:
                 command.extend(["-s", session_id])
             if agent:
