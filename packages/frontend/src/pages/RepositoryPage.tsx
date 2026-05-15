@@ -2007,11 +2007,13 @@ export const RepositoryPage: React.FC = () => {
                 api.saveRepositoryWorkflows(name || "", payload.workflows)
               }
               listAgents={() => api.getRepositoryAgents(name || "")}
-              onRunWorkflow={(message) => {
-                void handleSendMessage(message);
-                setActiveTab("agent");
+              onRunWorkflow={async (workflows) => {
+                await api.generateRepositoryWorkflowHarnesses(
+                  name || "",
+                  workflows,
+                );
+                await loadHarnesses();
               }}
-              agentCli={agentCli}
               mentionPathSuggestions={mentionPathSuggestions}
             />
           </Panel>

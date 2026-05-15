@@ -64,6 +64,7 @@ from external_matter_service import read_external_matter, write_external_matter
 from command_service import list_commands
 from harness_service import is_process_running, list_harnesses, run_harness
 from workflow_service import list_workspace_workflows, read_workflows, write_workflows
+from workflow_harness_service import generate_workflow_harnesses, WorkflowParseError
 from cron_service import (
     force_terminate_job,
     get_cron_job_diagnostics,
@@ -826,6 +827,28 @@ def repository_git_worktree_delete(name: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@app.post("/api/repositories/{name}/workflows/generate-harnesses")
+def generate_repository_workflow_harnesses(name: str, payload: dict = Body(...)):
+    try:
+        _repository_path(name)
+        logger.info("Generating harnesses for repository workflows: %s", name)
+        written = generate_workflow_harnesses(payload, get_workspace_home() / name)
+        return {"written": written}
+    except WorkflowParseError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to generate harnesses for repository '%s'", name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        ) from exc
 
 
 @app.get("/api/repositories/{name}/workflows")
