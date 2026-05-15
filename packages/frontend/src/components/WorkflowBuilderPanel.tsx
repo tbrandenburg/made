@@ -11,10 +11,7 @@ import { RefreshIcon } from "./icons/RefreshIcon";
 import { SaveIcon } from "./icons/SaveIcon";
 import { TrashIcon } from "./icons/TrashIcon";
 import { XIcon } from "./icons/XIcon";
-import {
-  buildWorkflowHarnessPrompt,
-  workflowShellScriptPath,
-} from "../utils/workflowHarnessPrompt";
+import { workflowShellScriptPath } from "../utils/workflowHarnessPrompt";
 
 export type WorkflowStep = {
   type: "agent" | "bash";
@@ -39,8 +36,7 @@ type WorkflowBuilderPanelProps = {
     workflows: WorkflowDefinition[];
   }) => Promise<unknown>;
   listAgents: () => Promise<{ agents: AvailableAgent[] }>;
-  onRunWorkflow: (prompt: string) => void;
-  agentCli: string;
+  onRunWorkflow: (workflows: WorkflowDefinition[]) => Promise<void>;
   mentionPathSuggestions?: string[];
 };
 
@@ -84,7 +80,6 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
   saveWorkflows,
   listAgents,
   onRunWorkflow,
-  agentCli,
   mentionPathSuggestions = [],
 }) => {
   const [workflows, setWorkflows] = useState<WorkflowDefinition[]>([]);
@@ -312,13 +307,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                         : item,
                     );
                     await persist(next);
-                    const workflowForPrompt = {
-                      ...workflow,
-                      shellScriptPath,
-                    };
-                    onRunWorkflow(
-                      buildWorkflowHarnessPrompt(workflowForPrompt, agentCli),
-                    );
+                    await onRunWorkflow(next);
                   }}
                 >
                   <PlayIcon />

@@ -29,8 +29,7 @@ type HarnessesTabProps = {
     workflows: WorkflowDefinition[],
   ) => Promise<{ workflows: WorkflowDefinition[] }>;
   listAgents: () => Promise<{ agents: { name: string }[] }>;
-  onSendMessage: (message: string) => void;
-  agentCli: string;
+  onGenerateHarnesses: (workflows: WorkflowDefinition[]) => Promise<void>;
   historyStorageKey: string;
   maxHistory?: number;
   mentionPathSuggestions?: string[];
@@ -49,8 +48,7 @@ export const HarnessesTab: React.FC<HarnessesTabProps> = ({
   loadWorkflows,
   saveWorkflows,
   listAgents,
-  onSendMessage,
-  agentCli,
+  onGenerateHarnesses,
   historyStorageKey,
   maxHistory = 10,
   mentionPathSuggestions = [],
@@ -236,8 +234,7 @@ export const HarnessesTab: React.FC<HarnessesTabProps> = ({
           loadWorkflows={loadWorkflows}
           saveWorkflows={(payload) => saveWorkflows(payload.workflows)}
           listAgents={listAgents}
-          onRunWorkflow={onSendMessage}
-          agentCli={agentCli}
+          onRunWorkflow={onGenerateHarnesses}
           mentionPathSuggestions={mentionPathSuggestions}
         />
       </Panel>

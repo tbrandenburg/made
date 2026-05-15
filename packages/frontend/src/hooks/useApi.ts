@@ -575,6 +575,17 @@ export const api = {
         body: JSON.stringify({ workflows }),
       },
     ),
+  generateRepositoryWorkflowHarnesses: (
+    name: string,
+    workflows: WorkflowDefinition[],
+  ) =>
+    request<{ written: string[] }>(
+      `/repositories/${name}/workflows/generate-harnesses`,
+      {
+        method: "POST",
+        body: JSON.stringify({ workflows }),
+      },
+    ),
   getCommands: () => request<{ commands: CommandDefinition[] }>("/commands"),
   getHarnesses: () => request<{ harnesses: HarnessDefinition[] }>("/harnesses"),
   runHarness: (path: string, args?: string) =>
@@ -614,6 +625,11 @@ export const api = {
   saveWorkflows: (workflows: WorkflowDefinition[]) =>
     request<{ workflows: WorkflowDefinition[] }>("/workflows", {
       method: "PUT",
+      body: JSON.stringify({ workflows }),
+    }),
+  generateWorkflowHarnesses: (workflows: WorkflowDefinition[]) =>
+    request<{ written: string[] }>("/workflows/generate-harnesses", {
+      method: "POST",
       body: JSON.stringify({ workflows }),
     }),
   getAgents: () => request<{ agents: AvailableAgent[] }>("/agents"),
