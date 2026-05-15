@@ -30,9 +30,13 @@
     "last_verified": "2026-05-15T15:16:36Z"
   },
   "PR416_COMMIT_PUSH": {
-    "status": "in_progress",
-    "evidence": [],
-    "last_verified": "2026-05-15T15:16:56Z"
+    "status": "done",
+    "evidence": [
+      "git commit -m 'fix: complete backend workflow harness wiring': [codex/refactor-workflow-generation-to-backend 4e037f6] fix: complete backend workflow harness wiring",
+      "git push: aaa66f3..4e037f6 codex/refactor-workflow-generation-to-backend -> codex/refactor-workflow-generation-to-backend",
+      "pre-push make qa-quick: 391 passed, 1 skipped in 25.53s; All quick quality assurance tasks completed successfully"
+    ],
+    "last_verified": "2026-05-15T15:18:54Z"
   },
   "PR416_CI": {
     "status": "pending",
