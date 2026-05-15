@@ -29,15 +29,15 @@ def temp_env(tmp_path, monkeypatch):
 def test_list_harnesses_collects_all_locations(temp_env):
     workspace, made_home, user_home = temp_env
     repo_path = workspace / "sample-repo"
-    repo_harness = repo_path / ".opencode" / "harness" / "repo.sh"
-    workspace_harness = workspace / ".harness" / "workspace.sh"
-    made_harness = made_home / ".harness" / "made.sh"
+    repo_harness = repo_path / ".codex" / "harness" / "repo.sh"
+    workspace_harness = workspace / ".made" / "harness" / "workspace.sh"
+    made_harness = made_home / ".made" / "harness" / "made.sh"
     user_harness = user_home / ".opencode" / "harness" / "user.sh"
 
     for path in [
-        repo_path / ".opencode" / "harness",
-        workspace / ".harness",
-        made_home / ".harness",
+        repo_path / ".codex" / "harness",
+        workspace / ".made" / "harness",
+        made_home / ".made" / "harness",
         user_home / ".opencode" / "harness",
     ]:
         path.mkdir(parents=True, exist_ok=True)
