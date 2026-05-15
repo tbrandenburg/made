@@ -32,10 +32,12 @@ def _load_repo_harnesses(repo_name: str | None) -> List[Dict[str, Any]]:
     repo_path = get_workspace_home() / repo_name
     harness_entries: List[Tuple[Path, str]] = []
     if repo_path.exists():
-        for directory in [repo_path / ".opencode" / "harness", repo_path / ".harness"]:
-            for path in directory.rglob("*.sh"):
-                if path.is_file():
-                    harness_entries.append((path, "repository"))
+        for path in repo_path.glob(".*/harness/**/*.sh"):
+            if path.is_file():
+                harness_entries.append((path, "repository"))
+        for path in (repo_path / ".harness").rglob("*.sh"):
+            if path.is_file():
+                harness_entries.append((path, "repository"))
 
     return [
         _load_harness_file(path, source) for path, source in sorted(harness_entries)
@@ -45,14 +47,22 @@ def _load_repo_harnesses(repo_name: str | None) -> List[Dict[str, Any]]:
 def list_harnesses(repo_name: str | None = None) -> List[Dict[str, Any]]:
     harnesses: List[Dict[str, Any]] = []
     harness_roots: List[Tuple[Path, str]] = [
-        (get_made_home(), "made"),
-        (get_workspace_home(), "workspace"),
-        (Path.home(), "user"),
+        (get_made_home() / ".made" / "harness", "made"),
+        (get_workspace_home() / ".made" / "harness", "workspace"),
+        (get_made_home() / ".kiro" / "harness", "made"),
+        (get_workspace_home() / ".kiro" / "harness", "workspace"),
+        (Path.home() / ".made" / "harness", "user"),
+        (Path.home() / ".claude" / "harness", "user"),
+        (Path.home() / ".codex" / "harness", "user"),
+        (Path.home() / ".kiro" / "harness", "user"),
+        (Path.home() / ".opencode" / "harness", "user"),
+        (get_made_home() / ".harness", "made"),
+        (get_workspace_home() / ".harness", "workspace"),
+        (Path.home() / ".harness", "user"),
     ]
 
-    for root, source in harness_roots:
-        for directory in [root / ".opencode" / "harness", root / ".harness"]:
-            harnesses.extend(_load_harnesses_from_dir(directory, source))
+    for directory, source in harness_roots:
+        harnesses.extend(_load_harnesses_from_dir(directory, source))
 
     harnesses.extend(_load_repo_harnesses(repo_name))
     return harnesses
