@@ -3,8 +3,10 @@ Unit tests for the MADE Python Backend API endpoints.
 Tests cover all main API endpoints with proper mocking of services.
 """
 
-from fastapi.testclient import TestClient
+from pathlib import Path
 from unittest.mock import patch
+
+from fastapi.testclient import TestClient
 
 from agent_service import ChannelBusyError
 
@@ -1501,4 +1503,32 @@ class TestVersionEndpoint:
 
         assert response.status_code == 400
 
+    @patch("app.get_made_home")
+    @patch("app.generate_workflow_harnesses")
+    def test_generate_global_workflow_harnesses_success(
+        self, mock_generate, mock_made_home
+    ):
+        mock_made_home.return_value = Path("/tmp/made")
+        mock_generate.return_value = [".harness/test.sh"]
 
+        response = client.post(
+            "/api/workflows/generate-harnesses",
+            json={"workflows": []},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"written": [".harness/test.sh"]}
+        mock_generate.assert_called_once_with({"workflows": []}, Path("/tmp/made"))
+
+    @patch("app.generate_workflow_harnesses")
+    def test_generate_global_workflow_harnesses_validation_error(self, mock_generate):
+        from workflow_harness_service import WorkflowParseError
+
+        mock_generate.side_effect = WorkflowParseError("bad payload")
+
+        response = client.post(
+            "/api/workflows/generate-harnesses",
+            json={"workflows": []},
+        )
+
+        assert response.status_code == 400

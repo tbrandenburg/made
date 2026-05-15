@@ -1,51 +1,42 @@
 {
-  "T1": {
+  "PR416_RCA": {
     "status": "done",
     "evidence": [
-<<<<<<< HEAD
-      "PR #407: CI Docker Build failed with TypeScript error in src/utils/markdown.ts(23,20): error TS2345: Argument of type 'Window' is not assignable to parameter of type 'WindowLike'",
-      "5xWhy RCA: 1) Why did Docker build fail? -> tsc type check error in markdown.ts. 2) Why type error? -> DOMPurify(win) called with Window type that does not satisfy WindowLike. 3) Why does Window not satisfy WindowLike? -> DOMPurify's WindowLike is Pick<typeof globalThis, ...> which references globalThis properties not in lib.dom.d.ts Window. 4) Why mismatch? -> TypeScript lib.dom.d.ts Window and globalThis differ in stricter builds (the PR likely changed tsconfig or dompurify version changed its types). 5) Why was this not caught locally? -> Local dev server uses Vite which skips tsc; only the Docker build runs tsc && vite build, so error only appeared in CI."
+      "loaded existing dev/state/task-ledger.json: old T1-T4 entries were from 2026-05-09 and all status=done",
+      "gh pr view 416 --json ...: Docker Build=FAILURE; Vercel=FAILURE; QA, backend tests, system tests, preview=SUCCESS",
+      "gh run view 25924804254 --job 76203062400 --log-failed: src/pages/ConstitutionPage.tsx(685,13): error TS2322 ... Property 'onSendMessage' does not exist on type 'IntrinsicAttributes & HarnessesTabProps'",
+      "gh run view 25924804254 --job 76203062400 --log-failed: src/pages/RepositoryPage.tsx(2011,27): error TS2339: Property 'generateRepositoryWorkflowHarnesses' does not exist on type ...",
+      "5xWhy: 1. Why did CI fail? Docker frontend build ran tsc and exited 2. 2. Why did tsc fail? It found stale HarnessesTab props and a missing typed API method. 3. Why were stale props present? The backend harness generation refactor removed prompt/send-message behavior from HarnessesTab but not all call sites were updated. 4. Why was the missing API method present? The hook implementation used by RepositoryPage was not fully exposed in the returned API object/type used by production build. 5. Why was this missed before PR update? make qa-quick passed, but it did not include the same production frontend TypeScript build path that Docker/Vercel execute."
     ],
-    "last_verified": "2026-05-03T17:30:00Z"
+    "last_verified": "2026-05-15T15:09:49Z"
   },
-  "TASK_2": {
+  "PR416_PLAN": {
     "status": "done",
     "evidence": [
-      "Fix plan: Cast win to DOMPurify.WindowLike (or use 'as unknown as DOMPurify.WindowLike') to satisfy TypeScript. Alternative: use DOMPurify.sanitize directly with window check. Simplest fix: cast the window object."
+      "git switch codex/refactor-workflow-generation-to-backend: Switched to a new branch 'codex/refactor-workflow-generation-to-backend' tracking origin/codex/refactor-workflow-generation-to-backend",
+      "Plan: remove stale onSendMessage/agentCli props from HarnessesTab call sites or replace them with backend generation callbacks; expose generateRepositoryWorkflowHarnesses in useApi; add a global /api/workflows/generate-harnesses endpoint and frontend api method so global HarnessesTab instances still generate harness scripts; run production frontend build and repository QA before commit."
     ],
-    "last_verified": "2026-05-03T17:30:00Z"
+    "last_verified": "2026-05-15T15:11:39Z"
   },
-  "TASK_3": {
-=======
-      "gh pr checks 406 -> Docker Build: fail",
-      "gh run view 25285764665 -> error TS2345: Argument of type 'Window' is not assignable to parameter of type 'WindowLike'",
-      "Location: packages/frontend/src/utils/markdown.ts(77,20)",
-      "Root cause (5xWhy): 1) Docker build fails -> 2) tsc compilation fails -> 3) DOMPurify(win) where win is Window doesn't match WindowLike type -> 4) DOMPurify type expects WindowLike (specific subset of globalThis) but Window is a superset with more properties -> 5) The code cast (globalThis as {window?: Window}).window returns Window but DOMPurify factory needs WindowLike which is a more specific structural type. Fix: cast win to 'DOMPurify.WindowLike' or use 'as unknown as DOMPurify.WindowLike'"
+  "PR416_IMPLEMENT": {
+    "status": "done",
+    "evidence": [
+      "grep agentCli={agentCli} packages/frontend/src --include '*.tsx': No files found",
+      "npm run build --workspace packages/frontend: ✓ built in 1.07s",
+      "uv run --project packages/pybackend python -m pytest packages/pybackend/tests/unit/test_api.py -q: 125 passed in 4.83s",
+      "make qa-quick: 391 passed, 1 skipped in 12.11s; All quick quality assurance tasks completed successfully",
+      "make docker-build: Image made-frontend Built; Image made-pybackend Built"
     ],
-    "last_verified": "2026-05-03T17:30:00Z"
+    "last_verified": "2026-05-15T15:16:36Z"
   },
-  "T2": {
->>>>>>> origin/main
+  "PR416_COMMIT_PUSH": {
     "status": "in_progress",
     "evidence": [],
-    "last_verified": "2026-05-03T17:30:00Z"
+    "last_verified": "2026-05-15T15:16:56Z"
   },
-  "T3": {
+  "PR416_CI": {
     "status": "pending",
     "evidence": [],
-    "last_verified": "2026-05-03T17:30:00Z"
-  },
-  "T4": {
-    "status": "pending",
-    "evidence": [],
-    "last_verified": "2026-05-03T17:30:00Z"
-<<<<<<< HEAD
-=======
-  },
-  "T5": {
-    "status": "pending",
-    "evidence": [],
-    "last_verified": "2026-05-03T17:30:00Z"
->>>>>>> origin/main
+    "last_verified": "2026-05-15T15:09:10Z"
   }
 }

@@ -101,6 +101,7 @@ from settings_service import read_settings, write_settings
 from config import (
     ensure_directory,
     ensure_made_structure,
+    get_made_home,
     get_made_directory,
     get_workspace_home,
     get_backend_host,
@@ -891,6 +892,23 @@ def global_workflows():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
+
+
+@app.post("/api/workflows/generate-harnesses")
+def generate_global_workflow_harnesses(payload: dict = Body(...)):
+    try:
+        logger.info("Generating harnesses for global workflows")
+        written = generate_workflow_harnesses(payload, get_made_home())
+        return {"written": written}
+    except WorkflowParseError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to generate global workflow harnesses")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        ) from exc
 
 
 @app.put("/api/workflows")
