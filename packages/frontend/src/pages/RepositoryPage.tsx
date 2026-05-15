@@ -839,7 +839,13 @@ export const RepositoryPage: React.FC = () => {
     api
       .getRepositoryHarnesses(name)
       .then((response) => {
-        setAvailableHarnesses(response.harnesses);
+        const uniqueHarnesses = response.harnesses.filter(
+          (harness, index, allHarnesses) =>
+            allHarnesses.findIndex(
+              (candidate) => candidate.path === harness.path,
+            ) === index,
+        );
+        setAvailableHarnesses(uniqueHarnesses);
         setHarnessError(null);
       })
       .catch((error) => {

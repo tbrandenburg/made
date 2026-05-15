@@ -104,7 +104,13 @@ export const HarnessesTab: React.FC<HarnessesTabProps> = ({
     setHarnessLoading(true);
     loadHarnesses()
       .then((response) => {
-        setAvailableHarnesses(response);
+        const uniqueHarnesses = response.filter(
+          (harness, index, allHarnesses) =>
+            allHarnesses.findIndex(
+              (candidate) => candidate.path === harness.path,
+            ) === index,
+        );
+        setAvailableHarnesses(uniqueHarnesses);
         setHarnessError(null);
       })
       .catch((error) => {
