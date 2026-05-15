@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 
 class WorkflowParseError(ValueError):
-    """Raised when workflows cannot be validated."""
+    pass
 
 
 class StrictModel(BaseModel):
@@ -18,6 +18,13 @@ class StrictModel(BaseModel):
 
 class BaseStep(StrictModel):
     name: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_optional_string(cls, value: str | None) -> str | None:
+        if value is not None and value.strip() == "":
+            raise ValueError("must not be empty")
+        return value
 
 
 class BashStep(BaseStep):
@@ -31,7 +38,24 @@ class AgentStep(BaseStep):
     agent: str | None = None
 
 
-Step = Annotated[BashStep | AgentStep, Field(discriminator="type")]
+class VarsStep(BaseStep):
+    type: Literal["vars"]
+    values: dict[str, str]
+
+    @field_validator("values")
+    @classmethod
+    def validate_values(cls, value: dict[str, str]) -> dict[str, str]:
+        if not value:
+            raise ValueError("must contain at least one variable")
+        for name, command in value.items():
+            if not re.fullmatch(r"[A-Z_][A-Z0-9_]*", name):
+                raise ValueError(f"invalid variable name: {name}")
+            if command.strip() == "":
+                raise ValueError(f"empty command for variable: {name}")
+        return value
+
+
+Step = Annotated[VarsStep | BashStep | AgentStep, Field(discriminator="type")]
 
 
 class Workflow(StrictModel):
@@ -49,6 +73,22 @@ class Workflow(StrictModel):
             raise ValueError("must match ^wf_[A-Za-z0-9_-]+$")
         return value
 
+    @field_validator("steps")
+    @classmethod
+    def validate_steps(cls, value: list[Step]) -> list[Step]:
+        if not value:
+            raise ValueError("must contain at least one step")
+        return value
+
+    @field_validator("shell_script_path")
+    @classmethod
+    def validate_shell_script_path(cls, value: str) -> str:
+        if not re.fullmatch(r"\.harness/[A-Za-z0-9._/-]+\.sh", value):
+            raise ValueError("must be a relative .harness/*.sh path")
+        if ".." in Path(value).parts:
+            raise ValueError("must not contain '..'")
+        return value
+
 
 class WorkflowFile(StrictModel):
     workflows: list[Workflow]
@@ -59,35 +99,6 @@ def parse_workflow_payload(payload: dict) -> WorkflowFile:
         return WorkflowFile.model_validate(payload)
     except ValidationError as error:
         raise WorkflowParseError(str(error)) from error
-
-
-def render_harness(workflow: Workflow) -> str:
-    lines = [
-        "#!/usr/bin/env bash",
-        "set -euo pipefail",
-        "",
-        f"echo {bash_quote(f'Starting workflow: {workflow.name}')}",
-        "",
-    ]
-    for index, step in enumerate(workflow.steps, start=1):
-        lines.append(f"# Step {index}: {step.name or step.type}")
-        if isinstance(step, BashStep):
-            lines.extend(step.run.splitlines())
-        else:
-            lines.extend(render_agent_step(step))
-        lines.append("")
-
-    lines.append(f"echo {bash_quote(f'Workflow finished: {workflow.name}')}")
-    lines.append("")
-    return "\n".join(lines)
-
-
-def render_agent_step(step: AgentStep) -> list[str]:
-    lines = ["cmd=(opencode run --format json)"]
-    if step.agent:
-        lines.append(f"cmd+=(--agent {bash_quote(step.agent)})")
-    lines.append(f"printf '%s' {bash_quote(step.prompt)} | \"${{cmd[@]}}\"")
-    return lines
 
 
 def generate_workflow_harnesses(payload: dict, output_root: Path) -> list[str]:
@@ -101,6 +112,33 @@ def generate_workflow_harnesses(payload: dict, output_root: Path) -> list[str]:
         output_path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         written.append(workflow.shell_script_path)
     return written
+
+
+def render_harness(workflow: Workflow) -> str:
+    lines = ["#!/usr/bin/env bash", "set -euo pipefail", ""]
+    for index, step in enumerate(workflow.steps, start=1):
+        lines.extend(render_step(index, step))
+    return "\n".join(lines) + "\n"
+
+
+def render_step(index: int, step: Step) -> list[str]:
+    function_name = f"step_{index}"
+    lines = [f"{function_name}() {{"]
+    if isinstance(step, VarsStep):
+        for name, command in step.values.items():
+            lines.append(f"  {name}=$({command})")
+        lines += ["}", f"{function_name}", ""]
+        return lines
+    if isinstance(step, BashStep):
+        lines.extend(f"  {line}" if line else "" for line in step.run.splitlines())
+        lines += ["}", f"{function_name}", ""]
+        return lines
+    lines.append("  local cmd=(opencode run --format json)")
+    if step.agent:
+        lines.append(f"  cmd+=(--agent {bash_quote(step.agent)})")
+    lines.append(f"  printf '%s' {bash_quote(step.prompt)} | \"${{cmd[@]}}\"")
+    lines += ["}", f"{function_name}", ""]
+    return lines
 
 
 def bash_quote(value: str) -> str:

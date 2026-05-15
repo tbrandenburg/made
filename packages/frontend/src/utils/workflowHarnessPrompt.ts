@@ -83,6 +83,7 @@ export const buildWorkflowHarnessPrompt = (
     workflow.shellScriptPath || workflowShellScriptPath(workflow.name),
   );
   output = apply(output, "{{WORKFLOW_YAML}}", workflowToYaml(workflow));
+  output = apply(output, "{ { WORKFLOW_YAML } }", workflowToYaml(workflow));
   output = apply(output, "{{CURRENT_AGENT_CLI}}", agentCli || "opencode");
   return output;
 };

@@ -1472,3 +1472,33 @@ class TestVersionEndpoint:
         assert "commit_sha" in data
         assert "build_date" in data
         assert "environment" in data
+    @patch("app._repository_path")
+    @patch("app.generate_workflow_harnesses")
+    def test_generate_repository_workflow_harnesses_success(self, mock_generate, mock_repo_path):
+        mock_repo_path.return_value = "/tmp/sample"
+        mock_generate.return_value = [".harness/test.sh"]
+
+        response = client.post(
+            "/api/repositories/sample/workflows/generate-harnesses",
+            json={"workflows": []},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"written": [".harness/test.sh"]}
+
+    @patch("app._repository_path")
+    @patch("app.generate_workflow_harnesses")
+    def test_generate_repository_workflow_harnesses_validation_error(self, mock_generate, mock_repo_path):
+        from workflow_harness_service import WorkflowParseError
+
+        mock_repo_path.return_value = "/tmp/sample"
+        mock_generate.side_effect = WorkflowParseError("bad payload")
+
+        response = client.post(
+            "/api/repositories/sample/workflows/generate-harnesses",
+            json={"workflows": []},
+        )
+
+        assert response.status_code == 400
+
+
