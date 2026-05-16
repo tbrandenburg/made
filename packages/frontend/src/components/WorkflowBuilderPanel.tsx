@@ -453,7 +453,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                             </select>
                           ) : step.type === "vars" ? (
                             <input
-                              className="workflow-step-target__label"
+                              className="workflow-step-target__input"
                               value={step.varName || ""}
                               placeholder="VARIABLE_NAME"
                               onChange={(event) => {
@@ -488,7 +488,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                               }}
                             />
                           ) : (
-                            <span className="workflow-step-target__label" />
+                            <span className="workflow-step-target__placeholder" />
                           )}
                         </div>
                         <button
