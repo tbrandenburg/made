@@ -1,46 +1,41 @@
 {
-  "PR416_RCA": {
+  "rca": {
     "status": "done",
     "evidence": [
-      "loaded existing dev/state/task-ledger.json: old T1-T4 entries were from 2026-05-09 and all status=done",
-      "gh pr view 416 --json ...: Docker Build=FAILURE; Vercel=FAILURE; QA, backend tests, system tests, preview=SUCCESS",
-      "gh run view 25924804254 --job 76203062400 --log-failed: src/pages/ConstitutionPage.tsx(685,13): error TS2322 ... Property 'onSendMessage' does not exist on type 'IntrinsicAttributes & HarnessesTabProps'",
-      "gh run view 25924804254 --job 76203062400 --log-failed: src/pages/RepositoryPage.tsx(2011,27): error TS2339: Property 'generateRepositoryWorkflowHarnesses' does not exist on type ...",
-      "5xWhy: 1. Why did CI fail? Docker frontend build ran tsc and exited 2. 2. Why did tsc fail? It found stale HarnessesTab props and a missing typed API method. 3. Why were stale props present? The backend harness generation refactor removed prompt/send-message behavior from HarnessesTab but not all call sites were updated. 4. Why was the missing API method present? The hook implementation used by RepositoryPage was not fully exposed in the returned API object/type used by production build. 5. Why was this missed before PR update? make qa-quick passed, but it did not include the same production frontend TypeScript build path that Docker/Vercel execute."
+      "gh pr view 420 --json number,title,headRefName,baseRefName,url,state,mergeStateStatus,statusCheckRollup,body -> PR #420 Add `vars` workflow step support to workflow builder, mergeStateStatus=UNSTABLE, preview=FAILURE, other checks=SUCCESS",
+      "gh run view 25955910582 --job 76302427809 --log -> Send Telegram message failed: /home/runner/work/_temp/3c9584d1-f42d-4551-825a-ef4605e71318.sh: line 8: vars: command not found; Process completed with exit code 127",
+      "5xWhy RCA: Why failed? Telegram preview job exited 127. Why exit 127? shell tried to execute `vars`. Why execute `vars`? PR title with backticks was injected into PR_TITLE=\"${{ github.event.pull_request.title }}\". Why unsafe injection? GitHub expression interpolation occurred before shell execution inside double quotes, leaving backticks active. Why not caught? Existing preview workflow did not safely pass PR title/ref/actor through env or heredoc before shell escaping. Root cause: untrusted GitHub context values are embedded directly in shell script assignments."
     ],
-    "last_verified": "2026-05-15T15:09:49Z"
+    "last_verified": "2026-05-16T09:20:18+02:00"
   },
-  "PR416_PLAN": {
+  "plan": {
     "status": "done",
     "evidence": [
-      "git switch codex/refactor-workflow-generation-to-backend: Switched to a new branch 'codex/refactor-workflow-generation-to-backend' tracking origin/codex/refactor-workflow-generation-to-backend",
-      "Plan: remove stale onSendMessage/agentCli props from HarnessesTab call sites or replace them with backend generation callbacks; expose generateRepositoryWorkflowHarnesses in useApi; add a global /api/workflows/generate-harnesses endpoint and frontend api method so global HarnessesTab instances still generate harness scripts; run production frontend build and repository QA before commit."
+      "Plan: move GitHub context values that may contain shell metacharacters (repository, PR title, author, ref, actor) from direct shell interpolation into step env variables; read only those env variables in run script; keep existing MarkdownV2 escaping; verify with shell syntax check and a local reproduction using a PR_TITLE containing backticks."
     ],
-    "last_verified": "2026-05-15T15:11:39Z"
+    "last_verified": "2026-05-16T09:20:18+02:00"
   },
-  "PR416_IMPLEMENT": {
+  "implement": {
     "status": "done",
     "evidence": [
-      "grep agentCli={agentCli} packages/frontend/src --include '*.tsx': No files found",
-      "npm run build --workspace packages/frontend: ✓ built in 1.07s",
-      "uv run --project packages/pybackend python -m pytest packages/pybackend/tests/unit/test_api.py -q: 125 passed in 4.83s",
-      "make qa-quick: 391 passed, 1 skipped in 12.11s; All quick quality assurance tasks completed successfully",
-      "make docker-build: Image made-frontend Built; Image made-pybackend Built"
+      "Updated .github/workflows/nodejs-frontend-preview.yml: moved EVENT_NAME, REPO, PREVIEW_URL, WORKFLOW_URL, PR_NUMBER, PR_TITLE, PR_AUTHOR, BRANCH_NAME, ACTOR into step env and removed direct PR title/ref/actor interpolation from shell assignments.",
+      "EVENT_NAME=pull_request PR_TITLE='Add `vars` workflow step support' ... bash -c '...' -> Add `vars` workflow step support (exit 0; no vars command execution)",
+      "npx prettier --check .github/workflows/nodejs-frontend-preview.yml -> All matched files use Prettier code style!"
     ],
-    "last_verified": "2026-05-15T15:16:36Z"
+    "last_verified": "2026-05-16T09:21:50+02:00"
   },
-  "PR416_COMMIT_PUSH": {
-    "status": "done",
+  "commit_push": {
+    "status": "in_progress",
     "evidence": [
-      "git commit -m 'fix: complete backend workflow harness wiring': [codex/refactor-workflow-generation-to-backend 4e037f6] fix: complete backend workflow harness wiring",
-      "git push: aaa66f3..4e037f6 codex/refactor-workflow-generation-to-backend -> codex/refactor-workflow-generation-to-backend",
-      "pre-push make qa-quick: 391 passed, 1 skipped in 25.53s; All quick quality assurance tasks completed successfully"
+      "git status --short --branch -> modified .github/workflows/nodejs-frontend-preview.yml and dev/state/task-ledger.json; unrelated untracked .playwright-mcp/ and demo.png not staged",
+      "make qa-quick -> 394 passed, 1 skipped in 12.20s; All quick quality assurance tasks completed successfully",
+      "git add .github/workflows/nodejs-frontend-preview.yml dev/state/task-ledger.json && git commit -m 'fix: safely pass preview metadata' -> dev is ignored; ledger requires git add -f"
     ],
-    "last_verified": "2026-05-15T15:18:54Z"
+    "last_verified": "2026-05-16T09:23:30+02:00"
   },
-  "PR416_CI": {
+  "ci": {
     "status": "pending",
     "evidence": [],
-    "last_verified": "2026-05-15T15:09:10Z"
+    "last_verified": "2026-05-16T09:19:27+02:00"
   }
 }

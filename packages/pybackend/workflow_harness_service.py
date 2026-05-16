@@ -123,7 +123,9 @@ class WorkflowFile(StrictModel):
             raise ValueError("must contain at least one workflow")
 
         ids = [workflow.id for workflow in value]
-        duplicate_ids = sorted({workflow_id for workflow_id in ids if ids.count(workflow_id) > 1})
+        duplicate_ids = sorted(
+            {workflow_id for workflow_id in ids if ids.count(workflow_id) > 1}
+        )
         if duplicate_ids:
             raise ValueError(f"duplicate workflow ids: {', '.join(duplicate_ids)}")
 
@@ -171,7 +173,7 @@ def render_harness(workflow: Workflow) -> str:
         'if [[ $# -eq 1 && "$1" == "--dry-run" ]]; then',
         "  DRY_RUN=true",
         "elif [[ $# -gt 0 ]]; then",
-        "  printf \"Usage: %s [--dry-run]\\n\" \"$0\" >&2",
+        '  printf "Usage: %s [--dry-run]\\n" "$0" >&2',
         "  exit 2",
         "fi",
         "",
@@ -186,7 +188,7 @@ def render_harness(workflow: Workflow) -> str:
         "  local message",
         "  message=\"$(date -u +'%Y-%m-%dT%H:%M:%SZ') [${level}] $*\"",
         "  printf '%s\\n' \"$message\" >&2",
-        "  printf '%s\\n' \"$message\" >> \"$LOG_FILE\" 2>/dev/null || true",
+        '  printf \'%s\\n\' "$message" >> "$LOG_FILE" 2>/dev/null || true',
         "}",
         "",
         section("catch() — centralized step failure hook"),
@@ -256,7 +258,7 @@ def render_harness(workflow: Workflow) -> str:
         "  fi",
         "",
         '  if [[ "$DRY_RUN" == true ]]; then',
-        '    log INFO "[DRY-RUN] would run: $(printf \'%q \' \"${cmd[@]}\") (with prompt)"',
+        '    log INFO "[DRY-RUN] would run: $(printf \'%q \' "${cmd[@]}") (with prompt)"',
         "    return 0",
         "  fi",
         "",
@@ -271,11 +273,13 @@ def render_harness(workflow: Workflow) -> str:
     for index, step in enumerate(workflow.steps, start=1):
         lines.extend(render_step(index, step))
 
-    lines.extend([
-        section(f"Workflow finished: {workflow.name}"),
-        f"log INFO {bash_quote(f'Workflow finished: {workflow.name}')}",
-        "",
-    ])
+    lines.extend(
+        [
+            section(f"Workflow finished: {workflow.name}"),
+            f"log INFO {bash_quote(f'Workflow finished: {workflow.name}')}",
+            "",
+        ]
+    )
 
     return "\n".join(lines) + "\n"
 
@@ -293,13 +297,15 @@ def render_step(index: int, step: Step) -> list[str]:
             lines.append(f"  {command_line}" if command_line.strip() else "")
     elif isinstance(step, AgentStep):
         delimiter = heredoc_delimiter("PROMPT", step.prompt)
-        lines.extend([
-            "  local prompt",
-            f"  prompt=$(cat <<'{delimiter}'",
-            *step.prompt.splitlines(),
-            delimiter,
-            "  )",
-        ])
+        lines.extend(
+            [
+                "  local prompt",
+                f"  prompt=$(cat <<'{delimiter}'",
+                *step.prompt.splitlines(),
+                delimiter,
+                "  )",
+            ]
+        )
         if step.agent:
             lines.append(f"  local agent={bash_quote(step.agent)}")
             lines.append('  run_agent "$prompt" "$agent"')
@@ -354,8 +360,10 @@ def bash_quote(value: str) -> str:
 
 
 def section(title: str) -> str:
-    return "\n".join([
-        "# ---------------------------------------------------------------------------",
-        f"# {title}",
-        "# ---------------------------------------------------------------------------",
-    ])
+    return "\n".join(
+        [
+            "# ---------------------------------------------------------------------------",
+            f"# {title}",
+            "# ---------------------------------------------------------------------------",
+        ]
+    )

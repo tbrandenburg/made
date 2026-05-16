@@ -14,11 +14,13 @@ import { XIcon } from "./icons/XIcon";
 import { workflowShellScriptPath } from "../utils/workflowHarnessPrompt";
 
 export type WorkflowStep = {
-  type: "agent" | "bash";
+  type: "agent" | "bash" | "vars";
   agent?: string;
+  varName?: string;
   command?: string;
   prompt?: string;
   run?: string;
+  values?: Record<string, string>;
 };
 
 export type WorkflowDefinition = {
@@ -44,11 +46,13 @@ const previewText = (step: WorkflowStep) => {
   const raw =
     step.type === "bash"
       ? step.run || ""
-      : step.command
-        ? `/${step.command}${step.prompt ? ` ${step.prompt}` : ""}`
-        : step.prompt || "";
+      : step.type === "vars"
+        ? step.run || ""
+        : step.command
+          ? `/${step.command}${step.prompt ? ` ${step.prompt}` : ""}`
+          : step.prompt || "";
   const [firstLine] = raw.split(/\r?\n/, 1);
-  return firstLine || (step.type === "bash" ? "Bash command" : "Prompt");
+  return firstLine || (step.type === "agent" ? "Prompt" : "Command");
 };
 
 const parseAgentText = (value: string) => {
@@ -341,15 +345,23 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                             onChange={(event) => {
                               const nextType = event.target.value as
                                 | "agent"
-                                | "bash";
+                                | "bash"
+                                | "vars";
                               const nextStep: WorkflowStep =
                                 nextType === "bash"
                                   ? { type: "bash", run: "" }
-                                  : {
-                                      type: "agent",
-                                      agent: agentNames[0] || "default",
-                                      prompt: "",
-                                    };
+                                  : nextType === "vars"
+                                    ? {
+                                        type: "vars",
+                                        varName: "",
+                                        run: "",
+                                        values: {},
+                                      }
+                                    : {
+                                        type: "agent",
+                                        agent: agentNames[0] || "default",
+                                        prompt: "",
+                                      };
                               const next = workflows.map((item) =>
                                 item.id === workflow.id
                                   ? {
@@ -368,6 +380,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                           >
                             <option value="agent">Agent</option>
                             <option value="bash">Bash</option>
+                            <option value="vars">Vars</option>
                           </select>
                           {step.type === "agent" ? (
                             <select
@@ -400,6 +413,35 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                                 ))
                               )}
                             </select>
+                          ) : step.type === "vars" ? (
+                            <input
+                              className="workflow-step-target__label"
+                              value={step.varName || ""}
+                              placeholder="VARIABLE_NAME"
+                              onChange={(event) => {
+                                const next = workflows.map((item) =>
+                                  item.id === workflow.id
+                                    ? {
+                                        ...item,
+                                        steps: item.steps.map(
+                                          (itemStep, itemIndex) =>
+                                            itemIndex === stepIndex
+                                              ? {
+                                                  ...itemStep,
+                                                  varName: event.target.value,
+                                                  values: {
+                                                    [event.target.value]:
+                                                      itemStep.run || "",
+                                                  },
+                                                }
+                                              : itemStep,
+                                        ),
+                                      }
+                                    : item,
+                                );
+                                void persist(next);
+                              }}
+                            />
                           ) : (
                             <span className="workflow-step-target__label" />
                           )}
@@ -408,11 +450,11 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                           className="workflow-step-preview"
                           onClick={() => {
                             const currentText =
-                              step.type === "bash"
-                                ? step.run || ""
-                                : step.command
+                              step.type === "agent"
+                                ? step.command
                                   ? `/${step.command}${step.prompt ? ` ${step.prompt}` : ""}`
-                                  : step.prompt || "";
+                                  : step.prompt || ""
+                                : step.run || "";
                             setEditStep({ workflowId: workflow.id, stepIndex });
                             setEditStepValue(currentText);
                           }}
@@ -519,7 +561,15 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                   ...workflow,
                   steps: workflow.steps.map((step, index) => {
                     if (index !== editStep.stepIndex) return step;
-                    if (step.type === "bash") {
+                    if (step.type !== "agent") {
+                      if (step.type === "vars") {
+                        const varName = step.varName || "";
+                        return {
+                          ...step,
+                          run: editStepValue,
+                          values: varName ? { [varName]: editStepValue } : {},
+                        };
+                      }
                       return { ...step, run: editStepValue };
                     }
                     const parsed = parseAgentText(editStepValue);

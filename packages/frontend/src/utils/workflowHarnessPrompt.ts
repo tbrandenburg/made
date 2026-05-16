@@ -23,6 +23,17 @@ const stepToYaml = (step: WorkflowStep, indent: string) => {
       lines.push(`${indent}  prompt: ${escapeYamlValue(step.prompt)}`);
     return lines;
   }
+  if (step.type === "vars") {
+    const varName = (step.varName || "").trim();
+    const command = step.run || "";
+    if (varName) {
+      lines.push(`${indent}  values:`);
+      lines.push(`${indent}    ${varName}: ${escapeYamlValue(command)}`);
+    } else {
+      lines.push(`${indent}  values: {}`);
+    }
+    return lines;
+  }
   lines.push(`${indent}  run: ${escapeYamlValue(step.run || "")}`);
   return lines;
 };
