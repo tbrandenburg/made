@@ -33,7 +33,7 @@ def _as_bool(value: Any, default: bool = False) -> bool:
     return default
 
 
-def _normalize_step(step: Any) -> dict[str, str]:
+def _normalize_step(step: Any) -> dict[str, Any]:
     if not isinstance(step, dict):
         return {}
     step_type = _as_string(step.get("type"))
@@ -52,6 +52,25 @@ def _normalize_step(step: Any) -> dict[str, str]:
         if prompt:
             normalized["prompt"] = prompt
         return normalized
+    if step_type == "vars":
+        var_name = _as_string(step.get("varName"))
+        run = _as_string(step.get("run"))
+        raw_values = step.get("values")
+        values: dict[str, str] = {}
+        if isinstance(raw_values, dict):
+            for key, value in raw_values.items():
+                normalized_key = _as_string(key)
+                normalized_value = _as_string(value)
+                if normalized_key and normalized_value is not None:
+                    values[normalized_key] = normalized_value
+        normalized: dict[str, Any] = {"type": "vars"}
+        if var_name:
+            normalized["varName"] = var_name
+        if run is not None:
+            normalized["run"] = run
+        if values:
+            normalized["values"] = values
+        return normalized
     return {}
 
 
@@ -64,7 +83,7 @@ def _normalize_workflow(workflow: Any, index: int) -> dict[str, Any] | None:
     schedule = _as_string(workflow.get("schedule"))
     shell_script_path = _as_string(workflow.get("shellScriptPath"))
     raw_steps = workflow.get("steps")
-    steps: list[dict[str, str]] = []
+    steps: list[dict[str, Any]] = []
     if isinstance(raw_steps, list):
         for raw_step in raw_steps:
             step = _normalize_step(raw_step)

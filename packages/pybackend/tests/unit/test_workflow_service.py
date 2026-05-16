@@ -50,6 +50,36 @@ def test_normalize_payload_defaults_enabled_false_when_missing():
     assert result["workflows"][0]["enabled"] is False
 
 
+def test_normalize_payload_keeps_vars_steps():
+    payload = {
+        "workflows": [
+            {
+                "id": "wf_1",
+                "name": "Vars Workflow",
+                "steps": [
+                    {
+                        "type": "vars",
+                        "varName": "  RELEASE_CHANNEL  ",
+                        "run": " stable ",
+                        "values": {" RELEASE_CHANNEL ": " stable ", "": "ignore"},
+                    }
+                ],
+            }
+        ]
+    }
+
+    result = _normalize_payload(payload)
+
+    assert result["workflows"][0]["steps"] == [
+        {
+            "type": "vars",
+            "varName": "RELEASE_CHANNEL",
+            "run": "stable",
+            "values": {"RELEASE_CHANNEL": "stable"},
+        }
+    ]
+
+
 def test_normalize_payload_omits_empty_shell_script_path():
     payload = {
         "workflows": [

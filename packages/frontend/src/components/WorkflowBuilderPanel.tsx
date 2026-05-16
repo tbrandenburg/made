@@ -92,6 +92,10 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conversionMessage, setConversionMessage] = useState<string | null>(
+    null,
+  );
+  const [conversionError, setConversionError] = useState<string | null>(null);
   const [editStep, setEditStep] = useState<{
     workflowId: string;
     stepIndex: number;
@@ -145,12 +149,14 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
     setError(null);
     try {
       await saveWorkflows({ workflows: nextWorkflows });
+      return true;
     } catch (saveError) {
       const message =
         saveError instanceof Error
           ? saveError.message
           : "Failed to save workflows";
       setError(message);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -200,6 +206,8 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
       </div>
       {loading && <div className="alert">Loading workflows...</div>}
       {saving && <div className="alert">Saving workflows...</div>}
+      {conversionMessage && <div className="alert">{conversionMessage}</div>}
+      {conversionError && <div className="alert error">{conversionError}</div>}
       {error && <div className="alert error">{error}</div>}
       {!loading && workflows.length === 0 && (
         <div className="empty">No workflows yet.</div>
@@ -305,13 +313,30 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                     const shellScriptPath = workflowShellScriptPath(
                       workflow.name,
                     );
+                    setConversionMessage(null);
+                    setConversionError(null);
                     const next = workflows.map((item) =>
                       item.id === workflow.id
                         ? { ...item, shellScriptPath }
                         : item,
                     );
-                    await persist(next);
-                    await onRunWorkflow(next);
+                    const persisted = await persist(next);
+                    if (!persisted) {
+                      setConversionError(
+                        "Failed to convert workflow to harness shell script.",
+                      );
+                      return;
+                    }
+                    try {
+                      await onRunWorkflow(next);
+                      setConversionMessage(
+                        `Workflow converted to harness shell script: ${shellScriptPath}`,
+                      );
+                    } catch {
+                      setConversionError(
+                        "Failed to convert workflow to harness shell script.",
+                      );
+                    }
                   }}
                 >
                   <PlayIcon />
