@@ -116,5 +116,19 @@ def test_run_harness_uses_repository_root_as_working_directory(temp_env):
     assert output_path.read_text(encoding="utf-8").strip() == str(repo_path)
 
 
+def test_run_harness_in_hidden_harness_directory_uses_repository_root(temp_env):
+    workspace, _, _ = temp_env
+    repo_path = workspace / "runner"
+    harness_path = repo_path / ".codex" / "harness" / "pwd.sh"
+    output_path = repo_path / "pwd_codex.txt"
+    harness_path.parent.mkdir(parents=True, exist_ok=True)
+    write_harness_file(harness_path, f'pwd > "{output_path}"')
+
+    result = run_harness("runner", str(harness_path))
+
+    os.waitpid(result["pid"], 0)
+    assert output_path.read_text(encoding="utf-8").strip() == str(repo_path)
+
+
 def test_is_process_running_handles_invalid_pid():
     assert is_process_running(-1) is False
