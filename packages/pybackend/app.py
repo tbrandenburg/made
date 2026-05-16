@@ -64,7 +64,11 @@ from external_matter_service import read_external_matter, write_external_matter
 from command_service import list_commands
 from harness_service import is_process_running, list_harnesses, run_harness
 from workflow_service import list_workspace_workflows, read_workflows, write_workflows
-from workflow_harness_service import generate_workflow_harnesses, WorkflowParseError
+from workflow_harness_service import (
+    generate_workflow_harnesses,
+    WorkflowParseError,
+    WorkflowVerificationError,
+)
 from cron_service import (
     force_terminate_job,
     get_cron_job_diagnostics,
@@ -841,6 +845,10 @@ def generate_repository_workflow_harnesses(name: str, payload: dict = Body(...))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
+    except WorkflowVerificationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     except FileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
@@ -901,6 +909,10 @@ def generate_global_workflow_harnesses(payload: dict = Body(...)):
         written = generate_workflow_harnesses(payload, get_made_home())
         return {"written": written}
     except WorkflowParseError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    except WorkflowVerificationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
