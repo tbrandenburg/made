@@ -55,6 +55,15 @@ const previewText = (step: WorkflowStep) => {
   return firstLine || (step.type === "agent" ? "Prompt" : "Command");
 };
 
+const toBashVariableName = (value: string) => {
+  const upper = value.toUpperCase();
+  const cleaned = upper.replace(/[^A-Z0-9_]/g, "");
+  if (!cleaned) return "";
+  const [first, ...rest] = cleaned;
+  const safeFirst = /[A-Z_]/.test(first) ? first : "_";
+  return `${safeFirst}${rest.join("")}`;
+};
+
 const parseAgentText = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed.startsWith("/")) {
@@ -453,17 +462,24 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                                     ? {
                                         ...item,
                                         steps: item.steps.map(
-                                          (itemStep, itemIndex) =>
-                                            itemIndex === stepIndex
-                                              ? {
-                                                  ...itemStep,
-                                                  varName: event.target.value,
-                                                  values: {
-                                                    [event.target.value]:
+                                          (itemStep, itemIndex) => {
+                                            if (itemIndex !== stepIndex) {
+                                              return itemStep;
+                                            }
+                                            const varName = toBashVariableName(
+                                              event.target.value,
+                                            );
+                                            return {
+                                              ...itemStep,
+                                              varName,
+                                              values: varName
+                                                ? {
+                                                    [varName]:
                                                       itemStep.run || "",
-                                                  },
-                                                }
-                                              : itemStep,
+                                                  }
+                                                : {},
+                                            };
+                                          },
                                         ),
                                       }
                                     : item,
