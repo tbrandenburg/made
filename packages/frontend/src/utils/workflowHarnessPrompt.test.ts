@@ -17,6 +17,7 @@ describe("buildWorkflowHarnessPrompt", () => {
           command: "plan",
           prompt: "Create release plan",
         },
+        { type: "vars", varName: "BUILD_SHA", run: "git rev-parse HEAD" },
         { type: "bash", run: "echo done" },
       ],
     };
@@ -30,6 +31,8 @@ describe("buildWorkflowHarnessPrompt", () => {
     expect(prompt).toContain('schedule: "0 5 * * *"');
     expect(prompt).toContain('agent: "default"');
     expect(prompt).toContain('command: "plan"');
+    expect(prompt).toContain("values:");
+    expect(prompt).toContain('BUILD_SHA: "git rev-parse HEAD"');
     expect(prompt).toContain('run: "echo done"');
     expect(prompt).toContain('shellScriptPath: ".harness/release-workflow.sh"');
     expect(prompt).toContain("The script MUST be written exactly to:");

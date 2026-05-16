@@ -265,11 +265,13 @@ export type TemplateApplyResponse = {
 };
 
 export type WorkflowStep = {
-  type: "agent" | "bash";
+  type: "agent" | "bash" | "vars";
   agent?: string;
+  varName?: string;
   command?: string;
   prompt?: string;
   run?: string;
+  values?: Record<string, string>;
 };
 
 export type WorkspaceWorkflowSummary = {
