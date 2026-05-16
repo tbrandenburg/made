@@ -1,9 +1,11 @@
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 import pytest
 
 from workflow_harness_service import (
     WorkflowParseError,
+    WorkflowVerificationError,
     generate_workflow_harnesses,
     parse_workflow_payload,
     render_harness,
@@ -84,3 +86,29 @@ def test_parse_workflow_payload_rejects_duplicate_workflow_ids():
 
     with pytest.raises(WorkflowParseError, match="duplicate workflow ids"):
         parse_workflow_payload(payload)
+
+
+@patch("workflow_harness_service.subprocess.run")
+def test_generate_workflow_harnesses_verifies_bash_and_dry_run(mock_run: Mock, tmp_path: Path):
+    mock_run.side_effect = [
+        Mock(returncode=0, stdout="", stderr=""),
+        Mock(returncode=0, stdout="", stderr=""),
+    ]
+
+    generate_workflow_harnesses(sample_payload(), tmp_path)
+
+    written_script = tmp_path / ".harness/release-flow.sh"
+    assert mock_run.call_count == 2
+    assert mock_run.call_args_list[0].args[0] == ["bash", "-n", str(written_script)]
+    assert mock_run.call_args_list[1].args[0] == [str(written_script), "--dry-run"]
+
+
+@patch("workflow_harness_service.subprocess.run")
+def test_generate_workflow_harnesses_raises_on_dry_run_failure(mock_run: Mock, tmp_path: Path):
+    mock_run.side_effect = [
+        Mock(returncode=0, stdout="", stderr=""),
+        Mock(returncode=1, stdout="", stderr="boom"),
+    ]
+
+    with pytest.raises(WorkflowVerificationError, match="script dry run failed"):
+        generate_workflow_harnesses(sample_payload(), tmp_path)

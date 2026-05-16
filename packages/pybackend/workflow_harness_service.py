@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import stat
+import subprocess
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -10,6 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 class WorkflowParseError(ValueError):
     """Raised when workflow payload cannot be validated."""
+
+
+class WorkflowVerificationError(ValueError):
+    """Raised when generated harness scripts fail verification checks."""
 
 
 class StrictModel(BaseModel):
@@ -149,9 +154,34 @@ def generate_workflow_harnesses(payload: dict, output_root: Path) -> list[str]:
         output_path.write_text(render_harness(workflow), encoding="utf-8")
         mode = output_path.stat().st_mode
         output_path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        _verify_harness_script(output_path)
         written.append(workflow.shell_script_path)
 
     return written
+
+
+def _verify_harness_script(script_path: Path) -> None:
+    verify_process = subprocess.run(
+        ["bash", "-n", str(script_path)],
+        capture_output=True,
+        text=True,
+    )
+    if verify_process.returncode != 0:
+        stderr = (verify_process.stderr or verify_process.stdout or "").strip()
+        raise WorkflowVerificationError(
+            f"bash verify run failed for {script_path}: {stderr}"
+        )
+
+    dry_run_process = subprocess.run(
+        [str(script_path), "--dry-run"],
+        capture_output=True,
+        text=True,
+    )
+    if dry_run_process.returncode != 0:
+        stderr = (dry_run_process.stderr or dry_run_process.stdout or "").strip()
+        raise WorkflowVerificationError(
+            f"script dry run failed for {script_path}: {stderr}"
+        )
 
 
 def render_harness(workflow: Workflow) -> str:
