@@ -80,6 +80,30 @@ const parseAgentText = (value: string) => {
   };
 };
 
+const normalizeStep = (step: WorkflowStep): WorkflowStep => {
+  if (step.type !== "vars") {
+    return step;
+  }
+
+  const entries = Object.entries(step.values || {});
+  const [firstVarName = "", firstValue = ""] = entries[0] || [];
+  const varName = step.varName || firstVarName;
+  const run =
+    step.run ?? (varName && firstVarName === varName ? firstValue : "");
+
+  return {
+    ...step,
+    varName,
+    run,
+    values: varName ? { [varName]: run } : {},
+  };
+};
+
+const normalizeWorkflows = (items: WorkflowDefinition[]) =>
+  items.map((workflow) => ({
+    ...workflow,
+    steps: workflow.steps.map(normalizeStep),
+  }));
 const newWorkflow = (): WorkflowDefinition => ({
   id: `wf_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
   name: "New workflow",
@@ -126,7 +150,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
         loadWorkflows(),
         listAgents(),
       ]);
-      setWorkflows(workflowData.workflows || []);
+      setWorkflows(normalizeWorkflows(workflowData.workflows || []));
       setAgents(agentData.agents || []);
       setExpandedIds((prev) => {
         const next = { ...prev };
