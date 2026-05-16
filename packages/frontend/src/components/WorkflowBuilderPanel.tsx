@@ -215,7 +215,9 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
       </div>
       {loading && <div className="alert">Loading workflows...</div>}
       {saving && <div className="alert">Saving workflows...</div>}
-      {conversionMessage && <div className="alert">{conversionMessage}</div>}
+      {conversionMessage && (
+        <div className="alert success">{conversionMessage}</div>
+      )}
       {conversionError && <div className="alert error">{conversionError}</div>}
       {error && <div className="alert error">{error}</div>}
       {!loading && workflows.length === 0 && (
