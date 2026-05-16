@@ -73,8 +73,6 @@ def test_normalize_payload_keeps_vars_steps():
     assert result["workflows"][0]["steps"] == [
         {
             "type": "vars",
-            "varName": "RELEASE_CHANNEL",
-            "run": "stable",
             "values": {"RELEASE_CHANNEL": "stable"},
         }
     ]

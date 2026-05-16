@@ -63,11 +63,9 @@ def _normalize_step(step: Any) -> dict[str, Any]:
                 normalized_value = _as_string(value)
                 if normalized_key and normalized_value is not None:
                     values[normalized_key] = normalized_value
+        if var_name and run is not None and var_name not in values:
+            values[var_name] = run
         normalized: dict[str, Any] = {"type": "vars"}
-        if var_name:
-            normalized["varName"] = var_name
-        if run is not None:
-            normalized["run"] = run
         if values:
             normalized["values"] = values
         return normalized
