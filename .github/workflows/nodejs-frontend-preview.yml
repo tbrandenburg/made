@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       timeout_minutes:
-        description: 'Preview timeout in minutes'
+        description: "Preview timeout in minutes"
         required: false
-        default: '5'
+        default: "5"
         type: string
 
 concurrency:
@@ -20,7 +20,7 @@ concurrency:
 jobs:
   preview:
     runs-on: ubuntu-latest
-    timeout-minutes: 20  # small buffer above 10-minute tunnel lifetime
+    timeout-minutes: 20 # small buffer above 10-minute tunnel lifetime
 
     env:
       PREVIEW_TIMEOUT_MINUTES: ${{ github.event.inputs.timeout_minutes || '5' }}
@@ -68,7 +68,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -88,7 +88,7 @@ jobs:
         id: detect
         run: |
           echo "🔍 Searching for Node.js frontend in this PR branch..."
-          
+
           # Look for frontend specifically (exclude root package.json)
           frontend_package=""
           if [ -f "packages/frontend/package.json" ]; then
@@ -97,7 +97,7 @@ jobs:
               frontend_package="packages/frontend"
             fi
           fi
-          
+
           if [ -z "$frontend_package" ]; then
             echo "::warning::No frontend package detected in packages/frontend. This is expected for backend-only changes."
             echo "🪄 Skipping preview deployment — no frontend present."
@@ -113,8 +113,8 @@ jobs:
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      
+          python-version: "3.12"
+
       - name: Install UV
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -125,79 +125,79 @@ jobs:
       - name: Install opencode
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         run: |
-           set -euo pipefail
-           INSTALL_DIR="$HOME/.opencode/bin"
-           mkdir -p "$INSTALL_DIR"
+          set -euo pipefail
+          INSTALL_DIR="$HOME/.opencode/bin"
+          mkdir -p "$INSTALL_DIR"
 
-           TMPDIR="$(mktemp -d)"
-           trap 'rm -rf "$TMPDIR"' EXIT
-           ARCHIVE_PATH="$TMPDIR/opencode.tar.gz"
-           DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-x64.tar.gz"
+          TMPDIR="$(mktemp -d)"
+          trap 'rm -rf "$TMPDIR"' EXIT
+          ARCHIVE_PATH="$TMPDIR/opencode.tar.gz"
+          DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-x64.tar.gz"
 
-           # Robust download function with retry logic and fallback
-           download_with_retry() {
-             local url="$1"
-             local output="$2"
-             local max_attempts=3
-             
-             echo "🔄 Downloading OpenCode CLI from GitHub releases..."
-             
-             # Try curl with retries
-             for attempt in $(seq 1 $max_attempts); do
-               echo "📥 Attempt $attempt/$max_attempts using curl..."
-               if curl --connect-timeout 30 --max-time 120 --retry-connrefused \
-                       --fail --silent --show-error --location \
-                       "$url" -o "$output"; then
-                 echo "✅ Download successful with curl on attempt $attempt"
-                 return 0
-               else
-                 local exit_code=$?
-                 echo "❌ curl attempt $attempt failed (exit code: $exit_code)"
-                 if [ $attempt -lt $max_attempts ]; then
-                   local delay=$((attempt * 5))
-                   echo "⏳ Waiting ${delay}s before retry..."
-                   sleep $delay
-                 fi
-               fi
-             done
-             
-             # Fallback to wget if curl failed
-             echo "🔄 Trying fallback method with wget..."
-             if wget --timeout=30 --tries=2 --waitretry=5 -q "$url" -O "$output"; then
-               echo "✅ Download successful with wget fallback"
-               return 0
-             else
-               echo "❌ wget fallback also failed"
-               return 1
-             fi
-           }
+          # Robust download function with retry logic and fallback
+          download_with_retry() {
+            local url="$1"
+            local output="$2"
+            local max_attempts=3
+            
+            echo "🔄 Downloading OpenCode CLI from GitHub releases..."
+            
+            # Try curl with retries
+            for attempt in $(seq 1 $max_attempts); do
+              echo "📥 Attempt $attempt/$max_attempts using curl..."
+              if curl --connect-timeout 30 --max-time 120 --retry-connrefused \
+                      --fail --silent --show-error --location \
+                      "$url" -o "$output"; then
+                echo "✅ Download successful with curl on attempt $attempt"
+                return 0
+              else
+                local exit_code=$?
+                echo "❌ curl attempt $attempt failed (exit code: $exit_code)"
+                if [ $attempt -lt $max_attempts ]; then
+                  local delay=$((attempt * 5))
+                  echo "⏳ Waiting ${delay}s before retry..."
+                  sleep $delay
+                fi
+              fi
+            done
+            
+            # Fallback to wget if curl failed
+            echo "🔄 Trying fallback method with wget..."
+            if wget --timeout=30 --tries=2 --waitretry=5 -q "$url" -O "$output"; then
+              echo "✅ Download successful with wget fallback"
+              return 0
+            else
+              echo "❌ wget fallback also failed"
+              return 1
+            fi
+          }
 
-           # Download with robust retry logic
-           if ! download_with_retry "$DOWNLOAD_URL" "$ARCHIVE_PATH"; then
-             echo "💥 Failed to download OpenCode CLI after all retry attempts and fallbacks"
-             echo "🔍 This is likely a temporary CDN issue. Please retry the workflow."
-             exit 1
-           fi
+          # Download with robust retry logic
+          if ! download_with_retry "$DOWNLOAD_URL" "$ARCHIVE_PATH"; then
+            echo "💥 Failed to download OpenCode CLI after all retry attempts and fallbacks"
+            echo "🔍 This is likely a temporary CDN issue. Please retry the workflow."
+            exit 1
+          fi
 
-           # Validate download
-           if [ ! -f "$ARCHIVE_PATH" ] || [ ! -s "$ARCHIVE_PATH" ]; then
-             echo "❌ Downloaded file is missing or empty"
-             exit 1
-           fi
-           
-           file_size=$(stat -f%z "$ARCHIVE_PATH" 2>/dev/null || stat -c%s "$ARCHIVE_PATH" 2>/dev/null || echo "0")
-           if [ "$file_size" -lt 100000 ]; then
-             echo "❌ Downloaded file seems too small ($file_size bytes), likely corrupted"
-             exit 1
-           fi
-           
-           echo "✅ Downloaded file validated ($file_size bytes)"
+          # Validate download
+          if [ ! -f "$ARCHIVE_PATH" ] || [ ! -s "$ARCHIVE_PATH" ]; then
+            echo "❌ Downloaded file is missing or empty"
+            exit 1
+          fi
 
-           # Extract and install
-           tar -xzf "$ARCHIVE_PATH" -C "$TMPDIR"
-           install "$TMPDIR/opencode" "$INSTALL_DIR/opencode"
+          file_size=$(stat -f%z "$ARCHIVE_PATH" 2>/dev/null || stat -c%s "$ARCHIVE_PATH" 2>/dev/null || echo "0")
+          if [ "$file_size" -lt 100000 ]; then
+            echo "❌ Downloaded file seems too small ($file_size bytes), likely corrupted"
+            exit 1
+          fi
 
-           echo "$INSTALL_DIR" >> "$GITHUB_PATH"
+          echo "✅ Downloaded file validated ($file_size bytes)"
+
+          # Extract and install
+          tar -xzf "$ARCHIVE_PATH" -C "$TMPDIR"
+          install "$TMPDIR/opencode" "$INSTALL_DIR/opencode"
+
+          echo "$INSTALL_DIR" >> "$GITHUB_PATH"
 
       # ------------------------------------------------------
       # Configure OpenCode
@@ -230,12 +230,12 @@ jobs:
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         continue-on-error: true
         run: "opencode run 'Say: ✅ SUCCESS!'"
-      
+
       - name: Install dependencies
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         run: make install
 
-      - name: Debug frontend dependencies 
+      - name: Debug frontend dependencies
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         run: |
           echo "🔍 Debugging frontend setup..."
@@ -253,14 +253,14 @@ jobs:
         if: ${{ steps.detect.outputs.frontend_found == 'true' }}
         run: |
           echo "🚀 Starting MADE services with make run..."
-          
+
           # Start both frontend and backend using make run
           nohup make run > services.log 2>&1 &
           SERVICES_PID=$!
           echo "Services started with PID $SERVICES_PID"
-          
+
           echo "⏳ Waiting for services to become available..."
-          
+
           # Wait a bit and check if the process is still running
           sleep 5
           if ! kill -0 $SERVICES_PID 2>/dev/null; then
@@ -269,7 +269,7 @@ jobs:
             cat services.log
             exit 1
           fi
-          
+
           # Wait for backend API
           for i in {1..30}; do
             if curl -f http://localhost:3000/api/repositories > /dev/null 2>&1; then
@@ -284,7 +284,7 @@ jobs:
             fi
             sleep 3
           done
-          
+
           # Wait for frontend
           for i in {1..30}; do
             if nc -z localhost 5173 2>/dev/null; then
@@ -299,7 +299,7 @@ jobs:
             fi
             sleep 2
           done
-          
+
           echo "🔍 Last few lines of services.log:"
           tail -n 15 services.log || true
 
@@ -315,20 +315,20 @@ jobs:
           echo "🔎 Checking for active services..."
           frontend_ready=false
           backend_ready=false
-          
+
           # Check frontend (primary target for preview)
           if nc -z localhost 5173; then
             frontend_ready=true
             target_port=5173
             echo "✅ Frontend detected on port 5173 (primary target)"
           fi
-          
+
           # Check backend API
           if nc -z localhost 3000; then
             backend_ready=true
             echo "✅ Backend API detected on port 3000"
           fi
-          
+
           # Fallback to other common ports if frontend not found
           if [ "$frontend_ready" = false ]; then
             for port in 3000 8080; do
@@ -347,7 +347,7 @@ jobs:
             tail -n 20 services.log || true
             exit 1
           fi
-          
+
           echo "🎯 Using port $target_port for preview (frontend: $frontend_ready, backend: $backend_ready)"
 
           echo "🚀 Starting ngrok for port $target_port (v4 CLI)..."
@@ -393,19 +393,21 @@ jobs:
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PREVIEW_URL: ${{ steps.ngrok.outputs.preview_url }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
         run: |
-          REPO=${{ github.repository }}
-          PREVIEW_URL="${{ steps.ngrok.outputs.preview_url }}"
           TIMEOUT_MINUTES=${{ env.PREVIEW_TIMEOUT_MINUTES }}
-          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            PR_NUMBER=${{ github.event.pull_request.number }}
-            PR_TITLE="${{ github.event.pull_request.title }}"
-            AUTHOR="${{ github.event.pull_request.user.login }}"
-            
+          if [ "$EVENT_NAME" = "pull_request" ]; then
             ESCAPED_TITLE=$(echo "$PR_TITLE" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
-            ESCAPED_AUTHOR=$(echo "$AUTHOR" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
+            ESCAPED_AUTHOR=$(echo "$PR_AUTHOR" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
             ESCAPED_REPO=$(echo "$REPO" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
 
             MSG=$(printf '%s\n' \
@@ -422,9 +424,6 @@ jobs:
             )
           else
             # Manual dispatch
-            BRANCH_NAME="${{ github.ref_name }}"
-            ACTOR="${{ github.actor }}"
-            
             ESCAPED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
             ESCAPED_ACTOR=$(echo "$ACTOR" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
             ESCAPED_REPO=$(echo "$REPO" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
