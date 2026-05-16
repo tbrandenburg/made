@@ -337,7 +337,6 @@ export type AgentProcessSummary = {
   workingDirectory?: string | null;
 };
 
-
 function toHarnessCompatibleWorkflowStep(step: WorkflowStep): WorkflowStep {
   if (step.type !== "vars") return step;
 
@@ -346,7 +345,8 @@ function toHarnessCompatibleWorkflowStep(step: WorkflowStep): WorkflowStep {
     for (const [key, value] of Object.entries(step.values)) {
       const normalizedKey = key.trim();
       const normalizedValue = value.trim();
-      if (normalizedKey && normalizedValue) values[normalizedKey] = normalizedValue;
+      if (normalizedKey && normalizedValue)
+        values[normalizedKey] = normalizedValue;
     }
   }
 
@@ -360,7 +360,9 @@ function toHarnessCompatibleWorkflowStep(step: WorkflowStep): WorkflowStep {
   };
 }
 
-function toHarnessCompatibleWorkflows(workflows: WorkflowDefinition[]): WorkflowDefinition[] {
+function toHarnessCompatibleWorkflows(
+  workflows: WorkflowDefinition[],
+): WorkflowDefinition[] {
   return workflows.map((workflow) => ({
     ...workflow,
     steps: workflow.steps.map((step) => toHarnessCompatibleWorkflowStep(step)),
@@ -604,7 +606,9 @@ export const api = {
       `/repositories/${name}/workflows`,
       {
         method: "PUT",
-        body: JSON.stringify({ workflows: toHarnessCompatibleWorkflows(workflows) }),
+        body: JSON.stringify({
+          workflows: toHarnessCompatibleWorkflows(workflows),
+        }),
       },
     ),
   generateRepositoryWorkflowHarnesses: (
@@ -615,7 +619,9 @@ export const api = {
       `/repositories/${name}/workflows/generate-harnesses`,
       {
         method: "POST",
-        body: JSON.stringify({ workflows: toHarnessCompatibleWorkflows(workflows) }),
+        body: JSON.stringify({
+          workflows: toHarnessCompatibleWorkflows(workflows),
+        }),
       },
     ),
   getCommands: () => request<{ commands: CommandDefinition[] }>("/commands"),
@@ -657,12 +663,16 @@ export const api = {
   saveWorkflows: (workflows: WorkflowDefinition[]) =>
     request<{ workflows: WorkflowDefinition[] }>("/workflows", {
       method: "PUT",
-      body: JSON.stringify({ workflows: toHarnessCompatibleWorkflows(workflows) }),
+      body: JSON.stringify({
+        workflows: toHarnessCompatibleWorkflows(workflows),
+      }),
     }),
   generateWorkflowHarnesses: (workflows: WorkflowDefinition[]) =>
     request<{ written: string[] }>("/workflows/generate-harnesses", {
       method: "POST",
-      body: JSON.stringify({ workflows: toHarnessCompatibleWorkflows(workflows) }),
+      body: JSON.stringify({
+        workflows: toHarnessCompatibleWorkflows(workflows),
+      }),
     }),
   getAgents: () => request<{ agents: AvailableAgent[] }>("/agents"),
   getRepositoryAgents: (name: string) =>

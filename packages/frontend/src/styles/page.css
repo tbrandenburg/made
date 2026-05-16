@@ -447,10 +447,14 @@
   gap: 0.25rem;
 }
 
-.workflow-step-target__label {
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-  padding: 0.4rem 0.5rem;
+.workflow-step-target__input {
+  min-width: 0;
+}
+
+.workflow-step-target__placeholder {
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--surface);
 }
 
 .workflow-step-preview {
