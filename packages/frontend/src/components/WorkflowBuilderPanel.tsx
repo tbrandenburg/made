@@ -323,7 +323,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                     const persisted = await persist(next);
                     if (!persisted) {
                       setConversionError(
-                        "Failed to convert workflow to harness shell script.",
+                        "Failed to save workflow before conversion. Check required fields and try again.",
                       );
                       return;
                     }
@@ -332,9 +332,13 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                       setConversionMessage(
                         `Workflow converted to harness shell script: ${shellScriptPath}`,
                       );
-                    } catch {
+                    } catch (error) {
+                      const message =
+                        error instanceof Error && error.message
+                          ? error.message
+                          : "unknown error";
                       setConversionError(
-                        "Failed to convert workflow to harness shell script.",
+                        `Failed to convert workflow to harness shell script (${message}). Check workflow schema, especially vars values, and try again.`,
                       );
                     }
                   }}
