@@ -513,9 +513,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                                 void persist(next);
                               }}
                             />
-                          ) : (
-                            <span className="workflow-step-target__placeholder" />
-                          )}
+                          ) : null}
                         </div>
                         <button
                           className="workflow-step-preview"
