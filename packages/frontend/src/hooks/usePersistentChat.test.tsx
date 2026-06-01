@@ -29,7 +29,8 @@ const TestComponent = ({
 };
 
 describe("usePersistentChat", () => {
-  it("does not crash when localStorage writes throw", () => {
+  it("does not crash when debounced localStorage writes throw", () => {
+    vi.useFakeTimers();
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const setItemSpy = vi
       .spyOn(Storage.prototype, "setItem")
@@ -43,6 +44,8 @@ describe("usePersistentChat", () => {
       ),
     ).not.toThrow();
 
+    vi.advanceTimersByTime(300);
+
     expect(warnSpy).toHaveBeenCalledWith(
       "Failed to persist chat history to localStorage",
       expect.any(Error),
@@ -50,5 +53,28 @@ describe("usePersistentChat", () => {
 
     setItemSpy.mockRestore();
     warnSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("coalesces rapid chat updates into one persisted write", () => {
+    vi.useFakeTimers();
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    const { rerender } = render(
+      <TestComponent storageKey="repository-chat-ios" nextMessage="One" />,
+    );
+
+    rerender(
+      <TestComponent storageKey="repository-chat-ios" nextMessage="Two" />,
+    );
+    rerender(
+      <TestComponent storageKey="repository-chat-ios" nextMessage="Three" />,
+    );
+
+    expect(setItemSpy).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(300);
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+
+    setItemSpy.mockRestore();
+    vi.useRealTimers();
   });
 });

@@ -574,15 +574,20 @@ export const RepositoryPage: React.FC = () => {
     });
   }, []);
 
-  const scrollToBottom = () => {
-    if (chatWindowRef.current) {
-      chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
-    }
-  };
+  const scrollToBottom = useCallback(() => {
+    const chatWindow = chatWindowRef.current;
+    if (!chatWindow) return;
+
+    window.requestAnimationFrame(() => {
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    });
+  }, []);
+  const latestChatMessage = chat[chat.length - 1];
+  const latestChatScrollKey = `${chat.length}:${latestChatMessage?.id ?? ""}:${latestChatMessage?.text?.length ?? 0}`;
 
   useEffect(() => {
     scrollToBottom();
-  }, [chat]);
+  }, [latestChatScrollKey, scrollToBottom]);
 
   useEffect(() => {
     const { sessionId: incomingSessionId, message: incomingMessage } =
@@ -668,6 +673,13 @@ export const RepositoryPage: React.FC = () => {
     lastKnownTimestampRef.current = lastKnownTimestamp;
   }, [lastKnownTimestamp]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const chatMarkdownOptions = useMemo(
+    () => ({
+      repositoryName: name || undefined,
+      currentFilePath: selectedFile || "README.md",
+    }),
+    [name, selectedFile],
+  );
   const [editorContent, setEditorContent] = useState("");
   const [editorStatus, setEditorStatus] = useState<string | null>(null);
   const [fileGitDetails, setFileGitDetails] =
@@ -1917,10 +1929,7 @@ export const RepositoryPage: React.FC = () => {
             isSessionSaved={Boolean(
               sessionId && savedSessionIds.includes(sessionId),
             )}
-            markdownOptions={{
-              repositoryName: name || undefined,
-              currentFilePath: selectedFile || "README.md",
-            }}
+            markdownOptions={chatMarkdownOptions}
           />
           {chatError && <div className="alert">{chatError}</div>}
           <MentionPathTextarea

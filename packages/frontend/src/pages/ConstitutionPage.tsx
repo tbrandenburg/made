@@ -117,21 +117,33 @@ export const ConstitutionPage: React.FC = () => {
   const [externalPath, setExternalPath] = useState<string | null>(null);
   const chatWindowRef = useRef<HTMLDivElement>(null);
   const chatInputId = "constitution-agent-prompt";
+  const chatMarkdownOptions = useMemo(
+    () => ({
+      repositoryName: name || undefined,
+      currentFilePath: name || undefined,
+    }),
+    [name],
+  );
   const isExternal = Boolean(name && isExternalMatterId(name));
   const linkedExternalMatter = useMemo(
     () => (isExternal && name ? getExternalMatter("constitution", name) : null),
     [isExternal, name],
   );
 
-  const scrollToBottom = () => {
-    if (chatWindowRef.current) {
-      chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
-    }
-  };
+  const scrollToBottom = useCallback(() => {
+    const chatWindow = chatWindowRef.current;
+    if (!chatWindow) return;
+
+    window.requestAnimationFrame(() => {
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    });
+  }, []);
+  const latestChatMessage = chat[chat.length - 1];
+  const latestChatScrollKey = `${chat.length}:${latestChatMessage?.id ?? ""}:${latestChatMessage?.text?.length ?? 0}`;
 
   useEffect(() => {
     scrollToBottom();
-  }, [chat]);
+  }, [latestChatScrollKey, scrollToBottom]);
 
   useEffect(() => {
     if (!name) return;
@@ -630,10 +642,7 @@ export const ConstitutionPage: React.FC = () => {
               isSessionSaved={Boolean(
                 sessionId && savedSessionIds.includes(sessionId),
               )}
-              markdownOptions={{
-                repositoryName: name || undefined,
-                currentFilePath: name || undefined,
-              }}
+              markdownOptions={chatMarkdownOptions}
             />
             {agentStatus && <div className="alert">{agentStatus}</div>}
             <MentionPathTextarea
