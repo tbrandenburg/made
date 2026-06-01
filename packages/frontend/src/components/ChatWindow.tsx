@@ -119,32 +119,32 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
     isSessionSaved,
     markdownOptions,
   }) {
+    const [scrollParent, setScrollParent] =
+      React.useState<HTMLDivElement | null>(null);
+    const setChatWindowElement = React.useCallback(
+      (element: HTMLDivElement | null) => {
+        if (chatWindowRef) {
+          (
+            chatWindowRef as React.MutableRefObject<HTMLDivElement | null>
+          ).current = element;
+        }
+        setScrollParent(element);
+      },
+      [chatWindowRef],
+    );
     const itemContent = React.useCallback(
       (_index: number, message: ChatMessage) => (
         <ChatMessageItem message={message} markdownOptions={markdownOptions} />
       ),
       [markdownOptions],
     );
-
-    return (
-      <div className="chat-window" ref={chatWindowRef}>
-        {chat.length > 0 && (
-          <Virtuoso
-            data={chat}
-            itemContent={itemContent}
-            followOutput="smooth"
-            increaseViewportBy={{ top: 300, bottom: 300 }}
-            style={{ height: "100%" }}
-          />
-        )}
+    const footerContent = (
+      <>
         {loading && (
           <div className="loading-indicator">
             <div className="loading-spinner"></div>
             <span>Agent is thinking...</span>
           </div>
-        )}
-        {chat.length === 0 && !loading && (
-          <div className="empty">{emptyMessage}</div>
         )}
         {sessionId && (
           <div className="chat-session-id" aria-label="Session ID">
@@ -171,6 +171,31 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
             </button>
           </div>
         )}
+      </>
+    );
+    const components = React.useMemo(
+      () => ({ Footer: () => footerContent }),
+      [footerContent],
+    );
+
+    return (
+      <div className="chat-window" ref={setChatWindowElement}>
+        {chat.length > 0 && (
+          <Virtuoso
+            customScrollParent={scrollParent ?? undefined}
+            data={chat}
+            itemContent={itemContent}
+            components={components}
+            followOutput="smooth"
+            increaseViewportBy={{ top: 300, bottom: 300 }}
+            style={{ height: "100%" }}
+          />
+        )}
+        {chat.length === 0 && loading && footerContent}
+        {chat.length === 0 && !loading && (
+          <div className="empty">{emptyMessage}</div>
+        )}
+        {chat.length === 0 && !loading && sessionId && footerContent}
       </div>
     );
   },
