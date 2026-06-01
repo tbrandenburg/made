@@ -1,4 +1,5 @@
 import React, {
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -15,7 +16,9 @@ import { GitTab } from "../components/GitTab";
 import { ChatWindow, type ChatWindowHandle } from "../components/ChatWindow";
 import { MentionPathTextarea } from "../components/MentionPathTextarea";
 import { WorkflowBuilderPanel } from "../components/WorkflowBuilderPanel";
-import { SessionPickerModal } from "../components/SessionPickerModal";
+const SessionPickerModal = React.lazy(
+  () => import("../components/SessionPickerModal"),
+);
 import {
   AgentSelector,
   DEFAULT_AGENT_VALUE,
@@ -2596,17 +2599,19 @@ export const RepositoryPage: React.FC = () => {
         onTabChange={handleTabChange}
       />
 
-      <SessionPickerModal
-        open={sessionModalOpen}
-        loading={sessionListLoading}
-        error={sessionListError}
-        sessions={sessionOptions}
-        savedSessionIds={savedSessionIds}
-        savedSessionTitles={savedSessionTitles}
-        onClose={() => setSessionModalOpen(false)}
-        onSelect={handleSessionSelect}
-        onRemoveSavedSession={handleRemoveSavedSession}
-      />
+      <Suspense fallback={null}>
+        <SessionPickerModal
+          open={sessionModalOpen}
+          loading={sessionListLoading}
+          error={sessionListError}
+          sessions={sessionOptions}
+          savedSessionIds={savedSessionIds}
+          savedSessionTitles={savedSessionTitles}
+          onClose={() => setSessionModalOpen(false)}
+          onSelect={handleSessionSelect}
+          onRemoveSavedSession={handleRemoveSavedSession}
+        />
+      </Suspense>
 
       <ClearSessionModal
         open={clearSessionModalOpen}
