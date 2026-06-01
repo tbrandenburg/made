@@ -94,3 +94,5 @@ export const SessionPickerModal: React.FC<SessionPickerModalProps> = ({
     </Modal>
   );
 };
+
+export default SessionPickerModal;

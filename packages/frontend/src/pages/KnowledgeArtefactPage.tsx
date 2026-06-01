@@ -1,4 +1,5 @@
 import React, {
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -27,7 +28,9 @@ import {
 } from "../utils/chat";
 import { appendRestrictedAccessPolicy } from "../utils/agentPrompt";
 import { ClearSessionModal } from "../components/ClearSessionModal";
-import { SessionPickerModal } from "../components/SessionPickerModal";
+const SessionPickerModal = React.lazy(
+  () => import("../components/SessionPickerModal"),
+);
 import { ArrowDownIcon } from "../components/icons/ArrowDownIcon";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
 import { TrashIcon } from "../components/icons/TrashIcon";
@@ -748,17 +751,19 @@ export const KnowledgeArtefactPage: React.FC = () => {
         onClearSessionOnly={handleClearSessionOnly}
         onClearSessionAndHistory={handleClearSessionAndHistory}
       />
-      <SessionPickerModal
-        open={sessionModalOpen}
-        loading={sessionListLoading}
-        error={sessionListError}
-        sessions={sessionOptions}
-        savedSessionIds={savedSessionIds}
-        savedSessionTitles={savedSessionTitles}
-        onClose={() => setSessionModalOpen(false)}
-        onSelect={handleSessionSelect}
-        onRemoveSavedSession={handleRemoveSavedSession}
-      />
+      <Suspense fallback={null}>
+        <SessionPickerModal
+          open={sessionModalOpen}
+          loading={sessionListLoading}
+          error={sessionListError}
+          sessions={sessionOptions}
+          savedSessionIds={savedSessionIds}
+          savedSessionTitles={savedSessionTitles}
+          onClose={() => setSessionModalOpen(false)}
+          onSelect={handleSessionSelect}
+          onRemoveSavedSession={handleRemoveSavedSession}
+        />
+      </Suspense>
     </div>
   );
 };
