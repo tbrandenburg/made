@@ -9,7 +9,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { renderMarkdown } from "../utils/markdown";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
-import { ChatWindow } from "../components/ChatWindow";
+import { ChatWindow, type ChatWindowHandle } from "../components/ChatWindow";
 import { MentionPathTextarea } from "../components/MentionPathTextarea";
 import { CommandsTab } from "../components/CommandsTab";
 import { HarnessesTab } from "../components/HarnessesTab";
@@ -102,7 +102,7 @@ export const TaskPage: React.FC = () => {
   const [sessionListError, setSessionListError] = useState<string | null>(null);
   const [sessionListLoading, setSessionListLoading] = useState(false);
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
-  const chatWindowRef = useRef<HTMLDivElement>(null);
+  const chatWindowRef = useRef<ChatWindowHandle>(null);
   const chatInputId = "task-agent-prompt";
   const chatMarkdownOptions = useMemo(
     () => ({
@@ -113,19 +113,8 @@ export const TaskPage: React.FC = () => {
   );
 
   const scrollToBottom = useCallback(() => {
-    const chatWindow = chatWindowRef.current;
-    if (!chatWindow) return;
-
-    window.requestAnimationFrame(() => {
-      chatWindow.scrollTop = chatWindow.scrollHeight;
-    });
+    chatWindowRef.current?.scrollToBottom();
   }, []);
-  const latestChatMessage = chat[chat.length - 1];
-  const latestChatScrollKey = `${chat.length}:${latestChatMessage?.id ?? ""}:${latestChatMessage?.text?.length ?? 0}`;
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [latestChatScrollKey, scrollToBottom]);
 
   useEffect(() => {
     if (!name) return;

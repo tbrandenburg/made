@@ -1,5 +1,5 @@
 import React from "react";
-import { Virtuoso } from "react-virtuoso";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { MarkdownRenderOptions, renderMarkdown } from "../utils/markdown";
 import { ChatMessage } from "../types/chat";
 import { SaveIcon } from "./icons/SaveIcon";
@@ -7,7 +7,7 @@ import { TrashIcon } from "./icons/TrashIcon";
 
 interface ChatWindowProps {
   chat: ChatMessage[];
-  chatWindowRef?: React.RefObject<HTMLDivElement>;
+  chatWindowRef?: React.RefObject<ChatWindowHandle>;
   loading: boolean;
   emptyMessage: string;
   sessionId?: string | null;
@@ -15,6 +15,10 @@ interface ChatWindowProps {
   onSaveSession?: () => void;
   isSessionSaved?: boolean;
   markdownOptions?: MarkdownRenderOptions;
+}
+
+export interface ChatWindowHandle {
+  scrollToBottom: () => void;
 }
 
 const formatTimestamp = (message: ChatMessage) => {
@@ -119,19 +123,28 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
     isSessionSaved,
     markdownOptions,
   }) {
+    const virtuosoRef = React.useRef<VirtuosoHandle>(null);
+    const [, setIsAtBottom] = React.useState(true);
     const [scrollParent, setScrollParent] =
       React.useState<HTMLDivElement | null>(null);
     const setChatWindowElement = React.useCallback(
       (element: HTMLDivElement | null) => {
-        if (chatWindowRef) {
-          (
-            chatWindowRef as React.MutableRefObject<HTMLDivElement | null>
-          ).current = element;
-        }
         setScrollParent(element);
       },
-      [chatWindowRef],
+      [],
     );
+    const scrollToBottom = React.useCallback(() => {
+      if (!chat.length) return;
+
+      virtuosoRef.current?.scrollToIndex({
+        index: chat.length - 1,
+        align: "end",
+        behavior: "smooth",
+      });
+    }, [chat.length]);
+    React.useImperativeHandle(chatWindowRef, () => ({ scrollToBottom }), [
+      scrollToBottom,
+    ]);
     const itemContent = React.useCallback(
       (_index: number, message: ChatMessage) => (
         <ChatMessageItem message={message} markdownOptions={markdownOptions} />
@@ -182,11 +195,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
       <div className="chat-window" ref={setChatWindowElement}>
         {chat.length > 0 && (
           <Virtuoso
+            ref={virtuosoRef}
             customScrollParent={scrollParent ?? undefined}
             data={chat}
             itemContent={itemContent}
             components={components}
-            followOutput="smooth"
+            atBottomStateChange={setIsAtBottom}
+            followOutput={(atBottom) => (atBottom ? "auto" : false)}
             increaseViewportBy={{ top: 300, bottom: 300 }}
             style={{ height: "100%" }}
           />

@@ -1,18 +1,48 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { type ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
-import { ChatWindow } from "./ChatWindow";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import React, { type ComponentType, type ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ChatWindow, type ChatWindowHandle } from "./ChatWindow";
 import { ChatMessage } from "../types/chat";
 
-vi.mock("react-virtuoso", () => ({
-  Virtuoso: ({
-    data,
-    itemContent,
-  }: {
-    data: ChatMessage[];
-    itemContent: (index: number, message: ChatMessage) => ReactNode;
-  }) => <div>{data.map((message, index) => itemContent(index, message))}</div>,
-}));
+const scrollToIndexMock = vi.hoisted(() => vi.fn());
+
+interface MockVirtuosoHandle {
+  scrollToIndex: (location: {
+    index: number;
+    align: "end";
+    behavior: "smooth";
+  }) => void;
+}
+
+interface MockVirtuosoProps {
+  data: ChatMessage[];
+  itemContent: (index: number, message: ChatMessage) => ReactNode;
+  components?: {
+    Footer?: ComponentType;
+  };
+}
+
+vi.mock("react-virtuoso", async () => {
+  const ReactModule = await vi.importActual<typeof import("react")>("react");
+
+  return {
+    Virtuoso: ReactModule.forwardRef<MockVirtuosoHandle, MockVirtuosoProps>(
+      function MockVirtuoso({ data, itemContent, components }, ref) {
+        ReactModule.useImperativeHandle(ref, () => ({
+          scrollToIndex: scrollToIndexMock,
+        }));
+        const Footer = components?.Footer;
+
+        return (
+          <div>
+            {data.map((message, index) => itemContent(index, message))}
+            {Footer ? <Footer /> : null}
+          </div>
+        );
+      },
+    ),
+  };
+});
 
 const makeMessage = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
   id: "message-1",
@@ -23,6 +53,10 @@ const makeMessage = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
 });
 
 describe("ChatWindow", () => {
+  beforeEach(() => {
+    scrollToIndexMock.mockClear();
+  });
+
   it("shows empty message when chat is empty", () => {
     render(<ChatWindow chat={[]} loading={false} emptyMessage="No messages" />);
     expect(screen.getByText("No messages")).toBeInTheDocument();
@@ -30,6 +64,14 @@ describe("ChatWindow", () => {
 
   it("shows loading indicator", () => {
     render(<ChatWindow chat={[]} loading emptyMessage="No messages" />);
+    expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
+  });
+
+  it("renders loading indicator in the virtualized footer for non-empty chat", () => {
+    render(
+      <ChatWindow chat={[makeMessage()]} loading emptyMessage="No messages" />,
+    );
+
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
   });
 
@@ -43,6 +85,48 @@ describe("ChatWindow", () => {
     );
 
     expect(screen.getByText("Hello")).toBeInTheDocument();
+  });
+
+  it("scrolls to the last message through the imperative handle", () => {
+    const chatWindowRef = React.createRef<ChatWindowHandle>();
+
+    render(
+      <ChatWindow
+        chatWindowRef={chatWindowRef}
+        chat={[makeMessage()]}
+        loading={false}
+        emptyMessage="No messages"
+      />,
+    );
+
+    act(() => {
+      chatWindowRef.current?.scrollToBottom();
+    });
+
+    expect(scrollToIndexMock).toHaveBeenCalledWith({
+      index: 0,
+      align: "end",
+      behavior: "smooth",
+    });
+  });
+
+  it("does not scroll when the chat is empty", () => {
+    const chatWindowRef = React.createRef<ChatWindowHandle>();
+
+    render(
+      <ChatWindow
+        chatWindowRef={chatWindowRef}
+        chat={[]}
+        loading={false}
+        emptyMessage="No messages"
+      />,
+    );
+
+    act(() => {
+      chatWindowRef.current?.scrollToBottom();
+    });
+
+    expect(scrollToIndexMock).not.toHaveBeenCalled();
   });
 
   it("strips frontmatter before rendering message body", () => {
