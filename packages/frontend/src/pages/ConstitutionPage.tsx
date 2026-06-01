@@ -138,10 +138,12 @@ export const ConstitutionPage: React.FC = () => {
       chatWindow.scrollTop = chatWindow.scrollHeight;
     });
   }, []);
+  const latestChatMessage = chat[chat.length - 1];
+  const latestChatScrollKey = `${chat.length}:${latestChatMessage?.id ?? ""}:${latestChatMessage?.text?.length ?? 0}`;
 
   useEffect(() => {
     scrollToBottom();
-  }, [chat.length, scrollToBottom]);
+  }, [latestChatScrollKey, scrollToBottom]);
 
   useEffect(() => {
     if (!name) return;
