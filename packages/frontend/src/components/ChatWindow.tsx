@@ -203,7 +203,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
             atBottomStateChange={setIsAtBottom}
             followOutput={(atBottom) => (atBottom ? "auto" : false)}
             increaseViewportBy={{ top: 300, bottom: 300 }}
-            style={{ height: "100%" }}
+            style={{ height: "auto" }}
           />
         )}
         {chat.length === 0 && loading && footerContent}
