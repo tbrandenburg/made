@@ -132,10 +132,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
       },
       [],
     );
+
+    // Scroll to bottom once on initial data load (handles page reload).
+    const initialScrollDoneRef = React.useRef(false);
+    React.useEffect(() => {
+      if (initialScrollDoneRef.current || !scrollParent || !chat.length) return;
+      initialScrollDoneRef.current = true;
+      requestAnimationFrame(() => {
+        scrollParent.scrollTop = scrollParent.scrollHeight;
+      });
+    }, [scrollParent, chat.length]);
+
+    // Defer to rAF so scrollHeight is read from the fully-painted DOM,
+    // avoiding stale layout values during streaming or initial load.
     const scrollToBottom = React.useCallback(() => {
       if (!scrollParent || !chat.length) return;
 
-      scrollParent.scrollTo({ top: scrollParent.scrollHeight, behavior: "smooth" });
+      requestAnimationFrame(() => {
+        scrollParent.scrollTo({ top: scrollParent.scrollHeight, behavior: "smooth" });
+      });
     }, [scrollParent, chat.length]);
     React.useImperativeHandle(chatWindowRef, () => ({ scrollToBottom }), [
       scrollToBottom,
