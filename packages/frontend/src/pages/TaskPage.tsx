@@ -689,3 +689,4 @@ export const TaskPage: React.FC = () => {
     </div>
   );
 };
+export default TaskPage;

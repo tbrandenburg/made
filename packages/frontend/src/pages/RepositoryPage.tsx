@@ -2917,3 +2917,4 @@ export const RepositoryPage: React.FC = () => {
     </div>
   );
 };
+export default RepositoryPage;

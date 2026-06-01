@@ -750,3 +750,4 @@ export const ConstitutionPage: React.FC = () => {
     </div>
   );
 };
+export default ConstitutionPage;
