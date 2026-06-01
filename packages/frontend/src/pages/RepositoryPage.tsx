@@ -12,7 +12,7 @@ import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
 import { TerminalTab } from "../components/TerminalTab";
 import { GitTab } from "../components/GitTab";
-import { ChatWindow } from "../components/ChatWindow";
+import { ChatWindow, type ChatWindowHandle } from "../components/ChatWindow";
 import { MentionPathTextarea } from "../components/MentionPathTextarea";
 import { WorkflowBuilderPanel } from "../components/WorkflowBuilderPanel";
 import { SessionPickerModal } from "../components/SessionPickerModal";
@@ -547,7 +547,7 @@ export const RepositoryPage: React.FC = () => {
     harness: null,
     args: "",
   });
-  const chatWindowRef = useRef<HTMLDivElement>(null);
+  const chatWindowRef = useRef<ChatWindowHandle>(null);
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
 
@@ -575,19 +575,8 @@ export const RepositoryPage: React.FC = () => {
   }, []);
 
   const scrollToBottom = useCallback(() => {
-    const chatWindow = chatWindowRef.current;
-    if (!chatWindow) return;
-
-    window.requestAnimationFrame(() => {
-      chatWindow.scrollTop = chatWindow.scrollHeight;
-    });
+    chatWindowRef.current?.scrollToBottom();
   }, []);
-  const latestChatMessage = chat[chat.length - 1];
-  const latestChatScrollKey = `${chat.length}:${latestChatMessage?.id ?? ""}:${latestChatMessage?.text?.length ?? 0}`;
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [latestChatScrollKey, scrollToBottom]);
 
   useEffect(() => {
     const { sessionId: incomingSessionId, message: incomingMessage } =

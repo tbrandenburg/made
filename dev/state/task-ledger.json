@@ -1,41 +1,75 @@
 {
-  "analyze_rca_5why": {
+  "plan": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md",
+  "TASK_1": {
     "status": "done",
+    "description": "Update ChatWindow types and refs to expose a typed scroll handle",
+    "location": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md#L328-L337",
     "evidence": [
-      "Loaded existing dev/state/task-ledger.json: prior ledger had commit_push=in_progress and ci=pending from an older run; replacing with fresh ledger for requested run 26723342188/job/78754251364.",
-      "gh run view 26723342188 --json databaseId,displayTitle,event,headBranch,headSha,name,status,conclusion,url,workflowName,jobs -> conclusion=failure, workflowName=Tests, headBranch=main, headSha=a087d379f1e4223ee7fa47194ba3ff238d505851, failed job=Quality Assurance (Lint + Format + Unit Tests), failed step=Run security audit",
-      "gh run view 26723342188 --job 78754251364 --log-failed -> no output returned by gh; reproduced locally instead from .github/workflows/tests.yml step Run security audit: make security-audit",
-      "make security-audit -> Found 2 known vulnerabilities in 2 packages: idna 3.11 CVE-2026-45409 fix 3.15; starlette 1.0.0 PYSEC-2026-161 fix 1.0.1; make[1]: *** [Makefile:138: security-audit] Error 1",
-      "5xWhy RCA: 1. Why did CI fail? The Tests workflow quality-assurance job failed in Run security audit. 2. Why did that step fail? make security-audit exited non-zero during pip-audit. 3. Why did pip-audit exit non-zero? The backend lockfile resolves vulnerable idna 3.11 and starlette 1.0.0. 4. Why were vulnerable versions installed in CI? make install/uv sync uses packages/pybackend/uv.lock, which pins those versions. 5. Why was the lockfile not safe? Dependency lower bounds allowed vulnerable resolved versions and the lockfile had not been upgraded after advisories introduced fixed versions. Root cause: backend dependency constraints/lockfile permit and pin vulnerable idna and starlette versions."
+      "PASS: npm --workspace packages/frontend run build (tsc && vite build, exit 0)"
     ],
-    "last_verified": "2026-06-01T08:46:20+02:00"
+    "last_verified": "2026-06-01T14:53:26+02:00"
   },
-  "plan_fix": {
+  "TASK_2": {
     "status": "done",
+    "description": "Move ChatWindow scroll behavior into Virtuoso ref and at-bottom state",
+    "location": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md#L339-L350",
     "evidence": [
-      "Plan: update backend dependency constraints to exclude the vulnerable audited versions by requiring idna>=3.15 and starlette>=1.0.1, refresh packages/pybackend/uv.lock with uv, then verify with make security-audit and make qa-quick before committing. Keep the change limited to dependency metadata/lockfile plus the mandatory ledger."
+      "PASS: npm --workspace packages/frontend run build && npm --workspace packages/frontend run test -- ChatWindow.test.tsx (exit 0, 7 tests passed)"
     ],
-    "last_verified": "2026-06-01T08:46:50+02:00"
+    "last_verified": "2026-06-01T14:54:30+02:00"
   },
-  "implement_fix": {
+  "TASK_3": {
     "status": "done",
+    "description": "Update ChatWindow tests for Virtuoso handle, footer, and edge cases",
+    "location": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md#L352-L360",
     "evidence": [
-      "Updated packages/pybackend/pyproject.toml: idna>=3.15 and direct starlette>=1.0.1 constraint to exclude vulnerable audited versions.",
-      "uv lock --project packages/pybackend --upgrade-package idna --upgrade-package starlette -> Updated idna v3.11 -> v3.17; Updated starlette v1.0.0 -> v1.2.1",
-      "make security-audit after Python fix exposed next failing audit: root npm audit reported ws 8.0.0-8.20.0 GHSA-58qx-3vcg-4xpx, fix available; npm audit fix -> found 0 vulnerabilities",
-      "make security-audit -> Python pip-audit: No known vulnerabilities found; root npm audit: found 0 vulnerabilities; frontend npm audit: found 0 vulnerabilities; Security audit completed",
-      "make qa-quick -> 394 passed, 1 skipped, 1 warning in 12.11s; All quick quality assurance tasks completed successfully"
+      "PASS: npm --workspace packages/frontend run test -- ChatWindow.test.tsx (exit 0, 10 tests passed)"
     ],
-    "last_verified": "2026-06-01T08:49:26+02:00"
+    "last_verified": "2026-06-01T14:55:48+02:00"
   },
-  "commit_push": {
-    "status": "pending",
-    "evidence": [],
-    "last_verified": "2026-06-01T08:44:58+02:00"
+  "TASK_4": {
+    "status": "done",
+    "description": "Remove direct DOM scroll ownership from RepositoryPage",
+    "location": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md#L362-L370",
+    "evidence": [
+      "FAIL: npm --workspace packages/frontend run build && npm --workspace packages/frontend run test failed before tests; TypeScript error TS2304 missing beforeEach import in ChatWindow.test.tsx",
+      "PASS: npm --workspace packages/frontend run build && npm --workspace packages/frontend run test (exit 0, 20 files passed, 83 tests passed)"
+    ],
+    "last_verified": "2026-06-01T14:57:35+02:00"
   },
-  "observe_ci_iterate": {
-    "status": "pending",
-    "evidence": [],
-    "last_verified": "2026-06-01T08:44:58+02:00"
+  "TASK_5": {
+    "status": "done",
+    "description": "Remove direct DOM scroll ownership from TaskPage, KnowledgeArtefactPage, and ConstitutionPage",
+    "location": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md#L372-L379",
+    "evidence": [
+      "PASS: npm --workspace packages/frontend run build && npm --workspace packages/frontend run test (exit 0, 20 files passed, 83 tests passed)"
+    ],
+    "last_verified": "2026-06-01T14:59:09+02:00"
+  },
+  "TASK_6": {
+    "status": "done",
+    "description": "Run focused and full frontend validation",
+    "location": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md#L381-L389",
+    "evidence": [
+      "PASS: npm --workspace packages/frontend run test -- ChatWindow.test.tsx (exit 0, 10 tests passed)",
+      "PASS: npm --workspace packages/frontend run test (exit 0, 20 files passed, 83 tests passed)",
+      "PASS: npm run lint (exit 0)",
+      "PASS: npm run build (exit 0)",
+      "PASS: grep scrollTop|scrollHeight|latestChatScrollKey in packages/frontend/src/pages returned no matches",
+      "PASS: npm view react-virtuoso version returned 4.18.7; npm audit --workspace packages/frontend --audit-level moderate returned found 0 vulnerabilities"
+    ],
+    "last_verified": "2026-06-01T15:01:31+02:00"
+  },
+  "TASK_7": {
+    "status": "done",
+    "description": "Perform manual browser validation when an existing dev server is available",
+    "location": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md#L391-L400",
+    "evidence": [
+      "PASS: Existing frontend server on localhost:5173 responded; it was not serving current workspace source, so no current-code assertion was taken from it",
+      "PASS: Temporary production preview started on nonstandard port 4174 from current build; Repository agent panel rendered on desktop and mobile viewport",
+      "PASS: Repository agent panel showed loading footer and disabled scroll button for empty chat; browser console reported 0 errors after validation",
+      "LIMITED: Live prompt/streaming interaction was not exercised because the loaded repository panel reported an existing in-progress agent message and disabled controls"
+    ],
+    "last_verified": "2026-06-01T15:06:46+02:00"
   }
 }
