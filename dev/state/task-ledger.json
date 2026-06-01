@@ -1,75 +1,33 @@
 {
-  "plan": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md",
   "TASK_1": {
     "status": "done",
-    "description": "Update ChatWindow types and refs to expose a typed scroll handle",
-    "location": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md#L328-L337",
     "evidence": [
-      "PASS: npm --workspace packages/frontend run build (tsc && vite build, exit 0)"
+      "PR #440 CI: Docker Build failed with exit code 2",
+      "RCA: afterEach used but not imported in ChatWindow.test.tsx",
+      "npm run build --workspace packages/frontend → tsc error TS2304: Cannot find name 'afterEach'"
     ],
-    "last_verified": "2026-06-01T14:53:26+02:00"
+    "last_verified": "2026-06-01T14:52:00Z"
   },
   "TASK_2": {
     "status": "done",
-    "description": "Move ChatWindow scroll behavior into Virtuoso ref and at-bottom state",
-    "location": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md#L339-L350",
     "evidence": [
-      "PASS: npm --workspace packages/frontend run build && npm --workspace packages/frontend run test -- ChatWindow.test.tsx (exit 0, 7 tests passed)"
+      "Fix: add afterEach to vitest import in ChatWindow.test.tsx line 3"
     ],
-    "last_verified": "2026-06-01T14:54:30+02:00"
+    "last_verified": "2026-06-01T14:52:00Z"
   },
   "TASK_3": {
-    "status": "done",
-    "description": "Update ChatWindow tests for Virtuoso handle, footer, and edge cases",
-    "location": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md#L352-L360",
-    "evidence": [
-      "PASS: npm --workspace packages/frontend run test -- ChatWindow.test.tsx (exit 0, 10 tests passed)"
-    ],
-    "last_verified": "2026-06-01T14:55:48+02:00"
+    "status": "in_progress",
+    "evidence": [],
+    "last_verified": "2026-06-01T14:52:00Z"
   },
   "TASK_4": {
-    "status": "done",
-    "description": "Remove direct DOM scroll ownership from RepositoryPage",
-    "location": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md#L362-L370",
-    "evidence": [
-      "FAIL: npm --workspace packages/frontend run build && npm --workspace packages/frontend run test failed before tests; TypeScript error TS2304 missing beforeEach import in ChatWindow.test.tsx",
-      "PASS: npm --workspace packages/frontend run build && npm --workspace packages/frontend run test (exit 0, 20 files passed, 83 tests passed)"
-    ],
-    "last_verified": "2026-06-01T14:57:35+02:00"
+    "status": "pending",
+    "evidence": [],
+    "last_verified": "2026-06-01T14:52:00Z"
   },
   "TASK_5": {
-    "status": "done",
-    "description": "Remove direct DOM scroll ownership from TaskPage, KnowledgeArtefactPage, and ConstitutionPage",
-    "location": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md#L372-L379",
-    "evidence": [
-      "PASS: npm --workspace packages/frontend run build && npm --workspace packages/frontend run test (exit 0, 20 files passed, 83 tests passed)"
-    ],
-    "last_verified": "2026-06-01T14:59:09+02:00"
-  },
-  "TASK_6": {
-    "status": "done",
-    "description": "Run focused and full frontend validation",
-    "location": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md#L381-L389",
-    "evidence": [
-      "PASS: npm --workspace packages/frontend run test -- ChatWindow.test.tsx (exit 0, 10 tests passed)",
-      "PASS: npm --workspace packages/frontend run test (exit 0, 20 files passed, 83 tests passed)",
-      "PASS: npm run lint (exit 0)",
-      "PASS: npm run build (exit 0)",
-      "PASS: grep scrollTop|scrollHeight|latestChatScrollKey in packages/frontend/src/pages returned no matches",
-      "PASS: npm view react-virtuoso version returned 4.18.7; npm audit --workspace packages/frontend --audit-level moderate returned found 0 vulnerabilities"
-    ],
-    "last_verified": "2026-06-01T15:01:31+02:00"
-  },
-  "TASK_7": {
-    "status": "done",
-    "description": "Perform manual browser validation when an existing dev server is available",
-    "location": ".claude/PRPs/plans/completed/chat-window-virtuoso-scroll-ownership.plan.md#L391-L400",
-    "evidence": [
-      "PASS: Existing frontend server on localhost:5173 responded; it was not serving current workspace source, so no current-code assertion was taken from it",
-      "PASS: Temporary production preview started on nonstandard port 4174 from current build; Repository agent panel rendered on desktop and mobile viewport",
-      "PASS: Repository agent panel showed loading footer and disabled scroll button for empty chat; browser console reported 0 errors after validation",
-      "LIMITED: Live prompt/streaming interaction was not exercised because the loaded repository panel reported an existing in-progress agent message and disabled controls"
-    ],
-    "last_verified": "2026-06-01T15:06:46+02:00"
+    "status": "pending",
+    "evidence": [],
+    "last_verified": "2026-06-01T14:52:00Z"
   }
 }
