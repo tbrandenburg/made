@@ -69,11 +69,7 @@ describe("ChatWindow", () => {
 
   it("renders loading indicator in the virtualized footer for non-empty chat", () => {
     render(
-      <ChatWindow
-        chat={[makeMessage()]}
-        loading
-        emptyMessage="No messages"
-      />,
+      <ChatWindow chat={[makeMessage()]} loading emptyMessage="No messages" />,
     );
 
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();

@@ -142,11 +142,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
         behavior: "smooth",
       });
     }, [chat.length]);
-    React.useImperativeHandle(
-      chatWindowRef,
-      () => ({ scrollToBottom }),
-      [scrollToBottom],
-    );
+    React.useImperativeHandle(chatWindowRef, () => ({ scrollToBottom }), [
+      scrollToBottom,
+    ]);
     const itemContent = React.useCallback(
       (_index: number, message: ChatMessage) => (
         <ChatMessageItem message={message} markdownOptions={markdownOptions} />
