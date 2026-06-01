@@ -1,41 +1,41 @@
 {
-  "rca": {
+  "analyze_rca_5why": {
     "status": "done",
     "evidence": [
-      "gh pr view 420 --json number,title,headRefName,baseRefName,url,state,mergeStateStatus,statusCheckRollup,body -> PR #420 Add `vars` workflow step support to workflow builder, mergeStateStatus=UNSTABLE, preview=FAILURE, other checks=SUCCESS",
-      "gh run view 25955910582 --job 76302427809 --log -> Send Telegram message failed: /home/runner/work/_temp/3c9584d1-f42d-4551-825a-ef4605e71318.sh: line 8: vars: command not found; Process completed with exit code 127",
-      "5xWhy RCA: Why failed? Telegram preview job exited 127. Why exit 127? shell tried to execute `vars`. Why execute `vars`? PR title with backticks was injected into PR_TITLE=\"${{ github.event.pull_request.title }}\". Why unsafe injection? GitHub expression interpolation occurred before shell execution inside double quotes, leaving backticks active. Why not caught? Existing preview workflow did not safely pass PR title/ref/actor through env or heredoc before shell escaping. Root cause: untrusted GitHub context values are embedded directly in shell script assignments."
+      "Loaded existing dev/state/task-ledger.json: prior ledger had commit_push=in_progress and ci=pending from an older run; replacing with fresh ledger for requested run 26723342188/job/78754251364.",
+      "gh run view 26723342188 --json databaseId,displayTitle,event,headBranch,headSha,name,status,conclusion,url,workflowName,jobs -> conclusion=failure, workflowName=Tests, headBranch=main, headSha=a087d379f1e4223ee7fa47194ba3ff238d505851, failed job=Quality Assurance (Lint + Format + Unit Tests), failed step=Run security audit",
+      "gh run view 26723342188 --job 78754251364 --log-failed -> no output returned by gh; reproduced locally instead from .github/workflows/tests.yml step Run security audit: make security-audit",
+      "make security-audit -> Found 2 known vulnerabilities in 2 packages: idna 3.11 CVE-2026-45409 fix 3.15; starlette 1.0.0 PYSEC-2026-161 fix 1.0.1; make[1]: *** [Makefile:138: security-audit] Error 1",
+      "5xWhy RCA: 1. Why did CI fail? The Tests workflow quality-assurance job failed in Run security audit. 2. Why did that step fail? make security-audit exited non-zero during pip-audit. 3. Why did pip-audit exit non-zero? The backend lockfile resolves vulnerable idna 3.11 and starlette 1.0.0. 4. Why were vulnerable versions installed in CI? make install/uv sync uses packages/pybackend/uv.lock, which pins those versions. 5. Why was the lockfile not safe? Dependency lower bounds allowed vulnerable resolved versions and the lockfile had not been upgraded after advisories introduced fixed versions. Root cause: backend dependency constraints/lockfile permit and pin vulnerable idna and starlette versions."
     ],
-    "last_verified": "2026-05-16T09:20:18+02:00"
+    "last_verified": "2026-06-01T08:46:20+02:00"
   },
-  "plan": {
+  "plan_fix": {
     "status": "done",
     "evidence": [
-      "Plan: move GitHub context values that may contain shell metacharacters (repository, PR title, author, ref, actor) from direct shell interpolation into step env variables; read only those env variables in run script; keep existing MarkdownV2 escaping; verify with shell syntax check and a local reproduction using a PR_TITLE containing backticks."
+      "Plan: update backend dependency constraints to exclude the vulnerable audited versions by requiring idna>=3.15 and starlette>=1.0.1, refresh packages/pybackend/uv.lock with uv, then verify with make security-audit and make qa-quick before committing. Keep the change limited to dependency metadata/lockfile plus the mandatory ledger."
     ],
-    "last_verified": "2026-05-16T09:20:18+02:00"
+    "last_verified": "2026-06-01T08:46:50+02:00"
   },
-  "implement": {
+  "implement_fix": {
     "status": "done",
     "evidence": [
-      "Updated .github/workflows/nodejs-frontend-preview.yml: moved EVENT_NAME, REPO, PREVIEW_URL, WORKFLOW_URL, PR_NUMBER, PR_TITLE, PR_AUTHOR, BRANCH_NAME, ACTOR into step env and removed direct PR title/ref/actor interpolation from shell assignments.",
-      "EVENT_NAME=pull_request PR_TITLE='Add `vars` workflow step support' ... bash -c '...' -> Add `vars` workflow step support (exit 0; no vars command execution)",
-      "npx prettier --check .github/workflows/nodejs-frontend-preview.yml -> All matched files use Prettier code style!"
+      "Updated packages/pybackend/pyproject.toml: idna>=3.15 and direct starlette>=1.0.1 constraint to exclude vulnerable audited versions.",
+      "uv lock --project packages/pybackend --upgrade-package idna --upgrade-package starlette -> Updated idna v3.11 -> v3.17; Updated starlette v1.0.0 -> v1.2.1",
+      "make security-audit after Python fix exposed next failing audit: root npm audit reported ws 8.0.0-8.20.0 GHSA-58qx-3vcg-4xpx, fix available; npm audit fix -> found 0 vulnerabilities",
+      "make security-audit -> Python pip-audit: No known vulnerabilities found; root npm audit: found 0 vulnerabilities; frontend npm audit: found 0 vulnerabilities; Security audit completed",
+      "make qa-quick -> 394 passed, 1 skipped, 1 warning in 12.11s; All quick quality assurance tasks completed successfully"
     ],
-    "last_verified": "2026-05-16T09:21:50+02:00"
+    "last_verified": "2026-06-01T08:49:26+02:00"
   },
   "commit_push": {
-    "status": "in_progress",
-    "evidence": [
-      "git status --short --branch -> modified .github/workflows/nodejs-frontend-preview.yml and dev/state/task-ledger.json; unrelated untracked .playwright-mcp/ and demo.png not staged",
-      "make qa-quick -> 394 passed, 1 skipped in 12.20s; All quick quality assurance tasks completed successfully",
-      "git add .github/workflows/nodejs-frontend-preview.yml dev/state/task-ledger.json && git commit -m 'fix: safely pass preview metadata' -> dev is ignored; ledger requires git add -f"
-    ],
-    "last_verified": "2026-05-16T09:23:30+02:00"
-  },
-  "ci": {
     "status": "pending",
     "evidence": [],
-    "last_verified": "2026-05-16T09:19:27+02:00"
+    "last_verified": "2026-06-01T08:44:58+02:00"
+  },
+  "observe_ci_iterate": {
+    "status": "pending",
+    "evidence": [],
+    "last_verified": "2026-06-01T08:44:58+02:00"
   }
 }
