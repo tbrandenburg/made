@@ -1,5 +1,5 @@
 import React from "react";
-import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { Virtuoso } from "react-virtuoso";
 import { MarkdownRenderOptions, renderMarkdown } from "../utils/markdown";
 import { ChatMessage } from "../types/chat";
 import { SaveIcon } from "./icons/SaveIcon";
@@ -123,7 +123,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
     isSessionSaved,
     markdownOptions,
   }) {
-    const virtuosoRef = React.useRef<VirtuosoHandle>(null);
     const [, setIsAtBottom] = React.useState(true);
     const [scrollParent, setScrollParent] =
       React.useState<HTMLDivElement | null>(null);
@@ -134,14 +133,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
       [],
     );
     const scrollToBottom = React.useCallback(() => {
-      if (!chat.length) return;
+      if (!scrollParent || !chat.length) return;
 
-      virtuosoRef.current?.scrollToIndex({
-        index: chat.length - 1,
-        align: "end",
-        behavior: "smooth",
-      });
-    }, [chat.length]);
+      scrollParent.scrollTo({ top: scrollParent.scrollHeight, behavior: "smooth" });
+    }, [scrollParent, chat.length]);
     React.useImperativeHandle(chatWindowRef, () => ({ scrollToBottom }), [
       scrollToBottom,
     ]);
@@ -195,7 +190,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
       <div className="chat-window" ref={setChatWindowElement}>
         {chat.length > 0 && (
           <Virtuoso
-            ref={virtuosoRef}
             customScrollParent={scrollParent ?? undefined}
             data={chat}
             itemContent={itemContent}

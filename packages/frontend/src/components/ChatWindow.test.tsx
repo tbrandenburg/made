@@ -5,6 +5,7 @@ import { ChatWindow, type ChatWindowHandle } from "./ChatWindow";
 import { ChatMessage } from "../types/chat";
 
 const scrollToIndexMock = vi.hoisted(() => vi.fn());
+const scrollToMock = vi.hoisted(() => vi.fn());
 
 interface MockVirtuosoHandle {
   scrollToIndex: (location: {
@@ -55,6 +56,8 @@ const makeMessage = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
 describe("ChatWindow", () => {
   beforeEach(() => {
     scrollToIndexMock.mockClear();
+    scrollToMock.mockClear();
+    window.HTMLElement.prototype.scrollTo = scrollToMock;
   });
 
   it("shows empty message when chat is empty", () => {
@@ -103,9 +106,8 @@ describe("ChatWindow", () => {
       chatWindowRef.current?.scrollToBottom();
     });
 
-    expect(scrollToIndexMock).toHaveBeenCalledWith({
-      index: 0,
-      align: "end",
+    expect(scrollToMock).toHaveBeenCalledWith({
+      top: expect.any(Number),
       behavior: "smooth",
     });
   });
@@ -126,7 +128,7 @@ describe("ChatWindow", () => {
       chatWindowRef.current?.scrollToBottom();
     });
 
-    expect(scrollToIndexMock).not.toHaveBeenCalled();
+    expect(scrollToMock).not.toHaveBeenCalled();
   });
 
   it("strips frontmatter before rendering message body", () => {
