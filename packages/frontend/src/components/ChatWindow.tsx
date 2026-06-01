@@ -149,7 +149,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
       if (!scrollParent || !chat.length) return;
 
       requestAnimationFrame(() => {
-        scrollParent.scrollTo({ top: scrollParent.scrollHeight, behavior: "smooth" });
+        scrollParent.scrollTo({
+          top: scrollParent.scrollHeight,
+          behavior: "smooth",
+        });
       });
     }, [scrollParent, chat.length]);
     React.useImperativeHandle(chatWindowRef, () => ({ scrollToBottom }), [

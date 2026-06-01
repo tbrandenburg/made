@@ -17,20 +17,20 @@ import { SettingsPage } from "./pages/SettingsPage";
 
 // Lazy-loaded detail pages (large dependency trees — deferred until route visited)
 const RepositoryPage = React.lazy(() =>
-  import("./pages/RepositoryPage").then((m) => ({ default: m.RepositoryPage }))
+  import("./pages/RepositoryPage").then((m) => ({ default: m.RepositoryPage })),
 );
 const KnowledgeArtefactPage = React.lazy(() =>
   import("./pages/KnowledgeArtefactPage").then((m) => ({
     default: m.KnowledgeArtefactPage,
-  }))
+  })),
 );
 const ConstitutionPage = React.lazy(() =>
   import("./pages/ConstitutionPage").then((m) => ({
     default: m.ConstitutionPage,
-  }))
+  })),
 );
 const TaskPage = React.lazy(() =>
-  import("./pages/TaskPage").then((m) => ({ default: m.TaskPage }))
+  import("./pages/TaskPage").then((m) => ({ default: m.TaskPage })),
 );
 
 const AppShell: React.FC = () => {
@@ -74,7 +74,10 @@ const AppShell: React.FC = () => {
             <Route path="/repositories" element={<RepositoriesPage />} />
             <Route path="/repositories/:name/*" element={<RepositoryPage />} />
             <Route path="/knowledge" element={<KnowledgePage />} />
-            <Route path="/knowledge/:name" element={<KnowledgeArtefactPage />} />
+            <Route
+              path="/knowledge/:name"
+              element={<KnowledgeArtefactPage />}
+            />
             <Route path="/constitutions" element={<ConstitutionsPage />} />
             <Route path="/constitutions/:name" element={<ConstitutionPage />} />
             <Route path="/tasks" element={<TasksPage />} />
