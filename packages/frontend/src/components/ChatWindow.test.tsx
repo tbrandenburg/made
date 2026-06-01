@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import React, { type ComponentType, type ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatWindow, type ChatWindowHandle } from "./ChatWindow";
 import { ChatMessage } from "../types/chat";
 
@@ -58,6 +58,15 @@ describe("ChatWindow", () => {
     scrollToIndexMock.mockClear();
     scrollToMock.mockClear();
     window.HTMLElement.prototype.scrollTo = scrollToMock;
+    // Make rAF synchronous so act() captures deferred scroll calls in tests.
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("shows empty message when chat is empty", () => {
@@ -93,6 +102,9 @@ describe("ChatWindow", () => {
   it("scrolls to the last message through the imperative handle", () => {
     const chatWindowRef = React.createRef<ChatWindowHandle>();
 
+    // Clear calls made by the initial-scroll effect on mount.
+    scrollToMock.mockClear();
+
     render(
       <ChatWindow
         chatWindowRef={chatWindowRef}
@@ -101,6 +113,8 @@ describe("ChatWindow", () => {
         emptyMessage="No messages"
       />,
     );
+
+    scrollToMock.mockClear();
 
     act(() => {
       chatWindowRef.current?.scrollToBottom();
@@ -129,6 +143,25 @@ describe("ChatWindow", () => {
     });
 
     expect(scrollToMock).not.toHaveBeenCalled();
+  });
+
+  it("scrolls to bottom automatically when chat first loads", () => {
+    const scrollTopSetter = vi.fn();
+    Object.defineProperty(window.HTMLElement.prototype, "scrollTop", {
+      set: scrollTopSetter,
+      get: () => 0,
+      configurable: true,
+    });
+
+    render(
+      <ChatWindow
+        chat={[makeMessage()]}
+        loading={false}
+        emptyMessage="No messages"
+      />,
+    );
+
+    expect(scrollTopSetter).toHaveBeenCalled();
   });
 
   it("strips frontmatter before rendering message body", () => {
