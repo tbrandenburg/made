@@ -450,14 +450,13 @@ textarea {
 }
 
 .chat-session-id {
-  display: inline-flex;
+  display: flex;
+  justify-content: flex-end;
   align-items: center;
   gap: 0.35rem;
-  align-self: flex-end;
   font-style: italic;
   font-size: 0.85rem;
   color: var(--muted);
-  text-align: right;
 }
 
 .chat-session-id .icon-button-small {
