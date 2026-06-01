@@ -134,3 +134,52 @@ describe("useApi retry behavior", () => {
     });
   });
 });
+
+describe("GET request deduplication", () => {
+  const originalFetch = window.fetch;
+
+  afterAll(() => {
+    window.fetch = originalFetch;
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should issue only one fetch for concurrent identical GET requests", async () => {
+    window.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ agents: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const [result1, result2] = await Promise.all([
+      api.getAgents(),
+      api.getAgents(),
+    ]);
+
+    expect(window.fetch).toHaveBeenCalledTimes(1);
+    expect(result1).toEqual({ agents: [] });
+    expect(result2).toEqual({ agents: [] });
+  });
+
+  it("should allow a fresh request after the previous one completes", async () => {
+    let callCount = 0;
+    window.fetch = vi.fn().mockImplementation(() => {
+      callCount++;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ agents: [{ name: `agent-${callCount}` }] }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    });
+
+    await api.getAgents();
+    const result = await api.getAgents();
+
+    expect(window.fetch).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ agents: [{ name: "agent-2" }] });
+  });
+});
