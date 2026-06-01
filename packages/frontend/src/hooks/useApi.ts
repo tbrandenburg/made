@@ -1,7 +1,28 @@
 const API_BASE =
   (import.meta.env?.VITE_API_BASE as string | undefined) || "/api";
 
+const inflightRequests = new Map<string, Promise<unknown>>();
+
 async function request<T>(
+  endpoint: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const method = (options.method ?? "GET").toUpperCase();
+
+  if (method === "GET") {
+    const key = `GET:${endpoint}`;
+    const inflight = inflightRequests.get(key) as Promise<T> | undefined;
+    if (inflight) return inflight;
+    const promise = executeRequest<T>(endpoint, options);
+    inflightRequests.set(key, promise as Promise<unknown>);
+    promise.finally(() => inflightRequests.delete(key));
+    return promise;
+  }
+
+  return executeRequest<T>(endpoint, options);
+}
+
+async function executeRequest<T>(
   endpoint: string,
   options: RequestInit = {},
 ): Promise<T> {
