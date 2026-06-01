@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChatMessage } from "../types/chat";
 
 const EMPTY_CHAT: ChatMessage[] = [];
@@ -22,6 +22,14 @@ const parseChat = (
   return fallback;
 };
 
+const persistChat = (storageKey: string, chat: ChatMessage[]) => {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(chat));
+  } catch (error) {
+    console.warn("Failed to persist chat history to localStorage", error);
+  }
+};
+
 export const usePersistentChat = (
   storageKey: string | undefined,
   fallback: ChatMessage[] = EMPTY_CHAT,
@@ -29,6 +37,11 @@ export const usePersistentChat = (
   const [chat, setChat] = useState<ChatMessage[]>(() =>
     parseChat(storageKey, fallback),
   );
+  const persistTimeoutRef = useRef<number | undefined>();
+  const pendingStorageKeyRef = useRef<string | undefined>();
+  const latestChatRef = useRef(chat);
+
+  latestChatRef.current = chat;
 
   useEffect(() => {
     setChat(parseChat(storageKey, fallback));
@@ -36,12 +49,31 @@ export const usePersistentChat = (
 
   useEffect(() => {
     if (!storageKey) return;
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(chat));
-    } catch (error) {
-      console.warn("Failed to persist chat history to localStorage", error);
+
+    if (persistTimeoutRef.current !== undefined) {
+      window.clearTimeout(persistTimeoutRef.current);
     }
+
+    pendingStorageKeyRef.current = storageKey;
+    persistTimeoutRef.current = window.setTimeout(() => {
+      persistChat(storageKey, latestChatRef.current);
+      persistTimeoutRef.current = undefined;
+      pendingStorageKeyRef.current = undefined;
+    }, 300);
   }, [chat, storageKey]);
+
+  useEffect(
+    () => () => {
+      if (!storageKey) return;
+      if (persistTimeoutRef.current === undefined) return;
+      if (pendingStorageKeyRef.current !== storageKey) return;
+      window.clearTimeout(persistTimeoutRef.current);
+      persistChat(storageKey, latestChatRef.current);
+      persistTimeoutRef.current = undefined;
+      pendingStorageKeyRef.current = undefined;
+    },
+    [storageKey],
+  );
 
   return [chat, setChat] as const;
 };

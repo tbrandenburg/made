@@ -104,16 +104,26 @@ export const TaskPage: React.FC = () => {
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
   const chatWindowRef = useRef<HTMLDivElement>(null);
   const chatInputId = "task-agent-prompt";
+  const chatMarkdownOptions = useMemo(
+    () => ({
+      repositoryName: name || undefined,
+      currentFilePath: name || undefined,
+    }),
+    [name],
+  );
 
-  const scrollToBottom = () => {
-    if (chatWindowRef.current) {
-      chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
-    }
-  };
+  const scrollToBottom = useCallback(() => {
+    const chatWindow = chatWindowRef.current;
+    if (!chatWindow) return;
+
+    window.requestAnimationFrame(() => {
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    });
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [chat]);
+  }, [chat.length, scrollToBottom]);
 
   useEffect(() => {
     if (!name) return;
@@ -589,10 +599,7 @@ export const TaskPage: React.FC = () => {
                   isSessionSaved={Boolean(
                     sessionId && savedSessionIds.includes(sessionId),
                   )}
-                  markdownOptions={{
-                    repositoryName: name || undefined,
-                    currentFilePath: name || undefined,
-                  }}
+                  markdownOptions={chatMarkdownOptions}
                 />
                 {agentStatus && <div className="alert">{agentStatus}</div>}
                 <MentionPathTextarea

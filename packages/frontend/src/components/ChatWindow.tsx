@@ -1,4 +1,5 @@
 import React from "react";
+import { Virtuoso } from "react-virtuoso";
 import { MarkdownRenderOptions, renderMarkdown } from "../utils/markdown";
 import { ChatMessage } from "../types/chat";
 import { SaveIcon } from "./icons/SaveIcon";
@@ -66,79 +67,111 @@ const CopyIcon: React.FC = () => (
   </svg>
 );
 
-export const ChatWindow: React.FC<ChatWindowProps> = ({
-  chat,
-  chatWindowRef,
-  loading,
-  emptyMessage,
-  sessionId,
-  onClearSession,
-  onSaveSession,
-  isSessionSaved,
-  markdownOptions,
-}) => (
-  <div className="chat-window" ref={chatWindowRef}>
-    {chat.map((message) => {
-      const strippedMessage = stripFrontmatter(message.text || "");
-      return (
-        <div
-          key={message.id}
-          className={`chat-message ${message.role} ${message.messageType || ""}`}
+interface ChatMessageItemProps {
+  message: ChatMessage;
+  markdownOptions?: MarkdownRenderOptions;
+}
+
+const ChatMessageItem: React.FC<ChatMessageItemProps> = React.memo(
+  function ChatMessageItem({ message, markdownOptions }) {
+    const strippedMessage = React.useMemo(
+      () => stripFrontmatter(message.text || ""),
+      [message.text],
+    );
+    const timestamp = React.useMemo(
+      () => formatTimestamp(message),
+      [message.role, message.messageType, message.timestamp],
+    );
+    const html = React.useMemo(() => {
+      if (!strippedMessage.trim()) return "<em>Empty message</em>";
+      return renderMarkdown(strippedMessage, markdownOptions);
+    }, [strippedMessage, markdownOptions]);
+
+    return (
+      <div
+        className={`chat-message ${message.role} ${message.messageType || ""}`}
+      >
+        <div className="chat-meta">{timestamp}</div>
+        <button
+          type="button"
+          className="copy-button chat-copy-button"
+          aria-label="Copy message"
+          title="Copy message"
+          onClick={() => copyText(strippedMessage)}
         >
-          <div className="chat-meta">{formatTimestamp(message)}</div>
-          <button
-            type="button"
-            className="copy-button chat-copy-button"
-            aria-label="Copy message"
-            title="Copy message"
-            onClick={() => copyText(strippedMessage)}
-          >
-            <CopyIcon />
-          </button>
-          <div
-            className="markdown"
-            dangerouslySetInnerHTML={{
-              __html: strippedMessage.trim()
-                ? renderMarkdown(strippedMessage, markdownOptions)
-                : "<em>Empty message</em>",
-            }}
+          <CopyIcon />
+        </button>
+        <div className="markdown" dangerouslySetInnerHTML={{ __html: html }} />
+      </div>
+    );
+  },
+);
+
+export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
+  function ChatWindow({
+    chat,
+    chatWindowRef,
+    loading,
+    emptyMessage,
+    sessionId,
+    onClearSession,
+    onSaveSession,
+    isSessionSaved,
+    markdownOptions,
+  }) {
+    const itemContent = React.useCallback(
+      (_index: number, message: ChatMessage) => (
+        <ChatMessageItem message={message} markdownOptions={markdownOptions} />
+      ),
+      [markdownOptions],
+    );
+
+    return (
+      <div className="chat-window" ref={chatWindowRef}>
+        {chat.length > 0 && (
+          <Virtuoso
+            data={chat}
+            itemContent={itemContent}
+            followOutput="smooth"
+            increaseViewportBy={{ top: 300, bottom: 300 }}
+            style={{ height: "100%" }}
           />
-        </div>
-      );
-    })}
-    {loading && (
-      <div className="loading-indicator">
-        <div className="loading-spinner"></div>
-        <span>Agent is thinking...</span>
+        )}
+        {loading && (
+          <div className="loading-indicator">
+            <div className="loading-spinner"></div>
+            <span>Agent is thinking...</span>
+          </div>
+        )}
+        {chat.length === 0 && !loading && (
+          <div className="empty">{emptyMessage}</div>
+        )}
+        {sessionId && (
+          <div className="chat-session-id" aria-label="Session ID">
+            <span>Session ID: {sessionId}</span>
+            <button
+              type="button"
+              className="icon-button-small"
+              aria-label={isSessionSaved ? "Session saved" : "Save session"}
+              title={isSessionSaved ? "Session already saved" : "Save session"}
+              onClick={onSaveSession}
+              disabled={!onSaveSession || isSessionSaved}
+            >
+              <SaveIcon />
+            </button>
+            <button
+              type="button"
+              className="icon-button-small"
+              aria-label="Clear session"
+              title="Clear session"
+              onClick={onClearSession}
+              disabled={!onClearSession}
+            >
+              <TrashIcon />
+            </button>
+          </div>
+        )}
       </div>
-    )}
-    {chat.length === 0 && !loading && (
-      <div className="empty">{emptyMessage}</div>
-    )}
-    {sessionId && (
-      <div className="chat-session-id" aria-label="Session ID">
-        <span>Session ID: {sessionId}</span>
-        <button
-          type="button"
-          className="icon-button-small"
-          aria-label={isSessionSaved ? "Session saved" : "Save session"}
-          title={isSessionSaved ? "Session already saved" : "Save session"}
-          onClick={onSaveSession}
-          disabled={!onSaveSession || isSessionSaved}
-        >
-          <SaveIcon />
-        </button>
-        <button
-          type="button"
-          className="icon-button-small"
-          aria-label="Clear session"
-          title="Clear session"
-          onClick={onClearSession}
-          disabled={!onClearSession}
-        >
-          <TrashIcon />
-        </button>
-      </div>
-    )}
-  </div>
+    );
+  },
 );
