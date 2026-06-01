@@ -712,3 +712,4 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
     </div>
   );
 };
+export default WorkflowBuilderPanel;

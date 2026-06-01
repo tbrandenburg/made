@@ -421,3 +421,4 @@ export const CommandsTab: React.FC<CommandsTabProps> = ({
     </div>
   );
 };
+export default CommandsTab;

@@ -138,3 +138,4 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({ repositoryName }) => {
     </div>
   );
 };
+export default TerminalTab;
