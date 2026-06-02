@@ -261,3 +261,4 @@ export const GitTab: React.FC<GitTabProps> = ({
     </div>
   );
 };
+export default GitTab;

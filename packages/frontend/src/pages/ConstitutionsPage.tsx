@@ -301,3 +301,4 @@ export const ConstitutionsPage: React.FC = () => {
     </div>
   );
 };
+export default ConstitutionsPage;

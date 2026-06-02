@@ -12,8 +12,8 @@ import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { ChatWindow, type ChatWindowHandle } from "../components/ChatWindow";
 import { MentionPathTextarea } from "../components/MentionPathTextarea";
-import { CommandsTab } from "../components/CommandsTab";
 import { HarnessesTab } from "../components/HarnessesTab";
+const CommandsTab = React.lazy(() => import("../components/CommandsTab"));
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import { usePersistentStringList } from "../hooks/usePersistentStringList";
@@ -711,10 +711,12 @@ export const KnowledgeArtefactPage: React.FC = () => {
       id: "commands",
       label: "Commands",
       content: (
-        <CommandsTab
-          loadCommands={loadCommands}
-          onSendMessage={(message) => handleSendMessage(message)}
-        />
+        <Suspense fallback={<div className="loading-spinner" />}>
+          <CommandsTab
+            loadCommands={loadCommands}
+            onSendMessage={(message) => handleSendMessage(message)}
+          />
+        </Suspense>
       ),
     },
   ];
@@ -767,3 +769,4 @@ export const KnowledgeArtefactPage: React.FC = () => {
     </div>
   );
 };
+export default KnowledgeArtefactPage;

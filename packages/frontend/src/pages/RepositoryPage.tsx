@@ -11,11 +11,13 @@ import { renderMarkdown } from "../utils/markdown";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
-import { TerminalTab } from "../components/TerminalTab";
-import { GitTab } from "../components/GitTab";
 import { ChatWindow, type ChatWindowHandle } from "../components/ChatWindow";
 import { MentionPathTextarea } from "../components/MentionPathTextarea";
-import { WorkflowBuilderPanel } from "../components/WorkflowBuilderPanel";
+const GitTab = React.lazy(() => import("../components/GitTab"));
+const TerminalTab = React.lazy(() => import("../components/TerminalTab"));
+const WorkflowBuilderPanel = React.lazy(
+  () => import("../components/WorkflowBuilderPanel"),
+);
 const SessionPickerModal = React.lazy(
   () => import("../components/SessionPickerModal"),
 );
@@ -1987,17 +1989,19 @@ export const RepositoryPage: React.FC = () => {
             id: "git",
             label: "Git",
             content: (
-              <GitTab
-                status={gitStatus}
-                loading={gitStatusLoading}
-                error={gitStatusError}
-                pulling={pullingRepository}
-                creatingWorktree={creatingWorktree}
-                onRefresh={loadGitStatus}
-                onPull={handleGitPull}
-                onCreateWorktree={handleCreateWorktree}
-                onOpenFile={openFile}
-              />
+              <Suspense fallback={<div className="loading-spinner" />}>
+                <GitTab
+                  status={gitStatus}
+                  loading={gitStatusLoading}
+                  error={gitStatusError}
+                  pulling={pullingRepository}
+                  creatingWorktree={creatingWorktree}
+                  onRefresh={loadGitStatus}
+                  onPull={handleGitPull}
+                  onCreateWorktree={handleCreateWorktree}
+                  onOpenFile={openFile}
+                />
+              </Suspense>
             ),
           },
         ]
@@ -2006,127 +2010,131 @@ export const RepositoryPage: React.FC = () => {
       id: "harnesses",
       label: "Harnesses",
       content: (
-        <div className="harness-center">
-          <Panel title="Harness Builder">
-            <WorkflowBuilderPanel
-              loadWorkflows={() => api.getRepositoryWorkflows(name || "")}
-              saveWorkflows={(payload) =>
-                api.saveRepositoryWorkflows(name || "", payload.workflows)
+        <Suspense fallback={<div className="loading-spinner" />}>
+          <div className="harness-center">
+            <Panel title="Harness Builder">
+              <WorkflowBuilderPanel
+                loadWorkflows={() => api.getRepositoryWorkflows(name || "")}
+                saveWorkflows={(payload) =>
+                  api.saveRepositoryWorkflows(name || "", payload.workflows)
+                }
+                listAgents={() => api.getRepositoryAgents(name || "")}
+                onRunWorkflow={async (workflows) => {
+                  await api.generateRepositoryWorkflowHarnesses(
+                    name || "",
+                    workflows,
+                  );
+                  await loadHarnesses();
+                }}
+                mentionPathSuggestions={mentionPathSuggestions}
+              />
+            </Panel>
+            <Panel
+              title="Harness Scripts"
+              actions={
+                <button
+                  className="secondary"
+                  onClick={loadHarnesses}
+                  disabled={harnessLoading}
+                >
+                  Refresh
+                </button>
               }
-              listAgents={() => api.getRepositoryAgents(name || "")}
-              onRunWorkflow={async (workflows) => {
-                await api.generateRepositoryWorkflowHarnesses(
-                  name || "",
-                  workflows,
-                );
-                await loadHarnesses();
-              }}
-              mentionPathSuggestions={mentionPathSuggestions}
-            />
-          </Panel>
-          <Panel
-            title="Harness Scripts"
-            actions={
-              <button
-                className="secondary"
-                onClick={loadHarnesses}
-                disabled={harnessLoading}
-              >
-                Refresh
-              </button>
-            }
-          >
-            {harnessLoading && (
-              <div className="alert">Loading harnesses...</div>
-            )}
-            {harnessError && <div className="alert error">{harnessError}</div>}
-            {harnessRunError && (
-              <div className="alert error">{harnessRunError}</div>
-            )}
-            {!harnessLoading && !harnessError && (
-              <>
-                {availableHarnesses.length === 0 ? (
-                  <div className="empty">
-                    No harness scripts found in configured directories.
-                  </div>
+            >
+              {harnessLoading && (
+                <div className="alert">Loading harnesses...</div>
+              )}
+              {harnessError && (
+                <div className="alert error">{harnessError}</div>
+              )}
+              {harnessRunError && (
+                <div className="alert error">{harnessRunError}</div>
+              )}
+              {!harnessLoading && !harnessError && (
+                <>
+                  {availableHarnesses.length === 0 ? (
+                    <div className="empty">
+                      No harness scripts found in configured directories.
+                    </div>
+                  ) : (
+                    <div className="commands-grid">
+                      {availableHarnesses.map((harness) => (
+                        <button
+                          key={harness.id}
+                          className="primary command-button"
+                          title={`${harness.source} • ${harness.path}`}
+                          onClick={() => openHarnessModal(harness)}
+                        >
+                          <span className="command-button__title">
+                            {harness.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </Panel>
+            <Panel
+              title="Harness Runs"
+              actions={
+                <button
+                  className="secondary"
+                  onClick={refreshHarnessStatuses}
+                  disabled={!harnessHistory.length}
+                >
+                  Refresh
+                </button>
+              }
+            >
+              <div className="harness-history">
+                {harnessHistory.length === 0 ? (
+                  <div className="empty">No harness runs yet.</div>
                 ) : (
-                  <div className="commands-grid">
-                    {availableHarnesses.map((harness) => (
-                      <button
-                        key={harness.id}
-                        className="primary command-button"
-                        title={`${harness.source} • ${harness.path}`}
-                        onClick={() => openHarnessModal(harness)}
-                      >
-                        <span className="command-button__title">
-                          {harness.name}
-                        </span>
-                      </button>
-                    ))}
+                  <div className="harness-history__list">
+                    {harnessHistory.map((entry) => {
+                      const running = harnessStatuses[entry.pid];
+                      const statusClass =
+                        running === undefined
+                          ? "pending"
+                          : running
+                            ? "running"
+                            : "done";
+                      const statusIcon =
+                        running === undefined ? "…" : running ? "●" : "✓";
+                      const statusLabel =
+                        running === undefined
+                          ? "Checking status"
+                          : running
+                            ? "Running"
+                            : "Finished";
+                      return (
+                        <div
+                          className="harness-pill"
+                          key={`${entry.pid}-${entry.startedAt}`}
+                        >
+                          <span
+                            className={`harness-status ${statusClass}`}
+                            title={statusLabel}
+                            aria-label={statusLabel}
+                          >
+                            {statusIcon}
+                          </span>
+                          <span className="harness-pill__label">
+                            PID {entry.pid} • {entry.name}
+                          </span>
+                          <span className="harness-pill__timestamp">
+                            {formatHarnessTimestamp(entry.startedAt)}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
-              </>
-            )}
-          </Panel>
-          <Panel
-            title="Harness Runs"
-            actions={
-              <button
-                className="secondary"
-                onClick={refreshHarnessStatuses}
-                disabled={!harnessHistory.length}
-              >
-                Refresh
-              </button>
-            }
-          >
-            <div className="harness-history">
-              {harnessHistory.length === 0 ? (
-                <div className="empty">No harness runs yet.</div>
-              ) : (
-                <div className="harness-history__list">
-                  {harnessHistory.map((entry) => {
-                    const running = harnessStatuses[entry.pid];
-                    const statusClass =
-                      running === undefined
-                        ? "pending"
-                        : running
-                          ? "running"
-                          : "done";
-                    const statusIcon =
-                      running === undefined ? "…" : running ? "●" : "✓";
-                    const statusLabel =
-                      running === undefined
-                        ? "Checking status"
-                        : running
-                          ? "Running"
-                          : "Finished";
-                    return (
-                      <div
-                        className="harness-pill"
-                        key={`${entry.pid}-${entry.startedAt}`}
-                      >
-                        <span
-                          className={`harness-status ${statusClass}`}
-                          title={statusLabel}
-                          aria-label={statusLabel}
-                        >
-                          {statusIcon}
-                        </span>
-                        <span className="harness-pill__label">
-                          PID {entry.pid} • {entry.name}
-                        </span>
-                        <span className="harness-pill__timestamp">
-                          {formatHarnessTimestamp(entry.startedAt)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </Panel>
-        </div>
+              </div>
+            </Panel>
+          </div>
+        </Suspense>
       ),
     },
     {
@@ -2183,9 +2191,11 @@ export const RepositoryPage: React.FC = () => {
       id: "terminal",
       label: "Terminal",
       content: (
-        <Panel title="Repository Terminal">
-          <TerminalTab repositoryName={name || undefined} />
-        </Panel>
+        <Suspense fallback={<div className="loading-spinner" />}>
+          <Panel title="Repository Terminal">
+            <TerminalTab repositoryName={name || undefined} />
+          </Panel>
+        </Suspense>
       ),
     },
     {
@@ -2907,3 +2917,4 @@ export const RepositoryPage: React.FC = () => {
     </div>
   );
 };
+export default RepositoryPage;

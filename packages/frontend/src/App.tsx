@@ -11,27 +11,17 @@ import { HomePage } from "./pages/HomePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { RepositoriesPage } from "./pages/RepositoriesPage";
 import { KnowledgePage } from "./pages/KnowledgePage";
-import { ConstitutionsPage } from "./pages/ConstitutionsPage";
-import { TasksPage } from "./pages/TasksPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
 // Lazy-loaded detail pages (large dependency trees — deferred until route visited)
-const RepositoryPage = React.lazy(() =>
-  import("./pages/RepositoryPage").then((m) => ({ default: m.RepositoryPage })),
+const RepositoryPage = React.lazy(() => import("./pages/RepositoryPage"));
+const KnowledgeArtefactPage = React.lazy(
+  () => import("./pages/KnowledgeArtefactPage"),
 );
-const KnowledgeArtefactPage = React.lazy(() =>
-  import("./pages/KnowledgeArtefactPage").then((m) => ({
-    default: m.KnowledgeArtefactPage,
-  })),
-);
-const ConstitutionPage = React.lazy(() =>
-  import("./pages/ConstitutionPage").then((m) => ({
-    default: m.ConstitutionPage,
-  })),
-);
-const TaskPage = React.lazy(() =>
-  import("./pages/TaskPage").then((m) => ({ default: m.TaskPage })),
-);
+const ConstitutionsPage = React.lazy(() => import("./pages/ConstitutionsPage"));
+const ConstitutionPage = React.lazy(() => import("./pages/ConstitutionPage"));
+const TasksPage = React.lazy(() => import("./pages/TasksPage"));
+const TaskPage = React.lazy(() => import("./pages/TaskPage"));
 
 const AppShell: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
