@@ -5,7 +5,8 @@ export default defineConfig({
   timeout: 60_000,
   retries: 0,
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5173',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://127.0.0.1:5173',
+    ignoreHTTPSErrors: true,
     trace: 'on-first-retry'
   },
   projects: [

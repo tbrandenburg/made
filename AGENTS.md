@@ -102,7 +102,7 @@ It runs `make qa-quick` (lint + format + unit-test) automatically before every `
    ```
    The frontend should log:
    ```
-   Local: http://localhost:5173/
+    Local: https://localhost:5173/
    ```
    This signals that the preview is ready to be exposed.
 
