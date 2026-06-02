@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -465,6 +466,7 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
             capture_output=True,
             text=True,
             cwd=None,
+            timeout=30,
         )
 
         self.assertTrue(result.success)
@@ -498,6 +500,18 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual(len(result.agents), 0)
         self.assertIn("command not found", result.error_message or "")
+
+    @patch("opencode_database_agent_cli.subprocess.run")
+    def test_list_agents_timeout_expired(self, mock_subprocess_run):
+        """Test agent listing handles subprocess timeout gracefully."""
+        mock_subprocess_run.side_effect = subprocess.TimeoutExpired(
+            cmd=["opencode", "agent", "list"], timeout=30
+        )
+
+        result = self.cli.list_agents()
+
+        self.assertFalse(result.success)
+        self.assertEqual(len(result.agents), 0)
 
     @patch("opencode_database_agent_cli.subprocess.run")
     def test_run_agent_success(self, mock_subprocess_run):

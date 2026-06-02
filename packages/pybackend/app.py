@@ -252,7 +252,7 @@ def dashboard():
 
 
 @app.get("/api/agents")
-def list_available_agents():
+async def list_available_agents():
     try:
         logger.info("Listing available agents")
         return {"agents": list_agents()}
@@ -264,7 +264,7 @@ def list_available_agents():
 
 
 @app.get("/api/repositories/{name}/agents")
-def list_repository_agents(name: str):
+async def list_repository_agents(name: str):
     try:
         logger.info("Listing available agents for repository '%s'", name)
         return {"agents": list_agents(name)}
