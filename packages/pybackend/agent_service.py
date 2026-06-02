@@ -28,6 +28,9 @@ _cancelled_channels: set[str] = set()
 _active_processes: dict[str, subprocess.Popen[str]] = {}
 _cancel_events: dict[str, Event] = {}
 _conversation_sessions: dict[str, str] = {}
+
+_AGENTS_CACHE: dict[str, dict] = {}
+_CACHE_TTL_SECONDS = 60
 REGISTERED_AGENT_CLI_CLASSES: tuple[type[AgentCLI], ...] = (
     OpenCodeDatabaseAgentCLI,
     OpenCodeAgentCLI,
@@ -462,6 +465,24 @@ def list_chat_sessions(
 
 
 def list_agents(repository_name: str | None = None) -> list[dict[str, object]]:
+    """List available agents with in-memory caching (60s TTL)."""
+    cache_key = repository_name or "__workspace__"
+    now = time.monotonic()
+
+    if cache_key in _AGENTS_CACHE:
+        entry = _AGENTS_CACHE[cache_key]
+        if now - entry["timestamp"] < _CACHE_TTL_SECONDS:
+            logger.debug("Returning cached agents for '%s'", cache_key)
+            return entry["data"]
+
+    result = _list_agents_uncached(repository_name)
+    _AGENTS_CACHE[cache_key] = {"data": result, "timestamp": now}
+    return result
+
+
+def _list_agents_uncached(
+    repository_name: str | None = None,
+) -> list[dict[str, object]]:
     logger.info(
         "Listing available %s agents (repository: %s)",
         AGENT_CLI.cli_name,

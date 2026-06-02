@@ -78,6 +78,11 @@ class TestBusinessLogic:
 class TestAgentService:
     """Test agent service functions in isolation."""
 
+    def setup_method(self):
+        """Clear agents cache before each test to prevent cross-test contamination."""
+        import agent_service
+        agent_service._AGENTS_CACHE.clear()
+
     @patch("agent_service.get_workspace_home")
     def test_get_working_directory_repository_chat(self, mock_get_workspace_home):
         """Test working directory selection for repository chats."""
@@ -233,6 +238,33 @@ class TestAgentService:
         ):
             with pytest.raises(FileNotFoundError):
                 list_agents("missing")
+
+    @patch("agent_service._list_agents_uncached")
+    def test_list_agents_caches_result(self, mock_uncached):
+        """Second call returns cached result without invoking subprocess again."""
+        import agent_service
+
+        agent_service._AGENTS_CACHE.clear()
+        mock_uncached.return_value = [{"name": "test", "type": "primary", "details": []}]
+
+        result1 = agent_service.list_agents("my-repo")
+        result2 = agent_service.list_agents("my-repo")
+
+        mock_uncached.assert_called_once()
+        assert result1 == result2
+
+    @patch("agent_service._list_agents_uncached")
+    def test_list_agents_separate_cache_per_repo(self, mock_uncached):
+        """Different repo names use separate cache keys."""
+        import agent_service
+
+        agent_service._AGENTS_CACHE.clear()
+        mock_uncached.return_value = []
+
+        agent_service.list_agents("repo-a")
+        agent_service.list_agents("repo-b")
+
+        assert mock_uncached.call_count == 2
 
     @patch("agent_service.get_agent_cli")
     def test_send_agent_message_success(self, mock_get_cli):
