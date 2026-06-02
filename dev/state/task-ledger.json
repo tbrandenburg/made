@@ -2,32 +2,39 @@
   "TASK_1": {
     "status": "done",
     "evidence": [
-      "PR #440 CI: Docker Build failed with exit code 2",
-      "RCA: afterEach used but not imported in ChatWindow.test.tsx",
-      "npm run build --workspace packages/frontend → tsc error TS2304: Cannot find name 'afterEach'"
+      "PR #456: mergeStateStatus=UNSTABLE, mergeable=MERGEABLE",
+      "5xWhy: UNSTABLE caused by preview workflow (live ngrok tunnel, ~5min sleep) keeping check in-progress",
+      "Root cause: nodejs-frontend-preview.yml:452 sleep loop causes pending check → GitHub shows UNSTABLE",
+      "All functional checks pass: Docker Build/Dev SUCCESS, Python Tests SUCCESS, QA SUCCESS, E2E SUCCESS, Vercel SUCCESS",
+      "No code conflicts: merge-base=c87668e (current main HEAD), PR branch is 2 commits ahead"
     ],
-    "last_verified": "2026-06-01T14:52:00Z"
+    "last_verified": "2026-06-02T13:26:00Z"
   },
   "TASK_2": {
     "status": "done",
     "evidence": [
-      "Fix: add afterEach to vitest import in ChatWindow.test.tsx line 3"
+      "Plan: All CI functional checks pass, implementation is correct",
+      "Local test verification: uv run python -m pytest tests/unit/test_repository_service.py -k git_status → 6 passed",
+      "Fix: task-ledger.json updated, merge PR via gh pr merge"
     ],
-    "last_verified": "2026-06-01T14:52:00Z"
+    "last_verified": "2026-06-02T13:26:00Z"
   },
   "TASK_3": {
     "status": "in_progress",
-    "evidence": [],
-    "last_verified": "2026-06-01T14:52:00Z"
+    "evidence": [
+      "Checked out fix/issue-443-cache-git-status branch",
+      "Local tests verified: 6 passed"
+    ],
+    "last_verified": "2026-06-02T13:26:00Z"
   },
   "TASK_4": {
     "status": "pending",
     "evidence": [],
-    "last_verified": "2026-06-01T14:52:00Z"
+    "last_verified": "2026-06-02T13:26:00Z"
   },
   "TASK_5": {
     "status": "pending",
     "evidence": [],
-    "last_verified": "2026-06-01T14:52:00Z"
+    "last_verified": "2026-06-02T13:26:00Z"
   }
 }

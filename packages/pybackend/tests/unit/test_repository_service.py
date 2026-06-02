@@ -2,6 +2,14 @@ import subprocess
 from pathlib import Path
 
 import pytest
+import repository_service as _svc
+
+
+@pytest.fixture(autouse=True)
+def clear_git_status_cache():
+    _svc._git_status_cache.clear()
+    yield
+    _svc._git_status_cache.clear()
 
 from repository_service import (
     apply_repository_template,
@@ -424,3 +432,98 @@ def test_apply_repository_template(monkeypatch, tmp_path):
     assert result == {"repository": "repo", "template": "starter"}
     assert (repo_path / "README.md").read_text(encoding="utf-8") == "new"
     assert (repo_path / "src" / "main.py").read_text(encoding="utf-8") == "print('x')"
+
+
+def test_get_repository_git_status_cache_hit(monkeypatch, tmp_path):
+    import repository_service as svc
+
+    svc._git_status_cache.clear()
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    repo_path = workspace / "repo"
+    _init_local_repo(repo_path)
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+    monkeypatch.setattr("repository_service._github_repo", lambda *_: None)
+
+    call_count = 0
+    original_get_branch = svc.get_branch_name
+
+    def counting_get_branch(p):
+        nonlocal call_count
+        call_count += 1
+        return original_get_branch(p)
+
+    monkeypatch.setattr("repository_service.get_branch_name", counting_get_branch)
+
+    result1 = svc.get_repository_git_status("repo")
+    assert call_count == 1
+
+    result2 = svc.get_repository_git_status("repo")
+    assert call_count == 1, "Second call should use cache, not re-execute git calls"
+    assert result2 is result1
+
+    svc._git_status_cache.clear()
+
+
+def test_get_repository_git_status_cache_expires(monkeypatch, tmp_path):
+    import time
+    import repository_service as svc
+
+    svc._git_status_cache.clear()
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    repo_path = workspace / "repo"
+    _init_local_repo(repo_path)
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+    monkeypatch.setattr("repository_service._github_repo", lambda *_: None)
+
+    call_count = 0
+    original_get_branch = svc.get_branch_name
+
+    def counting_get_branch(p):
+        nonlocal call_count
+        call_count += 1
+        return original_get_branch(p)
+
+    monkeypatch.setattr("repository_service.get_branch_name", counting_get_branch)
+
+    svc.get_repository_git_status("repo")
+    assert call_count == 1
+
+    # Expire the cache entry by backdating the timestamp
+    ts, data = svc._git_status_cache["repo"]
+    svc._git_status_cache["repo"] = (ts - svc.GIT_STATUS_CACHE_TTL - 1, data)
+
+    svc.get_repository_git_status("repo")
+    assert call_count == 2, "Expired cache should trigger re-execution"
+
+    svc._git_status_cache.clear()
+
+
+def test_invalidate_git_status_cache(monkeypatch, tmp_path):
+    import repository_service as svc
+
+    svc._git_status_cache.clear()
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    repo_path = workspace / "repo"
+    _init_local_repo(repo_path)
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+    monkeypatch.setattr("repository_service._github_repo", lambda *_: None)
+
+    svc.get_repository_git_status("repo")
+    assert "repo" in svc._git_status_cache
+
+    svc.invalidate_git_status_cache("repo")
+    assert "repo" not in svc._git_status_cache
+
+    # Should not raise on missing key
+    svc.invalidate_git_status_cache("nonexistent")
+
+    svc._git_status_cache.clear()
