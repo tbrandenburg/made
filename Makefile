@@ -97,12 +97,12 @@ system-test:
 	BACKEND_PID=$$!; \
 	trap 'echo "🛑 Stopping test services..."; kill $$FRONTEND_PID $$BACKEND_PID 2>/dev/null || true; wait' EXIT INT TERM; \
 	echo "⏳ Waiting for services to be ready..."; \
-	npx wait-on http://127.0.0.1:5173 http://127.0.0.1:3000/api/repositories --timeout 120000 --interval 2000; \
+	npx wait-on https://127.0.0.1:5173 http://127.0.0.1:3000/api/repositories --timeout 120000 --interval 2000 --insecure; \
 	echo "✅ Services are ready"; \
 	echo "⏳ Allowing services to stabilize..."; \
 	sleep 3; \
 	echo "🔍 Verifying services are still running..."; \
-	curl -s http://127.0.0.1:5173 > /dev/null && echo "✅ Frontend still responsive" || echo "❌ Frontend not responding"; \
+	curl -sk https://127.0.0.1:5173 > /dev/null && echo "✅ Frontend still responsive" || echo "❌ Frontend not responding"; \
 	curl -s http://127.0.0.1:3000/api/repositories > /dev/null && echo "✅ Backend still responsive" || echo "❌ Backend not responding"; \
 	echo "🔬 Running frontend system tests..."; \
 	npm run test:e2e; \
