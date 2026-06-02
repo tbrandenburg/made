@@ -3,6 +3,7 @@ import subprocess
 import logging
 import shutil
 import re
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -556,9 +557,23 @@ def _parse_diff_blocks(diff_text: str) -> list[dict[str, object]]:
     return blocks
 
 
+_git_status_cache: dict[str, tuple[float, dict]] = {}
+GIT_STATUS_CACHE_TTL = 30  # seconds
+
+
+def invalidate_git_status_cache(repo_name: str) -> None:
+    _git_status_cache.pop(repo_name, None)
+
+
 def get_repository_git_status(
     repo_name: str,
 ) -> Dict[str, Union[str, int, dict, list, None]]:
+    now = time.monotonic()
+    if repo_name in _git_status_cache:
+        ts, cached = _git_status_cache[repo_name]
+        if now - ts < GIT_STATUS_CACHE_TTL:
+            return cached
+
     workspace = get_workspace_home()
     repo_path = workspace / repo_name
     if not repo_path.exists() or not repo_path.is_dir():
@@ -660,7 +675,7 @@ def get_repository_git_status(
         if isinstance(branches_payload, list):
             counts["branches"] = len(branches_payload)
 
-    return {
+    result: Dict[str, Union[str, int, dict, list, None]] = {
         "branch": branch,
         "aheadBehind": ahead_behind,
         "lineStats": line_stats,
@@ -672,6 +687,8 @@ def get_repository_git_status(
         "links": links,
         "diff": diff_files,
     }
+    _git_status_cache[repo_name] = (now, result)
+    return result
 
 
 def get_repository_file_git_details(
@@ -785,6 +802,7 @@ def pull_repository(repo_name: str) -> Dict[str, str]:
         raise FileNotFoundError("Repository not found")
     try:
         output = _run_git(repo_path, ["pull"])
+        invalidate_git_status_cache(repo_name)
         return {"output": output}
     except (subprocess.CalledProcessError, FileNotFoundError) as exc:
         raise ValueError("Failed to pull repository") from exc
@@ -810,6 +828,7 @@ def create_repository_worktree(
     except (subprocess.CalledProcessError, FileNotFoundError) as exc:
         raise ValueError("Failed to create worktree") from exc
 
+    invalidate_git_status_cache(repo_name)
     return {"path": str(target_dir), "branch": branch_name}
 
 
@@ -843,4 +862,5 @@ def remove_repository_worktree(repo_name: str) -> Dict[str, str]:
     except (subprocess.CalledProcessError, FileNotFoundError) as exc:
         raise ValueError("Failed to remove worktree") from exc
 
+    invalidate_git_status_cache(repo_name)
     return {"removed": repo_name}
