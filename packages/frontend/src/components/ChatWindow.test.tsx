@@ -5,7 +5,6 @@ import { ChatWindow, type ChatWindowHandle } from "./ChatWindow";
 import { ChatMessage } from "../types/chat";
 
 const scrollToIndexMock = vi.hoisted(() => vi.fn());
-const scrollToMock = vi.hoisted(() => vi.fn());
 
 interface MockVirtuosoHandle {
   scrollToIndex: (location: {
@@ -61,13 +60,6 @@ const makeMessage = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
 describe("ChatWindow", () => {
   beforeEach(() => {
     scrollToIndexMock.mockClear();
-    scrollToMock.mockClear();
-    window.HTMLElement.prototype.scrollTo = scrollToMock;
-    // Make rAF synchronous so act() captures deferred scroll calls in tests.
-    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
-      cb(0);
-      return 0;
-    });
   });
 
   afterEach(() => {
@@ -107,9 +99,6 @@ describe("ChatWindow", () => {
   it("scrolls to the last message through the imperative handle", () => {
     const chatWindowRef = React.createRef<ChatWindowHandle>();
 
-    // Clear calls made by the initial-scroll effect on mount.
-    scrollToMock.mockClear();
-
     render(
       <ChatWindow
         chatWindowRef={chatWindowRef}
@@ -119,14 +108,15 @@ describe("ChatWindow", () => {
       />,
     );
 
-    scrollToMock.mockClear();
+    scrollToIndexMock.mockClear();
 
     act(() => {
       chatWindowRef.current?.scrollToBottom();
     });
 
-    expect(scrollToMock).toHaveBeenCalledWith({
-      top: expect.any(Number),
+    expect(scrollToIndexMock).toHaveBeenCalledWith({
+      index: 0,
+      align: "end",
       behavior: "smooth",
     });
   });
@@ -147,10 +137,10 @@ describe("ChatWindow", () => {
       chatWindowRef.current?.scrollToBottom();
     });
 
-    expect(scrollToMock).not.toHaveBeenCalled();
+    expect(scrollToIndexMock).not.toHaveBeenCalled();
   });
 
-  it("scrolls to bottom automatically when chat first loads", () => {
+  it("does not use direct DOM scroll on initial load (Virtuoso followOutput handles it)", () => {
     const scrollTopSetter = vi.fn();
     Object.defineProperty(window.HTMLElement.prototype, "scrollTop", {
       set: scrollTopSetter,
@@ -166,7 +156,8 @@ describe("ChatWindow", () => {
       />,
     );
 
-    expect(scrollTopSetter).toHaveBeenCalled();
+    // Virtuoso's followOutput drives initial scroll; no direct DOM scrollTop write expected.
+    expect(scrollTopSetter).not.toHaveBeenCalled();
   });
 
   it("strips frontmatter before rendering message body", () => {

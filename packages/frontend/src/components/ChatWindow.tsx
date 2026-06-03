@@ -1,5 +1,5 @@
 import React from "react";
-import { Virtuoso } from "react-virtuoso";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { MarkdownRenderOptions, renderMarkdown } from "../utils/markdown";
 import { ChatMessage } from "../types/chat";
 import { SaveIcon } from "./icons/SaveIcon";
@@ -134,7 +134,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
     isSessionSaved,
     markdownOptions,
   }) {
-    const [, setIsAtBottom] = React.useState(true);
+    const virtuosoRef = React.useRef<VirtuosoHandle>(null);
     const [scrollParent, setScrollParent] =
       React.useState<HTMLDivElement | null>(null);
     const setChatWindowElement = React.useCallback(
@@ -144,28 +144,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
       [],
     );
 
-    // Scroll to bottom once on initial data load (handles page reload).
-    const initialScrollDoneRef = React.useRef(false);
-    React.useEffect(() => {
-      if (initialScrollDoneRef.current || !scrollParent || !chat.length) return;
-      initialScrollDoneRef.current = true;
-      requestAnimationFrame(() => {
-        scrollParent.scrollTop = scrollParent.scrollHeight;
-      });
-    }, [scrollParent, chat.length]);
-
-    // Defer to rAF so scrollHeight is read from the fully-painted DOM,
-    // avoiding stale layout values during streaming or initial load.
     const scrollToBottom = React.useCallback(() => {
-      if (!scrollParent || !chat.length) return;
-
-      requestAnimationFrame(() => {
-        scrollParent.scrollTo({
-          top: scrollParent.scrollHeight,
-          behavior: "smooth",
-        });
+      if (!virtuosoRef.current || !chat.length) return;
+      virtuosoRef.current.scrollToIndex({
+        index: chat.length - 1,
+        align: "end",
+        behavior: "smooth",
       });
-    }, [scrollParent, chat.length]);
+    }, [chat.length]);
     React.useImperativeHandle(chatWindowRef, () => ({ scrollToBottom }), [
       scrollToBottom,
     ]);
@@ -219,11 +205,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
       <div className="chat-window" ref={setChatWindowElement}>
         {chat.length > 0 && (
           <Virtuoso
+            ref={virtuosoRef}
             customScrollParent={scrollParent ?? undefined}
             data={chat}
             itemContent={itemContent}
             components={components}
-            atBottomStateChange={setIsAtBottom}
             followOutput={(atBottom) => (atBottom ? "auto" : false)}
             increaseViewportBy={{ top: 300, bottom: 300 }}
             style={{ height: "auto" }}
