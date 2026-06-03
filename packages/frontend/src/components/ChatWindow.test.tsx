@@ -19,6 +19,7 @@ interface MockVirtuosoProps {
   data: ChatMessage[];
   itemContent: (index: number, message: ChatMessage) => ReactNode;
   components?: {
+    Item?: ComponentType<React.HTMLAttributes<HTMLDivElement>>;
     Footer?: ComponentType;
   };
 }
@@ -32,11 +33,15 @@ vi.mock("react-virtuoso", async () => {
         ReactModule.useImperativeHandle(ref, () => ({
           scrollToIndex: scrollToIndexMock,
         }));
+        const Item = components?.Item;
         const Footer = components?.Footer;
 
         return (
           <div>
-            {data.map((message, index) => itemContent(index, message))}
+            {data.map((message, index) => {
+              const content = itemContent(index, message);
+              return Item ? <Item key={message.id}>{content}</Item> : content;
+            })}
             {Footer ? <Footer /> : null}
           </div>
         );
