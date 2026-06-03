@@ -10,7 +10,7 @@ const SpacedItem = React.forwardRef<
   React.HTMLAttributes<HTMLDivElement>
 >(function SpacedItem({ children, ...props }, ref) {
   return (
-    <div ref={ref} {...props} style={{ paddingBottom: "1rem" }}>
+    <div ref={ref} {...props} style={{ ...props.style, paddingBottom: "1rem" }}>
       {children}
     </div>
   );
