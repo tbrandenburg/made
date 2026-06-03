@@ -6,7 +6,7 @@ from pathlib import Path
 from pi_agent_cli import PiAgentCLI
 
 
-def test_export_session_skips_tool_result_messages(monkeypatch, tmp_path: Path) -> None:
+def test_export_session_keeps_thinking_and_tool_calls(monkeypatch, tmp_path: Path) -> None:
     session_dir = tmp_path / "sessions"
     session_dir.mkdir()
     monkeypatch.setenv("PI_SESSIONS_PATH", str(session_dir))
@@ -44,7 +44,19 @@ def test_export_session_skips_tool_result_messages(monkeypatch, tmp_path: Path) 
                         "timestamp": "2026-06-03T18:39:01.000Z",
                         "message": {
                             "role": "assistant",
-                            "content": [{"type": "text", "text": "Hello!"}],
+                            "content": [
+                                {
+                                    "type": "thinking",
+                                    "thinking": "Let me inspect this",
+                                },
+                                {
+                                    "type": "toolCall",
+                                    "id": "call-1",
+                                    "name": "bash",
+                                    "arguments": {"command": "echo hi"},
+                                },
+                                {"type": "text", "text": "Hello!"},
+                            ],
                         },
                     }
                 ),
@@ -76,5 +88,20 @@ def test_export_session_skips_tool_result_messages(monkeypatch, tmp_path: Path) 
     )
 
     assert result.success is True
-    assert [message.role for message in result.messages] == ["user", "assistant"]
-    assert [message.content for message in result.messages] == ["Hello", "Hello!"]
+    assert [message.role for message in result.messages] == [
+        "user",
+        "assistant",
+        "assistant",
+        "assistant",
+    ]
+    assert [message.content_type for message in result.messages] == [
+        "text",
+        "reasoning",
+        "tool_use",
+        "text",
+    ]
+    assert result.messages[0].content == "Hello"
+    assert result.messages[1].content == "Let me inspect this"
+    assert "Tool: bash" in result.messages[2].content
+    assert 'command: echo hi' in result.messages[2].content
+    assert result.messages[3].content == "Hello!"

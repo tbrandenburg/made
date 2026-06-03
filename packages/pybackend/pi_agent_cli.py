@@ -68,6 +68,24 @@ def _extract_response_parts(output: str) -> list[ResponsePart]:
     return []
 
 
+def _format_tool_call_content(part: dict[str, object]) -> str:
+    tool_name = str(part.get("name") or part.get("tool") or "").strip()
+    arguments = part.get("arguments") or part.get("args") or {}
+
+    lines: list[str] = []
+    if tool_name:
+        lines.append(f"Tool: {tool_name}")
+
+    if isinstance(arguments, dict):
+        for key, value in arguments.items():
+            value_text = str(value)
+            if len(value_text) > 200:
+                value_text = value_text[:200] + "..."
+            lines.append(f"  {key}: {value_text}")
+
+    return "\n".join(lines)
+
+
 class PiAgentCLI(AgentCLI):
     """AgentCLI implementation for pi (pi.dev)."""
 
@@ -210,7 +228,8 @@ class PiAgentCLI(AgentCLI):
                         continue
                     ts = self._to_milliseconds(msg.get("timestamp"))
                     for part in msg.get("content", []):
-                        if part.get("type") == "text" and part.get("text"):
+                        part_type = part.get("type")
+                        if part_type == "text" and part.get("text"):
                             messages.append(
                                 HistoryMessage(
                                     message_id=ev.get("id"),
@@ -220,6 +239,33 @@ class PiAgentCLI(AgentCLI):
                                     timestamp=ts,
                                 )
                             )
+                        elif part_type == "thinking":
+                            content = str(part.get("thinking") or part.get("text") or "")
+                            if content:
+                                messages.append(
+                                    HistoryMessage(
+                                        message_id=ev.get("id"),
+                                        role=role,
+                                        content_type="reasoning",
+                                        content=content,
+                                        timestamp=ts,
+                                        part_id=part.get("id"),
+                                    )
+                                )
+                        elif part_type == "toolCall":
+                            content = _format_tool_call_content(part)
+                            if content:
+                                messages.append(
+                                    HistoryMessage(
+                                        message_id=ev.get("id"),
+                                        role=role,
+                                        content_type="tool_use",
+                                        content=content,
+                                        timestamp=ts,
+                                        part_id=part.get("id"),
+                                        call_id=part.get("id"),
+                                    )
+                                )
         except Exception as e:
             return ExportResult(
                 success=False,
