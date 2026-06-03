@@ -135,6 +135,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
     markdownOptions,
   }) {
     const virtuosoRef = React.useRef<VirtuosoHandle>(null);
+    const initialScrollDoneRef = React.useRef(false);
     const [scrollParent, setScrollParent] =
       React.useState<HTMLDivElement | null>(null);
     const setChatWindowElement = React.useCallback(
@@ -143,6 +144,39 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
       },
       [],
     );
+
+    // When the user switches to a different session, the next non-empty load
+    // should restore to bottom again. Must run before the initial-scroll effect
+    // so the flag is cleared before that effect evaluates it in the same cycle.
+    React.useEffect(() => {
+      initialScrollDoneRef.current = false;
+    }, [sessionId]);
+
+    // Scroll to bottom on initial load: fires once when both the scroll container
+    // and the first batch of messages are ready. Uses "auto" (instant) so the user
+    // never sees a scroll animation on restore. A single rAF retry handles the case
+    // where item heights are still being measured by Virtuoso on first layout.
+    React.useEffect(() => {
+      if (initialScrollDoneRef.current) return;
+      if (!scrollParent || !chat.length || !virtuosoRef.current) return;
+
+      initialScrollDoneRef.current = true;
+      virtuosoRef.current.scrollToIndex({
+        index: chat.length - 1,
+        align: "end",
+        behavior: "auto",
+      });
+
+      // One retry after the browser has settled the first layout pass.
+      const raf = requestAnimationFrame(() => {
+        virtuosoRef.current?.scrollToIndex({
+          index: chat.length - 1,
+          align: "end",
+          behavior: "auto",
+        });
+      });
+      return () => cancelAnimationFrame(raf);
+    }, [scrollParent, chat.length]);
 
     const scrollToBottom = React.useCallback(() => {
       if (!virtuosoRef.current || !chat.length) return;
