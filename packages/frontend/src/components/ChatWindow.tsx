@@ -5,15 +5,16 @@ import { ChatMessage } from "../types/chat";
 import { SaveIcon } from "./icons/SaveIcon";
 import { TrashIcon } from "./icons/TrashIcon";
 
-const SpacedItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  function SpacedItem({ children, ...props }, ref) {
-    return (
-      <div ref={ref} {...props} style={{ paddingBottom: "1rem" }}>
-        {children}
-      </div>
-    );
-  },
-);
+const SpacedItem = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(function SpacedItem({ children, ...props }, ref) {
+  return (
+    <div ref={ref} {...props} style={{ paddingBottom: "1rem" }}>
+      {children}
+    </div>
+  );
+});
 
 interface ChatWindowProps {
   chat: ChatMessage[];
