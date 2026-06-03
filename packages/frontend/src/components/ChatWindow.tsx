@@ -161,11 +161,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
       if (!scrollParent || !chat.length || !virtuosoRef.current) return;
 
       initialScrollDoneRef.current = true;
-      virtuosoRef.current.scrollToIndex({ index: chat.length - 1, align: "end", behavior: "auto" });
+      virtuosoRef.current.scrollToIndex({
+        index: chat.length - 1,
+        align: "end",
+        behavior: "auto",
+      });
 
       // One retry after the browser has settled the first layout pass.
       const raf = requestAnimationFrame(() => {
-        virtuosoRef.current?.scrollToIndex({ index: chat.length - 1, align: "end", behavior: "auto" });
+        virtuosoRef.current?.scrollToIndex({
+          index: chat.length - 1,
+          align: "end",
+          behavior: "auto",
+        });
       });
       return () => cancelAnimationFrame(raf);
     }, [scrollParent, chat.length]);
