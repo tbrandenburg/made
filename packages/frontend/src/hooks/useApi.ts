@@ -834,6 +834,7 @@ export type FileNode = {
   path: string;
   type: "folder" | "file";
   size?: number;
+  isSymlink?: boolean;
   children?: FileNode[];
 };
 
