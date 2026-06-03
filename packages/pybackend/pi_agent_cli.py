@@ -206,6 +206,8 @@ class PiAgentCLI(AgentCLI):
                         continue
                     msg = ev.get("message", {})
                     role = msg.get("role", "assistant")
+                    if role == "toolResult":
+                        continue
                     ts = self._to_milliseconds(msg.get("timestamp"))
                     for part in msg.get("content", []):
                         if part.get("type") == "text" and part.get("text"):
