@@ -158,3 +158,63 @@ def test_list_commands_dedupes_identical_command_paths(tmp_path, monkeypatch):
 
     assert len(commands) == 1
     assert commands[0]["description"] == "Shared command"
+
+
+def test_list_commands_returns_cached_result_within_ttl(temp_env):
+    workspace, made_home, user_home = temp_env
+    repo_path = workspace / "cache-repo"
+    cmd_path = repo_path / ".claude" / "commands" / "cached.md"
+    cmd_path.parent.mkdir(parents=True, exist_ok=True)
+    write_command_file(cmd_path, "Cached command", None, "echo cached")
+
+    from command_service import _COMMANDS_CACHE
+    _COMMANDS_CACHE.clear()
+
+    result1 = list_commands("cache-repo")
+    result2 = list_commands("cache-repo")
+
+    assert len(result1) == 1
+    assert result1 is result2  # same cached object
+
+
+def test_list_commands_cache_expires_after_ttl(temp_env):
+    workspace, made_home, user_home = temp_env
+    repo_path = workspace / "expire-repo"
+    cmd_path = repo_path / ".claude" / "commands" / "first.md"
+    cmd_path.parent.mkdir(parents=True, exist_ok=True)
+    write_command_file(cmd_path, "First", None, "echo first")
+
+    from command_service import _COMMANDS_CACHE
+    _COMMANDS_CACHE.clear()
+
+    result1 = list_commands("expire-repo")
+    assert len(result1) == 1
+
+    # Add a second command file
+    cmd_path2 = repo_path / ".claude" / "commands" / "second.md"
+    write_command_file(cmd_path2, "Second", None, "echo second")
+
+    # Expire the cache entry manually
+    _COMMANDS_CACHE["expire-repo"]["timestamp"] -= 61
+
+    result2 = list_commands("expire-repo")
+    assert len(result2) == 2  # cache refreshed, new file picked up
+
+
+def test_list_commands_different_repos_isolated_in_cache(temp_env):
+    workspace, made_home, user_home = temp_env
+
+    from command_service import _COMMANDS_CACHE
+    _COMMANDS_CACHE.clear()
+
+    for repo in ("repo-a", "repo-b"):
+        cmd = workspace / repo / ".claude" / "commands" / f"{repo}.md"
+        cmd.parent.mkdir(parents=True, exist_ok=True)
+        write_command_file(cmd, f"Command {repo}", None, f"echo {repo}")
+
+    result_a = list_commands("repo-a")
+    result_b = list_commands("repo-b")
+
+    assert result_a[0]["description"] == "Command repo-a"
+    assert result_b[0]["description"] == "Command repo-b"
+    assert result_a is not result_b

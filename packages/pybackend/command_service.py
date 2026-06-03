@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -13,6 +14,8 @@ from config import get_made_home, get_workspace_home
 
 logger = logging.getLogger(__name__)
 _PAREN_COMMENT_PATTERN = re.compile(r"\s*\([^()]*\)\s*$")
+_COMMANDS_CACHE: dict[str, dict] = {}
+_CACHE_TTL_SECONDS = 60
 
 
 def _strip_parenthetical_comment(value: str) -> str:
@@ -98,6 +101,22 @@ def _load_repo_commands(repo_name: str) -> List[Dict[str, Any]]:
 
 
 def list_commands(repo_name: str | None = None) -> List[Dict[str, Any]]:
+    """List available commands with in-memory caching (60s TTL)."""
+    cache_key = repo_name or "__workspace__"
+    now = time.monotonic()
+
+    if cache_key in _COMMANDS_CACHE:
+        entry = _COMMANDS_CACHE[cache_key]
+        if now - entry["timestamp"] < _CACHE_TTL_SECONDS:
+            logger.debug("Returning cached commands for '%s'", cache_key)
+            return entry["data"]
+
+    result = _list_commands_uncached(repo_name)
+    _COMMANDS_CACHE[cache_key] = {"data": result, "timestamp": now}
+    return result
+
+
+def _list_commands_uncached(repo_name: str | None = None) -> List[Dict[str, Any]]:
     commands: List[Dict[str, Any]] = []
     command_roots: List[Tuple[Path, str]] = [
         (get_made_home() / ".made" / "commands", "made"),
