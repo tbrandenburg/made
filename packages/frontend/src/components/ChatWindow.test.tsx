@@ -226,4 +226,96 @@ describe("ChatWindow", () => {
     expect(onSaveSession).toHaveBeenCalledTimes(1);
     expect(onClearSession).toHaveBeenCalledTimes(1);
   });
+
+  it("scrolls to the bottom on initial load when chat becomes non-empty", async () => {
+    const chatWindowRef = React.createRef<ChatWindowHandle>();
+    scrollToIndexMock.mockClear();
+
+    render(
+      <ChatWindow
+        chatWindowRef={chatWindowRef}
+        chat={[makeMessage(), makeMessage(), makeMessage()]}
+        loading={false}
+        emptyMessage="empty"
+      />,
+    );
+
+    // Wait for the rAF retry to flush
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Should have been called (at least once) with the last index
+    expect(scrollToIndexMock).toHaveBeenCalledWith(
+      expect.objectContaining({ index: 2, align: "end", behavior: "auto" }),
+    );
+  });
+
+  it("does not repeat initial-scroll when chat grows after first load", async () => {
+    const chatWindowRef = React.createRef<ChatWindowHandle>();
+    const { rerender } = render(
+      <ChatWindow
+        chatWindowRef={chatWindowRef}
+        chat={[makeMessage()]}
+        loading={false}
+        emptyMessage="empty"
+      />,
+    );
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    scrollToIndexMock.mockClear();
+
+    // Simulate a streaming message being appended
+    rerender(
+      <ChatWindow
+        chatWindowRef={chatWindowRef}
+        chat={[makeMessage(), makeMessage()]}
+        loading={false}
+        emptyMessage="empty"
+      />,
+    );
+
+    // The initial-scroll effect must NOT fire again (it's guarded by the ref).
+    // followOutput handles streaming updates.
+    expect(scrollToIndexMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ behavior: "auto" }),
+    );
+  });
+
+  it("resets initial scroll when sessionId changes", async () => {
+    const chatWindowRef = React.createRef<ChatWindowHandle>();
+    const { rerender } = render(
+      <ChatWindow
+        chatWindowRef={chatWindowRef}
+        chat={[makeMessage()]}
+        sessionId="session-1"
+        loading={false}
+        emptyMessage="empty"
+      />,
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    scrollToIndexMock.mockClear();
+
+    // Switch session with new history
+    rerender(
+      <ChatWindow
+        chatWindowRef={chatWindowRef}
+        chat={[makeMessage(), makeMessage()]}
+        sessionId="session-2"
+        loading={false}
+        emptyMessage="empty"
+      />,
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(scrollToIndexMock).toHaveBeenCalledWith(
+      expect.objectContaining({ index: 1, align: "end", behavior: "auto" }),
+    );
+  });
 });
