@@ -705,13 +705,16 @@ def repository_agent(name: str, payload: dict = Body(...)):
 
 
 @app.get("/api/repositories/{name}/agent/status")
-def repository_agent_status(name: str):
-    return get_channel_status(name)
+def repository_agent_status(name: str, session_id: str | None = Query(default=None)):
+    lock_key = session_id if session_id else name
+    return get_channel_status(lock_key)
 
 
 @app.post("/api/repositories/{name}/agent/cancel")
-def repository_agent_cancel(name: str):
-    if not cancel_agent_message(name):
+def repository_agent_cancel(name: str, payload: dict = Body(default={})):
+    session_id = payload.get("sessionId")
+    lock_key = session_id if session_id else name
+    if not cancel_agent_message(lock_key):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No active agent process to cancel",
@@ -1260,13 +1263,16 @@ def knowledge_agent(name: str, payload: dict = Body(...)):
 
 
 @app.get("/api/knowledge/{name:path}/agent/status")
-def knowledge_agent_status(name: str):
-    return get_channel_status(f"knowledge:{name}")
+def knowledge_agent_status(name: str, session_id: str | None = Query(default=None)):
+    lock_key = session_id if session_id else f"knowledge:{name}"
+    return get_channel_status(lock_key)
 
 
 @app.post("/api/knowledge/{name:path}/agent/cancel")
-def knowledge_agent_cancel(name: str):
-    if not cancel_agent_message(f"knowledge:{name}"):
+def knowledge_agent_cancel(name: str, payload: dict = Body(default={})):
+    session_id = payload.get("sessionId")
+    lock_key = session_id if session_id else f"knowledge:{name}"
+    if not cancel_agent_message(lock_key):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No active agent process to cancel",
@@ -1471,13 +1477,16 @@ def constitution_agent(name: str, payload: dict = Body(...)):
 
 
 @app.get("/api/constitutions/{name:path}/agent/status")
-def constitution_agent_status(name: str):
-    return get_channel_status(f"constitution:{name}")
+def constitution_agent_status(name: str, session_id: str | None = Query(default=None)):
+    lock_key = session_id if session_id else f"constitution:{name}"
+    return get_channel_status(lock_key)
 
 
 @app.post("/api/constitutions/{name:path}/agent/cancel")
-def constitution_agent_cancel(name: str):
-    if not cancel_agent_message(f"constitution:{name}"):
+def constitution_agent_cancel(name: str, payload: dict = Body(default={})):
+    session_id = payload.get("sessionId")
+    lock_key = session_id if session_id else f"constitution:{name}"
+    if not cancel_agent_message(lock_key):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No active agent process to cancel",
@@ -1612,13 +1621,16 @@ def task_agent(name: str, payload: dict = Body(...)):
 
 
 @app.get("/api/tasks/{name:path}/agent/status")
-def task_agent_status(name: str):
-    return get_channel_status(f"task:{name}")
+def task_agent_status(name: str, session_id: str | None = Query(default=None)):
+    lock_key = session_id if session_id else f"task:{name}"
+    return get_channel_status(lock_key)
 
 
 @app.post("/api/tasks/{name:path}/agent/cancel")
-def task_agent_cancel(name: str):
-    if not cancel_agent_message(f"task:{name}"):
+def task_agent_cancel(name: str, payload: dict = Body(default={})):
+    session_id = payload.get("sessionId")
+    lock_key = session_id if session_id else f"task:{name}"
+    if not cancel_agent_message(lock_key):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No active agent process to cancel",

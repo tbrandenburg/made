@@ -208,15 +208,15 @@ def _was_channel_cancelled(channel: str) -> bool:
         return channel in _cancelled_channels
 
 
-def cancel_agent_message(channel: str) -> bool:
-    """Cancel an active agent message for the given channel."""
+def cancel_agent_message(lock_key: str) -> bool:
+    """Cancel an active agent message for the given lock key."""
     with _processing_lock:
-        if channel not in _processing_channels:
+        if lock_key not in _processing_channels:
             return False
-        _cancelled_channels.add(channel)
-        cancel_event = _cancel_events.get(channel)
-        process = _active_processes.get(channel)
-        _processing_channels.pop(channel, None)
+        _cancelled_channels.add(lock_key)
+        cancel_event = _cancel_events.get(lock_key)
+        process = _active_processes.get(lock_key)
+        _processing_channels.pop(lock_key, None)
 
     if cancel_event:
         cancel_event.set()
@@ -229,9 +229,9 @@ def cancel_agent_message(channel: str) -> bool:
     return True
 
 
-def get_channel_status(channel: str) -> dict[str, object]:
+def get_channel_status(lock_key: str) -> dict[str, object]:
     with _processing_lock:
-        started_at = _processing_channels.get(channel)
+        started_at = _processing_channels.get(lock_key)
 
     return {
         "processing": started_at is not None,
@@ -561,12 +561,13 @@ def send_agent_message(
     agent: str | None = None,
     model: str | None = None,
 ):
-    if not _mark_channel_processing(channel):
+    lock_key = session_id if session_id else channel
+    if not _mark_channel_processing(lock_key):
         raise ChannelBusyError(
             "Agent is still processing a previous message for this chat."
         )
 
-    cancel_event = _register_cancel_event(channel)
+    cancel_event = _register_cancel_event(lock_key)
 
     working_dir = _get_working_directory(channel)
     active_session = session_id
@@ -577,9 +578,9 @@ def send_agent_message(
     )
 
     if session_id:
-        _conversation_sessions[channel] = session_id
+        _conversation_sessions[lock_key] = session_id
     else:
-        _conversation_sessions.pop(channel, None)
+        _conversation_sessions.pop(lock_key, None)
 
     logger.info(
         "Sending agent message (channel: %s, session: %s)", channel, active_session
@@ -587,7 +588,7 @@ def send_agent_message(
 
     try:
         # Check if cancelled before running
-        if _was_channel_cancelled(channel):
+        if _was_channel_cancelled(lock_key):
             response = "Agent request cancelled."
         else:
             # Use typed interface
@@ -601,7 +602,7 @@ def send_agent_message(
                 resolved_model,
                 working_dir,
                 cancel_event=cancel_event,
-                on_process=lambda process: _register_active_process(channel, process),
+                on_process=lambda process: _register_active_process(lock_key, process),
             )
             duration_seconds = time.monotonic() - start_time
             logger.info(
@@ -614,12 +615,12 @@ def send_agent_message(
             if result.success:
                 # Update session if we got a new one
                 if result.session_id:
-                    _conversation_sessions[channel] = result.session_id
+                    _conversation_sessions[lock_key] = result.session_id
 
                 logger.info(
                     "Agent message processed (channel: %s, session: %s)",
                     channel,
-                    _conversation_sessions.get(channel),
+                    _conversation_sessions.get(lock_key),
                 )
             else:
                 response = result.error_message or "Command failed with no output"
@@ -627,7 +628,7 @@ def send_agent_message(
                 logger.error(
                     "Agent command failed (channel: %s, session: %s): %s",
                     channel,
-                    _conversation_sessions.get(channel),
+                    _conversation_sessions.get(lock_key),
                     response,
                 )
 
@@ -658,11 +659,11 @@ def send_agent_message(
             "sent": sent_at,
             "prompt": message,
             "response": response,
-            "sessionId": _conversation_sessions.get(channel),
+            "sessionId": _conversation_sessions.get(lock_key),
             "processing": False,
         }
     finally:
-        _clear_channel_processing(channel)
+        _clear_channel_processing(lock_key)
 
     sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
@@ -671,6 +672,6 @@ def send_agent_message(
         "sent": sent_at,
         "prompt": message,
         "response": "Processing...",  # Status message only
-        "sessionId": _conversation_sessions.get(channel),
+        "sessionId": _conversation_sessions.get(lock_key),
         "processing": True,  # Indicates polling needed
     }
