@@ -578,9 +578,9 @@ def send_agent_message(
     )
 
     if session_id:
-        _conversation_sessions[channel] = session_id
+        _conversation_sessions[lock_key] = session_id
     else:
-        _conversation_sessions.pop(channel, None)
+        _conversation_sessions.pop(lock_key, None)
 
     logger.info(
         "Sending agent message (channel: %s, session: %s)", channel, active_session
@@ -615,12 +615,12 @@ def send_agent_message(
             if result.success:
                 # Update session if we got a new one
                 if result.session_id:
-                    _conversation_sessions[channel] = result.session_id
+                    _conversation_sessions[lock_key] = result.session_id
 
                 logger.info(
                     "Agent message processed (channel: %s, session: %s)",
                     channel,
-                    _conversation_sessions.get(channel),
+                    _conversation_sessions.get(lock_key),
                 )
             else:
                 response = result.error_message or "Command failed with no output"
@@ -628,7 +628,7 @@ def send_agent_message(
                 logger.error(
                     "Agent command failed (channel: %s, session: %s): %s",
                     channel,
-                    _conversation_sessions.get(channel),
+                    _conversation_sessions.get(lock_key),
                     response,
                 )
 
@@ -659,7 +659,7 @@ def send_agent_message(
             "sent": sent_at,
             "prompt": message,
             "response": response,
-            "sessionId": _conversation_sessions.get(channel),
+            "sessionId": _conversation_sessions.get(lock_key),
             "processing": False,
         }
     finally:
@@ -672,6 +672,6 @@ def send_agent_message(
         "sent": sent_at,
         "prompt": message,
         "response": "Processing...",  # Status message only
-        "sessionId": _conversation_sessions.get(channel),
+        "sessionId": _conversation_sessions.get(lock_key),
         "processing": True,  # Indicates polling needed
     }
