@@ -19,6 +19,7 @@ from repository_service import (
     get_repository_file_git_details,
     get_repository_git_status,
     get_repository_info,
+    list_repository_files,
     list_repository_templates,
     pull_repository,
     remove_repository_worktree,
@@ -155,6 +156,38 @@ def test_clone_repository_handles_failure(monkeypatch, tmp_path):
 
     with pytest.raises(ValueError, match="Failed to clone repository"):
         clone_repository("https://example.com/sample.git")
+
+
+def test_list_repository_files_follows_symlinked_directory(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    repo_path = workspace / "repo"
+    linked_target = tmp_path / "linked-target"
+    repo_path.mkdir(parents=True)
+    linked_target.mkdir()
+    (linked_target / "linked.txt").write_text("linked content", encoding="utf-8")
+    (repo_path / "docs-link").symlink_to(linked_target, target_is_directory=True)
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+
+    root = list_repository_files("repo")
+    assert root["children"] == [
+        {
+            "name": "docs-link",
+            "path": "docs-link",
+            "type": "folder",
+            "isSymlink": True,
+        }
+    ]
+
+    linked_tree = list_repository_files("repo", "docs-link")
+    assert linked_tree["children"] == [
+        {
+            "name": "linked.txt",
+            "path": "docs-link/linked.txt",
+            "type": "file",
+            "size": len("linked content"),
+        }
+    ]
 
 
 def test_get_repository_git_status(monkeypatch, tmp_path):

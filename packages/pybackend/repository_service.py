@@ -16,7 +16,7 @@ from config import get_made_home, get_workspace_home
 logger = logging.getLogger(__name__)
 
 
-FileNode = Dict[str, Union[str, int, List["FileNode"]]]
+FileNode = Dict[str, Union[str, int, bool, List["FileNode"]]]
 
 
 TECHNOLOGY_INDICATORS = [
@@ -260,33 +260,47 @@ def delete_repository(repo_name: str) -> Dict[str, str]:
     return {"deleted": repo_name}
 
 
+def _repository_child_node(child: Path, base_path: Path) -> FileNode | None:
+    if child.name == ".git":
+        return None
+
+    child_relative = child.relative_to(base_path)
+    path = str(child_relative) if str(child_relative) != "." else "."
+    is_symlink = child.is_symlink()
+
+    if child.is_dir():
+        node: FileNode = {
+            "name": child.name,
+            "path": path,
+            "type": "folder",
+        }
+        if is_symlink:
+            node["isSymlink"] = True
+        return node
+
+    try:
+        stats = child.stat()
+    except FileNotFoundError:
+        stats = child.lstat()
+
+    node = {
+        "name": child.name,
+        "path": path,
+        "type": "file",
+        "size": stats.st_size,
+    }
+    if is_symlink:
+        node["isSymlink"] = True
+    return node
+
+
 def build_directory_node(current_path: Path, base_path: Path) -> FileNode:
     relative_path = current_path.relative_to(base_path)
     children: list[FileNode] = []
     for child in current_path.iterdir():
-        if child.name == ".git":
-            continue
-        child_relative = child.relative_to(base_path)
-        if child.is_dir():
-            children.append(
-                {
-                    "name": child.name,
-                    "path": (
-                        str(child_relative) if str(child_relative) != "." else "."
-                    ),
-                    "type": "folder",
-                }
-            )
-        else:
-            stats = child.stat()
-            children.append(
-                {
-                    "name": child.name,
-                    "path": str(child_relative),
-                    "type": "file",
-                    "size": stats.st_size,
-                }
-            )
+        child_node = _repository_child_node(child, base_path)
+        if child_node is not None:
+            children.append(child_node)
     return {
         "name": current_path.name,
         "path": str(relative_path) if str(relative_path) != "." else ".",
