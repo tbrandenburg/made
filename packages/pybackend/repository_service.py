@@ -280,7 +280,7 @@ def _repository_child_node(child: Path, base_path: Path) -> FileNode | None:
 
     try:
         stats = child.stat()
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError):
         stats = child.lstat()
 
     node = {

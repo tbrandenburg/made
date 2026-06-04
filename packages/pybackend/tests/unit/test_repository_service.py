@@ -190,6 +190,40 @@ def test_list_repository_files_follows_symlinked_directory(monkeypatch, tmp_path
     ]
 
 
+def test_list_repository_files_handles_symlink_loop(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    repo_path = workspace / "repo"
+    repo_path.mkdir(parents=True)
+
+    (repo_path / "self").symlink_to(repo_path, target_is_directory=True)
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+
+    root = list_repository_files("repo")
+    child_names = {c["name"] for c in root["children"]}
+    assert "self" in child_names
+    self_node = next(c for c in root["children"] if c["name"] == "self")
+    assert self_node["type"] == "folder"
+    assert self_node.get("isSymlink") is True
+
+
+def test_list_repository_files_handles_broken_symlink(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    repo_path = workspace / "repo"
+    repo_path.mkdir(parents=True)
+
+    (repo_path / "broken.txt").symlink_to(tmp_path / "nonexistent")
+
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+
+    root = list_repository_files("repo")
+    child_names = {c["name"] for c in root["children"]}
+    assert "broken.txt" in child_names
+    broken_node = next(c for c in root["children"] if c["name"] == "broken.txt")
+    assert broken_node["type"] == "file"
+    assert broken_node.get("isSymlink") is True
+
+
 def test_get_repository_git_status(monkeypatch, tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
