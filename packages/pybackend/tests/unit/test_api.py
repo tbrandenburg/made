@@ -525,15 +525,40 @@ class TestRepositoryEndpoints:
 
         assert response.status_code == 200
         assert response.json() == payload
+        mock_status.assert_called_once_with("sample")
+
+    @patch("app.get_channel_status")
+    def test_repository_agent_status_with_session_id(self, mock_status):
+        """When session_id is provided as query param, lock_key must be session_id."""
+        payload = {"processing": True, "startedAt": "2024-01-01T00:00:00Z"}
+        mock_status.return_value = payload
+
+        response = client.get("/api/repositories/sample/agent/status?session_id=ses_test")
+
+        assert response.status_code == 200
+        mock_status.assert_called_once_with("ses_test")
 
     @patch("app.cancel_agent_message")
     def test_repository_agent_cancel_success(self, mock_cancel):
         mock_cancel.return_value = True
 
-        response = client.post("/api/repositories/sample/agent/cancel")
+        response = client.post(
+            "/api/repositories/sample/agent/cancel",
+            json={"sessionId": "ses_test"},
+        )
 
         assert response.status_code == 200
         assert response.json() == {"success": True}
+        mock_cancel.assert_called_once_with("ses_test")
+
+    @patch("app.cancel_agent_message")
+    def test_repository_agent_cancel_fallback_to_channel(self, mock_cancel):
+        """No sessionId in body → falls back to repo name as lock key (backward compat)."""
+        mock_cancel.return_value = True
+
+        response = client.post("/api/repositories/sample/agent/cancel", json={})
+
+        assert response.status_code == 200
         mock_cancel.assert_called_once_with("sample")
 
     @patch("app.cancel_agent_message")
