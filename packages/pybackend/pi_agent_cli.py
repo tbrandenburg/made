@@ -240,7 +240,9 @@ class PiAgentCLI(AgentCLI):
                                 )
                             )
                         elif part_type == "thinking":
-                            content = str(part.get("thinking") or part.get("text") or "")
+                            content = str(
+                                part.get("thinking") or part.get("text") or ""
+                            )
                             if content:
                                 messages.append(
                                     HistoryMessage(
