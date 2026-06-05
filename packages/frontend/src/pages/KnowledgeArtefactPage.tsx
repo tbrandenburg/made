@@ -261,7 +261,10 @@ export const KnowledgeArtefactPage: React.FC = () => {
   const refreshAgentStatus = useCallback(async () => {
     if (!name || isExternal) return false;
     try {
-      const status = await api.getKnowledgeAgentStatus(name, sessionId || undefined);
+      const status = await api.getKnowledgeAgentStatus(
+        name,
+        sessionId || undefined,
+      );
       setChatLoading(status.processing);
       setAgentStatus(
         status.processing

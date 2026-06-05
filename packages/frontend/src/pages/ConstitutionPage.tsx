@@ -263,7 +263,10 @@ export const ConstitutionPage: React.FC = () => {
   const refreshAgentStatus = useCallback(async () => {
     if (!name || isExternal) return false;
     try {
-      const status = await api.getConstitutionAgentStatus(name, sessionId || undefined);
+      const status = await api.getConstitutionAgentStatus(
+        name,
+        sessionId || undefined,
+      );
       setChatLoading(status.processing);
       setAgentStatus(
         status.processing

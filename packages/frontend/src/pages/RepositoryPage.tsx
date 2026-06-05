@@ -1140,7 +1140,10 @@ export const RepositoryPage: React.FC = () => {
   const refreshAgentStatus = useCallback(async () => {
     if (!name) return false;
     try {
-      const status = await api.getRepositoryAgentStatus(name, sessionId || undefined);
+      const status = await api.getRepositoryAgentStatus(
+        name,
+        sessionId || undefined,
+      );
       setChatLoading(status.processing);
       setChatError(
         status.processing
