@@ -20,7 +20,12 @@
     "skill": "allow",
     "question": "deny",
     "doom_loop": "deny",
-    "external_directory": "deny",
+    "external_directory": {
+      "*": "deny",
+      "/tmp/*.md": "allow",
+      "/tmp/opencode/**": "allow",
+      "~/.local/share/opencode/tool-output/**": "allow"
+    },
     "grep": "allow",
     "glob": "allow",
     "list": "allow",

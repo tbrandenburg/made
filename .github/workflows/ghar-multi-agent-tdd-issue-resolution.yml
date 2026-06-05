@@ -1,0 +1,224 @@
+name: GHAR Multi-Agent TDD Issue Resolution
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "GitHub issue number to resolve"
+        required: true
+        type: string
+
+concurrency:
+  group: ghar-multi-agent-issue-${{ inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  setup-branch:
+    name: "0. Setup Shared Branch"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: read
+    outputs:
+      branch_name: ${{ steps.branch.outputs.branch_name }}
+    steps:
+      - name: Validate issue number
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          case "$ISSUE_NUMBER" in
+            ''|*[!0-9]*) echo "issue_number must contain digits only" >&2; exit 1 ;;
+          esac
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${ISSUE_NUMBER}" --silent
+
+      - name: Checkout default branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Create or reuse shared branch
+        id: branch
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          BRANCH="agent/issue-${ISSUE_NUMBER}-implementation"
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "Reusing existing branch $BRANCH"
+          else
+            git push origin "HEAD:refs/heads/$BRANCH"
+          fi
+          echo "branch_name=$BRANCH" >> "$GITHUB_OUTPUT"
+
+  planner-requirements:
+    name: "1A. Planner: Requirements"
+    needs: setup-branch
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: planner-requirements
+      command: ghar-planner-requirements
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 30
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
+  planner-architecture:
+    name: "1B. Planner: Architecture"
+    needs: setup-branch
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: planner-architecture
+      command: ghar-planner-architecture
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 30
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
+  planner-risks:
+    name: "1C. Planner: Risks"
+    needs: setup-branch
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: planner-risks
+      command: ghar-planner-risks
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 30
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
+  spec-synthesizer:
+    name: "2. Spec Synthesizer"
+    needs: [planner-requirements, planner-architecture, planner-risks]
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: spec-synthesizer
+      command: ghar-spec-synthesizer
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 30
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
+  tdd-reviewer:
+    name: "3. TDD Reviewer"
+    needs: spec-synthesizer
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: tdd-reviewer
+      command: ghar-tdd-reviewer
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 30
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
+  spec-finalizer:
+    name: "4. Spec Finalizer"
+    needs: tdd-reviewer
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: spec-finalizer
+      command: ghar-spec-finalizer
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 30
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
+  test-agent:
+    name: "5. Test Agent"
+    needs: spec-finalizer
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: test-agent
+      command: ghar-test-agent
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 45
+    permissions: {contents: write, issues: write, pull-requests: write}
+    secrets: inherit
+
+  implementer:
+    name: "6. Implementer"
+    needs: test-agent
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: implementer
+      command: ghar-implementer
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 60
+    permissions: {contents: write, issues: write, pull-requests: write}
+    secrets: inherit
+
+  reviewer:
+    name: "7A. Reviewer"
+    needs: implementer
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: reviewer
+      command: ghar-reviewer
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 30
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
+  redteam:
+    name: "7B. Red Team"
+    needs: implementer
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: redteam
+      command: ghar-redteam
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 45
+    permissions: {contents: write, issues: write, pull-requests: write}
+    secrets: inherit
+
+  ci-agent:
+    name: "8. CI Evidence Agent"
+    needs: [reviewer, redteam]
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: ci-agent
+      command: ghar-ci-agent
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 60
+    permissions: {actions: read, checks: read, contents: read, issues: read, pull-requests: read}
+    secrets: inherit
+
+  failure-classifier:
+    name: "9. Failure Classifier"
+    needs: ci-agent
+    if: ${{ always() && needs.ci-agent.result != 'cancelled' }}
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: failure-classifier
+      command: ghar-failure-classifier
+      prompt: |
+        Issue number: ${{ inputs.issue_number }}
+        CI agent job result: ${{ needs.ci-agent.result }}
+        CI agent report:
+        ${{ needs.ci-agent.outputs.results }}
+      timeout-minutes: 30
+    permissions: {actions: read, checks: read, contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
+  fixer-integrator:
+    name: "10. Fixer / Integrator"
+    needs: failure-classifier
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: fixer-integrator
+      command: ghar-fixer-integrator
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 60
+    permissions: {actions: read, checks: read, contents: write, issues: write, pull-requests: write}
+    secrets: inherit
+
+  pr-finalizer:
+    name: "11. PR Finalizer"
+    needs: fixer-integrator
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: pr-finalizer
+      command: ghar-pr-finalizer
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 30
+    permissions: {actions: read, checks: read, contents: read, issues: write, pull-requests: write}
+    secrets: inherit

@@ -92,12 +92,9 @@ jobs:
             
             # Install with better error handling
             if ! curl -fsSL ${{ env.OPENCODE_INSTALL_URL }} | bash; then
-              echo "ERROR: OpenCode installation failed"
-              echo "Trying alternative installation method..."
-              
-              # Try installing specific version as fallback
-              if ! curl -fsSL ${{ env.OPENCODE_INSTALL_URL }} | bash -s -- --version 1.0.180; then
-                echo "ERROR: Alternative installation also failed"
+              echo "WARNING: Latest OpenCode installation failed (GitHub API unreachable?). Falling back to pinned version 1.14.40."
+              if ! curl -fsSL ${{ env.OPENCODE_INSTALL_URL }} | bash -s -- --version 1.14.40; then
+                echo "ERROR: Pinned fallback installation also failed"
                 exit 1
               fi
             fi
