@@ -482,10 +482,17 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message, sessionId, model, agent }),
     }),
-  getRepositoryAgentStatus: (name: string) =>
-    request<AgentStatus>(`/repositories/${name}/agent/status`),
-  cancelRepositoryAgent: (name: string) =>
-    request(`/repositories/${name}/agent/cancel`, { method: "POST" }),
+  getRepositoryAgentStatus: (name: string, sessionId?: string) => {
+    const params = sessionId
+      ? `?session_id=${encodeURIComponent(sessionId)}`
+      : "";
+    return request<AgentStatus>(`/repositories/${name}/agent/status${params}`);
+  },
+  cancelRepositoryAgent: (name: string, sessionId?: string) =>
+    request(`/repositories/${name}/agent/cancel`, {
+      method: "POST",
+      ...(sessionId && { body: JSON.stringify({ sessionId }) }),
+    }),
   getRepositoryAgentHistory: (
     name: string,
     sessionId: string,
@@ -720,10 +727,17 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message, sessionId, model, agent }),
     }),
-  getKnowledgeAgentStatus: (name: string) =>
-    request<AgentStatus>(`/knowledge/${name}/agent/status`),
-  cancelKnowledgeAgent: (name: string) =>
-    request(`/knowledge/${name}/agent/cancel`, { method: "POST" }),
+  getKnowledgeAgentStatus: (name: string, sessionId?: string) => {
+    const params = sessionId
+      ? `?session_id=${encodeURIComponent(sessionId)}`
+      : "";
+    return request<AgentStatus>(`/knowledge/${name}/agent/status${params}`);
+  },
+  cancelKnowledgeAgent: (name: string, sessionId?: string) =>
+    request(`/knowledge/${name}/agent/cancel`, {
+      method: "POST",
+      ...(sessionId && { body: JSON.stringify({ sessionId }) }),
+    }),
   listConstitutions: () =>
     request<{ constitutions: ArtefactSummary[] }>("/constitutions"),
   getConstitution: (name: string) =>
@@ -748,10 +762,17 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message, sessionId, model, agent }),
     }),
-  getConstitutionAgentStatus: (name: string) =>
-    request<AgentStatus>(`/constitutions/${name}/agent/status`),
-  cancelConstitutionAgent: (name: string) =>
-    request(`/constitutions/${name}/agent/cancel`, { method: "POST" }),
+  getConstitutionAgentStatus: (name: string, sessionId?: string) => {
+    const params = sessionId
+      ? `?session_id=${encodeURIComponent(sessionId)}`
+      : "";
+    return request<AgentStatus>(`/constitutions/${name}/agent/status${params}`);
+  },
+  cancelConstitutionAgent: (name: string, sessionId?: string) =>
+    request(`/constitutions/${name}/agent/cancel`, {
+      method: "POST",
+      ...(sessionId && { body: JSON.stringify({ sessionId }) }),
+    }),
   listTasks: () => request<{ tasks: ArtefactSummary[] }>("/tasks"),
   getTask: (name: string) => request<MatterFile>(`/tasks/${name}`),
   deleteTask: (name: string) =>
@@ -774,10 +795,17 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message, sessionId, model, agent }),
     }),
-  getTaskAgentStatus: (name: string) =>
-    request<AgentStatus>(`/tasks/${name}/agent/status`),
-  cancelTaskAgent: (name: string) =>
-    request(`/tasks/${name}/agent/cancel`, { method: "POST" }),
+  getTaskAgentStatus: (name: string, sessionId?: string) => {
+    const params = sessionId
+      ? `?session_id=${encodeURIComponent(sessionId)}`
+      : "";
+    return request<AgentStatus>(`/tasks/${name}/agent/status${params}`);
+  },
+  cancelTaskAgent: (name: string, sessionId?: string) =>
+    request(`/tasks/${name}/agent/cancel`, {
+      method: "POST",
+      ...(sessionId && { body: JSON.stringify({ sessionId }) }),
+    }),
   getTaskAgentHistory: (
     name: string,
     sessionId: string,
