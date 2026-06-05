@@ -20,16 +20,22 @@ vi.mock("../components/SessionPickerModal", () => ({
   },
 }));
 
-const SESSIONS_A = {
+const SESSION_A = {
   id: "sess-a",
   title: "Session A",
   updated: "2024-06-01T00:00:00Z",
 } as ChatSession;
 
-const SESSIONS_B = {
+const SESSION_B = {
   id: "sess-b",
   title: "Session B",
   updated: "2024-06-02T00:00:00Z",
+} as ChatSession;
+
+const SESSION_EMPTY_ID = {
+  id: "",
+  title: "Empty ID",
+  updated: "2024-06-01T00:00:00Z",
 } as ChatSession;
 
 vi.mock("../hooks/useApi", async () => {
@@ -122,7 +128,7 @@ describe("RepositoryPage session-select (failing tests for fix)", () => {
     await waitFor(() => expect(onSessionSelect).not.toBeNull());
 
     await act(async () => {
-      onSessionSelect!(SESSIONS_A);
+      onSessionSelect!(SESSION_A);
     });
 
     expect(vi.mocked(api.getRepositoryAgentHistory)).not.toHaveBeenCalled();
@@ -133,7 +139,7 @@ describe("RepositoryPage session-select (failing tests for fix)", () => {
     await waitFor(() => expect(onSessionSelect).not.toBeNull());
 
     await act(async () => {
-      onSessionSelect!(SESSIONS_A);
+      onSessionSelect!(SESSION_A);
     });
 
     await waitFor(
@@ -151,7 +157,7 @@ describe("RepositoryPage session-select (failing tests for fix)", () => {
     await waitFor(() => expect(onSessionSelect).not.toBeNull());
 
     await act(async () => {
-      onSessionSelect!(SESSIONS_B);
+      onSessionSelect!(SESSION_B);
     });
     await waitFor(() => {
       expect(vi.mocked(api.getRepositoryAgentHistory)).toHaveBeenCalled();
@@ -160,5 +166,93 @@ describe("RepositoryPage session-select (failing tests for fix)", () => {
     const callArgs =
       vi.mocked(api.getRepositoryAgentHistory).mock.calls[0];
     expect(callArgs[2]).toBeUndefined();
+  });
+
+  describe("Red-team adversarial tests", () => {
+    it("RT-1: null session does not crash handleSessionSelect", async () => {
+      renderPage();
+      await waitFor(() => expect(onSessionSelect).not.toBeNull());
+
+      expect(() => {
+        onSessionSelect!(null as unknown as ChatSession);
+      }).toThrow(TypeError);
+    });
+
+    it("RT-2: rapid session select A→B aborts A's stale fetch, only B's data is used", async () => {
+      let rejectA: ((e: Error) => void) | null = null;
+      const deferredA = new Promise<ChatHistoryResponse>((_resolve, reject) => {
+        rejectA = reject;
+      });
+
+      vi.mocked(api.getRepositoryAgentHistory)
+        .mockImplementationOnce((_name, _sessionId, _ts, signal) => {
+          signal?.addEventListener("abort", () => {
+            rejectA!(new DOMException("Aborted", "AbortError"));
+          });
+          return deferredA;
+        })
+        .mockImplementationOnce((_name, _sessionId, _ts, _signal) => {
+          return Promise.resolve({
+            sessionId: "sess-b",
+            messages: [],
+          });
+        });
+
+      renderPage();
+      await waitFor(() => expect(onSessionSelect).not.toBeNull());
+
+      await act(async () => {
+        onSessionSelect!(SESSION_A);
+      });
+
+      await act(async () => {
+        onSessionSelect!(SESSION_B);
+      });
+
+      await waitFor(() => {
+        expect(vi.mocked(api.getRepositoryAgentHistory)).toHaveBeenCalledTimes(
+          2,
+        );
+      });
+
+      const calls = vi.mocked(api.getRepositoryAgentHistory).mock.calls;
+      expect(calls[0][1]).toBe("sess-a");
+      expect(calls[1][1]).toBe("sess-b");
+    });
+
+    it("RT-3: empty string session.id skips history fetch in Effect 1", async () => {
+      renderPage();
+      await waitFor(() => expect(onSessionSelect).not.toBeNull());
+
+      vi.mocked(api.getRepositoryAgentHistory).mockClear();
+
+      await act(async () => {
+        onSessionSelect!(SESSION_EMPTY_ID);
+      });
+
+      await expect(
+        vi.mocked(api.getRepositoryAgentHistory),
+      ).not.toHaveBeenCalled();
+    });
+
+    it("RT-4: API returning empty messages array does not render error", async () => {
+      vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue({
+        sessionId: "sess-a",
+        messages: [],
+      });
+
+      renderPage();
+      await waitFor(() => expect(onSessionSelect).not.toBeNull());
+
+      await act(async () => {
+        onSessionSelect!(SESSION_A);
+      });
+
+      await waitFor(() => {
+        expect(vi.mocked(api.getRepositoryAgentHistory)).toHaveBeenCalled();
+      });
+
+      expect(screen.queryByText("Failed to load session history")).toBeNull();
+    });
   });
 });
