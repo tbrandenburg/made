@@ -261,7 +261,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
   const refreshAgentStatus = useCallback(async () => {
     if (!name || isExternal) return false;
     try {
-      const status = await api.getKnowledgeAgentStatus(name);
+      const status = await api.getKnowledgeAgentStatus(name, sessionId || undefined);
       setChatLoading(status.processing);
       setAgentStatus(
         status.processing
@@ -273,7 +273,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
       console.error("Failed to load agent status", error);
       return false;
     }
-  }, [isExternal, name]);
+  }, [isExternal, name, sessionId]);
 
   useEffect(() => {
     refreshAgentStatus();
@@ -412,7 +412,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
   const handleCancel = async () => {
     if (!name || isExternal) return;
     try {
-      await api.cancelKnowledgeAgent(name);
+      await api.cancelKnowledgeAgent(name, sessionId || undefined);
     } catch (error) {
       console.error("Failed to cancel agent request", error);
       setAgentStatus("Unable to cancel the agent request.");

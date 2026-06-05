@@ -183,3 +183,75 @@ describe("GET request deduplication", () => {
     expect(result).toEqual({ agents: [{ name: "agent-2" }] });
   });
 });
+
+describe("sessionId forwarding for status and cancel endpoints", () => {
+  const originalFetch = window.fetch;
+
+  afterAll(() => {
+    window.fetch = originalFetch;
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should include session_id query param in getRepositoryAgentStatus when provided", async () => {
+    window.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ processing: false }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await api.getRepositoryAgentStatus("my-repo", "ses_abc123");
+
+    expect(window.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("session_id=ses_abc123"),
+      expect.anything(),
+    );
+  });
+
+  it("should omit session_id query param in getRepositoryAgentStatus when not provided", async () => {
+    window.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ processing: false }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await api.getRepositoryAgentStatus("my-repo");
+
+    expect(window.fetch).toHaveBeenCalledWith(
+      expect.not.stringContaining("session_id"),
+      expect.anything(),
+    );
+  });
+
+  it("should include sessionId in request body for cancelRepositoryAgent when provided", async () => {
+    window.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await api.cancelRepositoryAgent("my-repo", "ses_xyz");
+
+    const [, init] = (window.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({ sessionId: "ses_xyz" });
+  });
+
+  it("should send cancel without body when sessionId is not provided", async () => {
+    window.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await api.cancelRepositoryAgent("my-repo");
+
+    const [, init] = (window.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(init.body).toBeUndefined();
+  });
+});

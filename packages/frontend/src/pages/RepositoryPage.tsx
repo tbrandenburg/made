@@ -1140,7 +1140,7 @@ export const RepositoryPage: React.FC = () => {
   const refreshAgentStatus = useCallback(async () => {
     if (!name) return false;
     try {
-      const status = await api.getRepositoryAgentStatus(name);
+      const status = await api.getRepositoryAgentStatus(name, sessionId || undefined);
       setChatLoading(status.processing);
       setChatError(
         status.processing
@@ -1152,7 +1152,7 @@ export const RepositoryPage: React.FC = () => {
       console.error("Failed to load agent status", error);
       return false;
     }
-  }, [name]);
+  }, [name, sessionId]);
 
   useEffect(() => {
     refreshAgentStatus();
@@ -1284,7 +1284,7 @@ export const RepositoryPage: React.FC = () => {
   const handleCancelAgent = async () => {
     if (!name) return;
     try {
-      await api.cancelRepositoryAgent(name);
+      await api.cancelRepositoryAgent(name, sessionId || undefined);
     } catch (error) {
       console.error("Failed to cancel agent request", error);
       setChatError("Unable to cancel the agent request.");

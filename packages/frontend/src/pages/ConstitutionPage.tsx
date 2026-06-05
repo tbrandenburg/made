@@ -263,7 +263,7 @@ export const ConstitutionPage: React.FC = () => {
   const refreshAgentStatus = useCallback(async () => {
     if (!name || isExternal) return false;
     try {
-      const status = await api.getConstitutionAgentStatus(name);
+      const status = await api.getConstitutionAgentStatus(name, sessionId || undefined);
       setChatLoading(status.processing);
       setAgentStatus(
         status.processing
@@ -275,7 +275,7 @@ export const ConstitutionPage: React.FC = () => {
       console.error("Failed to load agent status", error);
       return false;
     }
-  }, [isExternal, name]);
+  }, [isExternal, name, sessionId]);
 
   useEffect(() => {
     refreshAgentStatus();
@@ -414,7 +414,7 @@ export const ConstitutionPage: React.FC = () => {
   const handleCancel = async () => {
     if (!name) return;
     try {
-      await api.cancelConstitutionAgent(name);
+      await api.cancelConstitutionAgent(name, sessionId || undefined);
     } catch (error) {
       console.error("Failed to cancel agent request", error);
       setAgentStatus("Unable to cancel the agent request.");
