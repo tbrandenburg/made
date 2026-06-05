@@ -26,6 +26,10 @@ export default tseslint.config(
     },
     rules: {
       "react/prop-types": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_" },
+      ],
     },
   },
 );

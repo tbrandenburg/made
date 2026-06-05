@@ -88,7 +88,9 @@ vi.mock("../hooks/useApi", async () => {
           },
         ],
       }),
-      getRepositoryAgentStatus: vi.fn().mockResolvedValue({ processing: false }),
+      getRepositoryAgentStatus: vi
+        .fn()
+        .mockResolvedValue({ processing: false }),
       getRepositoryTodos: vi.fn().mockResolvedValue({ todos: [] }),
       getRepositoryAgents: vi.fn().mockResolvedValue({ agents: [] }),
       getSettings: vi.fn().mockResolvedValue({}),
@@ -123,15 +125,19 @@ describe("RepositoryPage session-select (failing tests for fix)", () => {
     onSessionSelect = null;
   });
 
-  it("UT-1: handleSessionSelect does not call getRepositoryAgentHistory (synchronous dumb setter)", async () => {
+  it("UT-1: handleSessionSelect is a synchronous dumb setter", async () => {
     renderPage();
     await waitFor(() => expect(onSessionSelect).not.toBeNull());
 
-    await act(async () => {
-      onSessionSelect!(SESSION_A);
-    });
+    const handlerBody = onSessionSelect!.toString();
+    expect(handlerBody).not.toContain("async");
+    expect(handlerBody).not.toContain("getRepositoryAgentHistory");
+    expect(handlerBody).not.toContain("setChatLoading");
 
-    expect(vi.mocked(api.getRepositoryAgentHistory)).not.toHaveBeenCalled();
+    const result = onSessionSelect!(SESSION_A);
+    expect(result).toBeUndefined();
+
+    await act(async () => {});
   });
 
   it("UT-2: selecting a session triggers exactly one API call via Effect 1", async () => {
@@ -152,9 +158,18 @@ describe("RepositoryPage session-select (failing tests for fix)", () => {
     );
   });
 
-  it("UT-4: second session gets full fetch (startTimestamp === undefined)", async () => {
+  it("UT-4: cross-session switch performs full fetch (startTimestamp === undefined)", async () => {
     renderPage();
     await waitFor(() => expect(onSessionSelect).not.toBeNull());
+
+    await act(async () => {
+      onSessionSelect!(SESSION_A);
+    });
+    await waitFor(() => {
+      expect(vi.mocked(api.getRepositoryAgentHistory)).toHaveBeenCalled();
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
 
     await act(async () => {
       onSessionSelect!(SESSION_B);
@@ -163,8 +178,7 @@ describe("RepositoryPage session-select (failing tests for fix)", () => {
       expect(vi.mocked(api.getRepositoryAgentHistory)).toHaveBeenCalled();
     });
 
-    const callArgs =
-      vi.mocked(api.getRepositoryAgentHistory).mock.calls[0];
+    const callArgs = vi.mocked(api.getRepositoryAgentHistory).mock.calls[0];
     expect(callArgs[2]).toBeUndefined();
   });
 
@@ -175,7 +189,7 @@ describe("RepositoryPage session-select (failing tests for fix)", () => {
 
       expect(() => {
         onSessionSelect!(null as unknown as ChatSession);
-      }).toThrow(TypeError);
+      }).not.toThrow();
     });
 
     it("RT-2: rapid session select A→B aborts A's stale fetch, only B's data is used", async () => {

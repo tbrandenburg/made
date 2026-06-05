@@ -1316,8 +1316,11 @@ export const RepositoryPage: React.FC = () => {
 
   const handleSessionSelect = (session: ChatSession) => {
     if (!name) return;
+    if (!session) return;
+    if (!session.id) return;
     setSessionModalOpen(false);
     setChat([]);
+    setChatError(null);
     setSessionId(session.id);
   };
 
