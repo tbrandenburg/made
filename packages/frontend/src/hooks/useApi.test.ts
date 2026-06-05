@@ -254,4 +254,94 @@ describe("sessionId forwarding for status and cancel endpoints", () => {
     const [, init] = (window.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(init.body).toBeUndefined();
   });
+
+  it("should include session_id query param in getKnowledgeAgentStatus when provided", async () => {
+    window.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ processing: false }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await api.getKnowledgeAgentStatus("my-doc.md", "ses_k1");
+
+    expect(window.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("session_id=ses_k1"),
+      expect.anything(),
+    );
+  });
+
+  it("should include sessionId in request body for cancelKnowledgeAgent when provided", async () => {
+    window.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await api.cancelKnowledgeAgent("my-doc.md", "ses_k1");
+
+    const [, init] = (window.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({ sessionId: "ses_k1" });
+  });
+
+  it("should include session_id query param in getConstitutionAgentStatus when provided", async () => {
+    window.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ processing: false }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await api.getConstitutionAgentStatus("my-const.md", "ses_c1");
+
+    expect(window.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("session_id=ses_c1"),
+      expect.anything(),
+    );
+  });
+
+  it("should include sessionId in request body for cancelConstitutionAgent when provided", async () => {
+    window.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await api.cancelConstitutionAgent("my-const.md", "ses_c1");
+
+    const [, init] = (window.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({ sessionId: "ses_c1" });
+  });
+
+  it("should include session_id query param in getTaskAgentStatus when provided", async () => {
+    window.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ processing: false }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await api.getTaskAgentStatus("my-task.md", "ses_t1");
+
+    expect(window.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("session_id=ses_t1"),
+      expect.anything(),
+    );
+  });
+
+  it("should include sessionId in request body for cancelTaskAgent when provided", async () => {
+    window.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await api.cancelTaskAgent("my-task.md", "ses_t1");
+
+    const [, init] = (window.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({ sessionId: "ses_t1" });
+  });
 });
