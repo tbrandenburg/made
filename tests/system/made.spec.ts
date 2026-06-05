@@ -95,6 +95,52 @@ test.describe('MADE journeys', () => {
     await expect(page.getByPlaceholder('Describe the change or ask the agent...')).toBeVisible();
   });
 
+  test('Sys-1: select a session and view chat messages', async ({ page }) => {
+    await page.route('**/api/repositories/demo-project/agent/sessions?limit=10', (route) =>
+      route.fulfill({
+        json: {
+          sessions: [
+            { id: 'sess-1', title: 'Test Session', updated: '2024-06-01T00:00:00Z' }
+          ]
+        }
+      })
+    );
+    await page.route('**/api/repositories/demo-project/agent/history*', (route) =>
+      route.fulfill({
+        json: {
+          sessionId: 'sess-1',
+          messages: [
+            { messageId: 'm1', role: 'user', type: 'text', content: 'Hello', timestamp: '2024-06-01T00:00:00.000Z' },
+            { messageId: 'm2', role: 'assistant', type: 'text', content: 'Hi there!', timestamp: '2024-06-01T00:00:01.000Z' }
+          ]
+        }
+      })
+    );
+    await page.route('**/api/repositories/demo-project/commands', (route) =>
+      route.fulfill({ json: { commands: [] } })
+    );
+    await page.route('**/api/repositories/demo-project/harnesses', (route) =>
+      route.fulfill({ json: { harnesses: [] } })
+    );
+    await page.route('**/api/repositories/demo-project/todos', (route) =>
+      route.fulfill({ json: { todos: [] } })
+    );
+    await page.route('**/api/repositories/demo-project/agents', (route) =>
+      route.fulfill({ json: { agents: [] } })
+    );
+    await page.route('**/api/repositories/demo-project/agent/status*', (route) =>
+      route.fulfill({ json: { processing: false } })
+    );
+
+    await page.goto('/repositories/demo-project');
+    await expect(page.getByRole('heading', { name: 'Repository: demo-project' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Choose a session' }).click();
+    await expect(page.getByText('Test Session')).toBeVisible();
+    await page.getByText('Test Session').click();
+    await expect(page.getByText('Hi there!')).toBeVisible({ timeout: 5000 });
+  });
+
   test('recovers when dashboard API is temporarily unavailable', async ({ page }) => {
     await page.unroute('**/api/dashboard');
     let attempts = 0;
