@@ -1192,17 +1192,18 @@ export const RepositoryPage: React.FC = () => {
           return;
         }
         console.error("Failed to load chat history", error);
+        setChatError("Failed to load session history");
       }
     },
-    [name, sessionId, setChat],
+    [name, sessionId, setChat, setChatError],
   );
 
   useEffect(() => {
-    if (chatLoading || !name || !sessionId) return;
+    if (!name || !sessionId) return;
     const controller = new AbortController();
     syncChatHistory(controller.signal);
     return () => controller.abort();
-  }, [chatLoading, name, sessionId, syncChatHistory]);
+  }, [name, sessionId, syncChatHistory]);
 
   useEffect(() => {
     if (!chatLoading || !name || !sessionId) return;
@@ -1313,27 +1314,11 @@ export const RepositoryPage: React.FC = () => {
     setClearSessionModalOpen(false);
   };
 
-  const handleSessionSelect = async (session: ChatSession) => {
+  const handleSessionSelect = (session: ChatSession) => {
     if (!name) return;
     setSessionModalOpen(false);
     setChat([]);
     setSessionId(session.id);
-    setChatLoading(true);
-    try {
-      const history = await api.getRepositoryAgentHistory(name, session.id);
-      const mapped = mapHistoryToMessages(history.messages || []);
-      setChat(mapped);
-      setChatError(null);
-    } catch (error) {
-      console.error("Failed to load session history", error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to load session history";
-      setChatError(message);
-    } finally {
-      setChatLoading(false);
-    }
   };
 
   const handleSaveSession = useCallback(() => {
