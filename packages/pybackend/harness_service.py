@@ -9,6 +9,9 @@ from typing import Any, Dict, List, Tuple
 from config import get_made_home, get_workspace_home
 
 
+_HARNESS_PROCESSES: Dict[int, subprocess.Popen[Any]] = {}
+
+
 def _load_harness_file(file_path: Path, source: str) -> Dict[str, Any]:
     return {
         "id": f"{source}:{file_path}",
@@ -103,6 +106,7 @@ def run_harness(
         stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
+    _HARNESS_PROCESSES[process.pid] = process
     return {
         "pid": process.pid,
         "name": resolved_path.stem,
@@ -135,5 +139,6 @@ def is_process_running(pid: int) -> bool:
         return False
     state = _read_process_state(pid)
     if state in {"Z", "X"}:
+        _HARNESS_PROCESSES.pop(pid, None)
         return False
     return True
