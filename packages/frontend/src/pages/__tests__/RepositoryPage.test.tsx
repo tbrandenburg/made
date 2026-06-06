@@ -7,6 +7,13 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RepositoryPage } from "../RepositoryPage";
 import { api, ChatSession } from "../../hooks/useApi";
 
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+
 vi.mock("../../hooks/useApi", async () => {
   const actual =
     await vi.importActual<typeof import("../../hooks/useApi")>("../../hooks/useApi");
@@ -107,5 +114,59 @@ describe("RepositoryPage session selection", () => {
     await waitFor(() => {
       expect(api.getRepositoryAgentHistory).not.toHaveBeenCalled();
     });
+  });
+
+  it("adversarial: session select clears previous fetch error (AC5)", async () => {
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+
+    renderPage();
+
+    const chooseBtn = await screen.findByLabelText("Choose a session");
+    fireEvent.click(chooseBtn);
+
+    vi.mocked(api.getRepositoryAgentHistory).mockRejectedValue(
+      new Error("Network failure"),
+    );
+
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(
+      () => {
+        expect(screen.getByText("Network failure")).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
+
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+
+    fireEvent.click(chooseBtn);
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Network failure")).not.toBeInTheDocument();
+    });
+  });
+
+  it("adversarial: selecting session with empty string ID does not crash", async () => {
+    const emptyIdSession: ChatSession = {
+      id: "",
+      title: "Empty ID Session",
+      updated: "2026-01-01",
+    };
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [emptyIdSession],
+    });
+
+    renderPage();
+
+    const chooseBtn = await screen.findByLabelText("Choose a session");
+    fireEvent.click(chooseBtn);
+
+    const sessionBtn = await screen.findByTitle("Empty ID Session");
+    expect(() => fireEvent.click(sessionBtn)).not.toThrow();
   });
 });
