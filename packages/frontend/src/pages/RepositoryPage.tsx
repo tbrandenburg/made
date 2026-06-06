@@ -587,45 +587,21 @@ export const RepositoryPage: React.FC = () => {
     const { sessionId: incomingSessionId, message: incomingMessage } =
       getChatBootstrapParams(searchParams);
     if (!incomingSessionId && !incomingMessage) return;
-    let cancelled = false;
 
     const { nextParams, changed } = stripChatBootstrapParams(searchParams);
     if (changed) {
       setSearchParams(nextParams, { replace: true });
     }
 
-    const switchSessionIfNeeded = async () => {
+    const switchSessionIfNeeded = () => {
       if (!name || !incomingSessionId || incomingSessionId === sessionId) {
         return;
       }
-
+      setChatError(null);
       setSessionId(incomingSessionId);
       setChat([]);
-      setChatLoading(true);
-      try {
-        const history = await api.getRepositoryAgentHistory(
-          name,
-          incomingSessionId,
-        );
-        if (cancelled) return;
-        const mapped = mapHistoryToMessages(history.messages || []);
-        setChat(mapped);
-        setChatError(null);
-      } catch (error) {
-        if (cancelled) return;
-        console.error("Failed to load session history", error);
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Failed to load session history";
-        setChatError(message);
-      } finally {
-        if (!cancelled) {
-          setChatLoading(false);
-        }
-      }
     };
-    void switchSessionIfNeeded();
+    switchSessionIfNeeded();
 
     const path = window.location.pathname;
     if (hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)) {
@@ -644,11 +620,7 @@ export const RepositoryPage: React.FC = () => {
       textarea?.focus();
       textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
     });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [api, name, searchParams, sessionId, setSearchParams, setSessionId]);
+  }, [name, searchParams, sessionId, setSearchParams, setSessionId, setChatError]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -1166,6 +1138,7 @@ export const RepositoryPage: React.FC = () => {
       if (!name || !sessionId) return;
       console.info("[ChatHistory] Request started");
       try {
+        setChatError(null);
         const currentTimestamp = lastKnownTimestampRef.current;
         const startTimestamp = currentTimestamp
           ? currentTimestamp + 1
@@ -1192,9 +1165,14 @@ export const RepositoryPage: React.FC = () => {
           return;
         }
         console.error("Failed to load chat history", error);
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to load chat history";
+        setChatError(message);
       }
     },
-    [name, sessionId, setChat],
+    [name, sessionId, setChat, setChatError],
   );
 
   useEffect(() => {
@@ -1313,27 +1291,16 @@ export const RepositoryPage: React.FC = () => {
     setClearSessionModalOpen(false);
   };
 
-  const handleSessionSelect = async (session: ChatSession) => {
+  const handleSessionSelect = (session: ChatSession) => {
     if (!name) return;
+    if (session.id === sessionId) {
+      setSessionModalOpen(false);
+      return;
+    }
     setSessionModalOpen(false);
+    setChatError(null);
     setChat([]);
     setSessionId(session.id);
-    setChatLoading(true);
-    try {
-      const history = await api.getRepositoryAgentHistory(name, session.id);
-      const mapped = mapHistoryToMessages(history.messages || []);
-      setChat(mapped);
-      setChatError(null);
-    } catch (error) {
-      console.error("Failed to load session history", error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to load session history";
-      setChatError(message);
-    } finally {
-      setChatLoading(false);
-    }
   };
 
   const handleSaveSession = useCallback(() => {

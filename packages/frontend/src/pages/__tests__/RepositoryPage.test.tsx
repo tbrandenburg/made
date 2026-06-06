@@ -54,6 +54,7 @@ describe("RepositoryPage session selection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    localStorage.clear();
   });
 
   it("AC1: selects session from modal — exactly 1 API call (fails on unfixed code: 3 calls)", async () => {
@@ -105,11 +106,11 @@ describe("RepositoryPage session selection", () => {
 
     fireEvent.click(chooseBtn);
 
-    await screen.findByTitle("Session A");
+    const reopenedSessionBtn = await screen.findByTitle("Session A");
 
     vi.mocked(api.getRepositoryAgentHistory).mockClear();
 
-    fireEvent.click(sessionBtn);
+    fireEvent.click(reopenedSessionBtn);
 
     await waitFor(() => {
       expect(api.getRepositoryAgentHistory).not.toHaveBeenCalled();
