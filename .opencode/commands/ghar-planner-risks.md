@@ -36,6 +36,7 @@ Publish `<!-- plan-risks -->` with:
 5. Concrete test scenario mapped to each realistic risk
 6. Rollback or compatibility notes
 7. Dangerous assumptions and non-blocking unknowns
+8. Hidden overengineering or implementation-coupling risks in the proposed approach
 
 ## Boundaries
 

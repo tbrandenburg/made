@@ -36,6 +36,7 @@ Publish `<!-- plan-requirements -->` with:
 5. Existing behavior that must remain unchanged
 6. Non-goals and assumptions
 7. Open requirement questions that do not block a minimal safe implementation
+8. Exact observable success/failure signals for the must-have cases
 
 ## Boundaries
 

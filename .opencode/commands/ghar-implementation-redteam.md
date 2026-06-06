@@ -25,7 +25,7 @@ To publish an artifact, write the complete Markdown body to a temporary file. It
 
 ## Mission
 
-Require `spec-approved`, `tests-created`, and `implementation-done`. Fetch and check out the latest shared branch. Preserve independence: do not read `review-findings`. Attack realistic assumptions using boundaries, invalid inputs, compatibility, concurrency, security, and data integrity as applicable.
+Require `spec-approved`, `tests-created`, and `implementation-done`. Fetch and check out the latest shared branch. Preserve independence: do not read `review-findings`. Attack realistic assumptions using boundaries, invalid inputs, compatibility, concurrency, security, and data integrity as applicable. Also attack premature CI handoff and implementation-coupled tests that can be replaced by behavior-based checks.
 
 You may modify only tests, fixtures, snapshots, and test-only helpers. Add a minimal adversarial test only when it demonstrates a credible uncovered scenario. Run relevant tests. If files changed, commit and push only `HEAD:refs/heads/$BRANCH`; otherwise do not create an empty commit.
 

@@ -36,6 +36,7 @@ Publish `<!-- plan-architecture -->` with:
 5. Explicit interface or data-flow changes
 6. Test locations and fixture needs (without writing tests)
 7. Dependencies, migrations, compatibility, and concise tradeoffs
+8. Minimum viable fix path and sibling-code cross-checks that may indicate the bug is systemic
 
 ## Boundaries
 

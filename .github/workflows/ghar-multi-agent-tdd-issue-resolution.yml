@@ -98,9 +98,21 @@ jobs:
     permissions: {contents: read, issues: write, pull-requests: write}
     secrets: inherit
 
-  tdd-reviewer:
-    name: "3. TDD Reviewer"
+  spec-redteam:
+    name: "3. Spec Red Team"
     needs: spec-synthesizer
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: spec-redteam
+      command: ghar-spec-redteam
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 30
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
+  tdd-reviewer:
+    name: "4. TDD Reviewer"
+    needs: spec-redteam
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: tdd-reviewer
@@ -111,8 +123,8 @@ jobs:
     secrets: inherit
 
   spec-finalizer:
-    name: "4. Spec Finalizer"
-    needs: tdd-reviewer
+    name: "5. Spec Finalizer"
+    needs: [spec-redteam, tdd-reviewer]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: spec-finalizer
@@ -123,7 +135,7 @@ jobs:
     secrets: inherit
 
   test-agent:
-    name: "5. Test Agent"
+    name: "6. Test Agent"
     needs: spec-finalizer
     uses: ./.github/workflows/core-opencode-run.yml
     with:
@@ -135,7 +147,7 @@ jobs:
     secrets: inherit
 
   implementer:
-    name: "6. Implementer"
+    name: "7. Implementer"
     needs: test-agent
     uses: ./.github/workflows/core-opencode-run.yml
     with:
@@ -147,7 +159,7 @@ jobs:
     secrets: inherit
 
   reviewer:
-    name: "7A. Reviewer"
+    name: "8A. Reviewer"
     needs: implementer
     uses: ./.github/workflows/core-opencode-run.yml
     with:
@@ -159,7 +171,7 @@ jobs:
     secrets: inherit
 
   redteam:
-    name: "7B. Red Team"
+    name: "8B. Red Team"
     needs: implementer
     uses: ./.github/workflows/core-opencode-run.yml
     with:
@@ -171,7 +183,7 @@ jobs:
     secrets: inherit
 
   ci-agent:
-    name: "8. CI Evidence Agent"
+    name: "9. CI Evidence Agent"
     needs: [reviewer, redteam]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
@@ -183,7 +195,7 @@ jobs:
     secrets: inherit
 
   failure-classifier:
-    name: "9. Failure Classifier"
+    name: "10. Failure Classifier"
     needs: ci-agent
     if: ${{ always() && needs.ci-agent.result != 'cancelled' }}
     uses: ./.github/workflows/core-opencode-run.yml
@@ -200,7 +212,7 @@ jobs:
     secrets: inherit
 
   fixer-integrator:
-    name: "10. Fixer / Integrator"
+    name: "11. Fixer / Integrator"
     needs: failure-classifier
     uses: ./.github/workflows/core-opencode-run.yml
     with:
@@ -211,9 +223,59 @@ jobs:
     permissions: {actions: read, checks: read, contents: write, issues: write, pull-requests: write}
     secrets: inherit
 
-  pr-finalizer:
-    name: "11. PR Finalizer"
+  post-fix-ci-gate:
+    name: "12. Post-Fix CI Gate"
     needs: fixer-integrator
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_NUMBER: ${{ inputs.issue_number }}
+    steps:
+      - name: Wait for the latest branch checks to settle
+        run: |
+          set -euo pipefail
+          BRANCH="agent/issue-${ISSUE_NUMBER}-implementation"
+          SHA="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${BRANCH}" --jq '.object.sha')"
+          echo "Watching ${BRANCH} at ${SHA}"
+
+          attempt=0
+          while [ "$attempt" -lt 60 ]; do
+            attempt=$((attempt + 1))
+
+            check_runs="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/check-runs?per_page=100")"
+            status_json="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/status")"
+
+            failed_runs="$(printf '%s' "$check_runs" | jq '[.check_runs[] | select(.status == "completed" and .conclusion != "success")] | length')"
+            pending_runs="$(printf '%s' "$check_runs" | jq '[.check_runs[] | select(.status != "completed")] | length')"
+            status_state="$(printf '%s' "$status_json" | jq -r '.state')"
+
+            if [ "$failed_runs" -gt 0 ]; then
+              echo "Latest CI checks failed for ${SHA}" >&2
+              printf '%s' "$check_runs" | jq -r '.check_runs[] | select(.status == "completed" and .conclusion != "success") | "- \(.name): \(.conclusion)\n  \(.details_url // "")"' >&2
+              exit 1
+            fi
+
+            if [ "$pending_runs" -eq 0 ] && [ "$status_state" != "pending" ]; then
+              echo "Latest CI checks have settled for ${SHA}"
+              printf '%s' "$status_json" | jq -r '.statuses[]? | select(.state != "success") | "- \(.context): \(.state)\n  \(.target_url // "")"' >&2
+              exit 0
+            fi
+
+            sleep 30
+          done
+
+          echo "Latest CI checks did not reach a terminal state for ${SHA}" >&2
+          printf '%s' "$check_runs" | jq -r '.check_runs[] | select(.status != "completed" or .conclusion != "success") | "- \(.name): \(.status) / \(.conclusion // "")\n  \(.details_url // "")"' >&2
+          printf '%s' "$status_json" | jq -r '.statuses[]? | select(.state != "success") | "- \(.context): \(.state)\n  \(.target_url // "")"' >&2
+          exit 1
+
+  pr-finalizer:
+    name: "13. PR Finalizer"
+    needs: [fixer-integrator, post-fix-ci-gate]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: pr-finalizer

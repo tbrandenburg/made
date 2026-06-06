@@ -27,6 +27,8 @@ To publish an artifact, write the complete Markdown body to a temporary file. It
 
 Read the issue, codebase, and exactly these artifact comments: `plan-requirements`, `plan-architecture`, and `plan-risks`. Verify all three markers exist before proceeding. Resolve conflicts explicitly and choose the smallest safe, repo-native decision.
 
+Build a contradiction matrix before writing the spec. Where the planner artifacts disagree, say which criterion wins and why. Make every must-have criterion observable, testable, and tied to the smallest viable code change. If a criterion cannot be observed at runtime, rewrite it or demote it out of must-have scope.
+
 Publish `<!-- spec-final -->` with:
 
 1. `# Synthesized Implementation Spec`
@@ -38,6 +40,7 @@ Publish `<!-- spec-final -->` with:
 7. TDD plan mapping every must-have criterion to a test level
 8. Definition of done
 9. Conflict-resolution log and any residual risks
+10. Contradiction matrix and minimum-viable-fix summary
 
 ## Boundaries
 
