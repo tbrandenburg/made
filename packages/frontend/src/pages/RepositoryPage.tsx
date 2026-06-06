@@ -416,6 +416,10 @@ export const RepositoryPage: React.FC = () => {
   );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
   const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);
+  const sessionIdRef = useRef(sessionId);
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
   const [savedSessionIds, setSavedSessionIds] = usePersistentStringList(
     savedSessionStorageKey,
   );
@@ -1123,6 +1127,7 @@ export const RepositoryPage: React.FC = () => {
         name,
         sessionId || undefined,
       );
+      if (sessionIdRef.current !== sessionId) return false;
       setChatLoading(status.processing);
       setChatError(
         status.processing
@@ -1235,6 +1240,7 @@ export const RepositoryPage: React.FC = () => {
         normalizedSelectedAgent === DEFAULT_AGENT_VALUE
           ? undefined
           : normalizedSelectedAgent.trim();
+      const capturedSessionId = sessionIdRef.current;
       const reply = await api.sendAgentMessage(
         name,
         message,
@@ -1244,7 +1250,7 @@ export const RepositoryPage: React.FC = () => {
       );
 
       // No immediate message processing - polling handles everything
-      if (reply.sessionId) {
+      if (reply.sessionId && capturedSessionId === sessionIdRef.current) {
         setSessionId(reply.sessionId);
       }
 
