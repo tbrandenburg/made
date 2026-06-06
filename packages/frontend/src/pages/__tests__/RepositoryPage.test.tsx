@@ -255,4 +255,88 @@ describe("RepositoryPage session selection", () => {
     // AC490-3: New session content rendered after fetch resolves
     expect(await screen.findByText("Hello from B")).toBeInTheDocument();
   });
+
+  it("adversarial: deferred promise rejection on session switch shows error and preserves empty state", async () => {
+    const sessionAMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [sessionAMsg] };
+    let rejectB: (reason: Error) => void;
+    const promise = new Promise<ChatHistoryResponse>((_, reject) => {
+      rejectB = reject;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyA)
+      .mockResolvedValueOnce(promise);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
+    expect(document.querySelector(".empty")).toBeInTheDocument();
+
+    rejectB!(new Error("Fetch failed"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Fetch failed")).toBeInTheDocument();
+    });
+
+    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
+  });
+
+  it("adversarial: empty history response on session switch preserves empty state without error", async () => {
+    const sessionAMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [sessionAMsg] };
+    let resolveB: (value: ChatHistoryResponse) => void;
+    const promise = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyA)
+      .mockResolvedValueOnce(promise);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
+    expect(document.querySelector(".empty")).toBeInTheDocument();
+
+    resolveB!({ sessionId: "session-b", messages: [] });
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
+    expect(document.querySelectorAll(".alert").length).toBe(0);
+  });
 });
