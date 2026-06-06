@@ -379,4 +379,112 @@ describe("RepositoryPage session selection", () => {
       expect(screen.queryByText("Cancel")).not.toBeInTheDocument();
     });
   });
+
+  it("adversarial: in-flight sendAgentMessage does not hijack activeTab after session switch", async () => {
+    let resolveSend!: (value: AgentReply) => void;
+    const sendPromise = new Promise<AgentReply>((resolve) => {
+      resolveSend = resolve;
+    });
+    vi.mocked(api.sendAgentMessage).mockReturnValue(sendPromise);
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({ processing: false });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.change(
+      screen.getByPlaceholderText("Describe the change or ask the agent..."),
+      { target: { value: "hello" } },
+    );
+    fireEvent.click(screen.getByText("Send"));
+    await waitFor(() => {
+      expect(screen.getByText("Cancel")).toBeInTheDocument();
+    });
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+    await waitFor(() => {
+      expect(screen.getByText("Send")).toBeInTheDocument();
+    });
+
+    const fileBrowserBtn = screen.getByRole("button", { name: "File Browser" });
+    fireEvent.click(fileBrowserBtn);
+    const activeTabBefore = document.querySelector(".tabview-tab.active");
+    expect(activeTabBefore?.textContent).toBe("File Browser");
+
+    resolveSend({
+      messageId: "msg-1",
+      sent: new Date().toISOString(),
+      response: "ok",
+      sessionId: "session-a",
+      processing: false,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const activeTabAfter = document.querySelector(".tabview-tab.active");
+    expect(activeTabAfter?.textContent).toBe("File Browser");
+  });
+
+  it("adversarial: sendAgentMessage rejection after session switch does not show wrong-session error", async () => {
+    let rejectSend!: (reason: Error) => void;
+    const sendPromise = new Promise<AgentReply>((_, reject) => {
+      rejectSend = reject;
+    });
+    vi.mocked(api.sendAgentMessage).mockReturnValue(sendPromise);
+
+    const sessionBMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyB = { sessionId: "session-b", messages: [sessionBMsg] };
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(emptyHistory)
+      .mockResolvedValue(historyB);
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({ processing: false });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.change(
+      screen.getByPlaceholderText("Describe the change or ask the agent..."),
+      { target: { value: "hello" } },
+    );
+    fireEvent.click(screen.getByText("Send"));
+    await waitFor(() => {
+      expect(screen.getByText("Cancel")).toBeInTheDocument();
+    });
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await screen.findByText("Hello from B");
+
+    rejectSend(new Error("Network failure"));
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(screen.queryByText("Failed to reach agent")).not.toBeInTheDocument();
+    expect(screen.getByText("Hello from B")).toBeInTheDocument();
+  });
 });
