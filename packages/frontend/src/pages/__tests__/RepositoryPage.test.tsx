@@ -229,7 +229,7 @@ describe("RepositoryPage session selection", () => {
     });
     vi.mocked(api.getRepositoryAgentHistory)
       .mockResolvedValueOnce(historyA)
-      .mockResolvedValueOnce(promise);
+      .mockReturnValueOnce(promise);
 
     renderPage();
 
@@ -274,7 +274,7 @@ describe("RepositoryPage session selection", () => {
     });
     vi.mocked(api.getRepositoryAgentHistory)
       .mockResolvedValueOnce(historyA)
-      .mockResolvedValueOnce(promise);
+      .mockReturnValueOnce(promise);
 
     renderPage();
 
@@ -317,7 +317,7 @@ describe("RepositoryPage session selection", () => {
     });
     vi.mocked(api.getRepositoryAgentHistory)
       .mockResolvedValueOnce(historyA)
-      .mockResolvedValueOnce(promise);
+      .mockReturnValueOnce(promise);
 
     renderPage();
 
