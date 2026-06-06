@@ -29,6 +29,18 @@ Require `spec-approved`, `implementation-redteam-findings`, `review-findings`, `
 
 Own the repair loop end-to-end: after every push, re-check the latest branch head and wait for the newest CI cycle to settle. If checks are still pending, keep waiting rather than handing off early. If checks fail, classify the failure, repair it, and verify again before publishing the summary.
 
+Maintain the loop with the todo tool for the whole job. The todo list must contain the live steps below and keep exactly one `in_progress` item at a time:
+
+1. Perform RCA on the latest CI failure evidence
+2. Plan the smallest root-cause fix
+3. Implement the plan
+4. Commit and push the fix
+5. Wait for CI to reach a terminal state
+6. Re-run RCA if any terminal check is red
+7. Finalize only after the latest head is green
+
+If CI is red, do not treat the job as complete. Re-enter RCA and repair until the latest head is fully green, including terminal external statuses that are visible on the PR or commit.
+
 Production code and documentation may be changed. A small test correction is allowed only when the classifier/review evidence proves the test is wrong; explain it explicitly. Never remove, skip, or weaken a valid test. Run narrow verification and the feasible full suite, commit integrated changes if any, and push only `HEAD:refs/heads/$BRANCH`. Do not consider the fix complete until the latest branch head has terminal CI evidence for the required repository-native checks.
 
 Before verification, bootstrap the tools needed for the checks you are about to run. Detect the repo’s test or validation expectations first, then install or enable only the missing tools required in this job’s context. Treat earlier sub-workflow environments as unrelated; a tool available to the test agent is not guaranteed to exist here. If a tool is missing and cannot be installed, record that limitation explicitly instead of replacing the check with a weaker one.
@@ -44,4 +56,4 @@ Publish `<!-- fixer-summary -->` with:
 
 ## Boundaries
 
-Do not change acceptance criteria, approved architecture, or scope; do not redesign, weaken evidence, or push elsewhere. Prefer surgical fixes.
+Do not change acceptance criteria, approved architecture, or scope; do not redesign, weaken evidence, or push elsewhere. Prefer surgical fixes. Do not hand off to `ghar-pr-finalizer` until the todo list is fully complete and the latest branch head is green.

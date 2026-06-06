@@ -284,8 +284,15 @@ jobs:
             fi
 
             if [ "$pending_runs" -eq 0 ] && [ "$status_state" != "pending" ]; then
+              terminal_statuses="$(printf '%s' "$status_json" | jq '[.statuses[]? | select(.state != "success")] | length')"
+
+              if [ "$terminal_statuses" -gt 0 ]; then
+                echo "Latest CI checks failed for ${SHA}" >&2
+                printf '%s' "$status_json" | jq -r '.statuses[]? | select(.state != "success") | "- \(.context): \(.state)\n  \(.target_url // "")"' >&2
+                exit 1
+              fi
+
               echo "Latest CI checks have settled for ${SHA}"
-              printf '%s' "$status_json" | jq -r '.statuses[]? | select(.state != "success") | "- \(.context): \(.state)\n  \(.target_url // "")"' >&2
               exit 0
             fi
 

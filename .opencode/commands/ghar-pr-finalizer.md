@@ -29,6 +29,8 @@ Require all artifacts: `spec-approved`, `tests-created`, `implementation-done`, 
 
 Treat any CI state older than the latest fixer push as stale. Do not finalize if the latest branch head has pending, failing, missing, or unobserved required repository-native checks. Require the post-fix CI gate to have observed the latest terminal CI state before considering the PR ready, and report any terminal external status failures separately.
 
+Refuse finalization if any terminal red status remains on the latest head, including external deployment or preview statuses shown by GitHub. The PR finalizer is a gate, not a waiver: if the head is not fully green, send the work back to the fixer loop and leave the PR unfinalized.
+
 Create exactly one pull request from `$BRANCH` to the repository default branch, or update the existing open/closed-unmerged pull request for that head. Never create a duplicate. The PR body must link `Closes #$ISSUE_NUMBER` and summarize scope, implementation, TDD commit ordering, tests/checks, review/red-team dispositions, frontier gaps, and unresolved risks. Do not enable auto-merge or merge the PR.
 
 Publish `<!-- pr-final -->` with:
@@ -43,4 +45,4 @@ Publish `<!-- pr-final -->` with:
 
 ## Boundaries
 
-Do not modify files/code/tests/spec, create commits, claim unverified CI success, hide risks, approve, or merge. The human reviewer is the first required interaction and owns the final decision.
+Do not modify files/code/tests/spec, create commits, claim unverified CI success, hide risks, approve, or merge. The human reviewer is the first required interaction and owns the final decision. Never publish `pr-final` while the latest head is red.
