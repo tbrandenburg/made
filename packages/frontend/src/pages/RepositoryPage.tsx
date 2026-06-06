@@ -620,7 +620,14 @@ export const RepositoryPage: React.FC = () => {
       textarea?.focus();
       textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
     });
-  }, [name, searchParams, sessionId, setSearchParams, setSessionId, setChatError]);
+  }, [
+    name,
+    searchParams,
+    sessionId,
+    setSearchParams,
+    setSessionId,
+    setChatError,
+  ]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -1298,6 +1305,7 @@ export const RepositoryPage: React.FC = () => {
       return;
     }
     setSessionModalOpen(false);
+    setChatLoading(false);
     setChatError(null);
     setChat([]);
     setSessionId(session.id);
