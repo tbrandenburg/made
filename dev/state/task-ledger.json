@@ -51,5 +51,12 @@
       "npm --workspace packages/frontend run build -> tsc && vite build succeeded"
     ],
     "last_verified": "2026-06-06T18:07:00Z"
+  },
+  "RESOLVE_PR_494_MERGE_CONFLICTS": {
+    "status": "in_progress",
+    "evidence": [
+      "gh pr view 494 --json mergeable,headRefName,baseRefName -> {\"mergeable\":\"CONFLICTING\",\"headRefName\":\"agent/issue-490-implementation\",\"baseRefName\":\"main\"}"
+    ],
+    "last_verified": "2026-06-06T18:07:00Z"
   }
 }
