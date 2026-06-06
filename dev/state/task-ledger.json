@@ -1,0 +1,46 @@
+{
+  "ANALYZE_PR_494": {
+    "status": "done",
+    "evidence": [
+      "gh pr view 494 --json title,body,headRefName,baseRefName,mergeable,state,url -> {\"baseRefName\":\"main\",\"headRefName\":\"agent/issue-490-implementation\",\"state\":\"OPEN\",\"title\":\"Add behavior test for stale-content and loading during session switch\"}",
+      "gh issue view 490 --json title,body,state,url -> {\"state\":\"OPEN\",\"title\":\"Add behavior test for stale-content and loading during session switch\"}",
+      "gh pr diff 494 --patch -> commit 570e50e adds setChatLoading(false) and PR tests cover stale content/loading transition",
+      "ls dev -> state/"
+    ],
+    "last_verified": "2026-06-06T16:46:00Z"
+  },
+  "PLAN_FIX": {
+    "status": "done",
+    "evidence": [
+      "RepositoryPage.handleSessionSelect clears session modal, resets loading/error/chat state, and sets the selected session",
+      "Planned fix: add setChatLoading(false) before clearing chat state and add a regression test for the stale-content transition"
+    ],
+    "last_verified": "2026-06-06T16:46:00Z"
+  },
+  "IMPLEMENT_FIX": {
+    "status": "done",
+    "evidence": [
+      "make qa-quick -> 415 passed, 1 skipped, 1 warning in 11.06s",
+      "packages/frontend/src/pages/RepositoryPage.tsx now calls setChatLoading(false) in handleSessionSelect",
+      "packages/frontend/src/pages/__tests__/RepositoryPage.test.tsx adds AC490-1/2/3 regression coverage"
+    ],
+    "last_verified": "2026-06-06T16:46:00Z"
+  },
+  "COMMIT_PUSH": {
+    "status": "in_progress",
+    "evidence": [
+      "git status --short -> M packages/frontend/src/pages/RepositoryPage.tsx; M packages/frontend/src/pages/__tests__/RepositoryPage.test.tsx; M dev/state/task-ledger.json",
+      "push target will be recorded after commit in the next step"
+    ],
+    "last_verified": "2026-06-06T16:46:00Z"
+  },
+  "OBSERVE_CI": {
+    "status": "blocked",
+    "evidence": [
+      "gh pr checks 494 -> Vercel fail, Vercel Preview Comments pass",
+      "npx vercel inspect dpl_HQP3SgkPJqEvXgt9Mnucx5NbMTa2 --logs -> No existing credentials found",
+      "playwright on deployment URL redirected to vercel.com/login"
+    ],
+    "last_verified": "2026-06-06T16:46:00Z"
+  }
+}

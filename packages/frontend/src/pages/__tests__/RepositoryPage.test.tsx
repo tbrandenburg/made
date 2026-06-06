@@ -1,11 +1,17 @@
 // @vitest-environment jsdom
 
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RepositoryPage } from "../RepositoryPage";
-import { api, ChatSession } from "../../hooks/useApi";
+import {
+  api,
+  ChatHistoryMessage,
+  ChatHistoryResponse,
+  ChatSession,
+} from "../../hooks/useApi";
 
 class ResizeObserverStub {
   observe() {}
@@ -13,6 +19,32 @@ class ResizeObserverStub {
   disconnect() {}
 }
 vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+
+vi.mock("react-virtuoso", async () => {
+  const ReactModule = await vi.importActual<typeof import("react")>("react");
+  return {
+    Virtuoso: ReactModule.forwardRef<
+      { scrollToIndex: (opts: unknown) => void },
+      {
+        data: unknown[];
+        itemContent: (index: number, item: unknown) => ReactNode;
+      }
+    >(function MockVirtuoso({ data, itemContent }, ref) {
+      ReactModule.useImperativeHandle(ref, () => ({ scrollToIndex: vi.fn() }));
+      return ReactModule.createElement(
+        "div",
+        { "data-testid": "virtuoso" },
+        data.map((item, index) =>
+          ReactModule.createElement(
+            ReactModule.Fragment,
+            { key: index },
+            itemContent(index, item),
+          ),
+        ),
+      );
+    }),
+  };
+});
 
 vi.mock("../../hooks/useApi", async () => {
   const actual =
@@ -171,5 +203,56 @@ describe("RepositoryPage session selection", () => {
 
     const sessionBtn = await screen.findByTitle("Empty ID Session");
     expect(() => fireEvent.click(sessionBtn)).not.toThrow();
+  });
+
+  it("clears stale content, shows empty transient state, then renders new session messages on switch (AC490-1/2/3)", async () => {
+    const sessionAMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const sessionBMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyA: ChatHistoryResponse = {
+      sessionId: "session-a",
+      messages: [sessionAMsg],
+    };
+    const historyB: ChatHistoryResponse = {
+      sessionId: "session-b",
+      messages: [sessionBMsg],
+    };
+    let resolveB: (value: ChatHistoryResponse) => void = () => {};
+    const pendingB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyA)
+      .mockResolvedValueOnce(pendingB);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
+    expect(document.querySelector(".empty")).toBeInTheDocument();
+
+    resolveB(historyB);
+
+    expect(await screen.findByText("Hello from B")).toBeInTheDocument();
   });
 });

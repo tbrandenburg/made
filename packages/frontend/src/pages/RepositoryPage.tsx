@@ -1305,6 +1305,7 @@ export const RepositoryPage: React.FC = () => {
       return;
     }
     setSessionModalOpen(false);
+    setChatLoading(false);
     setChatError(null);
     setChat([]);
     setSessionId(session.id);
