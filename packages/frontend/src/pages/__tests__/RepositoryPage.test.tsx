@@ -16,7 +16,9 @@ vi.stubGlobal("ResizeObserver", ResizeObserverStub);
 
 vi.mock("../../hooks/useApi", async () => {
   const actual =
-    await vi.importActual<typeof import("../../hooks/useApi")>("../../hooks/useApi");
+    await vi.importActual<typeof import("../../hooks/useApi")>(
+      "../../hooks/useApi",
+    );
   return {
     ...actual,
     api: {
