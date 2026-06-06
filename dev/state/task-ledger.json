@@ -36,12 +36,30 @@
     "last_verified": "2026-06-06T16:49:00Z"
   },
   "OBSERVE_CI": {
-    "status": "blocked",
+    "status": "done",
     "evidence": [
-      "gh pr checks 494 -> Vercel fail, Vercel Preview Comments pass",
+      "gh pr checks 494 -> Vercel pass, Vercel Preview Comments pass",
       "npx vercel inspect dpl_HQP3SgkPJqEvXgt9Mnucx5NbMTa2 --logs -> No existing credentials found",
       "playwright on deployment URL redirected to vercel.com/login"
     ],
-    "last_verified": "2026-06-06T16:46:00Z"
+    "last_verified": "2026-06-06T18:07:00Z"
+  },
+  "FIX_FRONTEND_BUILD_TYPE_ERROR": {
+    "status": "done",
+    "evidence": [
+      "Vercel logs -> src/pages/__tests__/RepositoryPage.test.tsx TS2345 on Promise<ChatHistoryResponse> passed to mockResolvedValueOnce",
+      "npm --workspace packages/frontend run build -> tsc && vite build succeeded"
+    ],
+    "last_verified": "2026-06-06T18:07:00Z"
+  },
+  "RESOLVE_PR_494_MERGE_CONFLICTS": {
+    "status": "done",
+    "evidence": [
+      "gh pr view 494 --json mergeable,headRefName,baseRefName -> {\"mergeable\":\"CONFLICTING\",\"headRefName\":\"agent/issue-490-implementation\",\"baseRefName\":\"main\"}",
+      "git merge origin/main -> conflicted on dev/state/task-ledger.json and packages/frontend/src/pages/__tests__/RepositoryPage.test.tsx",
+      "npm --workspace packages/frontend run build -> tsc && vite build succeeded after conflict resolution",
+      "gh pr checks 494 -> Vercel pass, Vercel Preview Comments pass"
+    ],
+    "last_verified": "2026-06-06T18:07:00Z"
   }
 }
