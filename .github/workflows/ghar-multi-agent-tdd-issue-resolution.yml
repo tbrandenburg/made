@@ -158,9 +158,21 @@ jobs:
     permissions: {contents: write, issues: write, pull-requests: write}
     secrets: inherit
 
-  reviewer:
-    name: "8A. Reviewer"
+  implementation-redteam:
+    name: "8. Implementation Red Team"
     needs: implementer
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: implementation-redteam
+      command: ghar-implementation-redteam
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 45
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
+  reviewer:
+    name: "9A. Reviewer"
+    needs: implementation-redteam
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: reviewer
@@ -171,8 +183,8 @@ jobs:
     secrets: inherit
 
   redteam:
-    name: "8B. Red Team"
-    needs: implementer
+    name: "9B. Red Team"
+    needs: implementation-redteam
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: redteam
@@ -183,7 +195,7 @@ jobs:
     secrets: inherit
 
   ci-agent:
-    name: "9. CI Evidence Agent"
+    name: "10. CI Evidence Agent"
     needs: [reviewer, redteam]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
@@ -195,7 +207,7 @@ jobs:
     secrets: inherit
 
   failure-classifier:
-    name: "10. Failure Classifier"
+    name: "11. Failure Classifier"
     needs: ci-agent
     if: ${{ always() && needs.ci-agent.result != 'cancelled' }}
     uses: ./.github/workflows/core-opencode-run.yml
@@ -212,7 +224,7 @@ jobs:
     secrets: inherit
 
   fixer-integrator:
-    name: "11. Fixer / Integrator"
+    name: "12. Fixer / Integrator"
     needs: failure-classifier
     uses: ./.github/workflows/core-opencode-run.yml
     with:
@@ -224,7 +236,7 @@ jobs:
     secrets: inherit
 
   post-fix-ci-gate:
-    name: "12. Post-Fix CI Gate"
+    name: "13. Post-Fix CI Gate"
     needs: fixer-integrator
     runs-on: ubuntu-latest
     permissions:
@@ -274,7 +286,7 @@ jobs:
           exit 1
 
   pr-finalizer:
-    name: "13. PR Finalizer"
+    name: "14. PR Finalizer"
     needs: [fixer-integrator, post-fix-ci-gate]
     uses: ./.github/workflows/core-opencode-run.yml
     with:

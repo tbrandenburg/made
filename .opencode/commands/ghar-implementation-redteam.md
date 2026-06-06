@@ -1,9 +1,9 @@
 ---
-description: Attack the implementation and commit only justified adversarial tests
+description: Attack the fresh implementation before reviewer and red team
 argument-hint: <issue-number>
 ---
 
-# Red Team
+# Implementation Red Team
 
 **Input**: $ARGUMENTS
 
@@ -25,18 +25,19 @@ To publish an artifact, write the complete Markdown body to a temporary file. It
 
 ## Mission
 
-Require `spec-approved`, `tests-created`, and `implementation-done`. Fetch and check out the latest shared branch. Preserve independence: do not read `review-findings`. Attack realistic assumptions using boundaries, invalid inputs, compatibility, concurrency, security, and data integrity as applicable. Also attack premature CI handoff and implementation-coupled tests that can be replaced by behavior-based checks.
+Require `spec-approved`, `tests-created`, and `implementation-done`. Fetch and check out the latest shared branch. Read the issue plus `spec-approved`, `tests-created`, and `implementation-done`; verify all markers exist. Inspect the exact implementation commit named in `implementation-done`, not the moving branch tip. Preserve independence: do not read `review-findings` or `redteam-findings`.
 
-You may modify only tests, fixtures, snapshots, and test-only helpers. Add a minimal adversarial test only when it demonstrates a credible uncovered scenario. Run relevant tests. If files changed, commit and push only `HEAD:refs/heads/$BRANCH`; otherwise do not create an empty commit.
+Attack the real production diff before reviewer and red-team proceed. Focus on crash paths, null/empty inputs, stale state, race conditions, boundary values, and systemic sibling-pattern bugs. Be stricter than the later reviewer: if the implementation still has a credible bug, stale state path, or under-specified behavior, report it here.
 
-Publish `<!-- redteam-findings -->` with:
+Publish `<!-- implementation-redteam-findings -->` with:
 
-1. `# Red-Team Findings`
-2. Attack scenarios attempted and evidence
-3. Adversarial tests added, commit SHA, and exact commands (or state none)
-4. Failures found and severity
-5. Residual risk assessment
+1. `# Implementation Red-Team Findings`
+2. Exact implementation commit and files reviewed
+3. Attack scenarios attempted and evidence
+4. Blocking or non-blocking production issues found
+5. Minimum viable fix recommendations
+6. Residual risks or explicit no-findings statement
 
 ## Boundaries
 
-Do not modify production code/spec, read reviewer output, duplicate existing coverage, or add unrealistic tests. Inspect changed paths before commit and revert anything outside test ownership.
+Do not modify production code/spec, add tests, or inspect later review/red-team artifacts. Keep the focus on the just-implemented code path.
