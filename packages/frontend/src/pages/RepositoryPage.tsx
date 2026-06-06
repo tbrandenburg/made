@@ -1231,6 +1231,7 @@ export const RepositoryPage: React.FC = () => {
     setChat((prev) => [...prev, userMessage]);
     setPendingPrompt("");
     setChatLoading(true);
+    const capturedSessionId = sessionIdRef.current;
     try {
       const model =
         normalizedSelectedModel === "default"
@@ -1240,7 +1241,6 @@ export const RepositoryPage: React.FC = () => {
         normalizedSelectedAgent === DEFAULT_AGENT_VALUE
           ? undefined
           : normalizedSelectedAgent.trim();
-      const capturedSessionId = sessionIdRef.current;
       const reply = await api.sendAgentMessage(
         name,
         message,
@@ -1252,21 +1252,23 @@ export const RepositoryPage: React.FC = () => {
       // No immediate message processing - polling handles everything
       if (reply.sessionId && capturedSessionId === sessionIdRef.current) {
         setSessionId(reply.sessionId);
+        setActiveTab("agent");
       }
 
       setChatError(null);
-      setActiveTab("agent");
 
       // Keep chatLoading=true if processing (triggers existing polling)
       if (!reply.processing) setChatLoading(false);
     } catch (error) {
       const messageText = error instanceof Error ? error.message : "";
       const agentBusy = messageText.toLowerCase().includes("processing");
-      setChatError(
-        agentBusy
-          ? "Agent is still processing the previous message."
-          : "Failed to reach agent",
-      );
+      if (capturedSessionId === sessionIdRef.current) {
+        setChatError(
+          agentBusy
+            ? "Agent is still processing the previous message."
+            : "Failed to reach agent",
+        );
+      }
       console.error("Failed to send agent message", error);
       const processing = await refreshAgentStatus();
       if (!processing) {
