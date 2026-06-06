@@ -8,6 +8,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RepositoryPage } from "../RepositoryPage";
 import {
   api,
+  AgentReply,
   ChatHistoryMessage,
   ChatHistoryResponse,
   ChatSession,
@@ -57,6 +58,8 @@ vi.mock("../../hooks/useApi", async () => {
       ...actual.api,
       getRepositoryAgentSessions: vi.fn(),
       getRepositoryAgentHistory: vi.fn(),
+      sendAgentMessage: vi.fn(),
+      getRepositoryAgentStatus: vi.fn().mockResolvedValue({ processing: false }),
     },
   };
 });
@@ -333,5 +336,47 @@ describe("RepositoryPage session selection", () => {
     expect(document.querySelector(".empty")).toBeInTheDocument();
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
     expect(document.querySelectorAll(".alert").length).toBe(0);
+  });
+
+  it("resets chatLoading when switching sessions while agent is processing (AC493-1)", async () => {
+    const sendPromise = new Promise<AgentReply>(() => {});
+    vi.mocked(api.sendAgentMessage).mockReturnValue(sendPromise);
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+
+    vi.mocked(api.getRepositoryAgentStatus).mockReturnValue(
+      new Promise(() => {}),
+    );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.change(
+      screen.getByPlaceholderText("Describe the change or ask the agent..."),
+      { target: { value: "hello" } },
+    );
+
+    fireEvent.click(screen.getByText("Send"));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Send")).not.toBeInTheDocument();
+      expect(screen.getByText("Cancel")).toBeInTheDocument();
+    });
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Send")).toBeInTheDocument();
+      expect(screen.queryByText("Cancel")).not.toBeInTheDocument();
+    });
   });
 });
