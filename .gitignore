@@ -141,6 +141,7 @@ vite.config.ts.timestamp-*
 # User
 .serena
 .vercel
+.playwright-mcp/
 
 # Python
 __pycache__/
