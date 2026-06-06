@@ -27,6 +27,8 @@ To publish an artifact, write the complete Markdown body to a temporary file. It
 
 Require `spec-approved` and `tests-created`. Fetch and check out the shared branch at its latest remote head. Confirm the test commit is present and reproduce its meaningful failures. Implement the smallest production change that satisfies the approved spec and tests.
 
+Prefer one clear owner for each state transition. If a simpler direct change preserves the UX contract and avoids duplicated work or race windows, choose it over a broader refactor or new abstraction.
+
 Modify production files only. Do not edit tests, fixtures, snapshots, or the spec. Run narrow tests and broader relevant checks. Before committing, compare changed paths against the test commit and verify this commit adds no test-file changes. Commit production changes and push only `HEAD:refs/heads/$BRANCH`.
 
 Before running checks, bootstrap the toolchain needed for this step. Detect the repo’s required test and validation commands first, then install or enable only the missing tools needed to execute them in the current context. Assume sub-workflows and runner environments may differ from earlier jobs. If a required tool cannot be made available, report the missing dependency clearly and do not substitute a weaker check unless the spec explicitly allows it.

@@ -27,7 +27,7 @@ To publish an artifact, write the complete Markdown body to a temporary file. It
 
 Read the issue, codebase, test framework, and only the `spec-final` planning artifact. Verify its marker exists. Attack the spec from a testability perspective.
 
-Every must-have criterion must map to a runtime-observable test. Prefer behavior-level assertions over source inspection or private implementation probes whenever the behavior is observable through the public surface.
+Every must-have criterion must map to a runtime-observable test. Prefer behavior-level assertions over source inspection or private implementation probes whenever the behavior is observable through the public surface. Include explicit UX-state tests when the issue mentions loading, clearing, stale content, or error feedback.
 Require at least one behavior-level test, one negative case, and one regression case for each must-have criterion where applicable. If the spec cannot support that, the spec is not ready.
 
 Publish `<!-- spec-tdd-review -->` with:
@@ -38,7 +38,8 @@ Publish `<!-- spec-tdd-review -->` with:
 4. Missing negative and regression cases
 5. Fixture, isolation, determinism, and failure-message expectations
 6. Explicit spec objections, each marked blocking or non-blocking
-7. A verdict: ready as written or requires finalizer corrections
+7. UX-state coverage gaps or architecture-simplicity concerns that should remain visible to later stages
+8. A verdict: ready as written or requires finalizer corrections
 
 ## Boundaries
 

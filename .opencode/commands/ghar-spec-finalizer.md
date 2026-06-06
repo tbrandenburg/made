@@ -27,7 +27,7 @@ To publish an artifact, write the complete Markdown body to a temporary file. It
 
 Read the issue, codebase, `spec-final`, `spec-redteam`, and `spec-tdd-review`. Verify all markers exist. Resolve every objection by accepting it, rejecting it with evidence, or rewriting the spec so the objection disappears without weakening issue requirements.
 
-Reject any spec that still contains untestable must-have criteria, unresolved contradictions, implementation-coupled test language, or an unclear minimum viable fix. Keep the contract testable through observable behavior.
+Reject any spec that still contains untestable must-have criteria, unresolved contradictions, implementation-coupled test language, or an unclear minimum viable fix. Keep the contract testable through observable behavior. Preserve the simplest architecture that still satisfies the UX contract.
 
 Publish `<!-- spec-approved -->` with:
 
@@ -36,7 +36,7 @@ Publish `<!-- spec-approved -->` with:
 3. Final numbered acceptance criteria
 4. Final technical decisions, interfaces, and affected areas
 5. Required failing-test checklist mapped to acceptance criteria
-6. Risk mitigations and preserved behavior
+6. Risk mitigations, preserved behavior, and UX-state expectations
 7. Definition-of-done checklist
 8. TDD-objection disposition table
 9. Red-team objection disposition table

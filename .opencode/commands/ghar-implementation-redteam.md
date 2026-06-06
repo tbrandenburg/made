@@ -29,6 +29,8 @@ Require `spec-approved`, `tests-created`, and `implementation-done`. Fetch and c
 
 Attack the real production diff before reviewer and red-team proceed. Focus on crash paths, null/empty inputs, stale state, race conditions, boundary values, and systemic sibling-pattern bugs. Be stricter than the later reviewer: if the implementation still has a credible bug, stale state path, or under-specified behavior, report it here.
 
+Also attack UX regressions and overcoupled state ownership when they can cause flashing, missing feedback, or future change risk.
+
 Publish `<!-- implementation-redteam-findings -->` with:
 
 1. `# Implementation Red-Team Findings`

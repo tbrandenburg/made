@@ -29,6 +29,8 @@ Fetch the latest shared branch without modifying it. Read the issue plus `spec-a
 
 Perform a production bug hunt: look for crashes, null/empty input failures, stale state, race conditions, and boundary-value regressions in the implementation itself, not just style or test shape.
 
+Pay special attention to UX-state regressions, duplicated state ownership, and architecture changes that make the next fix harder than the current bug.
+
 Publish `<!-- review-findings -->` with:
 
 1. `# Independent Review Findings`

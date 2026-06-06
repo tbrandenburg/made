@@ -27,13 +27,15 @@ To publish an artifact, write the complete Markdown body to a temporary file. It
 
 Read the issue body, non-agent discussion, and relevant code on the shared branch. Make an independent requirements-first pass. Do not read comments whose first line is a GHAR artifact marker, including other planner output.
 
+Treat UX as part of the requirement, not a follow-up: name the user-visible transition, loading, error, and stale-state behavior that must be preserved. Also capture any architecture invariants that matter for future change cost, but keep the requirements artifact behavior-first and minimal.
+
 Publish `<!-- plan-requirements -->` with:
 
 1. `# Requirements Plan`
 2. User stories and business intent
 3. Atomic must-have acceptance criteria in observable language
 4. Nice-to-have behavior clearly separated from must-haves
-5. Existing behavior that must remain unchanged
+5. Existing behavior that must remain unchanged, including UX transitions and loading/error states
 6. Non-goals and assumptions
 7. Open requirement questions that do not block a minimal safe implementation
 8. Exact observable success/failure signals for the must-have cases

@@ -194,6 +194,18 @@ jobs:
     permissions: {contents: write, issues: write, pull-requests: write}
     secrets: inherit
 
+  frontier-gap-review:
+    name: "9C. Frontier Gap Review"
+    needs: [reviewer, redteam]
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: frontier-gap-review
+      command: ghar-frontier-gap-review
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 45
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
   ci-agent:
     name: "10. CI Evidence Agent"
     needs: [reviewer, redteam]
@@ -287,7 +299,7 @@ jobs:
 
   pr-finalizer:
     name: "14. PR Finalizer"
-    needs: [fixer-integrator, post-fix-ci-gate]
+    needs: [fixer-integrator, post-fix-ci-gate, frontier-gap-review]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: pr-finalizer

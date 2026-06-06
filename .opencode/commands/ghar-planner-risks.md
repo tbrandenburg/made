@@ -27,6 +27,8 @@ To publish an artifact, write the complete Markdown body to a temporary file. It
 
 Read only the issue body/non-agent discussion and inspect the shared branch. Make an independent failure-first pass. Do not read any GHAR artifact comments or implementation diff.
 
+Bias toward user-visible regressions, stale or flashing content, race conditions, and accidental overengineering. If the proposed fix is simpler than the bug, say so; if it risks leaving the UX incomplete, say so.
+
 Publish `<!-- plan-risks -->` with:
 
 1. `# Risk Plan`
@@ -36,7 +38,7 @@ Publish `<!-- plan-risks -->` with:
 5. Concrete test scenario mapped to each realistic risk
 6. Rollback or compatibility notes
 7. Dangerous assumptions and non-blocking unknowns
-8. Hidden overengineering or implementation-coupling risks in the proposed approach
+8. Hidden overengineering, underengineering, UX, and implementation-coupling risks in the proposed approach
 
 ## Boundaries
 

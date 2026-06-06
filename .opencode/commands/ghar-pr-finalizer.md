@@ -25,11 +25,11 @@ To publish an artifact, write the complete Markdown body to a temporary file. It
 
 ## Mission
 
-Require all artifacts: `spec-approved`, `tests-created`, `implementation-done`, `implementation-redteam-findings`, `review-findings`, `redteam-findings`, `failure-classification`, and `fixer-summary`. Fetch the latest shared branch read-only. Compare it with the repository default branch, inspect commit order, changed files, and available checks.
+Require all artifacts: `spec-approved`, `tests-created`, `implementation-done`, `implementation-redteam-findings`, `review-findings`, `redteam-findings`, `failure-classification`, `fixer-summary`, and `frontier-gap-findings`. Fetch the latest shared branch read-only. Compare it with the repository default branch, inspect commit order, changed files, and available checks.
 
 Treat any CI state older than the latest fixer push as stale. Do not finalize if the latest branch head has pending, failing, missing, or unobserved required repository-native checks. Require the post-fix CI gate to have observed the latest terminal CI state before considering the PR ready, and report any terminal external status failures separately.
 
-Create exactly one pull request from `$BRANCH` to the repository default branch, or update the existing open/closed-unmerged pull request for that head. Never create a duplicate. The PR body must link `Closes #$ISSUE_NUMBER` and summarize scope, implementation, TDD commit ordering, tests/checks, review/red-team dispositions, and unresolved risks. Do not enable auto-merge or merge the PR.
+Create exactly one pull request from `$BRANCH` to the repository default branch, or update the existing open/closed-unmerged pull request for that head. Never create a duplicate. The PR body must link `Closes #$ISSUE_NUMBER` and summarize scope, implementation, TDD commit ordering, tests/checks, review/red-team dispositions, frontier gaps, and unresolved risks. Do not enable auto-merge or merge the PR.
 
 Publish `<!-- pr-final -->` with:
 
@@ -38,7 +38,7 @@ Publish `<!-- pr-final -->` with:
 3. Final commit and changed-file summary
 4. Artifact-chain completeness
 5. Exact verified tests/check status
-6. Resolved and unresolved risk summary
+6. Resolved and unresolved risk summary, including any tracked frontier gaps
 7. Human review checklist and explicit merge decision request
 
 ## Boundaries
