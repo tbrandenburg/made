@@ -107,7 +107,9 @@ export const TaskPage: React.FC = () => {
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
   const chatWindowRef = useRef<ChatWindowHandle>(null);
   const sessionIdRef = useRef<string | null>(null);
-  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
   const chatInputId = "task-agent-prompt";
   const chatMarkdownOptions = useMemo(
     () => ({
@@ -308,7 +310,10 @@ export const TaskPage: React.FC = () => {
         );
 
         // No immediate message processing - polling handles everything
-        if (reply.sessionId && (sessionIdRef.current !== null || !hadSessionOnSend)) {
+        if (
+          reply.sessionId &&
+          (sessionIdRef.current !== null || !hadSessionOnSend)
+        ) {
           setSessionId(reply.sessionId);
         }
         setActiveTab("agent");

@@ -118,7 +118,9 @@ export const KnowledgeArtefactPage: React.FC = () => {
   const [externalPath, setExternalPath] = useState<string | null>(null);
   const chatWindowRef = useRef<ChatWindowHandle>(null);
   const sessionIdRef = useRef<string | null>(null);
-  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
   const chatInputId = "knowledge-agent-prompt";
   const chatMarkdownOptions = useMemo(
     () => ({
@@ -373,7 +375,10 @@ export const KnowledgeArtefactPage: React.FC = () => {
         );
 
         // No immediate message processing - polling handles everything
-        if (reply.sessionId && (sessionIdRef.current !== null || !hadSessionOnSend)) {
+        if (
+          reply.sessionId &&
+          (sessionIdRef.current !== null || !hadSessionOnSend)
+        ) {
           setSessionId(reply.sessionId);
         }
         setActiveTab("agent");

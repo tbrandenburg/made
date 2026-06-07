@@ -364,9 +364,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
 
   /** Render page with a sessionId so "Clear session" button appears in ChatWindow */
   async function renderAndWaitForClearButton() {
-    renderPage([
-      "/repositories/test-repo?tab=agent&sessionId=session-a",
-    ]);
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
     await screen.findByLabelText("Clear session");
   }
 
@@ -396,11 +394,8 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
   // ── AC496-1 ────────────────────────────────────────────────────────────
 
   it("AC496-1: clearSessionOnly resets chatLoading when loading (fails: setChatLoading(false) missing)", async () => {
-    let resolveSend!: (value: AgentReply) => void;
     vi.mocked(api.sendAgentMessage).mockReturnValue(
-      new Promise<AgentReply>((resolve) => {
-        resolveSend = resolve;
-      }),
+      new Promise<AgentReply>(() => {}),
     );
 
     await renderAndWaitForClearButton();
@@ -434,11 +429,8 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
   // ── AC496-2 ────────────────────────────────────────────────────────────
 
   it("AC496-2: clearSessionAndHistory resets chatLoading when loading (fails: setChatLoading(false) missing)", async () => {
-    let resolveSend!: (value: AgentReply) => void;
     vi.mocked(api.sendAgentMessage).mockReturnValue(
-      new Promise<AgentReply>((resolve) => {
-        resolveSend = resolve;
-      }),
+      new Promise<AgentReply>(() => {}),
     );
 
     await renderAndWaitForClearButton();
@@ -558,11 +550,8 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
   // ── AC496-1/2 integration ─────────────────────────────────────────────
 
   it("AC496-1/2 integration: clear mid-flight removes loading text within one render", async () => {
-    let resolveSend!: (value: AgentReply) => void;
     vi.mocked(api.sendAgentMessage).mockReturnValue(
-      new Promise<AgentReply>((resolve) => {
-        resolveSend = resolve;
-      }),
+      new Promise<AgentReply>(() => {}),
     );
 
     await renderAndWaitForClearButton();
@@ -664,7 +653,9 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
     });
 
     // Send — make it throw
-    vi.mocked(api.sendAgentMessage).mockRejectedValue(new Error("Network failure"));
+    vi.mocked(api.sendAgentMessage).mockRejectedValue(
+      new Error("Network failure"),
+    );
     typeInTextarea();
     clickSend();
 
@@ -674,8 +665,6 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
         "Error should appear",
       ).toBeInTheDocument();
     });
-
-    const getHistoryCallsBefore = vi.mocked(api.getRepositoryAgentHistory).mock.calls.length;
 
     // Send again — this time succeed
     vi.mocked(api.sendAgentMessage).mockResolvedValue({
@@ -698,5 +687,4 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
       ).toBeInTheDocument();
     });
   });
-
 });

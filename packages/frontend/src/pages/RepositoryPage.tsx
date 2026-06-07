@@ -555,7 +555,9 @@ export const RepositoryPage: React.FC = () => {
   const chatWindowRef = useRef<ChatWindowHandle>(null);
   const sessionIdRef = useRef<string | null>(null);
   const lastSentPromptRef = useRef("");
-  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
 
@@ -1249,7 +1251,10 @@ export const RepositoryPage: React.FC = () => {
       );
 
       // No immediate message processing - polling handles everything
-      if (reply.sessionId && (sessionIdRef.current !== null || !hadSessionOnSend)) {
+      if (
+        reply.sessionId &&
+        (sessionIdRef.current !== null || !hadSessionOnSend)
+      ) {
         setSessionId(reply.sessionId);
       }
 
