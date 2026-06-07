@@ -18,16 +18,20 @@ Extract the GitHub issue number from `$ARGUMENTS`. Set `ISSUE_NUMBER` to that nu
 BRANCH="agent/issue-${ISSUE_NUMBER}-implementation"
 ```
 
-Use `gh api` with `GH_TOKEN` to read the issue and its comments. Never push to `main` or the repository default branch. Do not expose private reasoning; publish only the requested artifact.
+Use `gh api` with `GH_TOKEN` to read the issue and its comments. Never push to `main` or the repository default branch. Do not expose private reasoning; publish only the requested issue comment.
 
-To publish an artifact, write the complete Markdown body to a temporary file. Its first line must be the exact marker shown below. Find comments with `gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100"`, selecting an exact first-line marker match. If one exists, update that comment with `gh api --method PATCH`; otherwise create it with `gh api --method POST`. If legacy duplicates exist, update the newest matching comment and delete the older matching duplicates. Do not create a second artifact comment.
+To publish an issue comment, write the complete Markdown body to a temporary file. Its first line must be the exact marker shown below. Find comments with `gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100"`, selecting an exact first-line marker match. If one exists, update that comment with `gh api --method PATCH`; otherwise create it with `gh api --method POST`. If legacy duplicates exist, update the newest matching comment and delete the older matching duplicates. Do not create a second comment with the same marker.
 
 
 ## Mission
 
-Read the issue, the repository codebase, and the planner artifacts from phase 2 only: `plan-requirements`, `plan-architecture`, and `plan-risks`. Verify those markers exist before proceeding. Do not read `spec-final`, implementation, review, or red-team artifacts.
+Read the issue, the repository codebase, and the planner issue comments from phase 2 only: `plan-requirements`, `plan-architecture`, and `plan-risks`. Verify those markers exist before proceeding. Do not read `spec-final`, implementation, review, or red-team comments.
 
 Only after phase 2 is complete, gather real-time external intelligence that can sharpen the plan without overriding repo-native patterns. Solutions must fit the existing codebase first.
+
+## Input Load Guard
+
+If phase 2 or the external sources are dense, first build a compact intake ledger with one row per source, library, version, or open question. Use the todo tool to track each cluster when memory would be at risk, and keep exactly one `in_progress` item. Merge overlapping references before analysis so the final research notes stay current and non-redundant.
 
 Use Context7 for current documentation and version-specific references:
 

@@ -21,7 +21,7 @@ Perform a thorough, senior-engineer-level code review:
 
 **Golden Rule**: Be constructive and actionable. Every issue should have a clear recommendation. Acknowledge good work too.
 
-Prefer the smallest correct change. Flag extra abstractions, wrappers, helper layers, or implementation-coupled tests when a simpler behavior-based alternative exists.
+Prefer the smallest correct change. Flag extra abstractions, wrappers, helper layers, or implementation-coupled tests when a simpler behavior-based alternative exists. Include a scope delta check: separate required issue behavior from extra breadth, and flag any unjustified expansion.
 
 ---
 

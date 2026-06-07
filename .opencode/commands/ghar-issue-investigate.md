@@ -11,10 +11,10 @@ argument-hint: <issue-number|url|"description">
 
 ## Your Mission
 
-Investigate the issue/problem and produce a comprehensive implementation plan that:
+Investigate the issue/problem and produce the minimum implementation plan that closes the issue without widening scope. The plan must:
 
 1. Is posted as a GitHub comment (if GH issue provided)
-3. Captures all context needed for one-pass implementation
+2. Captures all context needed for one-pass implementation of the issue scope only
 
 **Golden Rule**: The artifact you produce IS the specification. The implementing agent should be able to work from it without asking questions.
 
@@ -200,6 +200,11 @@ git blame -L {start},{end} {affected-file}
 - Dependencies and order of changes
 - Edge cases and risks
 - Validation strategy
+
+### 3.4 Scope Gate
+
+- Any change not required to close the issue belongs in Out of Scope or a follow-up issue.
+- Do not widen the plan to adjacent symptoms unless the issue explicitly requires them.
 
 **PHASE_3_CHECKPOINT:**
 
@@ -397,11 +402,11 @@ describe("{feature}", () => {
 
 **IN SCOPE:**
 
-- {what we're changing}
+- {minimum issue-closing changes only}
 
 **OUT OF SCOPE (do not touch):**
 
-- {what to leave alone}
+- {adjacent behavior not required for closure}
 - {future improvements to defer}
 
 ---
