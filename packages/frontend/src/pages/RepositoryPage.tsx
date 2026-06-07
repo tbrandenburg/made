@@ -553,8 +553,9 @@ export const RepositoryPage: React.FC = () => {
     args: "",
   });
   const chatWindowRef = useRef<ChatWindowHandle>(null);
-  const sessionClearedRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
   const lastSentPromptRef = useRef("");
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
 
@@ -1225,6 +1226,7 @@ export const RepositoryPage: React.FC = () => {
       text: message,
       timestamp,
     };
+    const hadSessionOnSend = sessionId !== null;
     lastSentPromptRef.current = pendingPrompt;
     setChat((prev) => [...prev, userMessage]);
     setPendingPrompt("");
@@ -1247,10 +1249,9 @@ export const RepositoryPage: React.FC = () => {
       );
 
       // No immediate message processing - polling handles everything
-      if (reply.sessionId && !sessionClearedRef.current) {
+      if (reply.sessionId && (sessionIdRef.current !== null || !hadSessionOnSend)) {
         setSessionId(reply.sessionId);
       }
-      sessionClearedRef.current = false;
 
       setChatError(null);
       setActiveTab("agent");
@@ -1290,21 +1291,23 @@ export const RepositoryPage: React.FC = () => {
   };
 
   const handleClearSessionOnly = () => {
+    sessionIdRef.current = null;
+    setSessionId(null);
     setChatLoading(false);
-    sessionClearedRef.current = true;
+    setChatError(null);
     setPendingPrompt(lastSentPromptRef.current);
     lastSentPromptRef.current = "";
-    setSessionId(null);
     setSelectedAgent(DEFAULT_AGENT_VALUE);
     setClearSessionModalOpen(false);
   };
 
   const handleClearSessionAndHistory = () => {
+    sessionIdRef.current = null;
+    setSessionId(null);
     setChatLoading(false);
-    sessionClearedRef.current = true;
+    setChatError(null);
     setPendingPrompt(lastSentPromptRef.current);
     lastSentPromptRef.current = "";
-    setSessionId(null);
     setSelectedAgent(DEFAULT_AGENT_VALUE);
     setChat([]);
     setClearSessionModalOpen(false);

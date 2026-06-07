@@ -119,6 +119,8 @@ export const ConstitutionPage: React.FC = () => {
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
   const [externalPath, setExternalPath] = useState<string | null>(null);
   const chatWindowRef = useRef<ChatWindowHandle>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   const chatInputId = "constitution-agent-prompt";
   const chatMarkdownOptions = useMemo(
     () => ({
@@ -353,6 +355,7 @@ export const ConstitutionPage: React.FC = () => {
       if (options?.clearPrompt) {
         setPrompt("");
       }
+      const hadSessionOnSend = sessionId !== null;
       setChatLoading(true);
       try {
         const promptWithPolicy = appendRestrictedAccessPolicy(
@@ -372,7 +375,7 @@ export const ConstitutionPage: React.FC = () => {
         );
 
         // No immediate message processing - polling handles everything
-        if (reply.sessionId) {
+        if (reply.sessionId && (sessionIdRef.current !== null || !hadSessionOnSend)) {
           setSessionId(reply.sessionId);
         }
         setActiveTab("agent");
@@ -431,13 +434,19 @@ export const ConstitutionPage: React.FC = () => {
   };
 
   const handleClearSessionOnly = () => {
+    sessionIdRef.current = null;
     setSessionId(null);
+    setChatLoading(false);
+    setAgentStatus(null);
     setSelectedAgent(DEFAULT_AGENT_VALUE);
     setClearSessionModalOpen(false);
   };
 
   const handleClearSessionAndHistory = () => {
+    sessionIdRef.current = null;
     setSessionId(null);
+    setChatLoading(false);
+    setAgentStatus(null);
     setSelectedAgent(DEFAULT_AGENT_VALUE);
     setChat([]);
     setClearSessionModalOpen(false);
