@@ -591,4 +591,112 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
       ).not.toBeDisabled();
     });
   });
+
+  // ── AC496-ADV1: Clear when idle — sessionClearedRef suppresses first send ──
+
+  it("AC496-ADV1: clear when idle does not suppress next send's sessionId (FAILS: stale ref)", async () => {
+    let resolveSend!: (value: AgentReply) => void;
+    vi.mocked(api.sendAgentMessage).mockReturnValue(
+      new Promise<AgentReply>((resolve) => {
+        resolveSend = resolve;
+      }),
+    );
+
+    await renderAndWaitForClearButton();
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
+
+    // Clear while idle (no in-flight message)
+    openClearModal();
+    await screen.findByRole("button", { name: /^no$/i });
+    confirmClearOnly();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /cancel/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    // Now send a message
+    typeInTextarea();
+    clickSend();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+        "Cancel should appear — message is being sent",
+      ).toBeInTheDocument();
+    });
+
+    // API resolves with a new sessionId
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
+    resolveSend({
+      messageId: "m2",
+      sent: new Date().toISOString(),
+      response: "new-response",
+      sessionId: "new-session",
+      processing: false,
+    });
+
+    // If sessionClearedRef is stale, the new sessionId is suppressed.
+    // The session ID label should appear if setSessionId was called.
+    await waitFor(() => {
+      expect(
+        screen.queryByLabelText("Session ID"),
+        "FAIL: No Session ID label — sessionClearedRef suppressed new sessionId",
+      ).toBeInTheDocument();
+    });
+  });
+
+  // ── AC496-ADV2: Error path sessionClearedRef leak ─────────────────────
+
+  it("AC496-ADV2: error in send after clear does not permanently leak sessionClearedRef (FAILS: no finally block)", async () => {
+    await renderAndWaitForClearButton();
+
+    // Clear
+    openClearModal();
+    await screen.findByRole("button", { name: /^no$/i });
+    confirmClearOnly();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /cancel/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    // Send — make it throw
+    vi.mocked(api.sendAgentMessage).mockRejectedValue(new Error("Network failure"));
+    typeInTextarea();
+    clickSend();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Failed to reach agent"),
+        "Error should appear",
+      ).toBeInTheDocument();
+    });
+
+    const getHistoryCallsBefore = vi.mocked(api.getRepositoryAgentHistory).mock.calls.length;
+
+    // Send again — this time succeed
+    vi.mocked(api.sendAgentMessage).mockResolvedValue({
+      messageId: "m3",
+      sent: new Date().toISOString(),
+      response: "ok",
+      sessionId: "recovered-session",
+      processing: false,
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
+
+    typeInTextarea();
+    clickSend();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByLabelText("Session ID"),
+        "FAIL: No Session ID — sessionClearedRef leaked from previous error",
+      ).toBeInTheDocument();
+    });
+  });
+
 });
