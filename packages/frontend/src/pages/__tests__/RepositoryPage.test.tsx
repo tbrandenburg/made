@@ -7,6 +7,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RepositoryPage } from "../RepositoryPage";
 import {
+  AgentReply,
   api,
   ChatHistoryMessage,
   ChatHistoryResponse,
@@ -57,6 +58,9 @@ vi.mock("../../hooks/useApi", async () => {
       ...actual.api,
       getRepositoryAgentSessions: vi.fn(),
       getRepositoryAgentHistory: vi.fn(),
+      sendAgentMessage: vi.fn(),
+      cancelRepositoryAgent: vi.fn(),
+      getRepositoryAgentStatus: vi.fn(),
     },
   };
 });
@@ -333,5 +337,258 @@ describe("RepositoryPage session selection", () => {
     expect(document.querySelector(".empty")).toBeInTheDocument();
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
     expect(document.querySelectorAll(".alert").length).toBe(0);
+  });
+});
+
+describe("RepositoryPage clear session loading state (AC496)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [],
+    });
+    vi.mocked(api.sendAgentMessage).mockResolvedValue({
+      messageId: "m1",
+      sent: new Date().toISOString(),
+      response: "ok",
+      sessionId: "test-session",
+      processing: false,
+    });
+    vi.mocked(api.cancelRepositoryAgent).mockResolvedValue();
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    localStorage.clear();
+  });
+
+  /** Render page with a sessionId so "Clear session" button appears in ChatWindow */
+  async function renderAndWaitForClearButton() {
+    renderPage([
+      "/repositories/test-repo?tab=agent&sessionId=session-a",
+    ]);
+    await screen.findByLabelText("Clear session");
+  }
+
+  function typeInTextarea() {
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "test message" } });
+  }
+
+  function clickSend() {
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+  }
+
+  function openClearModal() {
+    fireEvent.click(screen.getByLabelText("Clear session"));
+  }
+
+  function confirmClearOnly() {
+    fireEvent.click(screen.getByRole("button", { name: /^no$/i }));
+  }
+
+  function confirmClearAndHistory() {
+    fireEvent.click(screen.getByRole("button", { name: /^yes$/i }));
+  }
+
+  // ── AC496-1 ────────────────────────────────────────────────────────────
+
+  it("AC496-1: clearSessionOnly resets chatLoading when loading (fails: setChatLoading(false) missing)", async () => {
+    let resolveSend!: (value: AgentReply) => void;
+    vi.mocked(api.sendAgentMessage).mockReturnValue(
+      new Promise<AgentReply>((resolve) => {
+        resolveSend = resolve;
+      }),
+    );
+
+    await renderAndWaitForClearButton();
+    typeInTextarea();
+    clickSend();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+        "Cancel button should appear (chatLoading=true)",
+      ).toBeInTheDocument();
+    });
+
+    openClearModal();
+
+    await screen.findByRole("button", { name: /^no$/i });
+    confirmClearOnly();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /cancel/i }),
+        "FAIL: Cancel remains — handleClearSessionOnly missing setChatLoading(false)",
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /send/i }),
+        "Send should be enabled after clear",
+      ).not.toBeDisabled();
+    });
+  });
+
+  // ── AC496-2 ────────────────────────────────────────────────────────────
+
+  it("AC496-2: clearSessionAndHistory resets chatLoading when loading (fails: setChatLoading(false) missing)", async () => {
+    let resolveSend!: (value: AgentReply) => void;
+    vi.mocked(api.sendAgentMessage).mockReturnValue(
+      new Promise<AgentReply>((resolve) => {
+        resolveSend = resolve;
+      }),
+    );
+
+    await renderAndWaitForClearButton();
+    typeInTextarea();
+    clickSend();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+        "Cancel button should appear (chatLoading=true)",
+      ).toBeInTheDocument();
+    });
+
+    openClearModal();
+
+    await screen.findByRole("button", { name: /^yes$/i });
+    confirmClearAndHistory();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /cancel/i }),
+        "FAIL: Cancel remains — handleClearSessionAndHistory missing setChatLoading(false)",
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /send/i }),
+        "Send should be enabled after clear",
+      ).not.toBeDisabled();
+      expect(
+        screen.getByText("No conversation yet."),
+        "Chat should show empty state after clear-and-history",
+      ).toBeInTheDocument();
+    });
+  });
+
+  // ── AC496-3 idempotent ────────────────────────────────────────────────
+
+  it("AC496-3: clearSessionOnly idempotent when chatLoading already false", async () => {
+    await renderAndWaitForClearButton();
+
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
+
+    openClearModal();
+
+    await screen.findByRole("button", { name: /^no$/i });
+    confirmClearOnly();
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).not.toHaveBeenCalled();
+    });
+  });
+
+  it("AC496-3: clearSessionAndHistory idempotent when chatLoading already false", async () => {
+    await renderAndWaitForClearButton();
+
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
+
+    openClearModal();
+
+    await screen.findByRole("button", { name: /^yes$/i });
+    confirmClearAndHistory();
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).not.toHaveBeenCalled();
+    });
+    expect(screen.getByText("No conversation yet.")).toBeInTheDocument();
+  });
+
+  // ── AC496-4 stale-response guard ─────────────────────────────────────
+
+  it("AC496-4: stale sendAgentMessage does not restore cleared sessionId (fails: no guard in continuation)", async () => {
+    let resolveSend!: (value: AgentReply) => void;
+    vi.mocked(api.sendAgentMessage).mockReturnValue(
+      new Promise<AgentReply>((resolve) => {
+        resolveSend = resolve;
+      }),
+    );
+
+    await renderAndWaitForClearButton();
+    typeInTextarea();
+    clickSend();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+      ).toBeInTheDocument();
+    });
+
+    openClearModal();
+
+    await screen.findByRole("button", { name: /^no$/i });
+    confirmClearOnly();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /cancel/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
+
+    resolveSend!({
+      messageId: "m1",
+      sent: new Date().toISOString(),
+      response: "done",
+      sessionId: "old-session-id",
+      processing: false,
+    });
+
+    await new Promise((r) => setTimeout(r, 200));
+
+    expect(
+      api.getRepositoryAgentHistory,
+      "FAIL: getRepositoryAgentHistory was called — stale response restored sessionId without guard",
+    ).not.toHaveBeenCalled();
+  });
+
+  // ── AC496-1/2 integration ─────────────────────────────────────────────
+
+  it("AC496-1/2 integration: clear mid-flight removes loading text within one render", async () => {
+    let resolveSend!: (value: AgentReply) => void;
+    vi.mocked(api.sendAgentMessage).mockReturnValue(
+      new Promise<AgentReply>((resolve) => {
+        resolveSend = resolve;
+      }),
+    );
+
+    await renderAndWaitForClearButton();
+    typeInTextarea();
+    clickSend();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+      ).toBeInTheDocument();
+    });
+
+    openClearModal();
+
+    await screen.findByRole("button", { name: /^no$/i });
+    confirmClearOnly();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Agent is thinking..."),
+        "FAIL: 'Agent is thinking...' remains — handleClearSessionOnly missing setChatLoading(false)",
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /send/i }),
+        "Send should be enabled after mid-flight clear",
+      ).not.toBeDisabled();
+    });
   });
 });
