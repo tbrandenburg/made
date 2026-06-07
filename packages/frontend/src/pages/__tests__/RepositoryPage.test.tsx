@@ -2,8 +2,8 @@
 
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import "@testing-library/jest-dom";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RepositoryPage } from "../RepositoryPage";
 import {
@@ -51,24 +51,20 @@ vi.mock("react-virtuoso", async () => {
 });
 
 vi.mock("../../hooks/useApi", async () => {
-  const actual =
-    await vi.importActual<typeof import("../../hooks/useApi")>(
-      "../../hooks/useApi",
-    );
-  return {
-    ...actual,
-    api: {
-      ...actual.api,
-      getRepositoryAgentSessions: vi.fn(),
-      getRepositoryAgentHistory: vi.fn(),
-      sendAgentMessage: vi.fn(),
-      cancelRepositoryAgent: vi.fn(),
-      getRepositoryAgentStatus: vi.fn(),
-      getTaskAgentStatus: vi.fn(),
-      getKnowledgeAgentStatus: vi.fn(),
-      getConstitutionAgentStatus: vi.fn(),
+  const target: Record<string, vi.Mock> = {};
+  const handler: ProxyHandler<Record<string, vi.Mock>> = {
+    get(_, prop) {
+      if (typeof prop === "string") {
+        if (!target[prop]) {
+          target[prop] = vi.fn().mockResolvedValue(undefined);
+        }
+        return target[prop];
+      }
+      return undefined;
     },
   };
+  const mock = new Proxy(target, handler);
+  return { api: mock };
 });
 
 const sessionA: ChatSession = {
@@ -96,6 +92,8 @@ function renderPage(initialEntries = ["/repositories/test-repo?tab=agent"]) {
 
 describe("RepositoryPage session selection", () => {
   beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
     vi.clearAllMocks();
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
     localStorage.clear();
@@ -348,6 +346,8 @@ describe("RepositoryPage session selection", () => {
 
 describe("RepositoryPage clear session loading state (AC496)", () => {
   beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
     vi.clearAllMocks();
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
     vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
@@ -712,6 +712,8 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
 
 describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
   beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
     vi.clearAllMocks();
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
     vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
@@ -762,6 +764,19 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
   it("U1 (AC1+AC3): refreshAgentStatus skips API call and does not re-stick chatLoading after clear", async () => {
     await renderAndWaitForClearButton();
 
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "test message" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+        "Cancel should appear (sending message)",
+      ).toBeInTheDocument();
+    });
+
     vi.mocked(api.getRepositoryAgentStatus).mockClear();
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
       processing: true,
@@ -796,10 +811,6 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
     vi.mocked(api.sendAgentMessage).mockReturnValue(
       new Promise<AgentReply>(() => {}),
     );
-    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: new Date().toISOString(),
-    });
 
     await renderAndWaitForClearButton();
 
@@ -817,6 +828,10 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
     });
 
     vi.mocked(api.getRepositoryAgentStatus).mockClear();
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
 
     openClearModal();
     await screen.findByRole("button", { name: /^no$/i });
