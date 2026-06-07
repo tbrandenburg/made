@@ -354,7 +354,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
       sessionId: "test-session",
       processing: false,
     });
-    vi.mocked(api.cancelRepositoryAgent).mockResolvedValue();
+    vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
       processing: false,
       startedAt: null,
