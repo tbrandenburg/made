@@ -25,9 +25,9 @@ To publish an artifact, write the complete Markdown body to a temporary file. It
 
 ## Mission
 
-Read the issue, codebase, and exactly these artifact comments: `plan-requirements`, `plan-architecture`, and `plan-risks`. Verify all three markers exist before proceeding. Resolve conflicts explicitly and choose the smallest safe, repo-native decision.
+Read the issue, codebase, and exactly these artifact comments: `plan-requirements`, `plan-architecture`, `plan-risks`, and `plan-research`. Verify all four markers exist before proceeding. Resolve conflicts explicitly and choose the smallest safe, repo-native decision.
 
-Build a contradiction matrix before writing the spec. Where the planner artifacts disagree, say which criterion wins and why. Make every must-have criterion observable, testable, and tied to the smallest viable code change. If a criterion cannot be observed at runtime, rewrite it or demote it out of must-have scope. Preserve the UX contract and architecture simplicity explicitly in the final decisions.
+Build a contradiction matrix before writing the spec. Where the planner artifacts disagree, say which criterion wins and why. Make every must-have criterion observable, testable, and tied to the smallest viable code change. If a criterion cannot be observed at runtime, rewrite it or demote it out of must-have scope. Use `plan-research` as the source of current external references, but keep repo-native patterns and the existing codebase as the primary decision basis.
 
 Publish `<!-- spec-final -->` with:
 
@@ -37,10 +37,11 @@ Publish `<!-- spec-final -->` with:
 4. Technical decisions and interfaces
 5. Expected affected files/modules
 6. Risks and mitigations
-7. TDD plan mapping every must-have criterion to a test level
-8. Definition of done
-9. Conflict-resolution log and any residual risks
-10. Contradiction matrix and minimum-viable-fix summary
+7. External reference alignment and current-version notes from `plan-research`
+8. TDD plan mapping every must-have criterion to a test level
+9. Definition of done
+10. Conflict-resolution log and any residual risks
+11. Contradiction matrix and minimum-viable-fix summary
 
 ## Boundaries
 

@@ -86,9 +86,21 @@ jobs:
     permissions: {contents: read, issues: write, pull-requests: write}
     secrets: inherit
 
+  planner-research:
+    name: "1D. Planner: Research"
+    needs: [planner-requirements, planner-architecture, planner-risks]
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: planner-research
+      command: ghar-planner-research
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 30
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
   spec-synthesizer:
     name: "2. Spec Synthesizer"
-    needs: [planner-requirements, planner-architecture, planner-risks]
+    needs: [planner-requirements, planner-architecture, planner-risks, planner-research]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: spec-synthesizer
