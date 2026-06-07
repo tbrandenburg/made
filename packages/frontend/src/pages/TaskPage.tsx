@@ -106,10 +106,7 @@ export const TaskPage: React.FC = () => {
   const [sessionListLoading, setSessionListLoading] = useState(false);
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
   const chatWindowRef = useRef<ChatWindowHandle>(null);
-  const sessionIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    sessionIdRef.current = sessionId;
-  }, [sessionId]);
+  const sendRequestIdRef = useRef(0);
   const chatInputId = "task-agent-prompt";
   const chatMarkdownOptions = useMemo(
     () => ({
@@ -279,6 +276,7 @@ export const TaskPage: React.FC = () => {
       if (!name) return;
       const trimmed = message.trim();
       if (!trimmed) return;
+      const sendRequestId = ++sendRequestIdRef.current;
       const timestamp = new Date().toISOString();
       const userMessage: ChatMessage = {
         id: `${timestamp}-user`,
@@ -290,7 +288,6 @@ export const TaskPage: React.FC = () => {
       if (options?.clearPrompt) {
         setPrompt("");
       }
-      const hadSessionOnSend = sessionId !== null;
       setChatLoading(true);
       try {
         const promptWithPolicy = appendRestrictedAccessPolicy(
@@ -310,10 +307,8 @@ export const TaskPage: React.FC = () => {
         );
 
         // No immediate message processing - polling handles everything
-        if (
-          reply.sessionId &&
-          (sessionIdRef.current !== null || !hadSessionOnSend)
-        ) {
+        if (sendRequestIdRef.current !== sendRequestId) return;
+        if (reply.sessionId) {
           setSessionId(reply.sessionId);
         }
         setActiveTab("agent");
@@ -372,7 +367,7 @@ export const TaskPage: React.FC = () => {
   };
 
   const handleClearSessionOnly = () => {
-    sessionIdRef.current = null;
+    sendRequestIdRef.current += 1;
     setSessionId(null);
     setChatLoading(false);
     setAgentStatus(null);
@@ -381,7 +376,7 @@ export const TaskPage: React.FC = () => {
   };
 
   const handleClearSessionAndHistory = () => {
-    sessionIdRef.current = null;
+    sendRequestIdRef.current += 1;
     setSessionId(null);
     setChatLoading(false);
     setAgentStatus(null);
@@ -392,6 +387,7 @@ export const TaskPage: React.FC = () => {
 
   const handleSessionSelect = async (session: ChatSession) => {
     if (!name) return;
+    sendRequestIdRef.current += 1;
     setSessionModalOpen(false);
     setChat([]);
     setSessionId(session.id);

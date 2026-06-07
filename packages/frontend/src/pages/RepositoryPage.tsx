@@ -553,11 +553,8 @@ export const RepositoryPage: React.FC = () => {
     args: "",
   });
   const chatWindowRef = useRef<ChatWindowHandle>(null);
-  const sessionIdRef = useRef<string | null>(null);
+  const sendRequestIdRef = useRef(0);
   const lastSentPromptRef = useRef("");
-  useEffect(() => {
-    sessionIdRef.current = sessionId;
-  }, [sessionId]);
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
 
@@ -1221,6 +1218,7 @@ export const RepositoryPage: React.FC = () => {
     if (!name) return;
     const message = (prompt ?? pendingPrompt).trim();
     if (!message) return;
+    const sendRequestId = ++sendRequestIdRef.current;
     const timestamp = new Date().toISOString();
     const userMessage: ChatMessage = {
       id: `${timestamp}-user`,
@@ -1228,7 +1226,6 @@ export const RepositoryPage: React.FC = () => {
       text: message,
       timestamp,
     };
-    const hadSessionOnSend = sessionId !== null;
     lastSentPromptRef.current = pendingPrompt;
     setChat((prev) => [...prev, userMessage]);
     setPendingPrompt("");
@@ -1251,10 +1248,8 @@ export const RepositoryPage: React.FC = () => {
       );
 
       // No immediate message processing - polling handles everything
-      if (
-        reply.sessionId &&
-        (sessionIdRef.current !== null || !hadSessionOnSend)
-      ) {
+      if (sendRequestIdRef.current !== sendRequestId) return;
+      if (reply.sessionId) {
         setSessionId(reply.sessionId);
       }
 
@@ -1264,6 +1259,7 @@ export const RepositoryPage: React.FC = () => {
       // Keep chatLoading=true if processing (triggers existing polling)
       if (!reply.processing) setChatLoading(false);
     } catch (error) {
+      if (sendRequestIdRef.current !== sendRequestId) return;
       const messageText = error instanceof Error ? error.message : "";
       const agentBusy = messageText.toLowerCase().includes("processing");
       setChatError(
@@ -1296,7 +1292,7 @@ export const RepositoryPage: React.FC = () => {
   };
 
   const handleClearSessionOnly = () => {
-    sessionIdRef.current = null;
+    sendRequestIdRef.current += 1;
     setSessionId(null);
     setChatLoading(false);
     setChatError(null);
@@ -1307,7 +1303,7 @@ export const RepositoryPage: React.FC = () => {
   };
 
   const handleClearSessionAndHistory = () => {
-    sessionIdRef.current = null;
+    sendRequestIdRef.current += 1;
     setSessionId(null);
     setChatLoading(false);
     setChatError(null);
@@ -1324,6 +1320,7 @@ export const RepositoryPage: React.FC = () => {
       setSessionModalOpen(false);
       return;
     }
+    sendRequestIdRef.current += 1;
     setSessionModalOpen(false);
     setChatLoading(false);
     setChatError(null);
