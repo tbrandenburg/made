@@ -553,6 +553,8 @@ export const RepositoryPage: React.FC = () => {
     args: "",
   });
   const chatWindowRef = useRef<ChatWindowHandle>(null);
+  const sendRequestIdRef = useRef(0);
+  const lastSentPromptRef = useRef("");
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
 
@@ -1216,6 +1218,7 @@ export const RepositoryPage: React.FC = () => {
     if (!name) return;
     const message = (prompt ?? pendingPrompt).trim();
     if (!message) return;
+    const sendRequestId = ++sendRequestIdRef.current;
     const timestamp = new Date().toISOString();
     const userMessage: ChatMessage = {
       id: `${timestamp}-user`,
@@ -1223,6 +1226,7 @@ export const RepositoryPage: React.FC = () => {
       text: message,
       timestamp,
     };
+    lastSentPromptRef.current = pendingPrompt;
     setChat((prev) => [...prev, userMessage]);
     setPendingPrompt("");
     setChatLoading(true);
@@ -1244,6 +1248,7 @@ export const RepositoryPage: React.FC = () => {
       );
 
       // No immediate message processing - polling handles everything
+      if (sendRequestIdRef.current !== sendRequestId) return;
       if (reply.sessionId) {
         setSessionId(reply.sessionId);
       }
@@ -1254,6 +1259,7 @@ export const RepositoryPage: React.FC = () => {
       // Keep chatLoading=true if processing (triggers existing polling)
       if (!reply.processing) setChatLoading(false);
     } catch (error) {
+      if (sendRequestIdRef.current !== sendRequestId) return;
       const messageText = error instanceof Error ? error.message : "";
       const agentBusy = messageText.toLowerCase().includes("processing");
       setChatError(
@@ -1286,13 +1292,23 @@ export const RepositoryPage: React.FC = () => {
   };
 
   const handleClearSessionOnly = () => {
+    sendRequestIdRef.current += 1;
     setSessionId(null);
+    setChatLoading(false);
+    setChatError(null);
+    setPendingPrompt(lastSentPromptRef.current);
+    lastSentPromptRef.current = "";
     setSelectedAgent(DEFAULT_AGENT_VALUE);
     setClearSessionModalOpen(false);
   };
 
   const handleClearSessionAndHistory = () => {
+    sendRequestIdRef.current += 1;
     setSessionId(null);
+    setChatLoading(false);
+    setChatError(null);
+    setPendingPrompt(lastSentPromptRef.current);
+    lastSentPromptRef.current = "";
     setSelectedAgent(DEFAULT_AGENT_VALUE);
     setChat([]);
     setClearSessionModalOpen(false);
@@ -1304,6 +1320,7 @@ export const RepositoryPage: React.FC = () => {
       setSessionModalOpen(false);
       return;
     }
+    sendRequestIdRef.current += 1;
     setSessionModalOpen(false);
     setChatLoading(false);
     setChatError(null);

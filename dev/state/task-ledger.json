@@ -1,65 +1,44 @@
 {
-  "ANALYZE_PR_494": {
+  "ANALYZE_PR_499": {
     "status": "done",
     "evidence": [
-      "gh pr view 494 --json title,body,headRefName,baseRefName,mergeable,state,url -> {\"baseRefName\":\"main\",\"headRefName\":\"agent/issue-490-implementation\",\"state\":\"OPEN\",\"title\":\"Add behavior test for stale-content and loading during session switch\"}",
-      "gh issue view 490 --json title,body,state,url -> {\"state\":\"OPEN\",\"title\":\"Add behavior test for stale-content and loading during session switch\"}",
-      "gh pr diff 494 --patch -> commit 570e50e adds setChatLoading(false) and PR tests cover stale content/loading transition",
-      "ls dev -> state/"
+      "gh pr checks 499 -> Docker Build fail; log shows src/pages/__tests__/RepositoryPage.test.tsx(357,42): error TS2554: Expected 1 arguments, but got 0.",
+      "read packages/frontend/src/pages/__tests__/RepositoryPage.test.tsx -> line 357 contains vi.mocked(api.cancelRepositoryAgent).mockResolvedValue();"
     ],
-    "last_verified": "2026-06-06T16:46:00Z"
+    "last_verified": "2026-06-07T12:14:57Z"
   },
   "PLAN_FIX": {
     "status": "done",
     "evidence": [
-      "RepositoryPage.handleSessionSelect clears session modal, resets loading/error/chat state, and sets the selected session",
-      "Planned fix: add setChatLoading(false) before clearing chat state and add a regression test for the stale-content transition"
+      "grep cancelRepositoryAgent -> packages/frontend/src/hooks/useApi.ts line 491 shows it returns request(...), so the mocked promise needs an explicit resolved value.",
+      "grep mockResolvedValue\\(\\) -> only packages/frontend/src/pages/__tests__/RepositoryPage.test.tsx line 357 uses a zero-arg mockResolvedValue()."
     ],
-    "last_verified": "2026-06-06T16:46:00Z"
+    "last_verified": "2026-06-07T12:15:15Z"
   },
   "IMPLEMENT_FIX": {
     "status": "done",
     "evidence": [
-      "make qa-quick -> 415 passed, 1 skipped, 1 warning in 11.06s",
-      "packages/frontend/src/pages/RepositoryPage.tsx now calls setChatLoading(false) in handleSessionSelect",
-      "packages/frontend/src/pages/__tests__/RepositoryPage.test.tsx adds AC490-1/2/3 regression coverage"
+      "apply_patch updated packages/frontend/src/pages/__tests__/RepositoryPage.test.tsx line 357 to vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);",
+      "npm run build --workspace packages/frontend -> ✓ built in 814ms",
+      "make qa-quick -> ✅ All quick quality assurance tasks completed successfully!"
     ],
-    "last_verified": "2026-06-06T16:46:00Z"
+    "last_verified": "2026-06-07T12:16:32Z"
   },
   "COMMIT_PUSH": {
     "status": "done",
     "evidence": [
-      "git status --short -> M packages/frontend/src/pages/RepositoryPage.tsx; M packages/frontend/src/pages/__tests__/RepositoryPage.test.tsx; M dev/state/task-ledger.json",
-      "git commit -m \"fix(frontend): reset chat loading on session switch\" -> [main 3a55b46] fix(frontend): reset chat loading on session switch",
-      "git push -> main advanced dcfb355..3a55b46"
+      "git commit -m \"fix(frontend): resolve mock type error\" -> [agent/issue-496-implementation f7b2b06] fix(frontend): resolve mock type error",
+      "git push -> agent/issue-496-implementation advanced 4fb119d..f7b2b06"
     ],
-    "last_verified": "2026-06-06T16:49:00Z"
+    "last_verified": "2026-06-07T12:17:53Z"
   },
   "OBSERVE_CI": {
     "status": "done",
     "evidence": [
-      "gh pr checks 494 -> Vercel pass, Vercel Preview Comments pass",
-      "npx vercel inspect dpl_HQP3SgkPJqEvXgt9Mnucx5NbMTa2 --logs -> No existing credentials found",
-      "playwright on deployment URL redirected to vercel.com/login"
+      "gh pr checks 499 -> Docker Build pass; Docker Development Mode pass; Python Backend Tests with Coverage pass; Quality Assurance (Lint + Format + Unit Tests) pass; System tests (E2E) pass; Vercel pass.",
+      "gh run view 27092338369 --json status,conclusion,jobs -> status completed, conclusion success, including System tests (E2E) success.",
+      "gh run view 27092338360 --json status,conclusion,jobs -> status completed, conclusion success, preview job success."
     ],
-    "last_verified": "2026-06-06T18:07:00Z"
-  },
-  "FIX_FRONTEND_BUILD_TYPE_ERROR": {
-    "status": "done",
-    "evidence": [
-      "Vercel logs -> src/pages/__tests__/RepositoryPage.test.tsx TS2345 on Promise<ChatHistoryResponse> passed to mockResolvedValueOnce",
-      "npm --workspace packages/frontend run build -> tsc && vite build succeeded"
-    ],
-    "last_verified": "2026-06-06T18:07:00Z"
-  },
-  "RESOLVE_PR_494_MERGE_CONFLICTS": {
-    "status": "done",
-    "evidence": [
-      "gh pr view 494 --json mergeable,headRefName,baseRefName -> {\"mergeable\":\"CONFLICTING\",\"headRefName\":\"agent/issue-490-implementation\",\"baseRefName\":\"main\"}",
-      "git merge origin/main -> conflicted on dev/state/task-ledger.json and packages/frontend/src/pages/__tests__/RepositoryPage.test.tsx",
-      "npm --workspace packages/frontend run build -> tsc && vite build succeeded after conflict resolution",
-      "gh pr checks 494 -> Vercel pass, Vercel Preview Comments pass"
-    ],
-    "last_verified": "2026-06-06T18:07:00Z"
+    "last_verified": "2026-06-07T12:25:28Z"
   }
 }
