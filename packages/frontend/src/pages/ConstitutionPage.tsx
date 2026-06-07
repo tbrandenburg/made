@@ -120,6 +120,8 @@ export const ConstitutionPage: React.FC = () => {
   const [externalPath, setExternalPath] = useState<string | null>(null);
   const chatWindowRef = useRef<ChatWindowHandle>(null);
   const sendRequestIdRef = useRef(0);
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
   const chatInputId = "constitution-agent-prompt";
   const chatMarkdownOptions = useMemo(
     () => ({
@@ -263,11 +265,16 @@ export const ConstitutionPage: React.FC = () => {
 
   const refreshAgentStatus = useCallback(async () => {
     if (!name || isExternal) return false;
+    if (!sessionId) {
+      setChatLoading(false);
+      return false;
+    }
     try {
       const status = await api.getConstitutionAgentStatus(
         name,
         sessionId || undefined,
       );
+      if (sessionIdRef.current !== sessionId) return false;
       setChatLoading(status.processing);
       setAgentStatus(
         status.processing
