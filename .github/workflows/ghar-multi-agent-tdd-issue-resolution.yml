@@ -1,6 +1,7 @@
+---
 name: GHAR Multi-Agent TDD Issue Resolution
 
-on:
+'on':
   workflow_dispatch:
     inputs:
       issue_number:
@@ -28,7 +29,10 @@ jobs:
           ISSUE_NUMBER: ${{ inputs.issue_number }}
         run: |
           case "$ISSUE_NUMBER" in
-            ''|*[!0-9]*) echo "issue_number must contain digits only" >&2; exit 1 ;;
+            ''|*[!0-9]*)
+              echo "issue_number must contain digits only" >&2
+              exit 1
+              ;;
           esac
           gh api "repos/${GITHUB_REPOSITORY}/issues/${ISSUE_NUMBER}" --silent
 
@@ -43,7 +47,7 @@ jobs:
           ISSUE_NUMBER: ${{ inputs.issue_number }}
         run: |
           BRANCH="agent/issue-${ISSUE_NUMBER}-implementation"
-          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
             echo "Reusing existing branch $BRANCH"
           else
             git push origin "HEAD:refs/heads/$BRANCH"
@@ -86,9 +90,25 @@ jobs:
     permissions: {contents: read, issues: write, pull-requests: write}
     secrets: inherit
 
+  planner-research:
+    name: "1D. Planner: Research"
+    needs: [planner-requirements, planner-architecture, planner-risks]
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: planner-research
+      command: ghar-planner-research
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 30
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
   spec-synthesizer:
     name: "2. Spec Synthesizer"
-    needs: [planner-requirements, planner-architecture, planner-risks]
+    needs:
+      - planner-requirements
+      - planner-architecture
+      - planner-risks
+      - planner-research
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: spec-synthesizer
@@ -158,160 +178,118 @@ jobs:
     permissions: {contents: write, issues: write, pull-requests: write}
     secrets: inherit
 
-  implementation-redteam:
-    name: "8. Implementation Red Team"
+  pr-seeder:
+    name: "7B. PR Seeder"
     needs: implementer
     uses: ./.github/workflows/core-opencode-run.yml
     with:
-      run-name: implementation-redteam
-      command: ghar-implementation-redteam
-      prompt: ${{ inputs.issue_number }}
-      timeout-minutes: 45
-    permissions: {contents: read, issues: write, pull-requests: write}
-    secrets: inherit
-
-  reviewer:
-    name: "9A. Reviewer"
-    needs: implementation-redteam
-    uses: ./.github/workflows/core-opencode-run.yml
-    with:
-      run-name: reviewer
-      command: ghar-reviewer
+      run-name: pr-seeder
+      command: ghar-pr-seeder
       prompt: ${{ inputs.issue_number }}
       timeout-minutes: 30
     permissions: {contents: read, issues: write, pull-requests: write}
     secrets: inherit
 
-  redteam:
-    name: "9B. Red Team"
-    needs: implementation-redteam
+  implementation-review:
+    name: "8A. Implementation Review"
+    needs: [implementer, pr-seeder]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
-      run-name: redteam
-      command: ghar-redteam
+      run-name: implementation-review
+      command: ghar-implementation-review
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 45
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
+  maintainer-review:
+    name: "8B. Maintainer Review"
+    needs: [implementer, pr-seeder]
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: maintainer-review
+      command: ghar-maintainer-review
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 30
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
+  adversarial-review:
+    name: "8C. Adversarial Review"
+    needs: [implementer, pr-seeder]
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: adversarial-review
+      command: ghar-adversarial-review
       prompt: ${{ inputs.issue_number }}
       timeout-minutes: 45
     permissions: {contents: write, issues: write, pull-requests: write}
     secrets: inherit
 
-  frontier-gap-review:
-    name: "9C. Frontier Gap Review"
-    needs: [reviewer, redteam]
+  residual-gap-review:
+    name: "8D. Residual Gap Review"
+    needs: [implementer, pr-seeder]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
-      run-name: frontier-gap-review
-      command: ghar-frontier-gap-review
+      run-name: residual-gap-review
+      command: ghar-residual-gap-review
       prompt: ${{ inputs.issue_number }}
       timeout-minutes: 45
     permissions: {contents: read, issues: write, pull-requests: write}
     secrets: inherit
 
-  ci-agent:
-    name: "10. CI Evidence Agent"
-    needs: [reviewer, redteam]
+  ci-evidence:
+    name: "8E. CI Evidence"
+    needs: [implementer, pr-seeder]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
-      run-name: ci-agent
-      command: ghar-ci-agent
+      run-name: ci-evidence
+      command: ghar-ci-evidence
       prompt: ${{ inputs.issue_number }}
       timeout-minutes: 60
-    permissions: {actions: read, checks: read, contents: read, issues: read, pull-requests: read}
-    secrets: inherit
-
-  failure-classifier:
-    name: "11. Failure Classifier"
-    needs: ci-agent
-    if: ${{ always() && needs.ci-agent.result != 'cancelled' }}
-    uses: ./.github/workflows/core-opencode-run.yml
-    with:
-      run-name: failure-classifier
-      command: ghar-failure-classifier
-      prompt: |
-        Issue number: ${{ inputs.issue_number }}
-        CI agent job result: ${{ needs.ci-agent.result }}
-        CI agent report:
-        ${{ needs.ci-agent.outputs.results }}
-      timeout-minutes: 30
-    permissions: {actions: read, checks: read, contents: read, issues: write, pull-requests: write}
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      issues: write
+      pull-requests: read
     secrets: inherit
 
   fixer-integrator:
-    name: "12. Fixer / Integrator"
-    needs: failure-classifier
+    name: "9. Fixer / Integrator"
+    needs:
+      - implementation-review
+      - maintainer-review
+      - adversarial-review
+      - residual-gap-review
+      - ci-evidence
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: fixer-integrator
       command: ghar-fixer-integrator
       prompt: ${{ inputs.issue_number }}
       timeout-minutes: 60
-    permissions: {actions: read, checks: read, contents: write, issues: write, pull-requests: write}
-    secrets: inherit
-
-  post-fix-ci-gate:
-    name: "13. Post-Fix CI Gate"
-    needs: fixer-integrator
-    runs-on: ubuntu-latest
     permissions:
       actions: read
       checks: read
-      contents: read
-    env:
-      GH_TOKEN: ${{ github.token }}
-      ISSUE_NUMBER: ${{ inputs.issue_number }}
-    steps:
-      - name: Wait for the latest branch checks to settle
-        run: |
-          set -euo pipefail
-          BRANCH="agent/issue-${ISSUE_NUMBER}-implementation"
-          SHA="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${BRANCH}" --jq '.object.sha')"
-          echo "Watching ${BRANCH} at ${SHA}"
-
-          attempt=0
-          while [ "$attempt" -lt 60 ]; do
-            attempt=$((attempt + 1))
-
-            check_runs="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/check-runs?per_page=100")"
-            status_json="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/status")"
-
-            failed_runs="$(printf '%s' "$check_runs" | jq '[.check_runs[] | select(.status == "completed" and .conclusion != "success")] | length')"
-            pending_runs="$(printf '%s' "$check_runs" | jq '[.check_runs[] | select(.status != "completed")] | length')"
-            status_state="$(printf '%s' "$status_json" | jq -r '.state')"
-
-            if [ "$failed_runs" -gt 0 ]; then
-              echo "Latest CI checks failed for ${SHA}" >&2
-              printf '%s' "$check_runs" | jq -r '.check_runs[] | select(.status == "completed" and .conclusion != "success") | "- \(.name): \(.conclusion)\n  \(.details_url // "")"' >&2
-              exit 1
-            fi
-
-            if [ "$pending_runs" -eq 0 ] && [ "$status_state" != "pending" ]; then
-              terminal_statuses="$(printf '%s' "$status_json" | jq '[.statuses[]? | select(.state != "success")] | length')"
-
-              if [ "$terminal_statuses" -gt 0 ]; then
-                echo "Latest CI checks failed for ${SHA}" >&2
-                printf '%s' "$status_json" | jq -r '.statuses[]? | select(.state != "success") | "- \(.context): \(.state)\n  \(.target_url // "")"' >&2
-                exit 1
-              fi
-
-              echo "Latest CI checks have settled for ${SHA}"
-              exit 0
-            fi
-
-            sleep 30
-          done
-
-          echo "Latest CI checks did not reach a terminal state for ${SHA}" >&2
-          printf '%s' "$check_runs" | jq -r '.check_runs[] | select(.status != "completed" or .conclusion != "success") | "- \(.name): \(.status) / \(.conclusion // "")\n  \(.details_url // "")"' >&2
-          printf '%s' "$status_json" | jq -r '.statuses[]? | select(.state != "success") | "- \(.context): \(.state)\n  \(.target_url // "")"' >&2
-          exit 1
+      contents: write
+      issues: write
+      pull-requests: write
+    secrets: inherit
 
   pr-finalizer:
-    name: "14. PR Finalizer"
-    needs: [fixer-integrator, post-fix-ci-gate, frontier-gap-review]
+    name: "10. PR Finalizer"
+    needs: fixer-integrator
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: pr-finalizer
       command: ghar-pr-finalizer
       prompt: ${{ inputs.issue_number }}
       timeout-minutes: 30
-    permissions: {actions: read, checks: read, contents: read, issues: write, pull-requests: write}
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      issues: write
+      pull-requests: write
     secrets: inherit

@@ -1,11 +1,10 @@
+---
 name: GHAR - Daily Routine
 
-on:
+'on':
   schedule:
-    # Run daily at 6:00 AM CET (5:00 UTC)
     - cron: '0 5 * * *'
   workflow_dispatch:
-    # Allow manual triggering for testing
 
 jobs:
   stale-check:
@@ -15,7 +14,6 @@ jobs:
       prompt-file: .opencode/commands/ghar-stale-check.md
       timeout-minutes: 30
     permissions:
-      # Required permissions for the job to access and modify issues/PRs
       issues: write
       pull-requests: write
       contents: read
@@ -28,21 +26,25 @@ jobs:
       has_issue: ${{ steps.find-issue.outputs.has_issue }}
     steps:
       - uses: actions/checkout@v5
-          
+
       - name: Find uncommented issue
         id: find-issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Get all open issues and check which ones have no comments
-          ISSUE_NUM=$(gh issue list --state open --json number,comments --jq '.[] | select(.comments | length == 0) | .number' | head -1)
+          ISSUE_NUM=$(
+            gh issue list --state open --json number,comments \
+              --jq '.[] | select(.comments | length == 0) | .number' \
+              | head -n 1
+          )
           if [ -n "$ISSUE_NUM" ]; then
-            echo "issue_number=$ISSUE_NUM" >> $GITHUB_OUTPUT
-            echo "has_issue=true" >> $GITHUB_OUTPUT
+            echo "issue_number=$ISSUE_NUM" >> "$GITHUB_OUTPUT"
+            echo "has_issue=true" >> "$GITHUB_OUTPUT"
             echo "Found uncommented issue: #$ISSUE_NUM"
           else
             echo "No uncommented issues found"
-            echo "has_issue=false" >> $GITHUB_OUTPUT
+            echo "has_issue=false" >> "$GITHUB_OUTPUT"
           fi
 
   investigate-uncommented-issue:
@@ -52,10 +54,10 @@ jobs:
     with:
       run-name: investigate-uncommented-issue
       command: ghar-issue-investigate
-      prompt: ${{ needs.find-uncommented-issue.outputs.issue_number }}
+      prompt: >-
+        ${{ needs.find-uncommented-issue.outputs.issue_number }}
       timeout-minutes: 30
     permissions:
-      # Required permissions for the job to access and modify issues/PRs
       issues: write
       pull-requests: write
       contents: read
@@ -67,7 +69,6 @@ jobs:
       run-name: security-check
       command: ghar-security-check
     permissions:
-      # Required permissions for security scanning and issue creation
       issues: write
       contents: read
       security-events: read

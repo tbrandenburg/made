@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+workflow_files=(.github/workflows/*.yml)
+
+if ! command -v actionlint >/dev/null 2>&1; then
+  echo "actionlint is required for pre-push validation" >&2
+  exit 1
+fi
+
+if ! command -v yamllint >/dev/null 2>&1; then
+  echo "yamllint is required for pre-push validation" >&2
+  exit 1
+fi
+
+actionlint "${workflow_files[@]}"
+yamllint "${workflow_files[@]}"

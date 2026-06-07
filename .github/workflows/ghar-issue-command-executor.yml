@@ -1,6 +1,7 @@
+---
 name: Issues - Execute OpenCode Commands from Issue Comments
 
-on:
+'on':
   issue_comment:
     types: [created]
   pull_request_review_comment:
@@ -21,20 +22,20 @@ jobs:
       command: ${{ steps.parse-comment.outputs.command }}
       prompt: ${{ steps.parse-comment.outputs.prompt }}
       agent: ${{ steps.parse-comment.outputs.agent }}
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-      
+
       - name: React with eyes emoji
         uses: actions/github-script@v9
         with:
           script: |
             // Handle both issue comments and PR review comments
-            const commentId = context.eventName === 'pull_request_review_comment' 
-              ? context.payload.comment.id 
+            const commentId = context.eventName === 'pull_request_review_comment'
+              ? context.payload.comment.id
               : context.payload.comment.id;
-            
+
             if (context.eventName === 'pull_request_review_comment') {
               await github.rest.reactions.createForPullRequestReviewComment({
                 owner: context.repo.owner,
@@ -50,13 +51,15 @@ jobs:
                 content: 'eyes'
               });
             }
-      
+
       - name: Parse comment for commands
         id: parse-comment
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          comment="${{ github.event.comment.body }}"
+          comment="$COMMENT_BODY"
           echo "Original comment: $comment"
-          
+
           # Check if comment contains a command or agent command
           if [[ "$comment" =~ ^\*([a-zA-Z0-9_-]+)[[:space:]]+/([a-zA-Z0-9_-]+)(.*)$ ]]; then
             # Agent command format: *agent /command PROMPT
@@ -64,55 +67,63 @@ jobs:
             command="${BASH_REMATCH[2]}"
             prompt="${BASH_REMATCH[3]}"
             # Remove leading whitespace from prompt
-            prompt=$(echo "$prompt" | sed 's/^[[:space:]]*//')
+            prompt="${prompt#"${prompt%%[![:space:]]*}"}"
             # "agent" is a generic placeholder — clear it to trigger the "build" fallback
             [[ "$agent" == "agent" ]] && agent=""
-            
+
             echo "Detected agent command"
-            echo "agent=$agent" >> $GITHUB_OUTPUT
-            echo "command=$command" >> $GITHUB_OUTPUT
-            echo "prompt<<EOF" >> $GITHUB_OUTPUT
-            echo "$prompt" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-            echo "has_command=true" >> $GITHUB_OUTPUT
-            echo "has_agent=true" >> $GITHUB_OUTPUT
-            
+            {
+              echo "agent=$agent"
+              echo "command=$command"
+              echo "prompt<<EOF"
+              echo "$prompt"
+              echo "EOF"
+              echo "has_command=true"
+              echo "has_agent=true"
+            } >> "$GITHUB_OUTPUT"
+
           elif [[ "$comment" =~ ^\*([a-zA-Z0-9_-]+)[[:space:]]+(.*)$ ]]; then
             # Agent prompt format: *agent PROMPT (no slash command)
             agent="${BASH_REMATCH[1]}"
             prompt="${BASH_REMATCH[2]}"
             # Remove leading whitespace from prompt
-            prompt=$(echo "$prompt" | sed 's/^[[:space:]]*//')
+            prompt="${prompt#"${prompt%%[![:space:]]*}"}"
             # "agent" is a generic placeholder — clear it to trigger the "build" fallback
             [[ "$agent" == "agent" ]] && agent=""
-            
+
             echo "Detected agent prompt"
-            echo "agent=$agent" >> $GITHUB_OUTPUT
-            echo "prompt<<EOF" >> $GITHUB_OUTPUT
-            echo "$prompt" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-            echo "has_command=false" >> $GITHUB_OUTPUT
-            echo "has_agent=true" >> $GITHUB_OUTPUT
-            
+            {
+              echo "agent=$agent"
+              echo "prompt<<EOF"
+              echo "$prompt"
+              echo "EOF"
+              echo "has_command=false"
+              echo "has_agent=true"
+            } >> "$GITHUB_OUTPUT"
+
           elif [[ "$comment" =~ ^/([a-zA-Z0-9_-]+)(.*)$ ]]; then
             # Direct command format: /command PROMPT
             command="${BASH_REMATCH[1]}"
             prompt="${BASH_REMATCH[2]}"
             # Remove leading whitespace from prompt
-            prompt=$(echo "$prompt" | sed 's/^[[:space:]]*//')
-            
+            prompt="${prompt#"${prompt%%[![:space:]]*}"}"
+
             echo "Detected direct command"
-            echo "command=$command" >> $GITHUB_OUTPUT
-            echo "prompt<<EOF" >> $GITHUB_OUTPUT
-            echo "$prompt" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-            echo "has_command=true" >> $GITHUB_OUTPUT
-            echo "has_agent=false" >> $GITHUB_OUTPUT
-            
+            {
+              echo "command=$command"
+              echo "prompt<<EOF"
+              echo "$prompt"
+              echo "EOF"
+              echo "has_command=true"
+              echo "has_agent=false"
+            } >> "$GITHUB_OUTPUT"
+
           else
             echo "No command detected in comment"
-            echo "has_command=false" >> $GITHUB_OUTPUT
-            echo "has_agent=false" >> $GITHUB_OUTPUT
+            {
+              echo "has_command=false"
+              echo "has_agent=false"
+            } >> "$GITHUB_OUTPUT"
           fi
 
   execute-opencode:
@@ -124,7 +135,10 @@ jobs:
       contents: write
     uses: ./.github/workflows/core-opencode-run.yml
     with:
-      run-name: "${{ github.event.issue.number != null && format('issue-{0}-comment-{1}', github.event.issue.number, github.event.comment.id) || format('pr-{0}-comment-{1}', github.event.pull_request.number, github.event.comment.id) }}"
+      run-name: >-
+        ${{ github.event.issue.number != null &&
+        format('issue-{0}-comment-{1}', github.event.issue.number, github.event.comment.id) ||
+        format('pr-{0}-comment-{1}', github.event.pull_request.number, github.event.comment.id) }}
       command: ${{ needs.parse-and-check.outputs.command }}
       prompt: ${{ needs.parse-and-check.outputs.prompt }}
       agent: ${{ needs.parse-and-check.outputs.agent || 'build' }}
@@ -137,8 +151,8 @@ jobs:
     permissions:
       issues: write
       pull-requests: write
-    
-    steps:      
+
+    steps:
       - name: Comment execution results
         uses: actions/github-script@v9
         with:
@@ -148,12 +162,12 @@ jobs:
             const command = '${{ needs.parse-and-check.outputs.command }}';
             const agent = '${{ needs.parse-and-check.outputs.agent }}';
             const runId = context.runId;
-            
+
             // Use toJSON() to properly escape the results content
             const results = ${{ toJSON(needs.execute-opencode.outputs.results) }};
             const resultsTruncated = '${{ needs.execute-opencode.outputs.results-truncated }}' === 'true';
             const artifactName = '${{ needs.execute-opencode.outputs.artifact-name }}';
-            
+
             let executionType;
             if (hasAgent && hasCommand) {
               executionType = '*' + agent + ' /' + command;
@@ -162,12 +176,12 @@ jobs:
             } else {
               executionType = '/' + command;
             }
-            
+
             let commentBody;
             if (results && results.trim() !== '' && results !== '❌ No results file generated') {
-              const truncationNote = resultsTruncated ? 
+              const truncationNote = resultsTruncated ?
                 '\n\n📎 **Full results available in artifact:** [' + artifactName + '](' + context.payload.repository.html_url + '/actions/runs/' + runId + ')' : '';
-              
+
               commentBody = '🤖 **OpenCode Execution Complete**\n\n' +
                 '**Command:** `' + executionType + '`\n' +
                 '**Run ID:** ' + runId + '\n' +

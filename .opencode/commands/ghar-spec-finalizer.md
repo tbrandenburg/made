@@ -18,9 +18,9 @@ Extract the GitHub issue number from `$ARGUMENTS`. Set `ISSUE_NUMBER` to that nu
 BRANCH="agent/issue-${ISSUE_NUMBER}-implementation"
 ```
 
-Use `gh api` with `GH_TOKEN` to read the issue and its comments. Never push to `main` or the repository default branch. Do not expose private reasoning; publish only the requested artifact.
+Use `gh api` with `GH_TOKEN` to read the issue and its comments. Never push to `main` or the repository default branch. Do not expose private reasoning; publish only the requested issue comment.
 
-To publish an artifact, write the complete Markdown body to a temporary file. Its first line must be the exact marker shown below. Find comments with `gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100"`, selecting an exact first-line marker match. If one exists, update that comment with `gh api --method PATCH`; otherwise create it with `gh api --method POST`. If legacy duplicates exist, update the newest matching comment and delete the older matching duplicates. Do not create a second artifact comment.
+To publish an issue comment, write the complete Markdown body to a temporary file. Its first line must be the exact marker shown below. Find comments with `gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100"`, selecting an exact first-line marker match. If one exists, update that comment with `gh api --method PATCH`; otherwise create it with `gh api --method POST`. If legacy duplicates exist, update the newest matching comment and delete the older matching duplicates. Do not create a second comment with the same marker.
 
 
 ## Mission
@@ -28,6 +28,10 @@ To publish an artifact, write the complete Markdown body to a temporary file. It
 Read the issue, codebase, `spec-final`, `spec-redteam`, and `spec-tdd-review`. Verify all markers exist. Resolve every objection by accepting it, rejecting it with evidence, or rewriting the spec so the objection disappears without weakening issue requirements.
 
 Reject any spec that still contains untestable must-have criteria, unresolved contradictions, implementation-coupled test language, or an unclear minimum viable fix. Keep the contract testable through observable behavior. Preserve the simplest architecture that still satisfies the UX contract.
+
+## Input Load Guard
+
+If there are many objections or long upstream notes, first build a compact disposition ledger with one row per objection, criterion, or residual risk. Use the todo tool to track each cluster when the decision load is high, and keep exactly one `in_progress` item. Resolve each row as accepted, rejected with evidence, or rewritten away so the final spec does not rely on memory.
 
 Publish `<!-- spec-approved -->` with:
 
@@ -43,4 +47,4 @@ Publish `<!-- spec-approved -->` with:
 
 ## Boundaries
 
-Do not modify files, commit, create tests/code, expand scope, leave contradictions, or defer a required autonomous decision to a human. This artifact becomes immutable once implementation starts.
+Do not modify files, commit, create tests/code, expand scope, leave contradictions, or defer a required autonomous decision to a human. This comment becomes immutable once implementation starts.

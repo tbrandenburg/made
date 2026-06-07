@@ -4,12 +4,20 @@
     "context7": {
       "type": "local",
       "command": ["npx", "-y", "@upstash/context7-mcp"],
-      "enabled": true
+      "enabled": true,
+      "timeout": 60000
     },
     "sequential_thinking": {
       "type": "local",
       "command": ["npx", "-y","@modelcontextprotocol/server-sequential-thinking"],
-      "enabled": true
+      "enabled": true,
+      "timeout": 60000
+    },
+    "playwright": {
+      "type": "local",
+      "command": ["npx","@playwright/mcp@latest"],
+      "enabled": true,
+      "timeout": 60000
     }
   },
   "permission": {

@@ -1,6 +1,7 @@
+---
 name: Issues - List Available Commands and Agents on New Issue
 
-on:
+'on':
   issues:
     types: [opened]
 
@@ -10,45 +11,40 @@ jobs:
     permissions:
       issues: write
       contents: read
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-      
+
       - name: List available commands and agents
         id: list-tools
         run: |
-          # Get the list of command files from .opencode/commands directory
-          commands=$(find .opencode/commands -name "*.md" -type f -exec basename {} .md \; | sort)
-          
-          # Format commands with slash prefix
-          formatted_commands=""
-          for cmd in $commands; do
-            formatted_commands="${formatted_commands}/${cmd}\n"
+          mapfile -t commands < <(
+            find .opencode/commands -name '*.md' -type f -exec basename {} .md \; | sort
+          )
+          mapfile -t agents < <(
+            find .opencode/agents -name '*.md' -type f -exec basename {} .md \; | sort
+          )
+
+          formatted_commands=()
+          for cmd in "${commands[@]}"; do
+            formatted_commands+=("/$cmd")
           done
-          
-          # Get the list of agent files from .opencode/agents directory
-          agents=$(find .opencode/agents -name "*.md" -type f -exec basename {} .md \; | sort)
-          
-          # Format agents with asterisk prefix
-          formatted_agents=""
-          for agent in $agents; do
-            formatted_agents="${formatted_agents}*${agent}\n"
+
+          formatted_agents=()
+          for agent in "${agents[@]}"; do
+            formatted_agents+=("*$agent")
           done
-          
-          # Remove trailing newlines
-          formatted_commands=$(echo -e "$formatted_commands" | sed '$ s/\n$//')
-          formatted_agents=$(echo -e "$formatted_agents" | sed '$ s/\n$//')
-          
-          # Set the outputs for use in the next step
-          echo "commands<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$formatted_commands" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          
-          echo "agents<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$formatted_agents" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-      
+
+          {
+            echo "commands<<EOF"
+            printf '%s\n' "${formatted_commands[@]}"
+            echo "EOF"
+            echo "agents<<EOF"
+            printf '%s\n' "${formatted_agents[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Comment on issue
         uses: actions/github-script@v9
         with:
@@ -56,7 +52,7 @@ jobs:
             const author = context.payload.issue.user.login;
             const commands = `${{ steps.list-tools.outputs.commands }}`;
             const agents = `${{ steps.list-tools.outputs.agents }}`;
-            
+
             const commentBody = `Hello ${author}!
 
             Thanks for your feedback!
@@ -72,7 +68,7 @@ jobs:
             **Usage:**
             - Use commands directly: \`/command-name\`
             - Use agents with commands: \`*agent-name /command-name PROMPT\`
-              
+
             Example: \`*review /security-review Please check this code for vulnerabilities\``;
 
             await github.rest.issues.createComment({

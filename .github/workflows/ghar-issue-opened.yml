@@ -1,6 +1,7 @@
+---
 name: GHAR - Auto Issue Investigation
 
-on:
+'on':
   issues:
     types: [opened]
   workflow_dispatch:
@@ -17,7 +18,8 @@ jobs:
     with:
       run-name: issue-investigation
       command: ghar-issue-investigate
-      prompt: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+      prompt: >-
+        ${{ github.event.issue.number || github.event.inputs.issue_number }}
       timeout-minutes: 30
     permissions:
       # Required permissions for the job to access and modify issues/PRs
