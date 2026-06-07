@@ -553,6 +553,8 @@ export const RepositoryPage: React.FC = () => {
     args: "",
   });
   const chatWindowRef = useRef<ChatWindowHandle>(null);
+  const sessionClearedRef = useRef(false);
+  const lastSentPromptRef = useRef("");
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
 
@@ -1223,6 +1225,7 @@ export const RepositoryPage: React.FC = () => {
       text: message,
       timestamp,
     };
+    lastSentPromptRef.current = pendingPrompt;
     setChat((prev) => [...prev, userMessage]);
     setPendingPrompt("");
     setChatLoading(true);
@@ -1244,9 +1247,10 @@ export const RepositoryPage: React.FC = () => {
       );
 
       // No immediate message processing - polling handles everything
-      if (reply.sessionId) {
+      if (reply.sessionId && !sessionClearedRef.current) {
         setSessionId(reply.sessionId);
       }
+      sessionClearedRef.current = false;
 
       setChatError(null);
       setActiveTab("agent");
@@ -1286,12 +1290,20 @@ export const RepositoryPage: React.FC = () => {
   };
 
   const handleClearSessionOnly = () => {
+    setChatLoading(false);
+    sessionClearedRef.current = true;
+    setPendingPrompt(lastSentPromptRef.current);
+    lastSentPromptRef.current = "";
     setSessionId(null);
     setSelectedAgent(DEFAULT_AGENT_VALUE);
     setClearSessionModalOpen(false);
   };
 
   const handleClearSessionAndHistory = () => {
+    setChatLoading(false);
+    sessionClearedRef.current = true;
+    setPendingPrompt(lastSentPromptRef.current);
+    lastSentPromptRef.current = "";
     setSessionId(null);
     setSelectedAgent(DEFAULT_AGENT_VALUE);
     setChat([]);
