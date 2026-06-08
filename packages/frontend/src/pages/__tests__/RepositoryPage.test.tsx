@@ -2152,4 +2152,101 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     // must all pass. This test exists to confirm the regression suite ran.
     expect(true, "AC496 regression suite passes").toBe(true);
   });
+
+  // ── ADV-1: stale reply then fresh send from new session ───────────────
+
+  it("ADV-1: new send from new session works after stale reply is discarded", async () => {
+    let resolveStaleSend!: (value: AgentReply) => void;
+    let resolveFreshSend!: (value: AgentReply) => void;
+    vi.mocked(api.sendAgentMessage)
+      .mockReturnValueOnce(
+        new Promise<AgentReply>((resolve) => {
+          resolveStaleSend = resolve;
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise<AgentReply>((resolve) => {
+          resolveFreshSend = resolve;
+        }),
+      );
+
+    const { router } = renderPageWithRouter([
+      "/repositories/test-repo?tab=agent&sessionId=session-b",
+    ]);
+
+    await screen.findByLabelText("Clear session");
+
+    // Switch to session A via picker
+    fireEvent.click(screen.getByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("No conversation yet.");
+
+    // Start a deferred send for session A
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "stale message" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+        "Cancel should appear after first send",
+      ).toBeInTheDocument();
+    });
+
+    // Bootstrap switch to session B via URL navigation (triggers useLayoutEffect)
+    await router.navigate(
+      "/repositories/test-repo?tab=agent&sessionId=session-b",
+    );
+
+    // Resolve the stale session A reply
+    resolveStaleSend!({
+      messageId: "m1",
+      sent: new Date().toISOString(),
+      response: "stale",
+      sessionId: "session-a",
+      processing: false,
+    });
+
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    expect(
+      vi.mocked(api.getRepositoryAgentHistory),
+      "ADV-1a: stale reply should not trigger history fetch for old session",
+    ).not.toHaveBeenCalledWith("test-repo", "session-a", undefined);
+
+    // Now send a NEW message from session B
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    fireEvent.change(textarea, { target: { value: "fresh message" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+        "ADV-1b: Cancel should appear after new send from session B — sendRequestId guard may have broken subsequent sends",
+      ).toBeInTheDocument();
+    });
+
+    // Resolve the fresh session B reply
+    resolveFreshSend!({
+      messageId: "m2",
+      sent: new Date().toISOString(),
+      response: "fresh-ok",
+      sessionId: "session-b",
+      processing: false,
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Session ID: session-b"),
+        "ADV-1c: Session B's reply should be processed after stale reply was discarded",
+      ).toBeInTheDocument();
+    });
+  });
 });
