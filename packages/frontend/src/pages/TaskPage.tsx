@@ -107,6 +107,8 @@ export const TaskPage: React.FC = () => {
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
   const chatWindowRef = useRef<ChatWindowHandle>(null);
   const sendRequestIdRef = useRef(0);
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
   const chatInputId = "task-agent-prompt";
   const chatMarkdownOptions = useMemo(
     () => ({
@@ -223,8 +225,13 @@ export const TaskPage: React.FC = () => {
 
   const refreshAgentStatus = useCallback(async () => {
     if (!name) return false;
+    if (!sessionId) {
+      setChatLoading(false);
+      return false;
+    }
     try {
       const status = await api.getTaskAgentStatus(name, sessionId || undefined);
+      if (sessionIdRef.current !== sessionId) return false;
       setChatLoading(status.processing);
       setAgentStatus(
         status.processing

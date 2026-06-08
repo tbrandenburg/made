@@ -1,9 +1,15 @@
 // @vitest-environment jsdom
 
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import "@testing-library/jest-dom";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import "@testing-library/jest-dom/vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RepositoryPage } from "../RepositoryPage";
 import {
@@ -13,6 +19,9 @@ import {
   ChatHistoryResponse,
   ChatSession,
 } from "../../hooks/useApi";
+import { TaskPage } from "../TaskPage";
+import { KnowledgeArtefactPage } from "../KnowledgeArtefactPage";
+import { ConstitutionPage } from "../ConstitutionPage";
 
 class ResizeObserverStub {
   observe() {}
@@ -22,7 +31,9 @@ class ResizeObserverStub {
 vi.stubGlobal("ResizeObserver", ResizeObserverStub);
 
 vi.mock("react-virtuoso", async () => {
-  const ReactModule = await vi.importActual<typeof import("react")>("react");
+  const ReactModule = (await vi.importActual(
+    "react",
+  )) as typeof import("react");
   return {
     Virtuoso: ReactModule.forwardRef<
       { scrollToIndex: (opts: unknown) => void },
@@ -51,21 +62,20 @@ vi.mock("react-virtuoso", async () => {
 });
 
 vi.mock("../../hooks/useApi", async () => {
-  const actual =
-    await vi.importActual<typeof import("../../hooks/useApi")>(
-      "../../hooks/useApi",
-    );
-  return {
-    ...actual,
-    api: {
-      ...actual.api,
-      getRepositoryAgentSessions: vi.fn(),
-      getRepositoryAgentHistory: vi.fn(),
-      sendAgentMessage: vi.fn(),
-      cancelRepositoryAgent: vi.fn(),
-      getRepositoryAgentStatus: vi.fn(),
+  const target: Record<string, Mock> = {};
+  const handler: ProxyHandler<Record<string, Mock>> = {
+    get(_, prop) {
+      if (typeof prop === "string") {
+        if (!target[prop]) {
+          target[prop] = vi.fn().mockResolvedValue(undefined);
+        }
+        return target[prop];
+      }
+      return undefined;
     },
   };
+  const mock = new Proxy(target, handler);
+  return { api: mock };
 });
 
 const sessionA: ChatSession = {
@@ -93,6 +103,8 @@ function renderPage(initialEntries = ["/repositories/test-repo?tab=agent"]) {
 
 describe("RepositoryPage session selection", () => {
   beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
     vi.clearAllMocks();
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
     localStorage.clear();
@@ -345,6 +357,8 @@ describe("RepositoryPage session selection", () => {
 
 describe("RepositoryPage clear session loading state (AC496)", () => {
   beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
     vi.clearAllMocks();
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
     vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
@@ -702,5 +716,337 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
         screen.getByText("Session ID: recovered-session"),
       ).toBeInTheDocument();
     });
+  });
+});
+
+// ── AC497: refreshAgentStatus !sessionId guard ────────────────────────
+
+describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [],
+    });
+    vi.mocked(api.sendAgentMessage).mockResolvedValue({
+      messageId: "m1",
+      sent: new Date().toISOString(),
+      response: "ok",
+      sessionId: "test-session",
+      processing: false,
+    });
+    vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    vi.mocked(api.getTaskAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    vi.mocked(api.getKnowledgeAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    vi.mocked(api.getConstitutionAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    localStorage.clear();
+  });
+
+  async function renderAndWaitForClearButton() {
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+    await screen.findByLabelText("Clear session");
+  }
+
+  function openClearModal() {
+    fireEvent.click(screen.getByLabelText("Clear session"));
+  }
+
+  function confirmClearOnly() {
+    fireEvent.click(screen.getByRole("button", { name: /^no$/i }));
+  }
+
+  // ── U1: AC1+AC3 ──────────────────────────────────────────────────────
+
+  it("U1 (AC1+AC3): refreshAgentStatus skips API call and does not re-stick chatLoading after clear", async () => {
+    await renderAndWaitForClearButton();
+
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "test message" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+        "Cancel should appear (sending message)",
+      ).toBeInTheDocument();
+    });
+
+    vi.mocked(api.getRepositoryAgentStatus).mockClear();
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
+
+    openClearModal();
+    await screen.findByRole("button", { name: /^no$/i });
+    confirmClearOnly();
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 200));
+
+    expect(
+      api.getRepositoryAgentStatus,
+      "FAIL (AC3): getRepositoryAgentStatus was called after clear — !sessionId guard missing",
+    ).not.toHaveBeenCalled();
+
+    expect(
+      screen.queryByRole("button", { name: /cancel/i }),
+      "FAIL (AC1): Cancel button remains after clear — refreshAgentStatus re-stuck chatLoading via effect re-fire",
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.getByRole("button", { name: /send/i }),
+      "Send should be enabled after guard prevents re-stick",
+    ).not.toBeDisabled();
+  });
+
+  // ── U2: AC2 (DOM check) ───────────────────────────────────────────────
+
+  it("U2 (AC2): Cancel absent, Send enabled after clear while processing (integration)", async () => {
+    vi.mocked(api.sendAgentMessage).mockReturnValue(
+      new Promise<AgentReply>(() => {}),
+    );
+
+    await renderAndWaitForClearButton();
+
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "test" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+        "Cancel should appear (sending message)",
+      ).toBeInTheDocument();
+    });
+
+    vi.mocked(api.getRepositoryAgentStatus).mockClear();
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
+
+    openClearModal();
+    await screen.findByRole("button", { name: /^no$/i });
+    confirmClearOnly();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /cancel/i }),
+        "FAIL (AC2): Cancel remains after clear — !sessionId guard missing or setChatLoading(false) missing in handler",
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /send/i }),
+        "Send should be enabled after clear",
+      ).not.toBeDisabled();
+    });
+  });
+
+  // ── U3: AC3 negative ──────────────────────────────────────────────────
+
+  it("U3 (AC3 negative): with valid sessionId, getRepositoryAgentStatus IS called", async () => {
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentStatus,
+        "getRepositoryAgentStatus should be called on mount with valid sessionId",
+      ).toHaveBeenCalled();
+    });
+  });
+
+  // ── U4: AC1 regression ────────────────────────────────────────────────
+
+  it("U4 (AC1 regression): with valid sessionId + processing:true, Cancel appears", async () => {
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+        "FAIL (U4 regression): Cancel should appear — refreshAgentStatus should setChatLoading(true) when session is active",
+      ).toBeInTheDocument();
+    });
+  });
+
+  // ── D1: AC6 stale-closure guard ──────────────────────────────────────
+
+  it("D1 (AC6): stale in-flight refreshAgentStatus promise does not re-stick chatLoading after clear", async () => {
+    let resolveStatus!: (value: {
+      processing: boolean;
+      startedAt: string | null;
+    }) => void;
+
+    // Defer the FIRST call so it is in-flight when we clear the session.
+    // This is the only way to exercise the stale-closure guard at
+    // RepositoryPage.tsx: `if (sessionIdRef.current !== sessionId) return false`
+    vi.mocked(api.getRepositoryAgentStatus).mockReturnValue(
+      new Promise((resolve) => {
+        resolveStatus = resolve;
+      }),
+    );
+
+    // Render and wait for the Clear-session button (sessionId present in URL).
+    // The first getRepositoryAgentStatus call is now in-flight.
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+    await screen.findByLabelText("Clear session");
+
+    // Confirm the in-flight call has started
+    await waitFor(() => {
+      expect(api.getRepositoryAgentStatus).toHaveBeenCalledTimes(1);
+    });
+
+    // Clear the session WHILE the API call is still in-flight.
+    openClearModal();
+    await screen.findByRole("button", { name: /^no$/i });
+    confirmClearOnly();
+
+    // Session cleared — Cancel should not be visible (setChatLoading(false) called)
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /cancel/i }),
+        "Cancel should not appear after clear (even with in-flight promise pending)",
+      ).not.toBeInTheDocument();
+    });
+
+    // Now resolve the stale in-flight promise with processing: true.
+    // Without the stale-closure guard, setChatLoading(true) would fire
+    // and Cancel would re-appear. With the guard, sessionIdRef.current
+    // (null after clear) !== sessionId at closure time (session-a) → guard
+    // returns false and chatLoading stays false.
+    resolveStatus!({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 200));
+
+    expect(
+      screen.queryByRole("button", { name: /cancel/i }),
+      "FAIL (AC6): Cancel re-appeared after stale promise resolved — sessionIdRef stale-closure guard missing",
+    ).not.toBeInTheDocument();
+  });
+
+  // ── P1: AC7 cross-page ───────────────────────────────────────────────
+
+  it("P1 (AC7): all 4 pages skip status API call when sessionId is null", async () => {
+    const pageConfigs = [
+      {
+        name: "RepositoryPage",
+        entry: "/repositories/test-repo",
+        route: "/repositories/:name/*",
+        el: <RepositoryPage />,
+        apiSpy: api.getRepositoryAgentStatus,
+      },
+      {
+        name: "TaskPage",
+        entry: "/tasks/test-task",
+        route: "/tasks/:name",
+        el: <TaskPage />,
+        apiSpy: api.getTaskAgentStatus,
+      },
+      {
+        name: "KnowledgeArtefactPage",
+        entry: "/knowledge/test-knowledge",
+        route: "/knowledge/:name",
+        el: <KnowledgeArtefactPage />,
+        apiSpy: api.getKnowledgeAgentStatus,
+      },
+      {
+        name: "ConstitutionPage",
+        entry: "/constitutions/test-constitution",
+        route: "/constitutions/:name",
+        el: <ConstitutionPage />,
+        apiSpy: api.getConstitutionAgentStatus,
+      },
+    ];
+
+    for (const page of pageConfigs) {
+      const spy = page.apiSpy;
+      vi.mocked(spy).mockClear();
+
+      const { unmount } = render(
+        <MemoryRouter initialEntries={[page.entry]}>
+          <Routes>
+            <Route path={page.route} element={page.el} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 300));
+
+      expect(
+        vi.mocked(spy),
+        `FAIL (AC7): ${page.name} — status API was called without sessionId — !sessionId guard missing`,
+      ).not.toHaveBeenCalled();
+
+      unmount();
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    }
+  });
+
+  // ── P2: AC8 isExternal ordering ─────────────────────────────────────
+
+  it("P2 (AC8): KnowledgeArtefactPage + ConstitutionPage skip sessionId guard when isExternal=true", async () => {
+    const extPages = [
+      {
+        name: "KnowledgeArtefactPage",
+        entry: "/knowledge/external-test-artefact",
+        route: "/knowledge/:name",
+        el: <KnowledgeArtefactPage />,
+        apiSpy: api.getKnowledgeAgentStatus,
+      },
+      {
+        name: "ConstitutionPage",
+        entry: "/constitutions/external-test-constitution",
+        route: "/constitutions/:name",
+        el: <ConstitutionPage />,
+        apiSpy: api.getConstitutionAgentStatus,
+      },
+    ];
+
+    for (const page of extPages) {
+      vi.mocked(page.apiSpy).mockClear();
+
+      const { unmount } = render(
+        <MemoryRouter initialEntries={[page.entry]}>
+          <Routes>
+            <Route path={page.route} element={page.el} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 300));
+
+      expect(
+        vi.mocked(page.apiSpy),
+        `FAIL (AC8): ${page.name} — status API was called with isExternal=true — guard exited after sessionId check instead of isExternal`,
+      ).not.toHaveBeenCalled();
+
+      unmount();
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    }
   });
 });

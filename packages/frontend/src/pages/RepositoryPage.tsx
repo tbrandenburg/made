@@ -554,6 +554,8 @@ export const RepositoryPage: React.FC = () => {
   });
   const chatWindowRef = useRef<ChatWindowHandle>(null);
   const sendRequestIdRef = useRef(0);
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
   const lastSentPromptRef = useRef("");
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
@@ -1120,11 +1122,16 @@ export const RepositoryPage: React.FC = () => {
 
   const refreshAgentStatus = useCallback(async () => {
     if (!name) return false;
+    if (!sessionId) {
+      setChatLoading(false);
+      return false;
+    }
     try {
       const status = await api.getRepositoryAgentStatus(
         name,
         sessionId || undefined,
       );
+      if (sessionIdRef.current !== sessionId) return false;
       setChatLoading(status.processing);
       setChatError(
         status.processing
