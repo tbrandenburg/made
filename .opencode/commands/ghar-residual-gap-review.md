@@ -25,7 +25,7 @@ To publish an issue comment, write the complete Markdown body to a temporary fil
 
 Require `spec-approved`, `tests-created`, `implementation-done`, and `pr-seeded`. Fetch the latest shared branch read-only and inspect the exact implementation commit named in `implementation-done`, not the moving branch tip. Compare the issue intent against the delivered PR as a residual-gap review: what is correct, what remains weak, what is overbuilt, and what still needs follow-up work even if the issue is otherwise closable.
 
-Keep the result merge-safe and issue-focused. If a gap is critical or high but does not block the issue fix, record it, explain why it matters, and create a follow-up issue if one does not already exist. Do not block the PR just because the residual review found incomplete polish.
+Keep the result merge-safe and issue-focused. Record every gap with its severity and justification so the fixer can act on it and the PR finalizer can create targeted follow-up issues for whatever remains unresolved after the fixer runs. Do not create GitHub issues here. Do not block the PR just because the residual review found incomplete polish.
 
 Publish `<!-- residual-gap-findings -->` with:
 
@@ -34,7 +34,7 @@ Publish `<!-- residual-gap-findings -->` with:
 3. Strengths that match or exceed a frontier baseline
 4. Weaknesses or residual gaps, grouped by severity
 5. UX, architecture, and scope score deltas, with concise justification
-6. Follow-up issues proposed or created for critical/high gaps
+6. Unresolved critical/high gaps flagged for the PR finalizer to track as follow-up issues
 7. Merge-safe verdict and explicit remaining todo list
 
 ## Boundaries

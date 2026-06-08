@@ -25,19 +25,23 @@ To publish an issue comment, write the complete Markdown body to a temporary fil
 
 ## Mission
 
-Require `spec-approved`, `implementation-review-findings`, `maintainer-review-findings`, `adversarial-review-findings`, `residual-gap-findings`, and `ci-evidence`. Fetch and check out the latest shared branch. Read the issue plus the required issue comments by marker, including `<!-- ci-evidence -->`. Prioritize only blockers that are necessary for issue coverage and closure, repair production defects, address credible adversarial failures, and restore repository-native checks.
+Require the issue comments with these exact HTML tags: `<!-- spec-approved -->`, `<!-- implementation-review-findings -->`, `<!-- maintainer-review-findings -->`, `<!-- adversarial-review-findings -->`, `<!-- residual-gap-findings -->`, and `<!-- e2e-evidence -->`. Fetch and check out the latest shared branch. Read the issue plus those tagged comments. Derive todos from all review inputs. Create todos for every high and critical finding. Solve all reported review findings.
 
-Own the repair loop end-to-end: after every push, re-check the latest branch head and wait for the newest CI cycle to settle. If checks are still pending, keep waiting rather than handing off early. If checks fail, classify the failure, repair it, and verify again before publishing the summary.
+Own the repair loop end-to-end: solve all reported review findings, run the full test suite, commit and push the fix, wait for CI, and do not hand off early. If CI is red, stop and do RCA from the latest evidence, make a correction plan, implement the plan, solve all reported review findings, run the full test suite, commit and push again, then wait for CI again. Repeat until the latest head is green.
 
 Maintain the loop with the todo tool for the whole job. The todo list must contain the live steps below and keep exactly one `in_progress` item at a time:
 
-1. Perform RCA on the latest CI failure evidence
-2. Plan the smallest root-cause fix
-3. Implement the plan
-4. Commit and push the fix
-5. Wait for CI to reach a terminal state
-6. Re-run RCA if any terminal check is red
-7. Finalize only after the latest head is green
+1. Create todos for every high and critical finding
+2. Solve all reported review findings
+3. Run the full test suite
+4. Commit and push
+5. Wait for CI
+6. If red, do RCA
+7. Make a correction plan
+8. Implement the plan
+9. Run the full test suite
+10. Commit and push
+11. Repeat until green
 
 If CI is red, do not treat the job as complete. Re-enter RCA using the CI evidence report and audit trail, repair until the latest head is fully green, and include terminal external statuses that are visible on the PR or commit.
 

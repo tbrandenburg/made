@@ -238,13 +238,13 @@ jobs:
     permissions: {contents: read, issues: write, pull-requests: write}
     secrets: inherit
 
-  ci-evidence:
-    name: "8E. CI Evidence"
+  e2e-evidence:
+    name: "8E. E2E Evidence"
     needs: [implementer, pr-seeder]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
-      run-name: ci-evidence
-      command: ghar-ci-evidence
+      run-name: e2e-evidence
+      command: ghar-e2e-evidence
       prompt: ${{ inputs.issue_number }}
       timeout-minutes: 60
     permissions:
@@ -262,7 +262,7 @@ jobs:
       - maintainer-review
       - adversarial-review
       - residual-gap-review
-      - ci-evidence
+      - e2e-evidence
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: fixer-integrator

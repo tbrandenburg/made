@@ -25,9 +25,9 @@ To publish an issue comment, write the complete Markdown body to a temporary fil
 
 ## Mission
 
-Fetch the latest shared branch read-only. Create or refresh exactly one draft pull request from `$BRANCH` to the repository default branch immediately after the implementation step. Reuse an existing open or closed-unmerged PR for the branch when present. The PR body should be short, stable, and explicitly state that the branch is still in progress and will be updated by later workflow stages.
+Fetch the latest shared branch read-only. Create or refresh exactly one real, non-draft pull request from `$BRANCH` to the repository default branch immediately after the implementation step. Reuse an existing open or closed-unmerged PR for the branch when present, but never create or preserve a draft PR. The PR body should be short, stable, and explicitly state that the branch is still in progress and will be updated by later workflow stages.
 
-Use the early PR as the anchor for branch-based CI, deployment previews, and human review. Do not wait for final artifacts or terminal CI. Keep the PR draft while the branch is still under active repair.
+Use the early PR as the anchor for branch-based CI, deployment previews, and human review. Do not wait for final artifacts or terminal CI. Keep the PR open and non-draft while the branch is still under active repair.
 
 Publish `<!-- pr-seeded -->` with:
 
