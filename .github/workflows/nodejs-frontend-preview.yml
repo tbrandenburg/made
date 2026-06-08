@@ -62,18 +62,20 @@ jobs:
         env:
           TRIGGER_ACTOR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login || github.triggering_actor }}
         run: |
-          echo "::error::Preview deployment requires repository admin privileges. Triggering actor: $TRIGGER_ACTOR"
-          exit 1
+          echo "::warning::Preview deployment skipped — requires repository admin privileges. Triggering actor: $TRIGGER_ACTOR"
 
       - name: Set up Node.js
+        if: ${{ steps.admin.outputs.is_admin == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
       - name: Install jq
+        if: ${{ steps.admin.outputs.is_admin == 'true' }}
         run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Install latest ngrok CLI (v4)
+        if: ${{ steps.admin.outputs.is_admin == 'true' }}
         run: |
           echo "🔧 Installing official ngrok CLI (v4)..."
           curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | \
@@ -85,6 +87,7 @@ jobs:
           echo "✅ Installed $(ngrok version)"
 
       - name: Detect Node.js frontend directory
+        if: ${{ steps.admin.outputs.is_admin == 'true' }}
         id: detect
         run: |
           echo "🔍 Searching for Node.js frontend in this PR branch..."
@@ -203,6 +206,7 @@ jobs:
       # Configure OpenCode
       # ------------------------------------------------------
       - name: Configure opencode
+        if: ${{ steps.admin.outputs.is_admin == 'true' }}
         run: |
           mkdir -p "$HOME/.config/opencode"
           cp .github/opencode/config.json "$HOME/.config/opencode/config.json"
