@@ -3,7 +3,13 @@
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RepositoryPage } from "../RepositoryPage";
 import {
@@ -888,34 +894,43 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
       startedAt: string | null;
     }) => void;
 
-    vi.mocked(api.getRepositoryAgentStatus)
-      .mockResolvedValueOnce({
-        processing: false,
-        startedAt: null,
-      })
-      .mockReturnValueOnce(
-        new Promise((resolve) => {
-          resolveStatus = resolve;
-        }),
-      );
+    // Defer the FIRST call so it is in-flight when we clear the session.
+    // This is the only way to exercise the stale-closure guard at
+    // RepositoryPage.tsx: `if (sessionIdRef.current !== sessionId) return false`
+    vi.mocked(api.getRepositoryAgentStatus).mockReturnValue(
+      new Promise((resolve) => {
+        resolveStatus = resolve;
+      }),
+    );
 
-    await renderAndWaitForClearButton();
+    // Render and wait for the Clear-session button (sessionId present in URL).
+    // The first getRepositoryAgentStatus call is now in-flight.
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+    await screen.findByLabelText("Clear session");
 
+    // Confirm the in-flight call has started
     await waitFor(() => {
       expect(api.getRepositoryAgentStatus).toHaveBeenCalledTimes(1);
     });
 
+    // Clear the session WHILE the API call is still in-flight.
     openClearModal();
     await screen.findByRole("button", { name: /^no$/i });
     confirmClearOnly();
 
+    // Session cleared — Cancel should not be visible (setChatLoading(false) called)
     await waitFor(() => {
       expect(
         screen.queryByRole("button", { name: /cancel/i }),
-        "Cancel should disappear after clear (even with in-flight promise pending)",
+        "Cancel should not appear after clear (even with in-flight promise pending)",
       ).not.toBeInTheDocument();
     });
 
+    // Now resolve the stale in-flight promise with processing: true.
+    // Without the stale-closure guard, setChatLoading(true) would fire
+    // and Cancel would re-appear. With the guard, sessionIdRef.current
+    // (null after clear) !== sessionId at closure time (session-a) → guard
+    // returns false and chatLoading stays false.
     resolveStatus!({
       processing: true,
       startedAt: new Date().toISOString(),
