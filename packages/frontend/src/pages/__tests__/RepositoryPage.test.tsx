@@ -1103,9 +1103,7 @@ describe("RepositoryPage reload current session (AC1-AC7)", () => {
   // ── AC2: DOM presence ───────────────────────────────────────────
 
   it("AC2: Refresh button present when sessionId is set (fails: button not rendered)", async () => {
-    renderPage([
-      "/repositories/test-repo?tab=agent&sessionId=session-a",
-    ]);
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
     await screen.findByLabelText("Clear session");
 
     expect(
@@ -1127,13 +1125,9 @@ describe("RepositoryPage reload current session (AC1-AC7)", () => {
   // ── AC3: functional ─────────────────────────────────────────────
 
   it("AC3: Refresh button calls getRepositoryAgentHistory on click (fails: button missing)", async () => {
-    renderPage([
-      "/repositories/test-repo?tab=agent&sessionId=session-a",
-    ]);
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
 
-    const refreshBtn = await screen.findByLabelText(
-      "Refresh current session",
-    );
+    const refreshBtn = await screen.findByLabelText("Refresh current session");
     vi.mocked(api.getRepositoryAgentHistory).mockClear();
     fireEvent.click(refreshBtn);
 
@@ -1153,13 +1147,9 @@ describe("RepositoryPage reload current session (AC1-AC7)", () => {
       }),
     );
 
-    renderPage([
-      "/repositories/test-repo?tab=agent&sessionId=session-a",
-    ]);
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
 
-    const refreshBtn = await screen.findByLabelText(
-      "Refresh current session",
-    );
+    const refreshBtn = await screen.findByLabelText("Refresh current session");
     fireEvent.click(refreshBtn);
 
     expect(
@@ -1223,14 +1213,10 @@ describe("RepositoryPage reload current session (AC1-AC7)", () => {
       }),
     );
 
-    renderPage([
-      "/repositories/test-repo?tab=agent&sessionId=session-a",
-    ]);
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
     await screen.findByLabelText("Clear session");
 
-    const refreshBtn = await screen.findByLabelText(
-      "Refresh current session",
-    );
+    const refreshBtn = await screen.findByLabelText("Refresh current session");
 
     vi.mocked(api.getRepositoryAgentHistory).mockClear();
 
@@ -1268,8 +1254,7 @@ describe("Cross-page Refresh button (AC4)", () => {
     const pageConfigs = [
       {
         name: "RepositoryPage",
-        entry:
-          "/repositories/test-repo?tab=agent&sessionId=session-a",
+        entry: "/repositories/test-repo?tab=agent&sessionId=session-a",
         route: "/repositories/:name/*",
         el: <RepositoryPage />,
         apiSpy: api.getRepositoryAgentHistory,
@@ -1372,9 +1357,9 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     });
 
     vi.mocked(api.getRepositoryAgentHistory)
-      .mockResolvedValueOnce(historyA)    // step 2: initial load session A
+      .mockResolvedValueOnce(historyA) // step 2: initial load session A
       .mockReturnValueOnce(deferredRefresh) // step 3: Refresh starts (deferred)
-      .mockResolvedValueOnce(historyB);   // step 5: switch to session B
+      .mockResolvedValueOnce(historyB); // step 5: switch to session B
 
     renderPage();
     await new Promise<void>((r) => setTimeout(r, 200));
@@ -1425,8 +1410,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
       sessions: [sessionA],
     });
-    vi.mocked(api.getRepositoryAgentHistory)
-      .mockResolvedValueOnce(historyA);
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValueOnce(historyA);
 
     renderPage();
     fireEvent.click(await screen.findByLabelText("Choose a session"));
@@ -1477,8 +1461,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     const historyA = { sessionId: "session-a", messages: [msgA] };
     const historyB = { sessionId: "session-b", messages: [msgB] };
 
-    vi.mocked(api.getRepositoryAgentHistory)
-      .mockResolvedValue(historyA);
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(historyA);
 
     renderPage();
 
@@ -1517,9 +1500,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
       }),
     );
 
-    renderPage([
-      "/repositories/test-repo?tab=agent&sessionId=session-a",
-    ]);
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
     await screen.findByLabelText("Clear session");
 
     vi.mocked(api.getRepositoryAgentHistory).mockClear();
