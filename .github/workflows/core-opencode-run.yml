@@ -70,11 +70,28 @@ jobs:
       results-truncated: ${{ steps.process-results.outputs.results-truncated }}
       artifact-name: ${{ steps.process-results.outputs.artifact-name }}
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Prefer GH_PAT when available so PRs created by GHAR trigger
+      # pull_request CI events in the target repo.  GitHub blocks those
+      # events for GITHUB_TOKEN (github-actions[bot]) by design.
+      # Maintainers who need GHAR-created PRs to fire their test workflows
+      # should add a Fine-Grained PAT with contents:write + pull-requests:write
+      # as the GH_PAT repository secret.  Falls back to GITHUB_TOKEN silently.
+      GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          # Use GH_PAT when available so git pushes from this job use the PAT
+          # identity, which allows downstream pull_request events to fire.
+          # Falls back to GITHUB_TOKEN (github-actions[bot]) silently.
+          token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name "GHAR Agent"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.1.0
