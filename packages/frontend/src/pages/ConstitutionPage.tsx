@@ -130,7 +130,7 @@ export const ConstitutionPage: React.FC = () => {
   const chatWindowRef = useRef<ChatWindowHandle>(null);
   const sendRequestIdRef = useRef(0);
   const sessionIdRef = useRef(sessionId);
-  sessionIdRef.current = sessionId;
+  const chatRef = useRef(chat);
   const chatInputId = "constitution-agent-prompt";
   const chatMarkdownOptions = useMemo(
     () => ({
@@ -144,6 +144,13 @@ export const ConstitutionPage: React.FC = () => {
     () => (isExternal && name ? getExternalMatter("constitution", name) : null),
     [isExternal, name],
   );
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+  useEffect(() => {
+    chatRef.current = chat;
+  }, [chat]);
 
   const scrollToBottom = useCallback(() => {
     chatWindowRef.current?.scrollToBottom();
@@ -515,6 +522,7 @@ export const ConstitutionPage: React.FC = () => {
     isRefreshingRef.current = true;
     setIsRefreshing(true);
     setChatLoading(true);
+    const chatBeforeRefresh = chatRef.current;
     setChat([]);
     try {
       const history = await api.getConstitutionAgentHistory(
@@ -526,6 +534,7 @@ export const ConstitutionPage: React.FC = () => {
       setChat(mapped);
       setAgentStatus(null);
     } catch (error) {
+      setChat(chatBeforeRefresh);
       console.error("Failed to load session history", error);
       const message =
         error instanceof Error

@@ -117,7 +117,7 @@ export const TaskPage: React.FC = () => {
   const chatWindowRef = useRef<ChatWindowHandle>(null);
   const sendRequestIdRef = useRef(0);
   const sessionIdRef = useRef(sessionId);
-  sessionIdRef.current = sessionId;
+  const chatRef = useRef(chat);
   const chatInputId = "task-agent-prompt";
   const chatMarkdownOptions = useMemo(
     () => ({
@@ -126,6 +126,13 @@ export const TaskPage: React.FC = () => {
     }),
     [name],
   );
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+  useEffect(() => {
+    chatRef.current = chat;
+  }, [chat]);
 
   const scrollToBottom = useCallback(() => {
     chatWindowRef.current?.scrollToBottom();
@@ -448,6 +455,7 @@ export const TaskPage: React.FC = () => {
     isRefreshingRef.current = true;
     setIsRefreshing(true);
     setChatLoading(true);
+    const chatBeforeRefresh = chatRef.current;
     setChat([]);
     try {
       const history = await api.getTaskAgentHistory(name, sessionIdAtCall);
@@ -456,6 +464,7 @@ export const TaskPage: React.FC = () => {
       setChat(mapped);
       setAgentStatus(null);
     } catch (error) {
+      setChat(chatBeforeRefresh);
       console.error("Failed to load session history", error);
       const message =
         error instanceof Error

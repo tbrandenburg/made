@@ -562,7 +562,6 @@ export const RepositoryPage: React.FC = () => {
   const chatWindowRef = useRef<ChatWindowHandle>(null);
   const sendRequestIdRef = useRef(0);
   const sessionIdRef = useRef(sessionId);
-  sessionIdRef.current = sessionId;
   const lastSentPromptRef = useRef("");
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
@@ -666,6 +665,13 @@ export const RepositoryPage: React.FC = () => {
   useEffect(() => {
     lastKnownTimestampRef.current = lastKnownTimestamp;
   }, [lastKnownTimestamp]);
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+  const chatRef = useRef(chat);
+  useEffect(() => {
+    chatRef.current = chat;
+  }, [chat]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const chatMarkdownOptions = useMemo(
     () => ({
@@ -1246,16 +1252,34 @@ export const RepositoryPage: React.FC = () => {
     isRefreshingRef.current = true;
     setIsRefreshing(true);
     lastKnownTimestampRef.current = undefined;
+    const chatBeforeRefresh = chatRef.current;
     setChat([]);
-    await syncChatHistory();
-    if (sessionIdRef.current !== sessionIdAtCall) {
+    try {
+      const history = await api.getRepositoryAgentHistory(
+        name,
+        sessionIdAtCall,
+        undefined,
+      );
+      if (sessionIdRef.current !== sessionIdAtCall) return;
+      if (history.messages?.length) {
+        const mapped = mapHistoryToMessages(history.messages);
+        setChat(mapped);
+      }
+      setChatError(null);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setChat(chatBeforeRefresh);
+      console.error("Failed to reload session history", error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to reload session history";
+      setChatError(message);
+    } finally {
       setIsRefreshing(false);
       isRefreshingRef.current = false;
-      return;
     }
-    setIsRefreshing(false);
-    isRefreshingRef.current = false;
-  }, [name, sessionId, setChat, syncChatHistory]);
+  }, [name, sessionId, setChat, setChatError]);
 
   const handleSendMessage = async (prompt?: string) => {
     if (!name) return;
