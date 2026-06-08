@@ -6,7 +6,12 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { renderMarkdown } from "../utils/markdown";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
@@ -33,6 +38,7 @@ const SessionPickerModal = React.lazy(
 );
 import { ArrowDownIcon } from "../components/icons/ArrowDownIcon";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
+import { RefreshIcon } from "../components/icons/RefreshIcon";
 import { TrashIcon } from "../components/icons/TrashIcon";
 import {
   AgentSelector,
@@ -55,6 +61,7 @@ import {
 export const ConstitutionPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("content");
   const [frontmatter, setFrontmatter] = useState<Record<string, unknown>>({});
@@ -118,10 +125,12 @@ export const ConstitutionPage: React.FC = () => {
   const [sessionListLoading, setSessionListLoading] = useState(false);
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
   const [externalPath, setExternalPath] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const isRefreshingRef = useRef(false);
   const chatWindowRef = useRef<ChatWindowHandle>(null);
   const sendRequestIdRef = useRef(0);
   const sessionIdRef = useRef(sessionId);
-  sessionIdRef.current = sessionId;
+  const chatRef = useRef(chat);
   const chatInputId = "constitution-agent-prompt";
   const chatMarkdownOptions = useMemo(
     () => ({
@@ -135,6 +144,13 @@ export const ConstitutionPage: React.FC = () => {
     () => (isExternal && name ? getExternalMatter("constitution", name) : null),
     [isExternal, name],
   );
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+  useEffect(() => {
+    chatRef.current = chat;
+  }, [chat]);
 
   const scrollToBottom = useCallback(() => {
     chatWindowRef.current?.scrollToBottom();
@@ -185,11 +201,20 @@ export const ConstitutionPage: React.FC = () => {
     };
     void switchSessionIfNeeded();
 
-    const path = window.location.pathname;
-    if (hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)) {
+    if (
+      hasConsumedChatBootstrap(
+        location.pathname,
+        incomingSessionId,
+        incomingMessage,
+      )
+    ) {
       return;
     }
-    markChatBootstrapConsumed(path, incomingSessionId, incomingMessage);
+    markChatBootstrapConsumed(
+      location.pathname,
+      incomingSessionId,
+      incomingMessage,
+    );
     if (incomingMessage) {
       setPrompt(incomingMessage);
     }
@@ -206,7 +231,15 @@ export const ConstitutionPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [api, name, searchParams, sessionId, setSearchParams, setSessionId]);
+  }, [
+    api,
+    location.pathname,
+    name,
+    searchParams,
+    sessionId,
+    setSearchParams,
+    setSessionId,
+  ]);
 
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
@@ -483,6 +516,38 @@ export const ConstitutionPage: React.FC = () => {
     }
   };
 
+  const reloadCurrentSession = useCallback(async () => {
+    if (!name || !sessionId || isRefreshingRef.current || isExternal) return;
+    const sessionIdAtCall = sessionId;
+    isRefreshingRef.current = true;
+    setIsRefreshing(true);
+    setChatLoading(true);
+    const chatBeforeRefresh = chatRef.current;
+    setChat([]);
+    try {
+      const history = await api.getConstitutionAgentHistory(
+        name,
+        sessionIdAtCall,
+      );
+      if (sessionIdRef.current !== sessionIdAtCall) return;
+      const mapped = mapHistoryToMessages(history.messages || []);
+      setChat(mapped);
+      setAgentStatus(null);
+    } catch (error) {
+      setChat(chatBeforeRefresh);
+      console.error("Failed to load session history", error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to load session history";
+      setAgentStatus(message);
+    } finally {
+      setChatLoading(false);
+      setIsRefreshing(false);
+      isRefreshingRef.current = false;
+    }
+  }, [name, sessionId, isExternal, setChat, setChatLoading, setAgentStatus]);
+
   const handleSaveSession = useCallback(() => {
     if (!sessionId) return;
     setSavedSessionIds((previous) =>
@@ -615,6 +680,18 @@ export const ConstitutionPage: React.FC = () => {
                 >
                   <DatabaseIcon />
                 </button>
+                {sessionId && (
+                  <button
+                    type="button"
+                    className="copy-button"
+                    onClick={reloadCurrentSession}
+                    aria-label="Refresh current session"
+                    title="Refresh current session"
+                    disabled={chatLoading || isRefreshing}
+                  >
+                    <RefreshIcon />
+                  </button>
+                )}
                 <button
                   type="button"
                   className="copy-button"
