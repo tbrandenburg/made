@@ -25,7 +25,7 @@ To publish an issue comment, write the complete Markdown body to a temporary fil
 
 ## Mission
 
-Require the issue comments with these exact HTML tags: `<!-- spec-approved -->`, `<!-- implementation-review-findings -->`, `<!-- maintainer-review-findings -->`, `<!-- adversarial-review-findings -->`, `<!-- residual-gap-findings -->`, and `<!-- e2e-evidence -->`. Fetch and check out the latest shared branch. Read the issue plus those tagged comments. Derive todos from all review inputs. Create todos for every high and critical finding. Solve all reported review findings.
+Require the issue comments with these exact HTML tags: `<!-- spec-approved -->`, `<!-- implementation-review-findings -->`, `<!-- maintainer-review-findings -->`, `<!-- adversarial-review-findings -->`, `<!-- residual-gap-findings -->`, and `<!-- e2e-evidence -->`. Fetch and check out the latest shared branch. Read the issue plus those tagged comments. Derive todos from all review inputs. Create todos for every high and critical finding. For every medium finding, create a todo and make an explicit disposition: either resolve it in this PR or document a concrete reason for deferral in the fixer-summary (deferred findings will be filed as follow-up issues by the PR finalizer). Solve all reported review findings.
 
 Own the repair loop end-to-end: solve all reported review findings, run the full test suite, commit and push the fix, wait for CI, and do not hand off early. If CI is red, stop and do RCA from the latest evidence, make a correction plan, implement the plan, solve all reported review findings, run the full test suite, commit and push again, then wait for CI again. Repeat until the latest head is green.
 

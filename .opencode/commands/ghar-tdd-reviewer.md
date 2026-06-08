@@ -30,6 +30,10 @@ Read the issue, codebase, test framework, and only the `spec-final` planning iss
 Every must-have criterion must map to a runtime-observable test. Prefer behavior-level assertions over source inspection or private implementation probes whenever the behavior is observable through the public surface. Include explicit UX-state tests when the issue mentions loading, clearing, stale content, or error feedback.
 Require at least one behavior-level test, one negative case, and one regression case for each must-have criterion where applicable. If the spec cannot support that, the spec is not ready.
 
+When a must-have criterion names N > 1 concrete components (e.g., "applied consistently to all 4 pages"), the required initial failing tests MUST include at least one test per named component. Testing only the primary component does not satisfy an AC that names multiple components.
+
+For every async operation introduced or modified by the spec: require at least one test where an invalidating concurrent event (session switch, second concurrent invocation, component unmount) occurs after the `await` and before any state mutation. If no such test exists in the TDD plan, add it to the required initial failing tests — not to the adversarial phase.
+
 ## Input Load Guard
 
 Before judging the spec, build a compact traceability ledger with one row per must-have criterion and its behavior, negative, regression, fixture, and failure-message coverage. Use the todo tool to track each criterion cluster when the spec is large, and keep exactly one `in_progress` item. If a criterion cannot map to a runtime-observable test, mark it untestable immediately instead of carrying it in memory.

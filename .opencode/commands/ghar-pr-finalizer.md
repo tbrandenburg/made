@@ -246,12 +246,12 @@ npm run build || bun run build
 Compute the set of items that need follow-up issues:
 
 ```
-unresolved = (residual-gap-findings critical/high items)
+unresolved = (residual-gap-findings critical/high/medium items)
              MINUS (fixer-summary confirmed-resolved items)
-             PLUS  (Phase 4 new critical/high findings not in any comment)
+             PLUS  (Phase 4 new critical/high/medium findings not in any comment)
 ```
 
-For each unresolved critical/high item, create a GitHub follow-up issue if one does not already exist:
+For each unresolved critical/high/medium item, create a GitHub follow-up issue if one does not already exist:
 
 ```bash
 gh issue create \

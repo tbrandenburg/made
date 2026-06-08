@@ -25,7 +25,9 @@ To publish an issue comment, write the complete Markdown body to a temporary fil
 
 ## Mission
 
-Require the `spec-approved` issue comment. Fetch and check out the shared branch with `git fetch origin "$BRANCH"` and `git checkout -B "$BRANCH" "origin/$BRANCH"`. Inspect existing tests, then encode the approved acceptance criteria as the smallest deterministic set of tests that fail for the intended missing behavior. Each test must map to one acceptance criterion and one direct code path; avoid sibling-path coverage unless the approved spec explicitly requires shared behavior.
+Require the `spec-approved` issue comment. Fetch and check out the shared branch with `git fetch origin "$BRANCH"` and `git checkout -B "$BRANCH" "origin/$BRANCH"`. Inspect existing tests, then encode the approved acceptance criteria as the smallest deterministic set of tests that fail for the intended missing behavior. Each test must map to one acceptance criterion and one direct code path; avoid sibling-path coverage unless the approved spec explicitly requires shared behavior. Exception: when an acceptance criterion names N > 1 concrete components, write at least one failing test per named component — this is per-criterion coverage, not sibling-path coverage.
+
+For every new async callback or function containing `await` introduced by this change: include at least one test where a state-invalidating event (session change, second concurrent call, unmount) occurs after the `await` and before state mutation. This test must fail before implementation to prove the concurrency guard is actually needed.
 
 Classify the work before writing tests:
 
