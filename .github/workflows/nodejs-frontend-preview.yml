@@ -34,16 +34,10 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
 
-      - name: Authenticate GitHub CLI
-        env:
-          GH_AUTH_TOKEN: ${{ secrets.GH_AUTH_TOKEN }}
-        run: |
-          echo "$GH_AUTH_TOKEN" | gh auth login --with-token
-          gh auth status
-
       - name: Verify triggering actor is repo admin
         id: admin
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
           TRIGGER_ACTOR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login || github.triggering_actor }}
         run: |
