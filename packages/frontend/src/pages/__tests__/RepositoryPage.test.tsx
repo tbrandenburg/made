@@ -1335,3 +1335,211 @@ describe("Cross-page Refresh button (AC4)", () => {
     }
   });
 });
+
+// ── Adversarial: stale-closure & boundary tests ─────────────────────
+
+describe("RepositoryPage adversarial — stale-closure data integrity", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    localStorage.clear();
+  });
+
+  it("ADV-1: refresh fetch for stale session does not corrupt new session chat after session switch", async () => {
+    const msgA: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [msgA] };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+
+    let resolveRefresh: (value: ChatHistoryResponse) => void = () => {};
+    const deferredRefresh = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveRefresh = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyA)    // step 2: initial load session A
+      .mockReturnValueOnce(deferredRefresh) // step 3: Refresh starts (deferred)
+      .mockResolvedValueOnce(historyB);   // step 5: switch to session B
+
+    renderPage();
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    // step 2: load session A
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    // step 3: click Refresh
+    const refreshBtn = await screen.findByLabelText("Refresh current session");
+    fireEvent.click(refreshBtn);
+    expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
+
+    // wait for the refresh fetch to be dispatched
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(2);
+    });
+
+    // step 4: while refresh is in-flight, switch to session B
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    // step 5: resolve the stale deferred refresh (session A data arrives AFTER switch)
+    resolveRefresh!(historyA);
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    // session B's own fetch should also have resolved
+    await screen.findByText("Hello from B");
+
+    // ADVERSARIAL CHECK: "Hello from A" must NOT appear — stale refresh data
+    // must not corrupt session B's chat
+    expect(
+      screen.queryByText("Hello from A"),
+      "FAIL (ADV-1): stale refresh for session A merged into session B chat — syncChatHistory lacks stale-closure guard before setChat",
+    ).not.toBeInTheDocument();
+  });
+
+  it("ADV-3: Refresh disabled while chatLoading=true (agent processing)", async () => {
+    const msgA: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [msgA] };
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyA);
+
+    renderPage();
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    // Simulate chatLoading=true (agent processing)
+    vi.mocked(api.sendAgentMessage).mockResolvedValue({
+      messageId: "m1",
+      sent: new Date().toISOString(),
+      response: "ok",
+      sessionId: "session-a",
+      processing: true,
+    });
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: null,
+    });
+
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "test message" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    const refreshBtn = await screen.findByLabelText("Refresh current session");
+    expect(
+      refreshBtn,
+      "FAIL (ADV-3): Refresh button not disabled while chatLoading=true",
+    ).toBeDisabled();
+  });
+
+  it("ADV-4: same-session re-select followed by different-session switch — second switch still works", async () => {
+    const msgA: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [msgA] };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValue(historyA);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    // Re-select session A (triggers reloadCurrentSession) — returns empty
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    // Switch to session B — return historyB for any subsequent calls
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(historyB);
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await screen.findByText("Hello from B");
+
+    expect(
+      screen.queryByText("Hello from A"),
+      "FAIL (ADV-4): stale re-select data merged into session B chat",
+    ).not.toBeInTheDocument();
+  });
+
+  it("ADV-5: ChatWindow receives loading={chatLoading || isRefreshing} during refresh", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage([
+      "/repositories/test-repo?tab=agent&sessionId=session-a",
+    ]);
+    await screen.findByLabelText("Clear session");
+
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
+    const refreshBtn = await screen.findByLabelText("Refresh current session");
+    fireEvent.click(refreshBtn);
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    expect(
+      refreshBtn,
+      "FAIL (ADV-5): Refresh button not disabled during fetch",
+    ).toBeDisabled();
+
+    // The Virtuoso mock renders children directly - check it's in loading state
+    // (ChatWindow renders its content inside the Virtuoso mock)
+    expect(
+      screen.getByText(/Agent is thinking|Loading/),
+      "FAIL (ADV-5): loading indicator not visible — isRefreshing not wired to ChatWindow loading prop",
+    ).toBeInTheDocument();
+
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    resolveFetch!(emptyHistory);
+  });
+});
