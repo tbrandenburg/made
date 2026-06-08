@@ -31,7 +31,9 @@ class ResizeObserverStub {
 vi.stubGlobal("ResizeObserver", ResizeObserverStub);
 
 vi.mock("react-virtuoso", async () => {
-  const ReactModule = await vi.importActual<typeof import("react")>("react");
+  const ReactModule = (await vi.importActual(
+    "react",
+  )) as typeof import("react");
   return {
     Virtuoso: ReactModule.forwardRef<
       { scrollToIndex: (opts: unknown) => void },
