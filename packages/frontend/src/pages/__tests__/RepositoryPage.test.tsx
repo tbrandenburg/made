@@ -1104,9 +1104,7 @@ describe("RepositoryPage reload current session (AC1-AC7)", () => {
   // ── AC2: DOM presence ───────────────────────────────────────────
 
   it("AC2: Refresh button present when sessionId is set (fails: button not rendered)", async () => {
-    renderPage([
-      "/repositories/test-repo?tab=agent&sessionId=session-a",
-    ]);
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
     await screen.findByLabelText("Clear session");
 
     expect(
@@ -1128,13 +1126,9 @@ describe("RepositoryPage reload current session (AC1-AC7)", () => {
   // ── AC3: functional ─────────────────────────────────────────────
 
   it("AC3: Refresh button calls getRepositoryAgentHistory on click (fails: button missing)", async () => {
-    renderPage([
-      "/repositories/test-repo?tab=agent&sessionId=session-a",
-    ]);
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
 
-    const refreshBtn = await screen.findByLabelText(
-      "Refresh current session",
-    );
+    const refreshBtn = await screen.findByLabelText("Refresh current session");
     vi.mocked(api.getRepositoryAgentHistory).mockClear();
     fireEvent.click(refreshBtn);
 
@@ -1154,13 +1148,9 @@ describe("RepositoryPage reload current session (AC1-AC7)", () => {
       }),
     );
 
-    renderPage([
-      "/repositories/test-repo?tab=agent&sessionId=session-a",
-    ]);
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
 
-    const refreshBtn = await screen.findByLabelText(
-      "Refresh current session",
-    );
+    const refreshBtn = await screen.findByLabelText("Refresh current session");
     fireEvent.click(refreshBtn);
 
     expect(
@@ -1224,14 +1214,10 @@ describe("RepositoryPage reload current session (AC1-AC7)", () => {
       }),
     );
 
-    renderPage([
-      "/repositories/test-repo?tab=agent&sessionId=session-a",
-    ]);
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
     await screen.findByLabelText("Clear session");
 
-    const refreshBtn = await screen.findByLabelText(
-      "Refresh current session",
-    );
+    const refreshBtn = await screen.findByLabelText("Refresh current session");
 
     vi.mocked(api.getRepositoryAgentHistory).mockClear();
 
@@ -1269,8 +1255,7 @@ describe("Cross-page Refresh button (AC4)", () => {
     const pageConfigs = [
       {
         name: "RepositoryPage",
-        entry:
-          "/repositories/test-repo?tab=agent&sessionId=session-a",
+        entry: "/repositories/test-repo?tab=agent&sessionId=session-a",
         route: "/repositories/:name/*",
         el: <RepositoryPage />,
         apiSpy: api.getRepositoryAgentHistory,
@@ -1373,9 +1358,9 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     });
 
     vi.mocked(api.getRepositoryAgentHistory)
-      .mockResolvedValueOnce(historyA)    // step 2: initial load session A
+      .mockResolvedValueOnce(historyA) // step 2: initial load session A
       .mockReturnValueOnce(deferredRefresh) // step 3: Refresh starts (deferred)
-      .mockResolvedValueOnce(historyB);   // step 5: switch to session B
+      .mockResolvedValueOnce(historyB); // step 5: switch to session B
 
     renderPage();
     await new Promise<void>((r) => setTimeout(r, 200));
@@ -1426,8 +1411,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
       sessions: [sessionA],
     });
-    vi.mocked(api.getRepositoryAgentHistory)
-      .mockResolvedValueOnce(historyA);
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValueOnce(historyA);
 
     renderPage();
     fireEvent.click(await screen.findByLabelText("Choose a session"));
@@ -1478,8 +1462,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     const historyA = { sessionId: "session-a", messages: [msgA] };
     const historyB = { sessionId: "session-b", messages: [msgB] };
 
-    vi.mocked(api.getRepositoryAgentHistory)
-      .mockResolvedValue(historyA);
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(historyA);
 
     renderPage();
 
@@ -1518,9 +1501,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
       }),
     );
 
-    renderPage([
-      "/repositories/test-repo?tab=agent&sessionId=session-a",
-    ]);
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
     await screen.findByLabelText("Clear session");
 
     vi.mocked(api.getRepositoryAgentHistory).mockClear();
@@ -1674,12 +1655,13 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       ).toBeInTheDocument();
     });
 
-    // Bootstrap switch to session B
+    // Bootstrap switch to session B — triggers useLayoutEffect which
+    // increments sendRequestIdRef so stale reply will be discarded
     await router.navigate(
       "/repositories/test-repo?tab=agent&sessionId=session-b",
     );
 
-    // Resolve stale reply
+    // Resolve the stale session A reply
     resolveSend!({
       messageId: "m1",
       sent: new Date().toISOString(),
@@ -1690,10 +1672,20 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
 
     await new Promise<void>((r) => setTimeout(r, 200));
 
+    // 1. Stale success reply must NOT cause "Failed to reach agent" to appear
+    //    (if the guard failed, setChatError(null) would run on stale path but
+    //     the stale path never sets error text — this assertion is a sanity check)
     expect(
       screen.queryByText("Failed to reach agent"),
       "F-AC495-1c: 'Failed to reach agent' appeared for stale success reply",
     ).not.toBeInTheDocument();
+
+    // 2. Session B's session ID must still be displayed — proves the stale
+    //    reply did NOT call setSessionId("session-a") (guard blocked it)
+    expect(
+      screen.getByText("Session ID: session-b"),
+      "F-AC495-1b: session ID was overwritten by stale session A reply — guard failed",
+    ).toBeInTheDocument();
   });
 
   // ── U3: AC495-2 bootstrap stale error reply ─────────────────────────
@@ -1735,6 +1727,10 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       "/repositories/test-repo?tab=agent&sessionId=session-b",
     );
 
+    // Capture getRepositoryAgentStatus call count before rejecting stale reply
+    const statusCallCount = vi.mocked(api.getRepositoryAgentStatus).mock.calls
+      .length;
+
     // Reject the stale session A reply
     rejectSend!(new Error("Network failure"));
 
@@ -1744,6 +1740,12 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       screen.queryByText("Failed to reach agent"),
       "F-AC495-2a: 'Failed to reach agent' appeared for stale error reply after session switch",
     ).not.toBeInTheDocument();
+
+    // Guard must prevent refreshAgentStatus call for stale session
+    expect(
+      vi.mocked(api.getRepositoryAgentStatus).mock.calls.length,
+      "F-AC495-2b: refreshAgentStatus called after stale error — guard failed",
+    ).toBe(statusCallCount);
   });
 
   // ── U4: AC495-3 normal send success ─────────────────────────────────
@@ -1767,9 +1769,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Session ID: session-a"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Session ID: session-a")).toBeInTheDocument();
     });
   });
 
@@ -1972,9 +1972,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       expect(
         screen.queryByRole("button", { name: /cancel/i }),
       ).not.toBeInTheDocument();
-      expect(
-        screen.getByText("No conversation yet."),
-      ).toBeInTheDocument();
+      expect(screen.getByText("No conversation yet.")).toBeInTheDocument();
     });
 
     // Resolve the stale session A reply
@@ -2060,9 +2058,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     });
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Session ID: session-b"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Session ID: session-b")).toBeInTheDocument();
     });
 
     // Now resolve the stale first message (should be discarded by request-level guard)
@@ -2136,21 +2132,49 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
   it("U12: bootstrap fire with empty name does not break guard", async () => {
     // Render with session URL but missing name param (invalid route)
     // The bootstrap should early-return on !name, not crash
-    renderPageWithRouter([
-      "/repositories/?tab=agent&sessionId=session-a",
-    ]);
+    renderPageWithRouter(["/repositories/?tab=agent&sessionId=session-a"]);
 
     await new Promise<void>((r) => setTimeout(r, 300));
 
     expect(true, "Bootstrap with empty name did not crash").toBe(true);
   });
 
-  // ── U13: AC496 regression ──────────────────────────────────────────
+  // ── U13: AC496 regression guard ─────────────────────────────────
 
-  it("U13 (AC496 regression): all AC496 tests pass unchanged", async () => {
-    // This test is a placeholder — AC496 tests in the describe block above
-    // must all pass. This test exists to confirm the regression suite ran.
-    expect(true, "AC496 regression suite passes").toBe(true);
+  it("U13 (AC496 regression): normal send after picker switch works", async () => {
+    // The stale-reply guard fix must not break normal session management.
+    // Unlike U4 which tests bootstrap-initiated sends, this tests the
+    // session-picker path — a regression scenario from the AC496 suite.
+    vi.mocked(api.sendAgentMessage).mockResolvedValue({
+      messageId: "m1",
+      sent: new Date().toISOString(),
+      response: "ok",
+      sessionId: "session-b",
+      processing: false,
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+    await screen.findByLabelText("Clear session");
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    fireEvent.click(screen.getByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+    await screen.findByText("No conversation yet.");
+
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "hello from B" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Session ID: session-b"),
+        "F-AC495-U13: AC496 regression — send after picker switch broken",
+      ).toBeInTheDocument();
+    });
   });
 
   // ── ADV-1: stale reply then fresh send from new session ───────────────
