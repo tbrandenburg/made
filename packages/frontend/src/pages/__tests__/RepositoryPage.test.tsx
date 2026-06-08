@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import {
   cleanup,
@@ -57,8 +57,8 @@ vi.mock("react-virtuoso", async () => {
 });
 
 vi.mock("../../hooks/useApi", async () => {
-  const target: Record<string, vi.Mock> = {};
-  const handler: ProxyHandler<Record<string, vi.Mock>> = {
+  const target: Record<string, Mock> = {};
+  const handler: ProxyHandler<Record<string, Mock>> = {
     get(_, prop) {
       if (typeof prop === "string") {
         if (!target[prop]) {
