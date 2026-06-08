@@ -29,19 +29,22 @@ vi.mock("react-virtuoso", async () => {
       {
         data: unknown[];
         itemContent: (index: number, item: unknown) => ReactNode;
+        components?: { Footer?: ReactModule.ComponentType };
       }
-    >(function MockVirtuoso({ data, itemContent }, ref) {
+    >(function MockVirtuoso({ data, itemContent, components }, ref) {
       ReactModule.useImperativeHandle(ref, () => ({ scrollToIndex: vi.fn() }));
+      const Footer = components?.Footer;
       return ReactModule.createElement(
         "div",
         { "data-testid": "virtuoso" },
-        data.map((item, index) =>
+        ...data.map((item, index) =>
           ReactModule.createElement(
             ReactModule.Fragment,
             { key: index },
             itemContent(index, item),
           ),
         ),
+        Footer ? ReactModule.createElement(Footer) : null,
       );
     }),
   };

@@ -214,6 +214,37 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
                       <span>Agent is thinking...</span>
                     </div>
                   )}
+                  {sessionId && (
+                    <div className="chat-session-id" aria-label="Session ID">
+                      <span>Session ID: {sessionId}</span>
+                      <button
+                        type="button"
+                        className="icon-button-small"
+                        aria-label={
+                          isSessionSaved ? "Session saved" : "Save session"
+                        }
+                        title={
+                          isSessionSaved
+                            ? "Session already saved"
+                            : "Save session"
+                        }
+                        onClick={onSaveSession}
+                        disabled={!onSaveSession || isSessionSaved}
+                      >
+                        <SaveIcon />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button-small"
+                        aria-label="Clear session"
+                        title="Clear session"
+                        onClick={onClearSession}
+                        disabled={!onClearSession}
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
+                  )}
                 </>
               ),
             }}
@@ -231,7 +262,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
         {chat.length === 0 && !loading && (
           <div className="empty">{emptyMessage}</div>
         )}
-        {sessionId && (
+        {chat.length === 0 && sessionId && (
           <div className="chat-session-id" aria-label="Session ID">
             <span>Session ID: {sessionId}</span>
             <button
