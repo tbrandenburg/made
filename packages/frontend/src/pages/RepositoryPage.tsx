@@ -2,6 +2,7 @@ import React, {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -593,15 +594,10 @@ export const RepositoryPage: React.FC = () => {
     chatWindowRef.current?.scrollToBottom();
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const { sessionId: incomingSessionId, message: incomingMessage } =
       getChatBootstrapParams(searchParams);
     if (!incomingSessionId && !incomingMessage) return;
-
-    const { nextParams, changed } = stripChatBootstrapParams(searchParams);
-    if (changed) {
-      setSearchParams(nextParams, { replace: true });
-    }
 
     const switchSessionIfNeeded = () => {
       if (!name || !incomingSessionId || incomingSessionId === sessionId) {
@@ -610,6 +606,12 @@ export const RepositoryPage: React.FC = () => {
       setChatError(null);
       setSessionId(incomingSessionId);
       setChat([]);
+      sendRequestIdRef.current += 1;
+      try {
+        localStorage.setItem(sessionStorageKey, incomingSessionId);
+      } catch {
+        // localStorage unavailable
+      }
     };
     switchSessionIfNeeded();
 
@@ -644,7 +646,6 @@ export const RepositoryPage: React.FC = () => {
     name,
     searchParams,
     sessionId,
-    setSearchParams,
     setSessionId,
     setChatError,
   ]);
@@ -654,7 +655,11 @@ export const RepositoryPage: React.FC = () => {
     if (tab) {
       setActiveTab(tab);
     }
-  }, [searchParams]);
+    const { nextParams, changed } = stripChatBootstrapParams(searchParams);
+    if (changed) {
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const lastKnownTimestamp = useMemo(() => {
     if (!chat.length) return undefined;
