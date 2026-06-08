@@ -6,7 +6,12 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { renderMarkdown } from "../utils/markdown";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
@@ -51,6 +56,7 @@ import {
 import { ClearSessionModal } from "../components/ClearSessionModal";
 import { ArrowDownIcon } from "../components/icons/ArrowDownIcon";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
+import { RefreshIcon } from "../components/icons/RefreshIcon";
 import { DownloadIcon } from "../components/icons/DownloadIcon";
 import { Box3dIcon } from "../components/icons/Box3dIcon";
 import { EditIcon } from "../components/icons/EditIcon";
@@ -381,6 +387,7 @@ const MagnifyingGlassIcon: React.FC = () => (
 export const RepositoryPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("agent");
   const [searchParams, setSearchParams] = useSearchParams();
   const [repository, setRepository] = useState<RepositorySummary | null>(null);
@@ -607,11 +614,20 @@ export const RepositoryPage: React.FC = () => {
     };
     switchSessionIfNeeded();
 
-    const path = window.location.pathname;
-    if (hasConsumedChatBootstrap(path, incomingSessionId, incomingMessage)) {
+    if (
+      hasConsumedChatBootstrap(
+        location.pathname,
+        incomingSessionId,
+        incomingMessage,
+      )
+    ) {
       return;
     }
-    markChatBootstrapConsumed(path, incomingSessionId, incomingMessage);
+    markChatBootstrapConsumed(
+      location.pathname,
+      incomingSessionId,
+      incomingMessage,
+    );
     if (incomingMessage) {
       setPendingPrompt(incomingMessage);
     }
@@ -625,6 +641,7 @@ export const RepositoryPage: React.FC = () => {
       textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
     });
   }, [
+    location.pathname,
     name,
     searchParams,
     sessionId,
@@ -698,6 +715,8 @@ export const RepositoryPage: React.FC = () => {
   const [movePath, setMovePath] = useState("");
   const [loadingFile, setLoadingFile] = useState(false);
   const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const isRefreshingRef = useRef(false);
   const chatInputId = "repository-agent-prompt";
   const webPreviewUrl = name
     ? `/api/repositories/${encodeURIComponent(name)}/web`
@@ -1221,6 +1240,23 @@ export const RepositoryPage: React.FC = () => {
     };
   }, [chatLoading, name, sessionId, syncChatHistory]);
 
+  const reloadCurrentSession = useCallback(async () => {
+    if (!name || !sessionId || isRefreshingRef.current) return;
+    const sessionIdAtCall = sessionId;
+    isRefreshingRef.current = true;
+    setIsRefreshing(true);
+    lastKnownTimestampRef.current = undefined;
+    setChat([]);
+    await syncChatHistory();
+    if (sessionIdRef.current !== sessionIdAtCall) {
+      setIsRefreshing(false);
+      isRefreshingRef.current = false;
+      return;
+    }
+    setIsRefreshing(false);
+    isRefreshingRef.current = false;
+  }, [name, sessionId, setChat, syncChatHistory]);
+
   const handleSendMessage = async (prompt?: string) => {
     if (!name) return;
     const message = (prompt ?? pendingPrompt).trim();
@@ -1325,6 +1361,7 @@ export const RepositoryPage: React.FC = () => {
     if (!name) return;
     if (session.id === sessionId) {
       setSessionModalOpen(false);
+      reloadCurrentSession();
       return;
     }
     sendRequestIdRef.current += 1;
@@ -1886,6 +1923,18 @@ export const RepositoryPage: React.FC = () => {
               >
                 <DatabaseIcon />
               </button>
+              {sessionId && (
+                <button
+                  type="button"
+                  className="copy-button"
+                  onClick={reloadCurrentSession}
+                  aria-label="Refresh current session"
+                  title="Refresh current session"
+                  disabled={chatLoading || isRefreshing}
+                >
+                  <RefreshIcon />
+                </button>
+              )}
               <button
                 type="button"
                 className="copy-button"
@@ -1917,7 +1966,7 @@ export const RepositoryPage: React.FC = () => {
           <ChatWindow
             chat={chat}
             chatWindowRef={chatWindowRef}
-            loading={chatLoading}
+            loading={chatLoading || isRefreshing}
             emptyMessage="No conversation yet."
             sessionId={sessionId}
             onClearSession={() => setClearSessionModalOpen(true)}
