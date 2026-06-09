@@ -253,8 +253,7 @@ jobs:
               GH_TOKEN="$AUTH_TOKEN" gh pr create \
                 --head "$BRANCH" \
                 --title "$PR_TITLE" \
-                --body "$PR_BODY" \
-                --no-draft
+                --body "$PR_BODY"
             fi
           fi
 
