@@ -284,6 +284,63 @@ describe("ChatWindow", () => {
     );
   });
 
+  it("toggles loading indicator when agentProcessing changes at runtime (empty chat)", () => {
+    const { rerender } = render(
+      <ChatWindow chat={[]} agentProcessing={false} emptyMessage="No messages" />,
+    );
+
+    expect(screen.queryByText("Agent is thinking...")).not.toBeInTheDocument();
+    expect(screen.getByText("No messages")).toBeInTheDocument();
+
+    rerender(
+      <ChatWindow chat={[]} agentProcessing emptyMessage="No messages" />,
+    );
+
+    expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
+    expect(screen.queryByText("No messages")).not.toBeInTheDocument();
+
+    rerender(
+      <ChatWindow chat={[]} agentProcessing={false} emptyMessage="No messages" />,
+    );
+
+    expect(screen.queryByText("Agent is thinking...")).not.toBeInTheDocument();
+    expect(screen.getByText("No messages")).toBeInTheDocument();
+  });
+
+  it("toggles loading indicator in Virtuoso footer when agentProcessing changes (non-empty chat)", () => {
+    const { rerender } = render(
+      <ChatWindow chat={[makeMessage()]} agentProcessing={false} emptyMessage="No messages" />,
+    );
+
+    expect(screen.queryByText("Agent is thinking...")).not.toBeInTheDocument();
+
+    rerender(
+      <ChatWindow chat={[makeMessage()]} agentProcessing emptyMessage="No messages" />,
+    );
+
+    expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
+
+    rerender(
+      <ChatWindow chat={[makeMessage()]} agentProcessing={false} emptyMessage="No messages" />,
+    );
+
+    expect(screen.queryByText("Agent is thinking...")).not.toBeInTheDocument();
+  });
+
+  it("shows loading indicator across empty-to-non-empty transition while agentProcessing remains true", () => {
+    const { rerender } = render(
+      <ChatWindow chat={[]} agentProcessing emptyMessage="No messages" />,
+    );
+
+    expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
+
+    rerender(
+      <ChatWindow chat={[makeMessage()]} agentProcessing emptyMessage="No messages" />,
+    );
+
+    expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
+  });
+
   it("resets initial scroll when sessionId changes", async () => {
     const chatWindowRef = React.createRef<ChatWindowHandle>();
     const { rerender } = render(
