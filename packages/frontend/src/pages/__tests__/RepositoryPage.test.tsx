@@ -415,7 +415,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
 
   // ── AC496-1 ────────────────────────────────────────────────────────────
 
-  it("AC496-1: clearSessionOnly resets chatLoading when loading (fails: setChatLoading(false) missing)", async () => {
+  it("AC496-1: clearSessionOnly resets chatAgentProcessing when loading (fails: setChatAgentProcessing(false) missing)", async () => {
     vi.mocked(api.sendAgentMessage).mockReturnValue(
       new Promise<AgentReply>(() => {}),
     );
@@ -427,7 +427,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
     await waitFor(() => {
       expect(
         screen.getByRole("button", { name: /cancel/i }),
-        "Cancel button should appear (chatLoading=true)",
+        "Cancel button should appear (chatAgentProcessing=true)",
       ).toBeInTheDocument();
     });
 
@@ -439,7 +439,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
     await waitFor(() => {
       expect(
         screen.queryByRole("button", { name: /cancel/i }),
-        "FAIL: Cancel remains — handleClearSessionOnly missing setChatLoading(false)",
+        "FAIL: Cancel remains — handleClearSessionOnly missing setChatAgentProcessing(false)",
       ).not.toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: /send/i }),
@@ -450,7 +450,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
 
   // ── AC496-2 ────────────────────────────────────────────────────────────
 
-  it("AC496-2: clearSessionAndHistory resets chatLoading when loading (fails: setChatLoading(false) missing)", async () => {
+  it("AC496-2: clearSessionAndHistory resets chatAgentProcessing when loading (fails: setChatAgentProcessing(false) missing)", async () => {
     vi.mocked(api.sendAgentMessage).mockReturnValue(
       new Promise<AgentReply>(() => {}),
     );
@@ -462,7 +462,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
     await waitFor(() => {
       expect(
         screen.getByRole("button", { name: /cancel/i }),
-        "Cancel button should appear (chatLoading=true)",
+        "Cancel button should appear (chatAgentProcessing=true)",
       ).toBeInTheDocument();
     });
 
@@ -474,7 +474,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
     await waitFor(() => {
       expect(
         screen.queryByRole("button", { name: /cancel/i }),
-        "FAIL: Cancel remains — handleClearSessionAndHistory missing setChatLoading(false)",
+        "FAIL: Cancel remains — handleClearSessionAndHistory missing setChatAgentProcessing(false)",
       ).not.toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: /send/i }),
@@ -489,7 +489,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
 
   // ── AC496-3 idempotent ────────────────────────────────────────────────
 
-  it("AC496-3: clearSessionOnly idempotent when chatLoading already false", async () => {
+  it("AC496-3: clearSessionOnly idempotent when chatAgentProcessing already false", async () => {
     await renderAndWaitForClearButton();
 
     vi.mocked(api.getRepositoryAgentHistory).mockClear();
@@ -504,7 +504,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
     });
   });
 
-  it("AC496-3: clearSessionAndHistory idempotent when chatLoading already false", async () => {
+  it("AC496-3: clearSessionAndHistory idempotent when chatAgentProcessing already false", async () => {
     await renderAndWaitForClearButton();
 
     vi.mocked(api.getRepositoryAgentHistory).mockClear();
@@ -594,7 +594,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
     await waitFor(() => {
       expect(
         screen.queryByText("Agent is thinking..."),
-        "FAIL: 'Agent is thinking...' remains — handleClearSessionOnly missing setChatLoading(false)",
+        "FAIL: 'Agent is thinking...' remains — handleClearSessionOnly missing setChatAgentProcessing(false)",
       ).not.toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: /send/i }),
@@ -777,7 +777,7 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
 
   // ── U1: AC1+AC3 ──────────────────────────────────────────────────────
 
-  it("U1 (AC1+AC3): refreshAgentStatus skips API call and does not re-stick chatLoading after clear", async () => {
+  it("U1 (AC1+AC3): refreshAgentStatus skips API call and does not re-stick chatAgentProcessing after clear", async () => {
     await renderAndWaitForClearButton();
 
     const textarea = screen.getByPlaceholderText(
@@ -812,7 +812,7 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
 
     expect(
       screen.queryByRole("button", { name: /cancel/i }),
-      "FAIL (AC1): Cancel button remains after clear — refreshAgentStatus re-stuck chatLoading via effect re-fire",
+      "FAIL (AC1): Cancel button remains after clear — refreshAgentStatus re-stuck chatAgentProcessing via effect re-fire",
     ).not.toBeInTheDocument();
 
     expect(
@@ -856,7 +856,7 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
     await waitFor(() => {
       expect(
         screen.queryByRole("button", { name: /cancel/i }),
-        "FAIL (AC2): Cancel remains after clear — !sessionId guard missing or setChatLoading(false) missing in handler",
+        "FAIL (AC2): Cancel remains after clear — !sessionId guard missing or setChatAgentProcessing(false) missing in handler",
       ).not.toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: /send/i }),
@@ -891,14 +891,14 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
     await waitFor(() => {
       expect(
         screen.getByRole("button", { name: /cancel/i }),
-        "FAIL (U4 regression): Cancel should appear — refreshAgentStatus should setChatLoading(true) when session is active",
+        "FAIL (U4 regression): Cancel should appear — refreshAgentStatus should setChatAgentProcessing(true) when session is active",
       ).toBeInTheDocument();
     });
   });
 
   // ── D1: AC6 stale-closure guard ──────────────────────────────────────
 
-  it("D1 (AC6): stale in-flight refreshAgentStatus promise does not re-stick chatLoading after clear", async () => {
+  it("D1 (AC6): stale in-flight refreshAgentStatus promise does not re-stick chatAgentProcessing after clear", async () => {
     let resolveStatus!: (value: {
       processing: boolean;
       startedAt: string | null;
@@ -928,7 +928,7 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
     await screen.findByRole("button", { name: /^no$/i });
     confirmClearOnly();
 
-    // Session cleared — Cancel should not be visible (setChatLoading(false) called)
+    // Session cleared — Cancel should not be visible (setChatAgentProcessing(false) called)
     await waitFor(() => {
       expect(
         screen.queryByRole("button", { name: /cancel/i }),
@@ -937,10 +937,10 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
     });
 
     // Now resolve the stale in-flight promise with processing: true.
-    // Without the stale-closure guard, setChatLoading(true) would fire
+    // Without the stale-closure guard, setChatAgentProcessing(true) would fire
     // and Cancel would re-appear. With the guard, sessionIdRef.current
     // (null after clear) !== sessionId at closure time (session-a) → guard
-    // returns false and chatLoading stays false.
+    // returns false and chatAgentProcessing stays false.
     resolveStatus!({
       processing: true,
       startedAt: new Date().toISOString(),
@@ -1399,7 +1399,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("ADV-3: Refresh disabled while chatLoading=true (agent processing)", async () => {
+  it("ADV-3: Refresh disabled while chatAgentProcessing=true (agent processing)", async () => {
     const msgA: ChatHistoryMessage = {
       role: "assistant",
       type: "text",
@@ -1418,7 +1418,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     fireEvent.click(await screen.findByTitle("Session A"));
     await screen.findByText("Hello from A");
 
-    // Simulate chatLoading=true (agent processing)
+    // Simulate chatAgentProcessing=true (agent processing)
     vi.mocked(api.sendAgentMessage).mockResolvedValue({
       messageId: "m1",
       sent: new Date().toISOString(),
@@ -1442,7 +1442,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     const refreshBtn = await screen.findByLabelText("Refresh current session");
     expect(
       refreshBtn,
-      "FAIL (ADV-3): Refresh button not disabled while chatLoading=true",
+      "FAIL (ADV-3): Refresh button not disabled while chatAgentProcessing=true",
     ).toBeDisabled();
   });
 
@@ -1493,7 +1493,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("ADV-5: ChatWindow receives agentProcessing={chatLoading || isRefreshing} during refresh", async () => {
+  it("ADV-5: ChatWindow receives agentProcessing={chatAgentProcessing || isRefreshing} during refresh", async () => {
     let resolveFetch!: (value: ChatHistoryResponse) => void;
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(
       new Promise<ChatHistoryResponse>((resolve) => {
@@ -1799,7 +1799,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
 
   // ── U6: AC495-3 reply.processing=true ───────────────────────────────
 
-  it("U6 (AC495-3): reply.processing=true keeps chatLoading true", async () => {
+  it("U6 (AC495-3): reply.processing=true keeps chatAgentProcessing true", async () => {
     vi.mocked(api.sendAgentMessage).mockResolvedValue({
       messageId: "m1",
       sent: new Date().toISOString(),
@@ -1812,7 +1812,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     await screen.findByLabelText("Clear session");
 
     // After initial mount, mock status to processing:true so refreshAgentStatus
-    // effect doesn't wrongly clear chatLoading after the send resolves
+    // effect doesn't wrongly clear chatAgentProcessing after the send resolves
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
       processing: true,
       startedAt: new Date().toISOString(),
@@ -1829,7 +1829,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     const sendBtn = screen.queryByRole("button", { name: /send/i });
     expect(
       sendBtn,
-      "F-AC495-3c: Send button re-enabled when reply.processing=true — setChatLoading(false) was incorrectly called",
+      "F-AC495-3c: Send button re-enabled when reply.processing=true — setChatAgentProcessing(false) was incorrectly called",
     ).toBeNull();
   });
 
@@ -2025,7 +2025,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       ).toBeInTheDocument();
     });
 
-    // Switch session to reset chatLoading so send button is available again
+    // Switch session to reset chatAgentProcessing so send button is available again
     vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
       sessions: [sessionA, sessionB],
     });
@@ -2038,7 +2038,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       ).not.toBeInTheDocument();
     });
 
-    // Second send (after session switch resets chatLoading)
+    // Second send (after session switch resets chatAgentProcessing)
     fireEvent.change(textarea, { target: { value: "second" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 

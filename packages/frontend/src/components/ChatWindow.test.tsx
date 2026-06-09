@@ -67,7 +67,13 @@ describe("ChatWindow", () => {
   });
 
   it("shows empty message when chat is empty", () => {
-    render(<ChatWindow chat={[]} agentProcessing={false} emptyMessage="No messages" />);
+    render(
+      <ChatWindow
+        chat={[]}
+        agentProcessing={false}
+        emptyMessage="No messages"
+      />,
+    );
     expect(screen.getByText("No messages")).toBeInTheDocument();
   });
 
@@ -78,7 +84,11 @@ describe("ChatWindow", () => {
 
   it("renders loading indicator in the virtualized footer for non-empty chat", () => {
     render(
-      <ChatWindow chat={[makeMessage()]} agentProcessing emptyMessage="No messages" />,
+      <ChatWindow
+        chat={[makeMessage()]}
+        agentProcessing
+        emptyMessage="No messages"
+      />,
     );
 
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
@@ -286,7 +296,11 @@ describe("ChatWindow", () => {
 
   it("toggles loading indicator when agentProcessing changes at runtime (empty chat)", () => {
     const { rerender } = render(
-      <ChatWindow chat={[]} agentProcessing={false} emptyMessage="No messages" />,
+      <ChatWindow
+        chat={[]}
+        agentProcessing={false}
+        emptyMessage="No messages"
+      />,
     );
 
     expect(screen.queryByText("Agent is thinking...")).not.toBeInTheDocument();
@@ -300,7 +314,11 @@ describe("ChatWindow", () => {
     expect(screen.queryByText("No messages")).not.toBeInTheDocument();
 
     rerender(
-      <ChatWindow chat={[]} agentProcessing={false} emptyMessage="No messages" />,
+      <ChatWindow
+        chat={[]}
+        agentProcessing={false}
+        emptyMessage="No messages"
+      />,
     );
 
     expect(screen.queryByText("Agent is thinking...")).not.toBeInTheDocument();
@@ -309,19 +327,31 @@ describe("ChatWindow", () => {
 
   it("toggles loading indicator in Virtuoso footer when agentProcessing changes (non-empty chat)", () => {
     const { rerender } = render(
-      <ChatWindow chat={[makeMessage()]} agentProcessing={false} emptyMessage="No messages" />,
+      <ChatWindow
+        chat={[makeMessage()]}
+        agentProcessing={false}
+        emptyMessage="No messages"
+      />,
     );
 
     expect(screen.queryByText("Agent is thinking...")).not.toBeInTheDocument();
 
     rerender(
-      <ChatWindow chat={[makeMessage()]} agentProcessing emptyMessage="No messages" />,
+      <ChatWindow
+        chat={[makeMessage()]}
+        agentProcessing
+        emptyMessage="No messages"
+      />,
     );
 
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
 
     rerender(
-      <ChatWindow chat={[makeMessage()]} agentProcessing={false} emptyMessage="No messages" />,
+      <ChatWindow
+        chat={[makeMessage()]}
+        agentProcessing={false}
+        emptyMessage="No messages"
+      />,
     );
 
     expect(screen.queryByText("Agent is thinking...")).not.toBeInTheDocument();
@@ -335,7 +365,11 @@ describe("ChatWindow", () => {
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
 
     rerender(
-      <ChatWindow chat={[makeMessage()]} agentProcessing emptyMessage="No messages" />,
+      <ChatWindow
+        chat={[makeMessage()]}
+        agentProcessing
+        emptyMessage="No messages"
+      />,
     );
 
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
