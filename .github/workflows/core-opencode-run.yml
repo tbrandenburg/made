@@ -70,12 +70,8 @@ jobs:
       results-truncated: ${{ steps.process-results.outputs.results-truncated }}
       artifact-name: ${{ steps.process-results.outputs.artifact-name }}
     env:
-      # Prefer GH_PAT when available so PRs created by GHAR trigger
-      # pull_request CI events in the target repo.  GitHub blocks those
-      # events for GITHUB_TOKEN (github-actions[bot]) by design.
-      # Maintainers who need GHAR-created PRs to fire their test workflows
-      # should add a Fine-Grained PAT with contents:write + pull-requests:write
-      # as the GH_PAT repository secret.  Falls back to GITHUB_TOKEN silently.
+      # PAT for git push / gh CLI in bash steps (credential helper set by checkout).
+      # It is NOT forwarded into the opencode process; opencode gets github.token only.
       GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
 
     steps:
@@ -131,7 +127,6 @@ jobs:
             if ! env -i \
               PATH="$HOME/.opencode/bin:$PATH" \
               HOME="$HOME" \
-              GH_TOKEN="$GH_TOKEN" \
               opencode --version; then
               echo "ERROR: OpenCode installation verification failed"
               echo "Checking installation directory:"
@@ -141,6 +136,9 @@ jobs:
           fi
 
       - name: Run OpenCode ${{ inputs.run-name }}
+        env:
+          # Built-in token only — PAT must never enter the model context.
+          OPENCODE_GH_TOKEN: ${{ github.token }}
         run: |
           RESULTS_FILE="${{ inputs.run-name }}-results.txt"
 
@@ -148,7 +146,7 @@ jobs:
             env -i \
               PATH="$HOME/.opencode/bin:$PATH" \
               HOME="$HOME" \
-              GH_TOKEN="$GH_TOKEN" \
+              GH_TOKEN="$OPENCODE_GH_TOKEN" \
               opencode run "$@"
           }
 

@@ -191,9 +191,76 @@ jobs:
     permissions: {contents: read, issues: write, pull-requests: write}
     secrets: inherit
 
+  create-pr:
+    name: "7C. Create / Update PR"
+    needs: [setup-branch, pr-seeder]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: ${{ needs.setup-branch.outputs.branch_name }}
+
+      - name: Create or update PR
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+        run: |
+          AUTH_TOKEN="${GH_PAT:-$GITHUB_TOKEN}"
+
+          ISSUE_TITLE=$(GH_TOKEN="$AUTH_TOKEN" gh api \
+            "repos/${GITHUB_REPOSITORY}/issues/${ISSUE_NUMBER}" \
+            --jq '.title')
+          PR_TITLE="fix(#${ISSUE_NUMBER}): ${ISSUE_TITLE}"
+
+          PR_BODY="Resolves #${ISSUE_NUMBER}
+
+          This pull request was created automatically by GHAR.
+          The branch is still under active development and will be updated by later workflow stages."
+
+          # Check for an existing open PR for this branch
+          PR_NUMBER=$(GH_TOKEN="$AUTH_TOKEN" gh pr list \
+            --head "$BRANCH" --state open \
+            --json number --jq '.[0].number // empty')
+
+          if [ -n "$PR_NUMBER" ]; then
+            echo "Updating existing open PR #${PR_NUMBER}"
+            GH_TOKEN="$AUTH_TOKEN" gh pr edit "$PR_NUMBER" \
+              --title "$PR_TITLE" \
+              --body "$PR_BODY"
+          else
+            # Fall back to a previously closed PR for the same branch
+            CLOSED_PR=$(GH_TOKEN="$AUTH_TOKEN" gh pr list \
+              --head "$BRANCH" --state closed \
+              --json number --jq '.[0].number // empty')
+            if [ -n "$CLOSED_PR" ]; then
+              echo "Reopening closed PR #${CLOSED_PR}"
+              GH_TOKEN="$AUTH_TOKEN" gh pr reopen "$CLOSED_PR"
+              GH_TOKEN="$AUTH_TOKEN" gh pr edit "$CLOSED_PR" \
+                --title "$PR_TITLE" \
+                --body "$PR_BODY"
+            else
+              echo "Creating new PR from ${BRANCH}"
+              GH_TOKEN="$AUTH_TOKEN" gh pr create \
+                --head "$BRANCH" \
+                --title "$PR_TITLE" \
+                --body "$PR_BODY" \
+                --no-draft
+            fi
+          fi
+
   implementation-review:
     name: "8A. Implementation Review"
-    needs: [implementer, pr-seeder]
+    needs: [implementer, create-pr]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: implementation-review
@@ -205,7 +272,7 @@ jobs:
 
   maintainer-review:
     name: "8B. Maintainer Review"
-    needs: [implementer, pr-seeder]
+    needs: [implementer, create-pr]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: maintainer-review
@@ -217,7 +284,7 @@ jobs:
 
   adversarial-review:
     name: "8C. Adversarial Review"
-    needs: [implementer, pr-seeder]
+    needs: [implementer, create-pr]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: adversarial-review
@@ -229,7 +296,7 @@ jobs:
 
   residual-gap-review:
     name: "8D. Residual Gap Review"
-    needs: [implementer, pr-seeder]
+    needs: [implementer, create-pr]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: residual-gap-review
@@ -241,7 +308,7 @@ jobs:
 
   e2e-evidence:
     name: "8E. E2E Evidence"
-    needs: [implementer, pr-seeder]
+    needs: [implementer, create-pr]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: e2e-evidence

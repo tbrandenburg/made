@@ -1,9 +1,9 @@
 ---
-description: Create or refresh the draft pull request after implementation
+description: Emit structured PR metadata after implementation (no PR creation)
 argument-hint: <issue-number>
 ---
 
-# PR Seeder
+# PR Metadata Emitter
 
 **Input**: $ARGUMENTS
 
@@ -25,18 +25,27 @@ To publish an issue comment, write the complete Markdown body to a temporary fil
 
 ## Mission
 
-Fetch the latest shared branch read-only. Create or refresh exactly one real, non-draft pull request from `$BRANCH` to the repository default branch immediately after the implementation step. Reuse an existing open or closed-unmerged PR for the branch when present, but never create or preserve a draft PR. The PR body should be short, stable, and explicitly state that the branch is still in progress and will be updated by later workflow stages.
+Read the current state of `$BRANCH` (latest commit SHA via `git ls-remote`, changed files, commit messages) and the issue and its existing comments to understand what was implemented.
 
-Use the early PR as the anchor for branch-based CI, deployment previews, and human review. Do not wait for final artifacts or terminal CI. Keep the PR open and non-draft while the branch is still under active repair.
+Emit structured PR metadata as an issue comment — **do not create, update, or close any pull request**.
+
+Collect and emit all of the following fields:
+
+| Field | How to obtain |
+|---|---|
+| `branch` | `$BRANCH` variable |
+| `sha` | latest commit on `$BRANCH` via `git ls-remote origin $BRANCH` |
+| `title` | short imperative summary derived from issue title |
+| `body` | brief Markdown PR body: closes clause + 2-3 sentence summary of what changed |
+| `files` | files touched in `$BRANCH` since it diverged from the default branch (use `gh api` tree diff or commit file lists) |
+| `validation` | summary of any test results, CI status, or lint outcomes visible in issue comments or workflow runs |
 
 Publish `<!-- pr-seeded -->` with:
 
-1. `# Early PR Seeded`
-2. PR number and URL
-3. Branch and commit SHA used to open or refresh the PR
-4. Whether the PR was created or refreshed
-5. Any blocking repository setting or permission issue if PR creation failed
+1. `# PR Metadata`
+2. A fenced JSON block containing all fields above
+3. A brief human-readable summary (3-5 sentences) of what was implemented
 
 ## Boundaries
 
-Do not modify files/code/tests/spec, create commits, claim CI success, or merge.
+Do not create, edit, reopen, or close pull requests. Do not modify files/code/tests/spec, create commits, claim CI success, or merge.
