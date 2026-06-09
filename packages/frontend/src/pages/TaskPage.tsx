@@ -676,7 +676,7 @@ export const TaskPage: React.FC = () => {
                 <ChatWindow
                   chat={chat}
                   chatWindowRef={chatWindowRef}
-                  loading={chatLoading}
+                  agentProcessing={chatLoading}
                   emptyMessage="Start a conversation to discuss this task."
                   sessionId={sessionId}
                   onClearSession={() => setClearSessionModalOpen(true)}

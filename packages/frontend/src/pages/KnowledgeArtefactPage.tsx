@@ -735,7 +735,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
           <ChatWindow
             chat={chat}
             chatWindowRef={chatWindowRef}
-            loading={chatLoading}
+            agentProcessing={chatLoading}
             emptyMessage="Start a conversation to collaborate with agents."
             sessionId={sessionId}
             onClearSession={() => setClearSessionModalOpen(true)}

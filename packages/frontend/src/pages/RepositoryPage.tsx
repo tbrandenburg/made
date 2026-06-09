@@ -1995,7 +1995,7 @@ export const RepositoryPage: React.FC = () => {
           <ChatWindow
             chat={chat}
             chatWindowRef={chatWindowRef}
-            loading={chatLoading || isRefreshing}
+            agentProcessing={chatLoading || isRefreshing /* Intentionally includes isRefreshing — both trigger the spinner */}
             emptyMessage="No conversation yet."
             sessionId={sessionId}
             onClearSession={() => setClearSessionModalOpen(true)}

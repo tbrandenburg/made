@@ -723,7 +723,7 @@ export const ConstitutionPage: React.FC = () => {
             <ChatWindow
               chat={chat}
               chatWindowRef={chatWindowRef}
-              loading={chatLoading}
+              agentProcessing={chatLoading}
               emptyMessage="Start a conversation to discuss this constitution."
               sessionId={sessionId}
               onClearSession={() => setClearSessionModalOpen(true)}

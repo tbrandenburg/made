@@ -67,18 +67,18 @@ describe("ChatWindow", () => {
   });
 
   it("shows empty message when chat is empty", () => {
-    render(<ChatWindow chat={[]} loading={false} emptyMessage="No messages" />);
+    render(<ChatWindow chat={[]} agentProcessing={false} emptyMessage="No messages" />);
     expect(screen.getByText("No messages")).toBeInTheDocument();
   });
 
   it("shows loading indicator", () => {
-    render(<ChatWindow chat={[]} loading emptyMessage="No messages" />);
+    render(<ChatWindow chat={[]} agentProcessing emptyMessage="No messages" />);
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
   });
 
   it("renders loading indicator in the virtualized footer for non-empty chat", () => {
     render(
-      <ChatWindow chat={[makeMessage()]} loading emptyMessage="No messages" />,
+      <ChatWindow chat={[makeMessage()]} agentProcessing emptyMessage="No messages" />,
     );
 
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
@@ -88,7 +88,7 @@ describe("ChatWindow", () => {
     render(
       <ChatWindow
         chat={[makeMessage({ text: "**Hello**" })]}
-        loading={false}
+        agentProcessing={false}
         emptyMessage="No messages"
       />,
     );
@@ -103,7 +103,7 @@ describe("ChatWindow", () => {
       <ChatWindow
         chatWindowRef={chatWindowRef}
         chat={[makeMessage()]}
-        loading={false}
+        agentProcessing={false}
         emptyMessage="No messages"
       />,
     );
@@ -128,7 +128,7 @@ describe("ChatWindow", () => {
       <ChatWindow
         chatWindowRef={chatWindowRef}
         chat={[]}
-        loading={false}
+        agentProcessing={false}
         emptyMessage="No messages"
       />,
     );
@@ -151,7 +151,7 @@ describe("ChatWindow", () => {
     render(
       <ChatWindow
         chat={[makeMessage()]}
-        loading={false}
+        agentProcessing={false}
         emptyMessage="No messages"
       />,
     );
@@ -164,7 +164,7 @@ describe("ChatWindow", () => {
     render(
       <ChatWindow
         chat={[makeMessage({ text: "---\ntitle: Test\n---\nVisible" })]}
-        loading={false}
+        agentProcessing={false}
         emptyMessage="No messages"
       />,
     );
@@ -177,7 +177,7 @@ describe("ChatWindow", () => {
     render(
       <ChatWindow
         chat={[makeMessage({ text: "" })]}
-        loading={false}
+        agentProcessing={false}
         emptyMessage="No messages"
       />,
     );
@@ -192,7 +192,7 @@ describe("ChatWindow", () => {
     render(
       <ChatWindow
         chat={[makeMessage({ text: "---\ntitle: Test\n---\nVisible" })]}
-        loading={false}
+        agentProcessing={false}
         emptyMessage="No messages"
       />,
     );
@@ -208,7 +208,7 @@ describe("ChatWindow", () => {
     render(
       <ChatWindow
         chat={[]}
-        loading={false}
+        agentProcessing={false}
         emptyMessage="No messages"
         sessionId="session-1"
         onClearSession={onClearSession}
@@ -235,7 +235,7 @@ describe("ChatWindow", () => {
       <ChatWindow
         chatWindowRef={chatWindowRef}
         chat={[makeMessage(), makeMessage(), makeMessage()]}
-        loading={false}
+        agentProcessing={false}
         emptyMessage="empty"
       />,
     );
@@ -257,7 +257,7 @@ describe("ChatWindow", () => {
       <ChatWindow
         chatWindowRef={chatWindowRef}
         chat={[makeMessage()]}
-        loading={false}
+        agentProcessing={false}
         emptyMessage="empty"
       />,
     );
@@ -272,7 +272,7 @@ describe("ChatWindow", () => {
       <ChatWindow
         chatWindowRef={chatWindowRef}
         chat={[makeMessage(), makeMessage()]}
-        loading={false}
+        agentProcessing={false}
         emptyMessage="empty"
       />,
     );
@@ -291,7 +291,7 @@ describe("ChatWindow", () => {
         chatWindowRef={chatWindowRef}
         chat={[makeMessage()]}
         sessionId="session-1"
-        loading={false}
+        agentProcessing={false}
         emptyMessage="empty"
       />,
     );
@@ -306,7 +306,7 @@ describe("ChatWindow", () => {
         chatWindowRef={chatWindowRef}
         chat={[makeMessage(), makeMessage()]}
         sessionId="session-2"
-        loading={false}
+        agentProcessing={false}
         emptyMessage="empty"
       />,
     );

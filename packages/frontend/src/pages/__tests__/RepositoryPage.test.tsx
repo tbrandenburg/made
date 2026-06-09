@@ -1493,7 +1493,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("ADV-5: ChatWindow receives loading={chatLoading || isRefreshing} during refresh", async () => {
+  it("ADV-5: ChatWindow receives agentProcessing={chatLoading || isRefreshing} during refresh", async () => {
     let resolveFetch!: (value: ChatHistoryResponse) => void;
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(
       new Promise<ChatHistoryResponse>((resolve) => {
@@ -1518,7 +1518,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     // (ChatWindow renders its content inside the Virtuoso mock)
     expect(
       screen.getByText(/Agent is thinking|Loading/),
-      "FAIL (ADV-5): loading indicator not visible — isRefreshing not wired to ChatWindow loading prop",
+      "FAIL (ADV-5): loading indicator not visible — isRefreshing not wired to ChatWindow agentProcessing prop",
     ).toBeInTheDocument();
 
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
