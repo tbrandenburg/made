@@ -19,7 +19,7 @@ const SpacedItem = React.forwardRef<
 interface ChatWindowProps {
   chat: ChatMessage[];
   chatWindowRef?: React.RefObject<ChatWindowHandle>;
-  loading: boolean;
+  agentProcessing: boolean;
   emptyMessage: string;
   sessionId?: string | null;
   onClearSession?: () => void;
@@ -126,7 +126,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
   function ChatWindow({
     chat,
     chatWindowRef,
-    loading,
+    agentProcessing,
     emptyMessage,
     sessionId,
     onClearSession,
@@ -208,7 +208,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
               Item: SpacedItem,
               Footer: () => (
                 <>
-                  {loading && (
+                  {agentProcessing && (
                     <div className="loading-indicator">
                       <div className="loading-spinner"></div>
                       <span>Agent is thinking...</span>
@@ -253,13 +253,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
             style={{ height: "auto" }}
           />
         )}
-        {chat.length === 0 && loading && (
+        {chat.length === 0 && agentProcessing && (
           <div className="loading-indicator">
             <div className="loading-spinner"></div>
             <span>Agent is thinking...</span>
           </div>
         )}
-        {chat.length === 0 && !loading && (
+        {chat.length === 0 && !agentProcessing && (
           <div className="empty">{emptyMessage}</div>
         )}
         {chat.length === 0 && sessionId && (

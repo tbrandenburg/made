@@ -439,7 +439,7 @@ export const RepositoryPage: React.FC = () => {
   const normalizedSelectedModel = selectedModel ?? "default";
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [chatError, setChatError] = useState<string | null>(null);
-  const [chatLoading, setChatLoading] = useState(false);
+  const [chatAgentProcessing, setChatAgentProcessing] = useState(false);
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
   const savedSessionTitles = useMemo(
@@ -1153,7 +1153,7 @@ export const RepositoryPage: React.FC = () => {
   const refreshAgentStatus = useCallback(async () => {
     if (!name) return false;
     if (!sessionId) {
-      setChatLoading(false);
+      setChatAgentProcessing(false);
       return false;
     }
     try {
@@ -1162,7 +1162,7 @@ export const RepositoryPage: React.FC = () => {
         sessionId || undefined,
       );
       if (sessionIdRef.current !== sessionId) return false;
-      setChatLoading(status.processing);
+      setChatAgentProcessing(status.processing);
       setChatError(
         status.processing
           ? "Agent is still processing the previous message."
@@ -1222,14 +1222,14 @@ export const RepositoryPage: React.FC = () => {
   );
 
   useEffect(() => {
-    if (chatLoading || !name || !sessionId) return;
+    if (chatAgentProcessing || !name || !sessionId) return;
     const controller = new AbortController();
     syncChatHistory(controller.signal);
     return () => controller.abort();
-  }, [chatLoading, name, sessionId, syncChatHistory]);
+  }, [chatAgentProcessing, name, sessionId, syncChatHistory]);
 
   useEffect(() => {
-    if (!chatLoading || !name || !sessionId) return;
+    if (!chatAgentProcessing || !name || !sessionId) return;
 
     const controller = new AbortController();
     let timeoutId: number | undefined;
@@ -1249,7 +1249,7 @@ export const RepositoryPage: React.FC = () => {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [chatLoading, name, sessionId, syncChatHistory]);
+  }, [chatAgentProcessing, name, sessionId, syncChatHistory]);
 
   const reloadCurrentSession = useCallback(async () => {
     if (!name || !sessionId || isRefreshingRef.current) return;
@@ -1301,7 +1301,7 @@ export const RepositoryPage: React.FC = () => {
     lastSentPromptRef.current = pendingPrompt;
     setChat((prev) => [...prev, userMessage]);
     setPendingPrompt("");
-    setChatLoading(true);
+    setChatAgentProcessing(true);
     try {
       const model =
         normalizedSelectedModel === "default"
@@ -1328,8 +1328,8 @@ export const RepositoryPage: React.FC = () => {
       setChatError(null);
       setActiveTab("agent");
 
-      // Keep chatLoading=true if processing (triggers existing polling)
-      if (!reply.processing) setChatLoading(false);
+      // Keep chatAgentProcessing=true if processing (triggers existing polling)
+      if (!reply.processing) setChatAgentProcessing(false);
     } catch (error) {
       if (sendRequestIdRef.current !== sendRequestId) return;
       const messageText = error instanceof Error ? error.message : "";
@@ -1342,7 +1342,7 @@ export const RepositoryPage: React.FC = () => {
       console.error("Failed to send agent message", error);
       const processing = await refreshAgentStatus();
       if (!processing) {
-        setChatLoading(false);
+        setChatAgentProcessing(false);
       }
     }
   };
@@ -1366,7 +1366,7 @@ export const RepositoryPage: React.FC = () => {
   const handleClearSessionOnly = () => {
     sendRequestIdRef.current += 1;
     setSessionId(null);
-    setChatLoading(false);
+    setChatAgentProcessing(false);
     setChatError(null);
     setPendingPrompt(lastSentPromptRef.current);
     lastSentPromptRef.current = "";
@@ -1377,7 +1377,7 @@ export const RepositoryPage: React.FC = () => {
   const handleClearSessionAndHistory = () => {
     sendRequestIdRef.current += 1;
     setSessionId(null);
-    setChatLoading(false);
+    setChatAgentProcessing(false);
     setChatError(null);
     setPendingPrompt(lastSentPromptRef.current);
     lastSentPromptRef.current = "";
@@ -1395,7 +1395,7 @@ export const RepositoryPage: React.FC = () => {
     }
     sendRequestIdRef.current += 1;
     setSessionModalOpen(false);
-    setChatLoading(false);
+    setChatAgentProcessing(false);
     setChatError(null);
     setChat([]);
     setSessionId(session.id);
@@ -1959,7 +1959,7 @@ export const RepositoryPage: React.FC = () => {
                   onClick={reloadCurrentSession}
                   aria-label="Refresh current session"
                   title="Refresh current session"
-                  disabled={chatLoading || isRefreshing}
+                  disabled={chatAgentProcessing || isRefreshing}
                 >
                   <RefreshIcon />
                 </button>
@@ -1995,7 +1995,10 @@ export const RepositoryPage: React.FC = () => {
           <ChatWindow
             chat={chat}
             chatWindowRef={chatWindowRef}
-            loading={chatLoading || isRefreshing}
+            agentProcessing={
+              chatAgentProcessing ||
+              isRefreshing /* Intentionally includes isRefreshing — both trigger the spinner */
+            }
             emptyMessage="No conversation yet."
             sessionId={sessionId}
             onClearSession={() => setClearSessionModalOpen(true)}
@@ -2021,7 +2024,7 @@ export const RepositoryPage: React.FC = () => {
                 selectId="agent-select"
                 selectedAgent={normalizedSelectedAgent}
                 onChange={setSelectedAgent}
-                disabled={chatLoading}
+                disabled={chatAgentProcessing}
                 repositoryName={name || undefined}
               />
               <label className="model-select" htmlFor="agent-model-select">
@@ -2029,7 +2032,7 @@ export const RepositoryPage: React.FC = () => {
                   id="agent-model-select"
                   value={normalizedSelectedModel}
                   onChange={(event) => setSelectedModel(event.target.value)}
-                  disabled={chatLoading}
+                  disabled={chatAgentProcessing}
                   aria-label="Model"
                 >
                   {MODEL_OPTIONS.map((option) => (
@@ -2045,7 +2048,7 @@ export const RepositoryPage: React.FC = () => {
               </label>
             </div>
             <div className="chat-controls__right">
-              {chatLoading ? (
+              {chatAgentProcessing ? (
                 <button className="danger" onClick={handleCancelAgent}>
                   Cancel
                 </button>

@@ -109,7 +109,7 @@ export const ConstitutionPage: React.FC = () => {
   const [prompt, setPrompt] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
-  const [chatLoading, setChatLoading] = useState(false);
+  const [chatAgentProcessing, setChatAgentProcessing] = useState(false);
   const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
@@ -175,7 +175,7 @@ export const ConstitutionPage: React.FC = () => {
 
       setSessionId(incomingSessionId);
       setChat([]);
-      setChatLoading(true);
+      setChatAgentProcessing(true);
       try {
         const history = await api.getConstitutionAgentHistory(
           name,
@@ -195,7 +195,7 @@ export const ConstitutionPage: React.FC = () => {
         setAgentStatus(message);
       } finally {
         if (!cancelled) {
-          setChatLoading(false);
+          setChatAgentProcessing(false);
         }
       }
     };
@@ -299,7 +299,7 @@ export const ConstitutionPage: React.FC = () => {
   const refreshAgentStatus = useCallback(async () => {
     if (!name || isExternal) return false;
     if (!sessionId) {
-      setChatLoading(false);
+      setChatAgentProcessing(false);
       return false;
     }
     try {
@@ -308,7 +308,7 @@ export const ConstitutionPage: React.FC = () => {
         sessionId || undefined,
       );
       if (sessionIdRef.current !== sessionId) return false;
-      setChatLoading(status.processing);
+      setChatAgentProcessing(status.processing);
       setAgentStatus(
         status.processing
           ? "Agent is still processing the previous message."
@@ -395,7 +395,7 @@ export const ConstitutionPage: React.FC = () => {
       if (options?.clearPrompt) {
         setPrompt("");
       }
-      setChatLoading(true);
+      setChatAgentProcessing(true);
       try {
         const promptWithPolicy = appendRestrictedAccessPolicy(
           userMessage.text,
@@ -421,8 +421,8 @@ export const ConstitutionPage: React.FC = () => {
         setActiveTab("agent");
         setAgentStatus(null);
 
-        // Keep chatLoading=true if processing (triggers existing polling)
-        if (!reply.processing) setChatLoading(false);
+        // Keep chatAgentProcessing=true if processing (triggers existing polling)
+        if (!reply.processing) setChatAgentProcessing(false);
       } catch (error) {
         console.error("Failed to contact agent", error);
         const errorMessage = error instanceof Error ? error.message : "";
@@ -434,7 +434,7 @@ export const ConstitutionPage: React.FC = () => {
         );
         const processing = await refreshAgentStatus();
         if (!processing) {
-          setChatLoading(false);
+          setChatAgentProcessing(false);
         }
       }
     },
@@ -446,7 +446,7 @@ export const ConstitutionPage: React.FC = () => {
       setActiveTab,
       setAgentStatus,
       setChat,
-      setChatLoading,
+      setChatAgentProcessing,
       setPrompt,
       setSessionId,
     ],
@@ -476,7 +476,7 @@ export const ConstitutionPage: React.FC = () => {
   const handleClearSessionOnly = () => {
     sendRequestIdRef.current += 1;
     setSessionId(null);
-    setChatLoading(false);
+    setChatAgentProcessing(false);
     setAgentStatus(null);
     setSelectedAgent(DEFAULT_AGENT_VALUE);
     setClearSessionModalOpen(false);
@@ -485,7 +485,7 @@ export const ConstitutionPage: React.FC = () => {
   const handleClearSessionAndHistory = () => {
     sendRequestIdRef.current += 1;
     setSessionId(null);
-    setChatLoading(false);
+    setChatAgentProcessing(false);
     setAgentStatus(null);
     setSelectedAgent(DEFAULT_AGENT_VALUE);
     setChat([]);
@@ -498,7 +498,7 @@ export const ConstitutionPage: React.FC = () => {
     setSessionModalOpen(false);
     setChat([]);
     setSessionId(session.id);
-    setChatLoading(true);
+    setChatAgentProcessing(true);
     try {
       const history = await api.getConstitutionAgentHistory(name, session.id);
       const mapped = mapHistoryToMessages(history.messages || []);
@@ -512,7 +512,7 @@ export const ConstitutionPage: React.FC = () => {
           : "Failed to load session history";
       setAgentStatus(message);
     } finally {
-      setChatLoading(false);
+      setChatAgentProcessing(false);
     }
   };
 
@@ -521,7 +521,7 @@ export const ConstitutionPage: React.FC = () => {
     const sessionIdAtCall = sessionId;
     isRefreshingRef.current = true;
     setIsRefreshing(true);
-    setChatLoading(true);
+    setChatAgentProcessing(true);
     const chatBeforeRefresh = chatRef.current;
     setChat([]);
     try {
@@ -542,11 +542,18 @@ export const ConstitutionPage: React.FC = () => {
           : "Failed to load session history";
       setAgentStatus(message);
     } finally {
-      setChatLoading(false);
+      setChatAgentProcessing(false);
       setIsRefreshing(false);
       isRefreshingRef.current = false;
     }
-  }, [name, sessionId, isExternal, setChat, setChatLoading, setAgentStatus]);
+  }, [
+    name,
+    sessionId,
+    isExternal,
+    setChat,
+    setChatAgentProcessing,
+    setAgentStatus,
+  ]);
 
   const handleSaveSession = useCallback(() => {
     if (!sessionId) return;
@@ -687,7 +694,7 @@ export const ConstitutionPage: React.FC = () => {
                     onClick={reloadCurrentSession}
                     aria-label="Refresh current session"
                     title="Refresh current session"
-                    disabled={chatLoading || isRefreshing}
+                    disabled={chatAgentProcessing || isRefreshing}
                   >
                     <RefreshIcon />
                   </button>
@@ -723,7 +730,7 @@ export const ConstitutionPage: React.FC = () => {
             <ChatWindow
               chat={chat}
               chatWindowRef={chatWindowRef}
-              loading={chatLoading}
+              agentProcessing={chatAgentProcessing}
               emptyMessage="Start a conversation to discuss this constitution."
               sessionId={sessionId}
               onClearSession={() => setClearSessionModalOpen(true)}
@@ -747,11 +754,11 @@ export const ConstitutionPage: React.FC = () => {
                   selectId="agent-select"
                   selectedAgent={normalizedSelectedAgent}
                   onChange={setSelectedAgent}
-                  disabled={chatLoading}
+                  disabled={chatAgentProcessing}
                 />
               </div>
               <div className="chat-controls__right">
-                {chatLoading ? (
+                {chatAgentProcessing ? (
                   <button className="danger" onClick={handleCancel}>
                     Cancel
                   </button>
