@@ -98,16 +98,18 @@ cp "$ROOT/package-lock.json" "$ROOT/package-lock.json.bak" 2>/dev/null || true
 rm -rf "$ROOT/node_modules" "$ROOT/package-lock.json"
 npm install --prefix "$ROOT" > /dev/null 2>&1
 check_cmd "AC3 — shell-quote@1.8.4 after clean reinstall" "shell-quote@1.8.4" npm ls shell-quote --all --prefix "$ROOT"
-# Restore lockfile
+# Restore lockfile and node_modules
 rm -rf "$ROOT/node_modules"
 cp "$ROOT/package-lock.json.bak" "$ROOT/package-lock.json" 2>/dev/null || true
 rm -f "$ROOT/package-lock.json.bak"
+npm install --prefix "$ROOT" > /dev/null 2>&1
 
 echo ""
 echo "--- AC4: Security audit passes (output-decoupled) ---"
-# Run make security-audit and check exit + output
-AUDIT_OUTPUT="$(make -C "$ROOT" security-audit 2>&1)" || true
-echo "  security-audit exit code: $?"
+# Run make security-audit and check exit code BEFORE the || true guard
+AUDIT_OUTPUT=$(make -C "$ROOT" security-audit 2>&1); AUDIT_EXIT=$?
+echo "  security-audit exit code: $AUDIT_EXIT"
+check_exit "AC4 — make security-audit exits 0" 0 test "$AUDIT_EXIT" -eq 0
 check_text "AC4a — audit output contains 'Running security audits'" "Running security audits" <(echo "$AUDIT_OUTPUT")
 check_text "AC4b — audit output contains 'Checking root'" "Checking root" <(echo "$AUDIT_OUTPUT")
 check_not_text "AC4c — no 'critical' for shell-quote" "critical" <(echo "$AUDIT_OUTPUT")
@@ -118,8 +120,25 @@ MODIFIED_FILES="$(git diff --name-only HEAD 2>/dev/null || true)"
 check_not_text "AC8 — only root package files modified" "packages/" <(echo "$MODIFIED_FILES")
 
 echo ""
-echo "--- AC5: Dev script not broken ---"
-check_exit "AC5a — dev processes resource check" 0 sh -c "ps aux | grep -q 'node' || true"
+echo "--- AC5: Dev server smoke test ---"
+# Reinstall node_modules (may have been removed by AC3 clean-regeneration test)
+npm install --prefix "$ROOT" > /dev/null 2>&1
+OUTPUT_FILE=$(mktemp)
+npm run dev:frontend --prefix "$ROOT" > "$OUTPUT_FILE" 2>&1 &
+DEV_PID=$!
+sleep 15
+check_exit "AC5a — dev server still running after 15s" 0 kill -0 $DEV_PID 2>/dev/null
+check_not_text "AC5b — no ERR! in output" "ERR!" "$OUTPUT_FILE"
+check_not_text "AC5c — no FATAL in output" "FATAL" "$OUTPUT_FILE"
+if grep -qF "ready in" "$OUTPUT_FILE" || grep -qF "Local:" "$OUTPUT_FILE"; then
+  echo "  ${PASS_MARK} PASS: AC5d — startup confirmation found"
+else
+  echo "  ${FAIL_MARK} FAIL: AC5d — neither 'ready in' nor 'Local:' found in output"
+  FAILED=1
+fi
+kill $DEV_PID 2>/dev/null || true
+wait $DEV_PID 2>/dev/null || true
+rm -f "$OUTPUT_FILE"
 
 echo ""
 echo "=== Summary ==="
