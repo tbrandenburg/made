@@ -44,6 +44,7 @@ Publish `<!-- spec-approved -->` with:
 7. Definition-of-done checklist
 8. TDD-objection disposition table
 9. Red-team objection disposition table
+10. `## Fixer Scope Lock` — a bullet list of the exact identifiers, files, and constructs that are explicitly forbidden from being touched by any downstream agent. Derive this directly from the Non-goals section. Each bullet must be specific enough for a grep match (e.g. a variable name, file path, or CSS class). Label the section clearly so the fixer and residual-gap reviewer can find it without reading the full spec.
 
 ## Boundaries
 

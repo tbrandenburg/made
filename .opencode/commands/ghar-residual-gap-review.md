@@ -25,6 +25,8 @@ To publish an issue comment, write the complete Markdown body to a temporary fil
 
 Require `spec-approved`, `tests-created`, `implementation-done`, and `pr-seeded`. Fetch the latest shared branch read-only and inspect the exact implementation commit named in `implementation-done`, not the moving branch tip. Compare the issue intent against the delivered PR as a residual-gap review: what is correct, what remains weak, what is overbuilt, and what still needs follow-up work even if the issue is otherwise closable.
 
+**Spec-gated gap classification — mandatory before assigning any severity**: Extract the Non-goals list from `spec-approved`. Before classifying any weakness, check whether it conflicts with an explicit Non-goal. If it does, label it `[spec-excluded]` regardless of issue intent, assign no medium/high severity, and route it as *"follow-up issue only — not an action item for the fixer."* Only gaps that are both (a) outside spec scope and (b) not listed as Non-goals may be assigned medium or higher severity for the fixer to act on.
+
 Keep the result merge-safe and issue-focused. Record every gap with its severity and justification so the fixer can act on it and the PR finalizer can create targeted follow-up issues for whatever remains unresolved after the fixer runs. Do not create GitHub issues here. Do not block the PR just because the residual review found incomplete polish.
 
 Publish `<!-- residual-gap-findings -->` with:
