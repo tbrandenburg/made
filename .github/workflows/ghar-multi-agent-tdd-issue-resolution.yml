@@ -322,8 +322,8 @@ jobs:
       pull-requests: read
     secrets: inherit
 
-  fixer-integrator:
-    name: "9. Fixer / Integrator"
+  review-fixer:
+    name: "9A. Review Fixer"
     needs:
       - implementation-review
       - maintainer-review
@@ -332,13 +332,28 @@ jobs:
       - e2e-evidence
     uses: ./.github/workflows/core-opencode-run.yml
     with:
-      run-name: fixer-integrator
-      command: ghar-fixer-integrator
+      run-name: review-fixer
+      command: ghar-review-fixer
       prompt: ${{ inputs.issue_number }}
       timeout-minutes: 60
     permissions:
-      actions: read
-      checks: read
+      contents: write
+      issues: write
+      pull-requests: write
+    secrets: inherit
+
+  ci-fixer:
+    name: "9B. CI Fixer"
+    needs: review-fixer
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: ci-fixer
+      command: ghar-ci-fixer
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 60
+    permissions:
+      actions: write
+      checks: write
       contents: write
       issues: write
       pull-requests: write
@@ -346,7 +361,7 @@ jobs:
 
   pr-finalizer:
     name: "10. PR Finalizer"
-    needs: fixer-integrator
+    needs: ci-fixer
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: pr-finalizer
