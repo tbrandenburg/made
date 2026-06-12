@@ -4,11 +4,9 @@ import basicSsl from "@vitejs/plugin-basic-ssl";
 
 export default defineConfig({
   plugins: [react(), basicSsl()],
-  // Only @xterm/xterm needs pre-bundling (480KB terminal emulator). All other deps are ESM-native.
+  // Only @xterm/xterm needs pre-bundling (480KB terminal emulator). Removed from include: dompurify, react-virtuoso, marked, @xterm/addon-fit (all ESM-native).
   optimizeDeps: {
-    include: [
-      "@xterm/xterm",
-    ],
+    include: ["@xterm/xterm"],
   },
   server: {
     port: 5173,
