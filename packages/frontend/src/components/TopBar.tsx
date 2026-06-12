@@ -1,4 +1,6 @@
-import { Bars3Icon, MoonIcon, SunIcon } from "@heroicons/react/24/outline";
+import Bars3Icon from "@heroicons/react/24/outline/Bars3Icon.js";
+import MoonIcon from "@heroicons/react/24/outline/MoonIcon.js";
+import SunIcon from "@heroicons/react/24/outline/SunIcon.js";
 import React from "react";
 import { useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
