@@ -42,35 +42,17 @@ Maintain the todo tool for the whole job. Keep exactly one `in_progress` item at
 
 Production code and documentation may be changed. A small test correction is allowed only when the CI evidence proves the test is wrong; explain it explicitly. Never remove, skip, or weaken a valid test. Run narrow verification and the feasible full suite, commit integrated changes if any, and push only `HEAD:refs/heads/$BRANCH`.
 
-## Bot CI Remark
+## CI Context
 
-You are a bot. PRs or commits created via `GITHUB_TOKEN` may not have the repository's normal CI checks scheduled automatically.
-After creating or updating a PR:
+You are invoked by the outer GHAR workflow only after CI has already run on the branch head and produced failures. The outer workflow is responsible for all PR retrigger operations (close/reopen via PAT); your sole responsibility is to diagnose the failures, implement a fix, validate it locally, and push the correction. Do not attempt to rerun, rerequest, or retrigger CI yourself — after you push, the outer workflow will close/reopen the PR to schedule a fresh CI run on your new commit.
+
+Use the PR head SHA as the source of truth when reading CI results. Query existing workflow runs with:
 
 ```bash
-# Resolve PR -> head SHA
-SHA=$(gh pr view <PR_NUMBER> --json headRefOid -q .headRefOid)
-
-# Rerun GitHub Actions workflow runs attached to the SHA
-gh api repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA \
-  --jq '.workflow_runs[].id' |
-while read RUN_ID; do
-  gh api --method POST \
-    repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/rerun
-done
-
-# Rerequest non-Actions check runs attached to the SHA
-gh api repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs \
-  --jq '.check_runs[]
-         | select(.app.slug!="github-actions")
-         | .id' |
-while read CHECK_ID; do
-  gh api --method POST \
-    repos/$GITHUB_REPOSITORY/check-runs/$CHECK_ID/rerequest
-done
+SHA=$(git rev-parse HEAD)
+gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
+  --jq '.workflow_runs[] | {id, name, status, conclusion}'
 ```
-
-Use the PR head SHA as the source of truth. Do not rely on workflow names. If no workflow runs or check runs exist for the SHA, the PR was likely created without scheduling CI.
 
 Before verification, bootstrap the tools needed for the checks you are about to run. Detect the repo’s test or validation expectations first, then install or enable only the missing tools required in this job’s context. Treat earlier sub-workflow environments as unrelated; a tool available to another agent is not guaranteed to exist here. If a tool is missing and cannot be installed, record that limitation explicitly instead of replacing the check with a weaker one.
 

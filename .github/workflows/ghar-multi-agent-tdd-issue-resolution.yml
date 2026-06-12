@@ -342,12 +342,152 @@ jobs:
       pull-requests: write
     secrets: inherit
 
-  ci-fixer:
-    name: "9B. CI Fixer"
-    needs: review-fixer
+  ci-retrigger-1:
+    name: "9B. CI Retrigger 1"
+    needs: [setup-branch, review-fixer]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      pull-requests: write
+    outputs:
+      retrigger_action: ${{ steps.retrigger.outputs.retrigger_action }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ github.token }}
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.setup-branch.outputs.branch_name }}
+
+      - name: Retrigger CI
+        id: retrigger
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+        run: |
+          GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
+          if [ -z "$GH_PAT" ]; then
+            echo "GH_PAT not configured, skipping"
+            echo "retrigger_action=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SHA=$(git rev-parse HEAD)
+          RUNS=$(GH_TOKEN="$GITHUB_TOKEN" gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
+            --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | group_by(.workflow_id) | map(sort_by(.created_at) | last)" \
+            2>/dev/null || echo '[]')
+          IN_PROGRESS=$(echo "$RUNS" | jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo '0')
+          ALL_GREEN=$(echo "$RUNS" | jq '(length > 0) and all(.status == "completed" and (.conclusion == "success" or .conclusion == "skipped" or .conclusion == "neutral"))' 2>/dev/null || echo 'false')
+          if [ "$ALL_GREEN" = "true" ]; then
+            echo "CI already green for $SHA"
+            echo "retrigger_action=green" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "${IN_PROGRESS:-0}" -gt 0 ]; then
+            echo "$IN_PROGRESS run(s) still in progress for $SHA, not cancelling"
+            echo "retrigger_action=running" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PR_NUMBER=$(GH_TOKEN="$GH_PAT" gh pr list \
+            --head "$BRANCH" --state open \
+            --json number --jq '.[0].number // empty' 2>/dev/null)
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open PR for branch $BRANCH"
+            echo "retrigger_action=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Close/reopen PR #$PR_NUMBER to trigger CI..."
+          GH_TOKEN="$GH_PAT" gh pr close "$PR_NUMBER" 2>/dev/null || true
+          sleep 3
+          if ! GH_TOKEN="$GH_PAT" gh pr reopen "$PR_NUMBER" 2>/dev/null; then
+            echo "Failed to reopen PR #$PR_NUMBER"
+            echo "retrigger_action=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "retrigger_action=triggered" >> "$GITHUB_OUTPUT"
+
+  ci-wait-1:
+    name: "9C. CI Wait 1"
+    needs: [setup-branch, ci-retrigger-1]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read
+    outputs:
+      ci_status: ${{ steps.wait.outputs.ci_status }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ github.token }}
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.setup-branch.outputs.branch_name }}
+
+      - name: Wait for CI
+        id: wait
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          RETRIGGER_ACTION: ${{ needs.ci-retrigger-1.outputs.retrigger_action }}
+        run: |
+          GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
+          APPEAR_TIMEOUT=120
+          CI_POLL_TIMEOUT=1200
+          if [ -z "$RETRIGGER_ACTION" ] \
+              || [ "$RETRIGGER_ACTION" = "skipped" ] \
+              || [ "$RETRIGGER_ACTION" = "green" ]; then
+            echo "ci_status=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SHA=$(git rev-parse HEAD)
+          if [ "$RETRIGGER_ACTION" = "triggered" ]; then
+            echo "Waiting for CI runs to appear for $SHA..."
+            APPEAR_DEADLINE=$(($(date +%s) + APPEAR_TIMEOUT))
+            COUNT=0
+            while [ "$(date +%s)" -lt "$APPEAR_DEADLINE" ]; do
+              COUNT=$(GH_TOKEN="$GITHUB_TOKEN" gh api \
+                "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
+                --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | length" \
+                2>/dev/null || echo '0')
+              [ "${COUNT:-0}" -gt 0 ] && break
+              sleep 15
+            done
+            if [ "${COUNT:-0}" -eq 0 ]; then
+              echo "No CI runs appeared"
+              echo "ci_status=no_ci" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "Polling CI completion for $SHA..."
+          POLL_DEADLINE=$(($(date +%s) + CI_POLL_TIMEOUT))
+          while [ "$(date +%s)" -lt "$POLL_DEADLINE" ]; do
+            RUNS=$(GH_TOKEN="$GITHUB_TOKEN" gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
+              --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | group_by(.workflow_id) | map(sort_by(.created_at) | last)" \
+              2>/dev/null || echo '[]')
+            TOTAL=$(echo "$RUNS" | jq 'length' 2>/dev/null || echo '0')
+            COMPLETED=$(echo "$RUNS" | jq '[.[] | select(.status == "completed")] | length' 2>/dev/null || echo '0')
+            FAILED=$(echo "$RUNS" | jq '[.[] | select(.status == "completed" and .conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral")] | length' 2>/dev/null || echo '0')
+            echo "CI: $COMPLETED/$TOTAL completed, $FAILED failed"
+            if [ "${TOTAL:-0}" -gt 0 ] && [ "${COMPLETED:-0}" -eq "${TOTAL:-0}" ]; then
+              [ "${FAILED:-0}" -eq 0 ] && STATUS="green" || STATUS="failure"
+              echo "ci_status=$STATUS" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "CI polling timed out"
+          echo "ci_status=no_ci" >> "$GITHUB_OUTPUT"
+
+  ci-fixer-1:
+    name: "9D. CI Fixer 1"
+    needs: [ci-wait-1]
+    if: needs.ci-wait-1.outputs.ci_status == 'failure'
     uses: ./.github/workflows/core-opencode-run.yml
     with:
-      run-name: ci-fixer
+      run-name: ci-fixer-1
       command: ghar-ci-fixer
       prompt: ${{ inputs.issue_number }}
       timeout-minutes: 60
@@ -359,9 +499,469 @@ jobs:
       pull-requests: write
     secrets: inherit
 
+  ci-retrigger-2:
+    name: "9E. CI Retrigger 2"
+    needs: [setup-branch, ci-fixer-1]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      pull-requests: write
+    outputs:
+      retrigger_action: ${{ steps.retrigger.outputs.retrigger_action }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ github.token }}
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.setup-branch.outputs.branch_name }}
+
+      - name: Retrigger CI
+        id: retrigger
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+        run: |
+          GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
+          if [ -z "$GH_PAT" ]; then
+            echo "GH_PAT not configured, skipping"
+            echo "retrigger_action=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SHA=$(git rev-parse HEAD)
+          RUNS=$(GH_TOKEN="$GITHUB_TOKEN" gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
+            --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | group_by(.workflow_id) | map(sort_by(.created_at) | last)" \
+            2>/dev/null || echo '[]')
+          IN_PROGRESS=$(echo "$RUNS" | jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo '0')
+          ALL_GREEN=$(echo "$RUNS" | jq '(length > 0) and all(.status == "completed" and (.conclusion == "success" or .conclusion == "skipped" or .conclusion == "neutral"))' 2>/dev/null || echo 'false')
+          if [ "$ALL_GREEN" = "true" ]; then
+            echo "CI already green for $SHA"
+            echo "retrigger_action=green" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "${IN_PROGRESS:-0}" -gt 0 ]; then
+            echo "$IN_PROGRESS run(s) still in progress for $SHA, not cancelling"
+            echo "retrigger_action=running" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PR_NUMBER=$(GH_TOKEN="$GH_PAT" gh pr list \
+            --head "$BRANCH" --state open \
+            --json number --jq '.[0].number // empty' 2>/dev/null)
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open PR for branch $BRANCH"
+            echo "retrigger_action=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Close/reopen PR #$PR_NUMBER to trigger CI..."
+          GH_TOKEN="$GH_PAT" gh pr close "$PR_NUMBER" 2>/dev/null || true
+          sleep 3
+          if ! GH_TOKEN="$GH_PAT" gh pr reopen "$PR_NUMBER" 2>/dev/null; then
+            echo "Failed to reopen PR #$PR_NUMBER"
+            echo "retrigger_action=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "retrigger_action=triggered" >> "$GITHUB_OUTPUT"
+
+  ci-wait-2:
+    name: "9F. CI Wait 2"
+    needs: [setup-branch, ci-retrigger-2]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read
+    outputs:
+      ci_status: ${{ steps.wait.outputs.ci_status }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ github.token }}
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.setup-branch.outputs.branch_name }}
+
+      - name: Wait for CI
+        id: wait
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          RETRIGGER_ACTION: ${{ needs.ci-retrigger-2.outputs.retrigger_action }}
+        run: |
+          GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
+          APPEAR_TIMEOUT=120
+          CI_POLL_TIMEOUT=1200
+          if [ -z "$RETRIGGER_ACTION" ] \
+              || [ "$RETRIGGER_ACTION" = "skipped" ] \
+              || [ "$RETRIGGER_ACTION" = "green" ]; then
+            echo "ci_status=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SHA=$(git rev-parse HEAD)
+          if [ "$RETRIGGER_ACTION" = "triggered" ]; then
+            echo "Waiting for CI runs to appear for $SHA..."
+            APPEAR_DEADLINE=$(($(date +%s) + APPEAR_TIMEOUT))
+            COUNT=0
+            while [ "$(date +%s)" -lt "$APPEAR_DEADLINE" ]; do
+              COUNT=$(GH_TOKEN="$GITHUB_TOKEN" gh api \
+                "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
+                --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | length" \
+                2>/dev/null || echo '0')
+              [ "${COUNT:-0}" -gt 0 ] && break
+              sleep 15
+            done
+            if [ "${COUNT:-0}" -eq 0 ]; then
+              echo "No CI runs appeared"
+              echo "ci_status=no_ci" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "Polling CI completion for $SHA..."
+          POLL_DEADLINE=$(($(date +%s) + CI_POLL_TIMEOUT))
+          while [ "$(date +%s)" -lt "$POLL_DEADLINE" ]; do
+            RUNS=$(GH_TOKEN="$GITHUB_TOKEN" gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
+              --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | group_by(.workflow_id) | map(sort_by(.created_at) | last)" \
+              2>/dev/null || echo '[]')
+            TOTAL=$(echo "$RUNS" | jq 'length' 2>/dev/null || echo '0')
+            COMPLETED=$(echo "$RUNS" | jq '[.[] | select(.status == "completed")] | length' 2>/dev/null || echo '0')
+            FAILED=$(echo "$RUNS" | jq '[.[] | select(.status == "completed" and .conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral")] | length' 2>/dev/null || echo '0')
+            echo "CI: $COMPLETED/$TOTAL completed, $FAILED failed"
+            if [ "${TOTAL:-0}" -gt 0 ] && [ "${COMPLETED:-0}" -eq "${TOTAL:-0}" ]; then
+              [ "${FAILED:-0}" -eq 0 ] && STATUS="green" || STATUS="failure"
+              echo "ci_status=$STATUS" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "CI polling timed out"
+          echo "ci_status=no_ci" >> "$GITHUB_OUTPUT"
+
+  ci-fixer-2:
+    name: "9G. CI Fixer 2"
+    needs: [ci-wait-2]
+    if: needs.ci-wait-2.outputs.ci_status == 'failure'
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: ci-fixer-2
+      command: ghar-ci-fixer
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 60
+    permissions:
+      actions: write
+      checks: write
+      contents: write
+      issues: write
+      pull-requests: write
+    secrets: inherit
+
+  ci-retrigger-3:
+    name: "9H. CI Retrigger 3"
+    needs: [setup-branch, ci-fixer-2]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      pull-requests: write
+    outputs:
+      retrigger_action: ${{ steps.retrigger.outputs.retrigger_action }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ github.token }}
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.setup-branch.outputs.branch_name }}
+
+      - name: Retrigger CI
+        id: retrigger
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+        run: |
+          GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
+          if [ -z "$GH_PAT" ]; then
+            echo "GH_PAT not configured, skipping"
+            echo "retrigger_action=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SHA=$(git rev-parse HEAD)
+          RUNS=$(GH_TOKEN="$GITHUB_TOKEN" gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
+            --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | group_by(.workflow_id) | map(sort_by(.created_at) | last)" \
+            2>/dev/null || echo '[]')
+          IN_PROGRESS=$(echo "$RUNS" | jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo '0')
+          ALL_GREEN=$(echo "$RUNS" | jq '(length > 0) and all(.status == "completed" and (.conclusion == "success" or .conclusion == "skipped" or .conclusion == "neutral"))' 2>/dev/null || echo 'false')
+          if [ "$ALL_GREEN" = "true" ]; then
+            echo "CI already green for $SHA"
+            echo "retrigger_action=green" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "${IN_PROGRESS:-0}" -gt 0 ]; then
+            echo "$IN_PROGRESS run(s) still in progress for $SHA, not cancelling"
+            echo "retrigger_action=running" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PR_NUMBER=$(GH_TOKEN="$GH_PAT" gh pr list \
+            --head "$BRANCH" --state open \
+            --json number --jq '.[0].number // empty' 2>/dev/null)
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open PR for branch $BRANCH"
+            echo "retrigger_action=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Close/reopen PR #$PR_NUMBER to trigger CI..."
+          GH_TOKEN="$GH_PAT" gh pr close "$PR_NUMBER" 2>/dev/null || true
+          sleep 3
+          if ! GH_TOKEN="$GH_PAT" gh pr reopen "$PR_NUMBER" 2>/dev/null; then
+            echo "Failed to reopen PR #$PR_NUMBER"
+            echo "retrigger_action=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "retrigger_action=triggered" >> "$GITHUB_OUTPUT"
+
+  ci-wait-3:
+    name: "9I. CI Wait 3"
+    needs: [setup-branch, ci-retrigger-3]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read
+    outputs:
+      ci_status: ${{ steps.wait.outputs.ci_status }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ github.token }}
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.setup-branch.outputs.branch_name }}
+
+      - name: Wait for CI
+        id: wait
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          RETRIGGER_ACTION: ${{ needs.ci-retrigger-3.outputs.retrigger_action }}
+        run: |
+          GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
+          APPEAR_TIMEOUT=120
+          CI_POLL_TIMEOUT=1200
+          if [ -z "$RETRIGGER_ACTION" ] \
+              || [ "$RETRIGGER_ACTION" = "skipped" ] \
+              || [ "$RETRIGGER_ACTION" = "green" ]; then
+            echo "ci_status=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SHA=$(git rev-parse HEAD)
+          if [ "$RETRIGGER_ACTION" = "triggered" ]; then
+            echo "Waiting for CI runs to appear for $SHA..."
+            APPEAR_DEADLINE=$(($(date +%s) + APPEAR_TIMEOUT))
+            COUNT=0
+            while [ "$(date +%s)" -lt "$APPEAR_DEADLINE" ]; do
+              COUNT=$(GH_TOKEN="$GITHUB_TOKEN" gh api \
+                "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
+                --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | length" \
+                2>/dev/null || echo '0')
+              [ "${COUNT:-0}" -gt 0 ] && break
+              sleep 15
+            done
+            if [ "${COUNT:-0}" -eq 0 ]; then
+              echo "No CI runs appeared"
+              echo "ci_status=no_ci" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "Polling CI completion for $SHA..."
+          POLL_DEADLINE=$(($(date +%s) + CI_POLL_TIMEOUT))
+          while [ "$(date +%s)" -lt "$POLL_DEADLINE" ]; do
+            RUNS=$(GH_TOKEN="$GITHUB_TOKEN" gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
+              --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | group_by(.workflow_id) | map(sort_by(.created_at) | last)" \
+              2>/dev/null || echo '[]')
+            TOTAL=$(echo "$RUNS" | jq 'length' 2>/dev/null || echo '0')
+            COMPLETED=$(echo "$RUNS" | jq '[.[] | select(.status == "completed")] | length' 2>/dev/null || echo '0')
+            FAILED=$(echo "$RUNS" | jq '[.[] | select(.status == "completed" and .conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral")] | length' 2>/dev/null || echo '0')
+            echo "CI: $COMPLETED/$TOTAL completed, $FAILED failed"
+            if [ "${TOTAL:-0}" -gt 0 ] && [ "${COMPLETED:-0}" -eq "${TOTAL:-0}" ]; then
+              [ "${FAILED:-0}" -eq 0 ] && STATUS="green" || STATUS="failure"
+              echo "ci_status=$STATUS" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "CI polling timed out"
+          echo "ci_status=no_ci" >> "$GITHUB_OUTPUT"
+
+  ci-fixer-3:
+    name: "9J. CI Fixer 3"
+    needs: [ci-wait-3]
+    if: needs.ci-wait-3.outputs.ci_status == 'failure'
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: ci-fixer-3
+      command: ghar-ci-fixer
+      prompt: ${{ inputs.issue_number }}
+      timeout-minutes: 60
+    permissions:
+      actions: write
+      checks: write
+      contents: write
+      issues: write
+      pull-requests: write
+    secrets: inherit
+
+  ci-retrigger-post:
+    name: "9K. CI Retrigger Post"
+    needs: [setup-branch, ci-fixer-3]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      pull-requests: write
+    outputs:
+      retrigger_action: ${{ steps.retrigger.outputs.retrigger_action }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ github.token }}
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.setup-branch.outputs.branch_name }}
+
+      - name: Retrigger CI
+        id: retrigger
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+        run: |
+          GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
+          if [ -z "$GH_PAT" ]; then
+            echo "GH_PAT not configured, skipping"
+            echo "retrigger_action=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SHA=$(git rev-parse HEAD)
+          RUNS=$(GH_TOKEN="$GITHUB_TOKEN" gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
+            --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | group_by(.workflow_id) | map(sort_by(.created_at) | last)" \
+            2>/dev/null || echo '[]')
+          IN_PROGRESS=$(echo "$RUNS" | jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo '0')
+          ALL_GREEN=$(echo "$RUNS" | jq '(length > 0) and all(.status == "completed" and (.conclusion == "success" or .conclusion == "skipped" or .conclusion == "neutral"))' 2>/dev/null || echo 'false')
+          if [ "$ALL_GREEN" = "true" ]; then
+            echo "CI already green for $SHA"
+            echo "retrigger_action=green" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "${IN_PROGRESS:-0}" -gt 0 ]; then
+            echo "$IN_PROGRESS run(s) still in progress for $SHA, not cancelling"
+            echo "retrigger_action=running" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PR_NUMBER=$(GH_TOKEN="$GH_PAT" gh pr list \
+            --head "$BRANCH" --state open \
+            --json number --jq '.[0].number // empty' 2>/dev/null)
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open PR for branch $BRANCH"
+            echo "retrigger_action=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Close/reopen PR #$PR_NUMBER to trigger CI..."
+          GH_TOKEN="$GH_PAT" gh pr close "$PR_NUMBER" 2>/dev/null || true
+          sleep 3
+          if ! GH_TOKEN="$GH_PAT" gh pr reopen "$PR_NUMBER" 2>/dev/null; then
+            echo "Failed to reopen PR #$PR_NUMBER"
+            echo "retrigger_action=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "retrigger_action=triggered" >> "$GITHUB_OUTPUT"
+
+  ci-wait-post:
+    name: "9L. CI Wait Post"
+    needs: [setup-branch, ci-retrigger-post]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read
+    outputs:
+      ci_status: ${{ steps.wait.outputs.ci_status }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ github.token }}
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.setup-branch.outputs.branch_name }}
+
+      - name: Wait for CI
+        id: wait
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          RETRIGGER_ACTION: ${{ needs.ci-retrigger-post.outputs.retrigger_action }}
+        run: |
+          GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
+          APPEAR_TIMEOUT=120
+          CI_POLL_TIMEOUT=1200
+          if [ -z "$RETRIGGER_ACTION" ] \
+              || [ "$RETRIGGER_ACTION" = "skipped" ] \
+              || [ "$RETRIGGER_ACTION" = "green" ]; then
+            echo "ci_status=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SHA=$(git rev-parse HEAD)
+          if [ "$RETRIGGER_ACTION" = "triggered" ]; then
+            echo "Waiting for CI runs to appear for $SHA..."
+            APPEAR_DEADLINE=$(($(date +%s) + APPEAR_TIMEOUT))
+            COUNT=0
+            while [ "$(date +%s)" -lt "$APPEAR_DEADLINE" ]; do
+              COUNT=$(GH_TOKEN="$GITHUB_TOKEN" gh api \
+                "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
+                --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | length" \
+                2>/dev/null || echo '0')
+              [ "${COUNT:-0}" -gt 0 ] && break
+              sleep 15
+            done
+            if [ "${COUNT:-0}" -eq 0 ]; then
+              echo "No CI runs appeared"
+              echo "ci_status=no_ci" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "Polling CI completion for $SHA..."
+          POLL_DEADLINE=$(($(date +%s) + CI_POLL_TIMEOUT))
+          while [ "$(date +%s)" -lt "$POLL_DEADLINE" ]; do
+            RUNS=$(GH_TOKEN="$GITHUB_TOKEN" gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
+              --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | group_by(.workflow_id) | map(sort_by(.created_at) | last)" \
+              2>/dev/null || echo '[]')
+            TOTAL=$(echo "$RUNS" | jq 'length' 2>/dev/null || echo '0')
+            COMPLETED=$(echo "$RUNS" | jq '[.[] | select(.status == "completed")] | length' 2>/dev/null || echo '0')
+            FAILED=$(echo "$RUNS" | jq '[.[] | select(.status == "completed" and .conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral")] | length' 2>/dev/null || echo '0')
+            echo "CI: $COMPLETED/$TOTAL completed, $FAILED failed"
+            if [ "${TOTAL:-0}" -gt 0 ] && [ "${COMPLETED:-0}" -eq "${TOTAL:-0}" ]; then
+              [ "${FAILED:-0}" -eq 0 ] && STATUS="green" || STATUS="failure"
+              echo "ci_status=$STATUS" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "CI polling timed out"
+          echo "ci_status=no_ci" >> "$GITHUB_OUTPUT"
+
   pr-finalizer:
     name: "10. PR Finalizer"
-    needs: ci-fixer
+    needs: ci-wait-post
+    if: ${{ !cancelled() }}
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: pr-finalizer
