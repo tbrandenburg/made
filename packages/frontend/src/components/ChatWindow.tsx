@@ -20,6 +20,7 @@ interface ChatWindowProps {
   chat: ChatMessage[];
   chatWindowRef?: React.RefObject<ChatWindowHandle>;
   agentProcessing: boolean;
+  refreshing?: boolean;
   emptyMessage: string;
   sessionId?: string | null;
   onClearSession?: () => void;
@@ -127,6 +128,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
     chat,
     chatWindowRef,
     agentProcessing,
+    refreshing,
     emptyMessage,
     sessionId,
     onClearSession,
@@ -208,7 +210,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
               Item: SpacedItem,
               Footer: () => (
                 <>
-                  {agentProcessing && (
+                  {refreshing && (
+                    <div className="loading-indicator">
+                      <div className="loading-spinner"></div>
+                      <span>Refreshing...</span>
+                    </div>
+                  )}
+                  {!refreshing && agentProcessing && (
                     <div className="loading-indicator">
                       <div className="loading-spinner"></div>
                       <span>Agent is thinking...</span>
@@ -253,13 +261,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
             style={{ height: "auto" }}
           />
         )}
-        {chat.length === 0 && agentProcessing && (
+        {chat.length === 0 && refreshing && (
+          <div className="loading-indicator">
+            <div className="loading-spinner"></div>
+            <span>Refreshing...</span>
+          </div>
+        )}
+        {chat.length === 0 && !refreshing && agentProcessing && (
           <div className="loading-indicator">
             <div className="loading-spinner"></div>
             <span>Agent is thinking...</span>
           </div>
         )}
-        {chat.length === 0 && !agentProcessing && (
+        {chat.length === 0 && !refreshing && !agentProcessing && (
           <div className="empty">{emptyMessage}</div>
         )}
         {chat.length === 0 && sessionId && (
