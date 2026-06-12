@@ -410,6 +410,102 @@ describe("ChatWindow", () => {
     );
   });
 
+  it(`shows "Refreshing..." in Footer when refreshing=true, chat non-empty`, () => {
+    render(
+      <ChatWindow
+        chat={[makeMessage()]}
+        agentProcessing={false}
+        emptyMessage="No messages"
+        refreshing
+      />,
+    );
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (ADV-6): Refreshing indicator not visible in Footer for non-empty chat",
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Agent is thinking..."),
+      "FAIL (ADV-6): Agent indicator incorrectly visible when only refreshing is true",
+    ).not.toBeInTheDocument();
+  });
+
+  it(`shows "Refreshing..." in Footer when both flags true (refreshing takes priority), chat non-empty`, () => {
+    render(
+      <ChatWindow
+        chat={[makeMessage()]}
+        agentProcessing
+        emptyMessage="No messages"
+        refreshing
+      />,
+    );
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (ADV-6): Refreshing should take priority in Footer when both flags are true",
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Agent is thinking..."),
+      "FAIL (ADV-6): Agent indicator should not show when refreshing takes priority in Footer",
+    ).not.toBeInTheDocument();
+  });
+
+  it(`shows "Agent is thinking..." in Footer when agentProcessing=true, refreshing=false, chat non-empty`, () => {
+    render(
+      <ChatWindow
+        chat={[makeMessage()]}
+        agentProcessing
+        refreshing={false}
+        emptyMessage="No messages"
+      />,
+    );
+    expect(
+      screen.getByText("Agent is thinking..."),
+      "FAIL (ADV-6): Agent indicator not visible in Footer when agentProcessing=true, refreshing=false",
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (ADV-6): Refreshing indicator incorrectly visible when refreshing=false",
+    ).not.toBeInTheDocument();
+  });
+
+  it(`toggles between Refreshing and Agent indicator when refreshing changes at runtime (non-empty chat)`, () => {
+    const { rerender } = render(
+      <ChatWindow
+        chat={[makeMessage()]}
+        agentProcessing
+        refreshing
+        emptyMessage="No messages"
+      />,
+    );
+    expect(screen.getByText("Refreshing...")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Agent is thinking..."),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <ChatWindow
+        chat={[makeMessage()]}
+        agentProcessing
+        refreshing={false}
+        emptyMessage="No messages"
+      />,
+    );
+    expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
+    expect(screen.queryByText("Refreshing...")).not.toBeInTheDocument();
+
+    rerender(
+      <ChatWindow
+        chat={[makeMessage()]}
+        agentProcessing
+        refreshing
+        emptyMessage="No messages"
+      />,
+    );
+    expect(screen.getByText("Refreshing...")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Agent is thinking..."),
+    ).not.toBeInTheDocument();
+  });
+
   it(`shows "Refreshing..." when refreshing=true, agentProcessing=false, chat=[]`, () => {
     render(
       <ChatWindow
