@@ -1,11 +1,9 @@
-import {
-  AdjustmentsHorizontalIcon,
-  BookOpenIcon,
-  CpuChipIcon,
-  HomeModernIcon,
-  RectangleGroupIcon,
-  Squares2X2Icon,
-} from "@heroicons/react/24/outline";
+import AdjustmentsHorizontalIcon from "@heroicons/react/24/outline/AdjustmentsHorizontalIcon.js";
+import BookOpenIcon from "@heroicons/react/24/outline/BookOpenIcon.js";
+import CpuChipIcon from "@heroicons/react/24/outline/CpuChipIcon.js";
+import HomeModernIcon from "@heroicons/react/24/outline/HomeModernIcon.js";
+import RectangleGroupIcon from "@heroicons/react/24/outline/RectangleGroupIcon.js";
+import Squares2X2Icon from "@heroicons/react/24/outline/Squares2X2Icon.js";
 import { RecurringTasksIcon } from "./icons/RecurringTasksIcon";
 import React, { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";

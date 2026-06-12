@@ -8,7 +8,6 @@ export default defineConfig({
   // Keep this list updated when adding new heavy npm deps used by lazy-loaded routes.
   optimizeDeps: {
     include: [
-      "@heroicons/react/24/outline",
       "@xterm/xterm",
       "@xterm/addon-fit",
       "marked",
