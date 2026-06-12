@@ -9,7 +9,6 @@ import {
   render,
   screen,
   waitFor,
-  within,
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RepositoryPage } from "../RepositoryPage";
@@ -1333,6 +1332,10 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
     vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
       sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
     });
     localStorage.clear();
     sessionStorage.clear();

@@ -512,7 +512,7 @@ describe("ChatWindow", () => {
         chat={[]}
         agentProcessing={false}
         emptyMessage="No messages"
-        {...({ refreshing: true } as any)}
+        refreshing={true}
       />,
     );
     expect(
@@ -527,7 +527,7 @@ describe("ChatWindow", () => {
         chat={[]}
         agentProcessing
         emptyMessage="No messages"
-        {...({ refreshing: false } as any)}
+        refreshing={false}
       />,
     );
     expect(
@@ -542,7 +542,7 @@ describe("ChatWindow", () => {
         chat={[]}
         agentProcessing
         emptyMessage="No messages"
-        {...({ refreshing: true } as any)}
+        refreshing={true}
       />,
     );
     expect(
@@ -557,7 +557,7 @@ describe("ChatWindow", () => {
         chat={[]}
         agentProcessing={false}
         emptyMessage="No messages"
-        {...({ refreshing: false } as any)}
+        refreshing={false}
       />,
     );
     expect(
