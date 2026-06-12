@@ -9,6 +9,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RepositoryPage } from "../RepositoryPage";
@@ -1334,6 +1335,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
       sessions: [sessionA, sessionB],
     });
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   it("ADV-1: refresh fetch for stale session does not corrupt new session chat after session switch", async () => {
@@ -1493,7 +1495,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("ADV-5: ChatWindow receives agentProcessing={chatAgentProcessing || isRefreshing} during refresh", async () => {
+  it("I1 (ADV-5): ChatWindow shows 'Refreshing...' instead of 'Agent is thinking...' during refresh", async () => {
     let resolveFetch!: (value: ChatHistoryResponse) => void;
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(
       new Promise<ChatHistoryResponse>((resolve) => {
@@ -1511,18 +1513,113 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
 
     expect(
       refreshBtn,
-      "FAIL (ADV-5): Refresh button not disabled during fetch",
+      "FAIL (I1): Refresh button not disabled during fetch",
     ).toBeDisabled();
 
-    // The Virtuoso mock renders children directly - check it's in loading state
-    // (ChatWindow renders its content inside the Virtuoso mock)
     expect(
-      screen.getByText(/Agent is thinking|Loading/),
-      "FAIL (ADV-5): loading indicator not visible — isRefreshing not wired to ChatWindow agentProcessing prop",
+      screen.getByText("Refreshing..."),
+      "FAIL (I1): 'Refreshing...' not visible during refresh — agentProcessing still includes isRefreshing",
     ).toBeInTheDocument();
 
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
     resolveFetch!(emptyHistory);
+  });
+
+  it("I2 (AC6): error during refresh shows error and re-enables refresh button", async () => {
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+    await screen.findByLabelText("Clear session");
+
+    // At this point the initial syncChatHistory may have started with the
+    // default mock. Re-mock so the refresh click gets a deferred promise.
+    let rejectFetch!: (error: Error) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((_resolve, reject) => {
+        rejectFetch = reject;
+      }),
+    );
+
+    const refreshBtn = await screen.findByLabelText("Refresh current session");
+    expect(refreshBtn).not.toBeDisabled();
+    fireEvent.click(refreshBtn);
+
+    await waitFor(() => {
+      expect(
+        vi.mocked(api.getRepositoryAgentHistory),
+        "FAIL (I2): getRepositoryAgentHistory not called — reloadCurrentSession not invoked",
+      ).toHaveBeenCalled();
+    });
+
+    rejectFetch(new Error("Refresh failed"));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Refresh failed"),
+        "FAIL (I2): error message not displayed after reloadCurrentSession throws",
+      ).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      const btn = screen.getByLabelText("Refresh current session");
+      expect(
+        btn,
+        "FAIL (I2): Refresh button not re-enabled after error — isRefreshing not set to false in finally block",
+      ).not.toBeDisabled();
+    });
+  });
+
+  it("I3: sending message shows 'Agent is thinking...' (refresh not interfering)", async () => {
+    const msg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const history = { sessionId: "session-a", messages: [msg] };
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(history);
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    vi.mocked(api.sendAgentMessage).mockResolvedValue({
+      messageId: "m1",
+      sent: new Date().toISOString(),
+      response: "ok",
+      sessionId: "session-a",
+      processing: true,
+    });
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: null,
+    });
+
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "test message" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await screen.findByText("Agent is thinking...");
+
+    expect(
+      screen.getByText("Agent is thinking..."),
+      "FAIL (I3): Agent indicator not visible after sending a message — agentProcessing decoupling broke send path",
+    ).toBeInTheDocument();
   });
 });
 

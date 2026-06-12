@@ -409,4 +409,64 @@ describe("ChatWindow", () => {
       expect.objectContaining({ index: 1, align: "end", behavior: "auto" }),
     );
   });
+
+  it(`shows "Refreshing..." when refreshing=true, agentProcessing=false, chat=[]`, () => {
+    render(
+      <ChatWindow
+        chat={[]}
+        agentProcessing={false}
+        emptyMessage="No messages"
+        {...({ refreshing: true } as any)}
+      />,
+    );
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (AC2): Refreshing indicator not visible when refreshing=true with empty chat",
+    ).toBeInTheDocument();
+  });
+
+  it(`shows "Agent is thinking..." when agentProcessing=true, refreshing=false, chat=[]`, () => {
+    render(
+      <ChatWindow
+        chat={[]}
+        agentProcessing
+        emptyMessage="No messages"
+        {...({ refreshing: false } as any)}
+      />,
+    );
+    expect(
+      screen.getByText("Agent is thinking..."),
+      "FAIL (AC3): Agent indicator not visible when agentProcessing=true, refreshing=false",
+    ).toBeInTheDocument();
+  });
+
+  it(`shows "Refreshing..." when both flags true (refreshing takes priority), chat=[]`, () => {
+    render(
+      <ChatWindow
+        chat={[]}
+        agentProcessing
+        emptyMessage="No messages"
+        {...({ refreshing: true } as any)}
+      />,
+    );
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (AC3): Refreshing should take priority when both flags are true",
+    ).toBeInTheDocument();
+  });
+
+  it(`shows emptyMessage when both flags false, chat=[]`, () => {
+    render(
+      <ChatWindow
+        chat={[]}
+        agentProcessing={false}
+        emptyMessage="No messages"
+        {...({ refreshing: false } as any)}
+      />,
+    );
+    expect(
+      screen.getByText("No messages"),
+      "FAIL (AC2 reg): emptyMessage not visible when both refreshing and agentProcessing are false",
+    ).toBeInTheDocument();
+  });
 });
