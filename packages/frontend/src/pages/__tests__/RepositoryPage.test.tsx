@@ -730,6 +730,8 @@ it("CI-2: unmount during session switch does not cause state update (fails: Reac
   vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({ sessions: [sessionA, sessionB] });
   vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
 
+  const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
   const { unmount } = renderPage();
   await screen.findByLabelText("Choose a session");
 
@@ -751,10 +753,94 @@ it("CI-2: unmount during session switch does not cause state update (fails: Reac
   resolveB!(historyB);
   await new Promise<void>((r) => setTimeout(r, 100));
 
+  const stateUpdateCalls = errorSpy.mock.calls.filter(
+    ([msg]: unknown[]) => typeof msg === "string" && msg.includes("Can't perform a React state update on an unmounted component"),
+  );
   expect(
-    true,
+    stateUpdateCalls.length,
     "FAIL (CI-2): state update on unmounted component — no guard prevents setState after unmount",
-  ).toBe(true);
+  ).toBe(0);
+
+  errorSpy.mockRestore();
+});
+
+// ── CI-3: rapid B→C→B switch ──────────────────────────────────────
+
+it("CI-3: rapid B→C→B switch — final B fetch overwrites stale B and C responses (fails: stale data visible)", async () => {
+  const msgA: ChatHistoryMessage = { role: "assistant", type: "text", content: "Hello from A", timestamp: "1" };
+  const msgB: ChatHistoryMessage = { role: "assistant", type: "text", content: "Hello from B", timestamp: "2" };
+  const msgC: ChatHistoryMessage = { role: "assistant", type: "text", content: "Hello from C", timestamp: "3" };
+  const msgB2: ChatHistoryMessage = { role: "assistant", type: "text", content: "Hello from B again", timestamp: "4" };
+  const historyA = { sessionId: "session-a", messages: [msgA] };
+  const historyB = { sessionId: "session-b", messages: [msgB] };
+  const historyC = { sessionId: "session-c", messages: [msgC] };
+  const historyB2 = { sessionId: "session-b", messages: [msgB2] };
+  const sessionC: ChatSession = { id: "session-c", title: "Session C", updated: "2026-01-03" };
+
+  let resolveFirstB!: (value: ChatHistoryResponse) => void;
+  let resolveC!: (value: ChatHistoryResponse) => void;
+  let resolveFinalB!: (value: ChatHistoryResponse) => void;
+  const promiseFirstB = new Promise<ChatHistoryResponse>((resolve) => { resolveFirstB = resolve; });
+  const promiseC = new Promise<ChatHistoryResponse>((resolve) => { resolveC = resolve; });
+  const promiseFinalB = new Promise<ChatHistoryResponse>((resolve) => { resolveFinalB = resolve; });
+
+  vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({ sessions: [sessionA, sessionB, sessionC] });
+
+  renderPage();
+  await screen.findByLabelText("Choose a session");
+
+  vi.mocked(api.getRepositoryAgentHistory)
+    .mockResolvedValueOnce(historyA)
+    .mockReturnValueOnce(promiseFirstB);
+
+  fireEvent.click(screen.getByLabelText("Choose a session"));
+  fireEvent.click(await screen.findByTitle("Session A"));
+  await screen.findByText("Hello from A");
+
+  vi.mocked(api.getRepositoryAgentHistory).mockClear();
+  vi.mocked(api.getRepositoryAgentHistory)
+    .mockReturnValueOnce(promiseFirstB)
+    .mockReturnValueOnce(promiseC)
+    .mockReturnValueOnce(promiseFinalB);
+
+  fireEvent.click(await screen.findByLabelText("Choose a session"));
+  await screen.findByTitle("Session B");
+  fireEvent.click(screen.getByTitle("Session B"));
+
+  await screen.findByText("Agent is thinking...");
+
+  vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({ sessions: [sessionA, sessionB, sessionC] });
+  fireEvent.click(await screen.findByLabelText("Choose a session"));
+  await screen.findByTitle("Session C");
+  fireEvent.click(screen.getByTitle("Session C"));
+
+  await screen.findByText("Agent is thinking...");
+
+  fireEvent.click(await screen.findByLabelText("Choose a session"));
+  await screen.findByTitle("Session B");
+  fireEvent.click(screen.getByTitle("Session B"));
+
+  resolveFirstB!(historyB);
+  await new Promise<void>((r) => setTimeout(r, 50));
+
+  resolveC!(historyC);
+  await new Promise<void>((r) => setTimeout(r, 50));
+
+  resolveFinalB!(historyB2);
+  await new Promise<void>((r) => setTimeout(r, 100));
+
+  expect(
+    screen.getByText("Hello from B again"),
+    "FAIL (CI-3): final B data 'Hello from B again' not displayed",
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByText("Hello from C"),
+    "FAIL (CI-3): stale C data visible after re-selecting B",
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByText("Hello from B"),
+    "FAIL (CI-3): stale first B data visible instead of final B fetch",
+  ).not.toBeInTheDocument();
 });
 
 // ── AC-M3-REGRESSION-POLLING: post-switch polling resumes ────────
