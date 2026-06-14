@@ -2277,6 +2277,208 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     });
   });
 
+  // ── T1–T4: signal.aborted guard (Issue #492) ───────────────────────
+
+  it("T2: syncChatHistory with aborted signal does not render messages (fails: guard missing)", async () => {
+    const origAbortController = globalThis.AbortController;
+    try {
+      vi.stubGlobal(
+        "AbortController",
+        class {
+          signal = { aborted: true } as AbortSignal;
+          abort() {
+            /* no-op */
+          }
+        },
+      );
+
+      const msg: ChatHistoryMessage = {
+        role: "assistant",
+        type: "text",
+        content: "Should not appear",
+        timestamp: "2026-01-01T00:00:00Z",
+      };
+      vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue({
+        sessionId: "session-a",
+        messages: [msg],
+      });
+
+      renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+      await new Promise<void>((r) => setTimeout(r, 500));
+
+      expect(
+        screen.queryByText("Should not appear"),
+        "FAIL (T2): Messages rendered despite aborted signal — guard missing after await",
+      ).not.toBeInTheDocument();
+    } finally {
+      vi.stubGlobal("AbortController", origAbortController);
+    }
+  });
+
+  it("T3: AbortError rejection does not call setChatError (fails: error shown)", async () => {
+    const abortError = new DOMException(
+      "The operation was aborted",
+      "AbortError",
+    );
+    vi.mocked(api.getRepositoryAgentHistory).mockRejectedValue(abortError);
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    await new Promise<void>((r) => setTimeout(r, 500));
+
+    expect(
+      screen.queryByText("Failed to load chat history"),
+      "FAIL (T3): Error appeared despite AbortError — setChatError was called",
+    ).not.toBeInTheDocument();
+  });
+
+  it("T4: syncChatHistory without signal argument processes normally (fails: no messages)", async () => {
+    const msg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Normal message",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue({
+      sessionId: "session-a",
+      messages: [msg],
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    expect(
+      await screen.findByText("Normal message"),
+      "FAIL (T4): syncChatHistory without valid signal failed to render messages",
+    ).toBeInTheDocument();
+  });
+
+  it("T1: deferred effect call + session switch aborts — stale data not rendered (fails: stale data visible)", async () => {
+    const msgA: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyA: ChatHistoryResponse = {
+      sessionId: "session-a",
+      messages: [msgA],
+    };
+    const historyB: ChatHistoryResponse = {
+      sessionId: "session-b",
+      messages: [msgB],
+    };
+
+    let resolveDeferred!: (value: ChatHistoryResponse) => void;
+    const deferred = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveDeferred = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockReturnValueOnce(deferred)
+      .mockResolvedValueOnce(historyB);
+
+    renderPage();
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentHistory,
+        "session A fetch should have been dispatched",
+      ).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await screen.findByText("Hello from B");
+
+    resolveDeferred!(historyA);
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    expect(
+      screen.queryByText("Hello from A"),
+      "FAIL (T1): Stale session A data appeared after session switch — signal.aborted guard missing",
+    ).not.toBeInTheDocument();
+  });
+
+  it("T1-loading: deferred polling call + session switch — stale data not rendered (fails: stale data visible)", async () => {
+    const msgA: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A (loading)",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B (loading)",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyA: ChatHistoryResponse = {
+      sessionId: "session-a",
+      messages: [msgA],
+    };
+    const historyB: ChatHistoryResponse = {
+      sessionId: "session-b",
+      messages: [msgB],
+    };
+
+    let resolveDeferred!: (value: ChatHistoryResponse) => void;
+    const deferred = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveDeferred = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockReturnValueOnce(deferred);
+
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
+    vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
+
+    const { router } = renderPageWithRouter([
+      "/repositories/test-repo?tab=agent&sessionId=session-a",
+    ]);
+
+    await screen.findByLabelText("Clear session");
+    await new Promise<void>((r) => setTimeout(r, 500));
+
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentHistory,
+        "session A polling fetch should have been dispatched",
+      ).toHaveBeenCalled();
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValueOnce(historyB);
+
+    await router.navigate(
+      "/repositories/test-repo?tab=agent&sessionId=session-b",
+    );
+
+    await screen.findByText("Hello from B (loading)");
+
+    resolveDeferred!(historyA);
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    expect(
+      screen.queryByText("Hello from A (loading)"),
+      "FAIL (T1-loading): Stale polling data appeared after session switch — guard missing in loading path",
+    ).not.toBeInTheDocument();
+  });
+
   // ── ADV-1: stale reply then fresh send from new session ───────────────
 
   it("ADV-1: new send from new session works after stale reply is discarded", async () => {
