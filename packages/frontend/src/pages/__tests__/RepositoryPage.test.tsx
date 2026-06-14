@@ -2305,12 +2305,12 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
 
       renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
 
-      await new Promise<void>((r) => setTimeout(r, 500));
-
-      expect(
-        screen.queryByText("Should not appear"),
-        "FAIL (T2): Messages rendered despite aborted signal — guard missing after await",
-      ).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(
+          screen.queryByText("Should not appear"),
+          "FAIL (T2): Messages rendered despite aborted signal — guard missing after await",
+        ).not.toBeInTheDocument();
+      });
     } finally {
       vi.stubGlobal("AbortController", origAbortController);
     }
@@ -2325,15 +2325,15 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
 
-    await new Promise<void>((r) => setTimeout(r, 500));
-
-    expect(
-      screen.queryByText("Failed to load chat history"),
-      "FAIL (T3): Error appeared despite AbortError — setChatError was called",
-    ).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Failed to load chat history"),
+        "FAIL (T3): Error appeared despite AbortError — setChatError was called",
+      ).not.toBeInTheDocument();
+    });
   });
 
-  it("T4: syncChatHistory without signal argument processes normally (fails: no messages)", async () => {
+  it("T4: syncChatHistory normal flow — messages rendered (fails: no messages)", async () => {
     const msg: ChatHistoryMessage = {
       role: "assistant",
       type: "text",

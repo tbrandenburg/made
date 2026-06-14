@@ -1227,7 +1227,7 @@ export const RepositoryPage: React.FC = () => {
     if (chatAgentProcessing || !name || !sessionId) return;
     const controller = new AbortController();
     syncChatHistory(controller.signal);
-    return () => controller.abort();
+    return () => controller.abort(); // No argument — preserves DOMException('AbortError') shape
   }, [chatAgentProcessing, name, sessionId, syncChatHistory]);
 
   useEffect(() => {
@@ -1246,7 +1246,7 @@ export const RepositoryPage: React.FC = () => {
     tick();
 
     return () => {
-      controller.abort();
+      controller.abort(); // No argument — preserves DOMException('AbortError') shape
       if (timeoutId !== undefined) {
         window.clearTimeout(timeoutId);
       }
