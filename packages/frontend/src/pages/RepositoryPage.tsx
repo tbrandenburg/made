@@ -1196,6 +1196,8 @@ export const RepositoryPage: React.FC = () => {
           signal,
         );
 
+        if (signal?.aborted) return;
+
         if (!history.messages?.length) {
           console.info("[ChatHistory] Request completed with no new messages");
           return;
