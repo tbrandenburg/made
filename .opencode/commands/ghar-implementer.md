@@ -25,7 +25,7 @@ To publish an issue comment, write the complete Markdown body to a temporary fil
 
 ## Mission
 
-Require `spec-approved` and `tests-created`. Fetch and check out the shared branch at its latest remote head. Confirm the test commit is present and reproduce its meaningful failures. Implement the smallest production change that satisfies the approved spec and tests, then run the full test suite and keep iterating on production code until the suite is green.
+Require `spec-approved` and `tests-created`. Fetch and check out the shared branch at its latest remote head. Confirm the test commit is present and reproduce its meaningful failures. Implement the smallest production change that satisfies the approved spec and tests, then run the full test suite and keep iterating on production code until the suite is green. Before editing, compare the planned diff against the spec's expected affected files and stop if the change would broaden scope.
 
 Prefer one clear owner for each state transition. If a simpler direct change preserves the UX contract and avoids duplicated work or race windows, choose it over a broader refactor or new abstraction.
 

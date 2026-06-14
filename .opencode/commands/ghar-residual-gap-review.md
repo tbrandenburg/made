@@ -23,7 +23,7 @@ To publish an issue comment, write the complete Markdown body to a temporary fil
 
 ## Mission
 
-Require `spec-approved`, `tests-created`, `implementation-done`, and `pr-seeded`. Fetch the latest shared branch read-only and inspect the exact implementation commit named in `implementation-done`, not the moving branch tip. Compare the issue intent against the delivered PR as a residual-gap review: what is correct, what remains weak, what is overbuilt, and what still needs follow-up work even if the issue is otherwise closable.
+Require `spec-approved`, `tests-created`, `implementation-done`, and `pr-seeded`. Fetch the latest shared branch read-only and inspect the exact implementation commit named in `implementation-done`, not the moving branch tip. Compare the issue intent against the delivered PR as a residual-gap review: what is correct, what remains weak, what is overbuilt, and what still needs follow-up work even if the issue is otherwise closable. Treat extra files, extra tests, and implementation-coupled checks as residual gaps unless the spec explicitly allowed them.
 
 **Spec-gated gap classification — mandatory before assigning any severity**: Extract the Non-goals list from `spec-approved`. Before classifying any weakness, check whether it conflicts with an explicit Non-goal. If it does, label it `[spec-excluded]` regardless of issue intent, assign no medium/high severity, and route it as *"follow-up issue only — not an action item for the fixer."* Only gaps that are both (a) outside spec scope and (b) not listed as Non-goals may be assigned medium or higher severity for the fixer to act on.
 

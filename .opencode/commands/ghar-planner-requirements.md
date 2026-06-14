@@ -27,7 +27,7 @@ To publish an issue comment, write the complete Markdown body to a temporary fil
 
 Read the issue body, non-agent discussion, and relevant code on the shared branch. Make an independent requirements-first pass. Do not read comments whose first line is a GHAR comment marker, including other planner output.
 
-Treat UX as part of the requirement, not a follow-up: name the user-visible transition, loading, error, and stale-state behavior that must be preserved. Also capture any architecture invariants that matter for future change cost, but keep the requirements plan behavior-first and minimal.
+Treat UX as part of the requirement, not a follow-up: name the user-visible transition, loading, error, and stale-state behavior that must be preserved. Also capture any architecture invariants that matter for future change cost, but keep the requirements plan behavior-first and minimal. Call out the smallest viable file set and separate any adjacent nice-to-haves or follow-ups so the downstream spec does not drift.
 
 ## Input Load Guard
 

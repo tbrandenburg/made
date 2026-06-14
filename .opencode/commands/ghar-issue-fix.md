@@ -181,6 +181,7 @@ For each step in the artifact's Implementation Plan:
 - Match existing code style exactly
 - Copy patterns from "Patterns to Follow" section
 - Add tests as specified
+- Prefer extending an existing test file over creating a new one when the approved spec can still be satisfied.
 
 **DON'T:**
 
@@ -188,6 +189,7 @@ For each step in the artifact's Implementation Plan:
 - Add "improvements" not in the plan
 - Change formatting of untouched lines
 - Deviate from the artifact without noting it
+- Add files or tests beyond the artifact's expected affected files
 
 ### 4.3 Handle Each File Type
 

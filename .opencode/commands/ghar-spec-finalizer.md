@@ -27,7 +27,7 @@ To publish an issue comment, write the complete Markdown body to a temporary fil
 
 Read the issue, codebase, `spec-final`, `spec-redteam`, and `spec-tdd-review`. Verify all markers exist. Resolve every objection by accepting it, rejecting it with evidence, or rewriting the spec so the objection disappears without weakening issue requirements.
 
-Reject any spec that still contains untestable must-have criteria, unresolved contradictions, implementation-coupled test language, or an unclear minimum viable fix. Keep the contract testable through observable behavior. Preserve the simplest architecture that still satisfies the UX contract.
+Reject any spec that still contains untestable must-have criteria, unresolved contradictions, implementation-coupled test language, an unbounded affected-file list, or an unclear minimum viable fix. Keep the contract testable through observable behavior. Preserve the simplest architecture that still satisfies the UX contract.
 
 ## Input Load Guard
 

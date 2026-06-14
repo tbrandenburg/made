@@ -27,7 +27,7 @@ To publish an issue comment, write the complete Markdown body to a temporary fil
 
 Read the issue, codebase, test framework, and only the `spec-final` planning issue comment. Verify its marker exists. Attack the spec from a testability perspective.
 
-Every must-have criterion must map to a runtime-observable test. Prefer behavior-level assertions over source inspection or private implementation probes whenever the behavior is observable through the public surface. Include explicit UX-state tests when the issue mentions loading, clearing, stale content, or error feedback.
+Every must-have criterion must map to a runtime-observable test. Prefer behavior-level assertions over source inspection or private implementation probes whenever the behavior is observable through the public surface. If the behavior can be observed at runtime, a source-parsing test is not sufficient. Include explicit UX-state tests when the issue mentions loading, clearing, stale content, or error feedback.
 Require at least one behavior-level test, one negative case, and one regression case for each must-have criterion where applicable. If the spec cannot support that, the spec is not ready.
 
 When a must-have criterion names N > 1 concrete components (e.g., "applied consistently to all 4 pages"), the required initial failing tests MUST include at least one test per named component. Testing only the primary component does not satisfy an AC that names multiple components.

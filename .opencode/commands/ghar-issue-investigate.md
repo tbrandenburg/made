@@ -11,7 +11,7 @@ argument-hint: <issue-number|url|"description">
 
 ## Your Mission
 
-Investigate the issue/problem and produce the minimum implementation plan that closes the issue without widening scope. The plan must:
+Investigate the issue/problem and produce the minimum implementation plan that closes the issue without widening scope. The plan must name the exact files you expect to change, call out what stays untouched, and avoid introducing abstractions or sibling-symptom fixes unless the issue explicitly requires them. The plan must:
 
 1. Is posted as a GitHub comment (if GH issue provided)
 2. Captures all context needed for one-pass implementation of the issue scope only
@@ -205,6 +205,7 @@ git blame -L {start},{end} {affected-file}
 
 - Any change not required to close the issue belongs in Out of Scope or a follow-up issue.
 - Do not widen the plan to adjacent symptoms unless the issue explicitly requires them.
+- If a fix truly needs more files, justify each one and leave adjacent work as a follow-up issue instead of merging it into the main plan.
 
 **PHASE_3_CHECKPOINT:**
 
