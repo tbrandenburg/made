@@ -45,6 +45,25 @@ name: Core - Reusable OpenCode Run
         required: false
         type: string
         default: 'ubuntu-latest'
+      post-run-nudge-prompt:
+        description: >
+          Optional prompt sent to OpenCode via continue mode (opencode run
+          --continue) immediately after the main run completes successfully.
+          Use as a hint for the agent to verify its own output, e.g.
+          "check whether you posted the required issue comment".
+          Skipped when empty.
+        required: false
+        type: string
+        default: ''
+      post-run-bash-command:
+        description: >
+          Optional bash command executed after the nudge step. Fails the job
+          if it exits non-zero. Use as a deterministic gate, e.g. assert that
+          a required issue-comment tag exists via gh api. GH_TOKEN is provided.
+          Skipped when empty.
+        required: false
+        type: string
+        default: ''
     outputs:
       results:
         description: >
@@ -179,6 +198,39 @@ jobs:
           else
             echo "Error: At least one of 'command', 'prompt', or 'prompt-file' must be provided" >&2
             exit 1
+          fi
+
+      - name: Post-run nudge (continue session)
+        if: ${{ success() && inputs.post-run-nudge-prompt != '' }}
+        env:
+          OPENCODE_GH_TOKEN: ${{ github.token }}
+          NUDGE_PROMPT: ${{ inputs.post-run-nudge-prompt }}
+        run: |
+          RESULTS_FILE="${{ inputs.run-name }}-results.txt"
+          printf '\n---\n## Post-run nudge\n\n' >> "$RESULTS_FILE"
+          printf '%s' "$NUDGE_PROMPT" | env -i \
+            PATH="$HOME/.opencode/bin:$PATH" \
+            HOME="$HOME" \
+            GH_TOKEN="$OPENCODE_GH_TOKEN" \
+            opencode run \
+              --continue \
+              --model "${{ inputs.model }}" \
+              --agent "${{ inputs.agent }}" \
+              >> "$RESULTS_FILE"
+
+      - name: Post-run bash verification
+        if: ${{ success() && inputs.post-run-bash-command != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFY_CMD: ${{ inputs.post-run-bash-command }}
+        run: |
+          RESULTS_FILE="${{ inputs.run-name }}-results.txt"
+          printf '\n---\n## Post-run bash verification\n\n' >> "$RESULTS_FILE"
+          VERIFY_RC=0
+          bash -euo pipefail -c "$VERIFY_CMD" >> "$RESULTS_FILE" 2>&1 || VERIFY_RC=$?
+          if [ "$VERIFY_RC" -ne 0 ]; then
+            printf 'Post-run bash verification failed (exit code %s)\n' "$VERIFY_RC" >> "$RESULTS_FILE"
+            exit "$VERIFY_RC"
           fi
 
       - name: Process results for output
