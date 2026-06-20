@@ -9,6 +9,7 @@ import {
   render,
   screen,
   waitFor,
+  waitForElementToBeRemoved,
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RepositoryPage } from "../RepositoryPage";
@@ -88,6 +89,11 @@ const sessionB: ChatSession = {
   id: "session-b",
   title: "Session B",
   updated: "2026-01-02",
+};
+const sessionC: ChatSession = {
+  id: "session-c",
+  title: "Session C",
+  updated: "2026-01-03",
 };
 
 const emptyHistory = { sessionId: "", messages: [] };
@@ -268,9 +274,21 @@ describe("RepositoryPage session selection", () => {
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
 
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (AC1/2): loading indicator not visible after session switch — setIsRefreshing(true) missing in handleSessionSelect",
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector(".empty"),
+      "FAIL (AC1): .empty must not appear during transition — setIsRefreshing before setChat ensures first render has isRefreshing=true",
+    ).toBeNull();
 
     resolveB(historyB);
+
+    await waitForElementToBeRemoved(
+      () => screen.queryByText("Refreshing..."),
+      "FAIL (AC2): loading indicator did not disappear after fetch resolved — .finally() clear missing",
+    );
 
     expect(await screen.findByText("Hello from B")).toBeInTheDocument();
   });
@@ -306,10 +324,27 @@ describe("RepositoryPage session selection", () => {
     fireEvent.click(screen.getByTitle("Session B"));
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (AC1/4): loading indicator not visible before rejection — setIsRefreshing(true) missing",
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector(".empty"),
+      "FAIL (AC1): .empty must not appear during transition",
+    ).toBeNull();
 
     rejectB!(new Error("Fetch failed"));
 
+    await waitForElementToBeRemoved(
+      () => screen.queryByText("Refreshing..."),
+      "FAIL (AC4): loading indicator not removed after rejection — .finally() clear missing",
+    );
+
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (AC4-NEG): loading indicator still visible after rejection",
+    ).toBeNull();
     await waitFor(() => {
       expect(screen.getByText("Fetch failed")).toBeInTheDocument();
     });
@@ -349,14 +384,114 @@ describe("RepositoryPage session selection", () => {
     fireEvent.click(screen.getByTitle("Session B"));
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (AC1/3): loading indicator not visible before empty-history resolve",
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector(".empty"),
+      "FAIL (AC1): .empty must not appear during transition",
+    ).toBeNull();
 
     resolveB!({ sessionId: "session-b", messages: [] });
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await waitForElementToBeRemoved(
+      () => screen.queryByText("Refreshing..."),
+      "FAIL (AC3): loading indicator not removed after empty-history resolve",
+    );
 
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (AC3-NEG): loading indicator still visible after empty-history resolve",
+    ).toBeNull();
     expect(document.querySelector(".empty")).toBeInTheDocument();
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
     expect(document.querySelectorAll(".alert").length).toBe(0);
+  });
+
+  it("T6 (AC5-MODAL): same-session re-select via modal shows Refreshing (fails: no setIsRefreshing in handleSessionSelect)", async () => {
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("No conversation yet.");
+
+    let resolveRefresh!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveRefresh = resolve;
+      }),
+    );
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (AC5): loading indicator not shown on same-session re-select via modal — handleSessionSelect calls reloadCurrentSession which sets isRefreshing",
+    ).toBeInTheDocument();
+
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    resolveRefresh!(emptyHistory);
+  });
+
+  it("T7 (AC6-MODAL): exactly 1 API call on modal session switch (fails: triple-fetch returns)", async () => {
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("No conversation yet.");
+
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentHistory,
+        "FAIL (AC6): expected exactly 1 API call on modal session switch — triple-fetch or duplicate call detected",
+      ).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("T11 (AC2-HANG): network hang keeps loading indicator visible (regression guard, falis: indicator hidden before hang)", async () => {
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+
+    // Promise that never settles
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>(() => {}),
+    );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("No conversation yet.");
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (AC2-HANG): loading indicator not visible during network hang — isRefreshing not being set",
+    ).toBeInTheDocument();
   });
 });
 
@@ -2630,5 +2765,266 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       screen.queryByText("Hello from A (nav stale)"),
       "FAIL (ADV-492): Stale session A data appeared after router navigation — signal.aborted guard missing",
     ).not.toBeInTheDocument();
+  });
+
+  // ── T8–T10: concurrent-invalidation tests for .finally() path (AC8) ──
+
+  it("T8 (AC8-CONCURRENT): rapid A→B→C shows loading indicator per switch, isRefreshing consistent (fails: .finally() aborted guard missing)", async () => {
+    const msgA: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const msgC: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from C",
+      timestamp: "2026-01-03T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [msgA] };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+    const historyC = { sessionId: "session-c", messages: [msgC] };
+
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    let resolveC!: (value: ChatHistoryResponse) => void;
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+    const deferredC = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveC = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB, sessionC],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyA)
+      .mockReturnValueOnce(deferredB)
+      .mockReturnValueOnce(deferredC);
+
+    renderPage();
+
+    // Load session A
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    // Switch to B (deferred)
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(2);
+    });
+
+    // Switch to C before B resolves
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session C");
+    fireEvent.click(screen.getByTitle("Session C"));
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(3);
+    });
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (AC8-T8): loading indicator not visible after rapid A→B→C",
+    ).toBeInTheDocument();
+
+    // Resolve B's deferred (should be no-op — B's effect was aborted)
+    resolveB!(historyB);
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (AC8-T8): stale B .finally() cleared isRefreshing — signal.aborted guard missing",
+    ).toBeInTheDocument();
+
+    // Resolve C
+    resolveC!(historyC);
+
+    await waitForElementToBeRemoved(
+      () => screen.queryByText("Refreshing..."),
+      "FAIL (AC8-T8): loading indicator not removed after C resolves",
+    );
+
+    expect(
+      await screen.findByText("Hello from C"),
+      "FAIL (AC8-T8): C's messages not displayed after resolve",
+    ).toBeInTheDocument();
+  });
+
+  it("T9 (AC8-CONCURRENT): rapid A→B→C → exactly 1 API call per distinct switch (fails: duplicate fetches from triple-fetch)", async () => {
+    const msgA: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const msgC: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from C",
+      timestamp: "2026-01-03T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [msgA] };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+    const historyC = { sessionId: "session-c", messages: [msgC] };
+
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    let resolveC!: (value: ChatHistoryResponse) => void;
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+    const deferredC = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveC = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB, sessionC],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyA)
+      .mockReturnValueOnce(deferredB)
+      .mockReturnValueOnce(deferredC);
+
+    renderPage();
+
+    // Load session A
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    const historySpy = vi.mocked(api.getRepositoryAgentHistory);
+    historySpy.mockClear();
+
+    // Switch to B
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    // Switch to C before B resolves
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session C");
+    fireEvent.click(screen.getByTitle("Session C"));
+
+    await waitFor(() => {
+      expect(
+        historySpy,
+        "FAIL (AC6/AC8-T9): expected exactly 2 calls (1 for B, 1 for C) in rapid A→B→C — duplicate fetches detected",
+      ).toHaveBeenCalledTimes(2);
+    });
+
+    resolveB!(historyB);
+    resolveC!(historyC);
+  });
+
+  it("T10 (AC8-CONCURRENT): stale .finally() from aborted effect does not clear active session isRefreshing (fails: no signal.aborted guard in .finally())", async () => {
+    const msgA: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const msgC: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from C",
+      timestamp: "2026-01-03T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [msgA] };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+    const historyC = { sessionId: "session-c", messages: [msgC] };
+
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    let resolveC!: (value: ChatHistoryResponse) => void;
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+    const deferredC = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveC = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB, sessionC],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyA)
+      .mockReturnValueOnce(deferredB)
+      .mockReturnValueOnce(deferredC);
+
+    renderPage();
+
+    // Load session A
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    // Switch to B (deferred)
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(2);
+    });
+
+    // Switch to C before B resolves
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session C");
+    fireEvent.click(screen.getByTitle("Session C"));
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(3);
+    });
+
+    // isRefreshing should be true (C is loading)
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (AC7/10): loading indicator not visible — isRefreshing not set during C",
+    ).toBeInTheDocument();
+
+    // Resolve B's deferred after C is active
+    resolveB!(historyB);
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    // isRefreshing must stay true — B's .finally() must NOT clear because signal was aborted
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (AC7/10): stale B .finally() cleared isRefreshing — signal.aborted guard missing in .finally()",
+    ).toBeInTheDocument();
+
+    // Now resolve C
+    resolveC!(historyC);
+
+    await waitForElementToBeRemoved(
+      () => screen.queryByText("Refreshing..."),
+      "FAIL (AC7/10): loading indicator not removed after C resolves",
+    );
+
+    expect(
+      await screen.findByText("Hello from C"),
+      "FAIL (AC7/10): C's messages not displayed",
+    ).toBeInTheDocument();
   });
 });
