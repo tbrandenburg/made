@@ -68,22 +68,15 @@ echo "--- AC5: make qa-quick passes (regression guard) ---"
 check_exit "AC5" 0 make -C "$ROOT" qa-quick
 
 echo ""
-echo "--- AC6: scope constraint (only root package.json/package-lock.json changed) ---"
-BASELINE=".opencode/package-lock.json packages/frontend/src/components/ChatWindow.test.tsx packages/frontend/src/pages/__tests__/RepositoryPage.test.tsx"
-MODIFIED="$(git diff --name-only HEAD 2>/dev/null || true)"
+echo "--- AC6: scope constraint (only package.json + package-lock.json + verify script) ---"
+MODIFIED="$(git diff --name-only origin/main...HEAD 2>/dev/null || true)"
 UNEXPECTED=""
 for f in $MODIFIED; do
   case "$f" in
-    verify-issue-515.sh) continue ;;
+    verify-issue-515.sh) continue ;;  # intentional verification artifact
     package.json) continue ;;
     package-lock.json) continue ;;
   esac
-  # Skip pre-existing baseline modifications
-  skip=0
-  for b in $BASELINE; do
-    if [ "$f" = "$b" ]; then skip=1; break; fi
-  done
-  [ "$skip" -eq 1 ] && continue
   UNEXPECTED="$UNEXPECTED $f"
 done
 if [ -z "$UNEXPECTED" ]; then
