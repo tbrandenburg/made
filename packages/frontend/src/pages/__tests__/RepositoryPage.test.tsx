@@ -2438,8 +2438,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       resolveDeferred = resolve;
     });
 
-    vi.mocked(api.getRepositoryAgentHistory)
-      .mockReturnValueOnce(deferred);
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(deferred);
 
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
       processing: true,

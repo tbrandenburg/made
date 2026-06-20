@@ -477,9 +477,7 @@ describe("ChatWindow", () => {
       />,
     );
     expect(screen.getByText("Refreshing...")).toBeInTheDocument();
-    expect(
-      screen.queryByText("Agent is thinking..."),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Agent is thinking...")).not.toBeInTheDocument();
 
     rerender(
       <ChatWindow
@@ -501,9 +499,7 @@ describe("ChatWindow", () => {
       />,
     );
     expect(screen.getByText("Refreshing...")).toBeInTheDocument();
-    expect(
-      screen.queryByText("Agent is thinking..."),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Agent is thinking...")).not.toBeInTheDocument();
   });
 
   it(`shows "Refreshing..." when refreshing=true, agentProcessing=false, chat=[]`, () => {
