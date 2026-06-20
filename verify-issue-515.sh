@@ -33,9 +33,15 @@ check_cmd() {
   fi
 }
 
-echo "=== Issue #515 Pre-Fix Verification Tests ==="
+echo "=== Issue #515 Verification Tests ==="
 echo ""
 
+echo "--- AC4: npm install succeeds (stale-state guard) ---"
+# MUST run FIRST to prevent stale-node_modules false positives in AC1-AC3
+# Spec requires: AC4 must precede AC1/AC2/AC3
+check_exit "AC4" 0 npm install --prefix "$ROOT"
+
+echo ""
 echo "--- AC1: form-data@4.0.6 resolved ---"
 # MUST FAIL before fix: current version is 4.0.5
 check_cmd "AC1" "form-data@4.0.6" npm ls form-data --all --prefix "$ROOT"
@@ -51,9 +57,10 @@ echo "--- AC3: zero high-severity vulns ---"
 check_exit "AC3" 0 npm audit --audit-level=high --prefix "$ROOT"
 
 echo ""
-echo "--- AC4: npm install succeeds (regression guard) ---"
-# Regression guard: must pass both before and after
-check_exit "AC4" 0 npm install --prefix "$ROOT"
+echo "--- AC7: npm ci succeeds (CI-path durability) ---"
+# CI uses npm ci, not npm install. Validates lockfile consistency
+# that npm install silently tolerates but npm ci rejects.
+check_exit "AC7" 0 npm ci --prefix "$ROOT"
 
 echo ""
 echo "--- AC5: make qa-quick passes (regression guard) ---"
@@ -88,8 +95,10 @@ fi
 
 echo ""
 echo "=== Summary ==="
+echo "  Adversarial reordering: AC4 (npm install) runs FIRST to guard stale node_modules"
+echo "  Adversarial addition:   AC7 (npm ci) validates CI-path lockfile durability"
 echo "  Pre-fix expected failures: AC1, AC2, AC3"
-echo "  Pre-fix expected passes:   AC4, AC5"
+echo "  Pre-fix expected passes:   AC4, AC5, AC7"
 if [ "$FAILED" -eq 0 ]; then
   echo "  All tests pass (implementation likely already applied)"
 else
