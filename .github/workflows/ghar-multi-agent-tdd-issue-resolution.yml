@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   setup-branch:
-    name: "0. Setup Shared Branch"
+    name: "0. Setup Fresh Branch"
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -42,17 +42,14 @@ jobs:
           token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Create or reuse shared branch
+      - name: Create fresh branch
         id: branch
         env:
           ISSUE_NUMBER: ${{ inputs.issue_number }}
         run: |
-          BRANCH="agent/issue-${ISSUE_NUMBER}-implementation"
-          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
-            echo "Reusing existing branch $BRANCH"
-          else
-            git push origin "HEAD:refs/heads/$BRANCH"
-          fi
+          BRANCH="agent/issue-${ISSUE_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git switch --create "$BRANCH"
+          git push --set-upstream origin "$BRANCH"
           echo "branch_name=$BRANCH" >> "$GITHUB_OUTPUT"
 
   planner-requirements:
@@ -269,7 +266,7 @@ jobs:
     secrets: inherit
 
   create-pr:
-    name: "7C. Create / Update PR"
+    name: "7C. Create PR"
     needs: [setup-branch, pr-seeder]
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -285,7 +282,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ needs.setup-branch.outputs.branch_name }}
 
-      - name: Create or update PR
+      - name: Create PR
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_TOKEN: ${{ github.token }}
@@ -304,35 +301,11 @@ jobs:
           This pull request was created automatically by GHAR.
           The branch is still under active development and will be updated by later workflow stages."
 
-          # Check for an existing open PR for this branch
-          PR_NUMBER=$(GH_TOKEN="$AUTH_TOKEN" gh pr list \
-            --head "$BRANCH" --state open \
-            --json number --jq '.[0].number // empty')
-
-          if [ -n "$PR_NUMBER" ]; then
-            echo "Updating existing open PR #${PR_NUMBER}"
-            GH_TOKEN="$AUTH_TOKEN" gh pr edit "$PR_NUMBER" \
-              --title "$PR_TITLE" \
-              --body "$PR_BODY"
-          else
-            # Fall back to a previously closed PR for the same branch
-            CLOSED_PR=$(GH_TOKEN="$AUTH_TOKEN" gh pr list \
-              --head "$BRANCH" --state closed \
-              --json number --jq '.[0].number // empty')
-            if [ -n "$CLOSED_PR" ]; then
-              echo "Reopening closed PR #${CLOSED_PR}"
-              GH_TOKEN="$AUTH_TOKEN" gh pr reopen "$CLOSED_PR"
-              GH_TOKEN="$AUTH_TOKEN" gh pr edit "$CLOSED_PR" \
-                --title "$PR_TITLE" \
-                --body "$PR_BODY"
-            else
-              echo "Creating new PR from ${BRANCH}"
-              GH_TOKEN="$AUTH_TOKEN" gh pr create \
-                --head "$BRANCH" \
-                --title "$PR_TITLE" \
-                --body "$PR_BODY"
-            fi
-          fi
+          echo "Creating new PR from ${BRANCH}"
+          GH_TOKEN="$AUTH_TOKEN" gh pr create \
+            --head "$BRANCH" \
+            --title "$PR_TITLE" \
+            --body "$PR_BODY"
 
   ci-retrigger-initial:
     name: "7D. CI Retrigger Initial"
