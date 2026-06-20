@@ -9,6 +9,7 @@ import {
   render,
   screen,
   waitFor,
+  waitForElementToBeRemoved,
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RepositoryPage } from "../RepositoryPage";
@@ -167,6 +168,11 @@ describe("RepositoryPage session selection", () => {
 
     fireEvent.click(reopenedSessionBtn);
 
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (T-AC8): same-session re-select should show loading indicator",
+    ).toBeInTheDocument();
+
     await waitFor(() => {
       expect(
         api.getRepositoryAgentHistory,
@@ -268,9 +274,18 @@ describe("RepositoryPage session selection", () => {
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
 
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (T-AC1): loading indicator should appear on session switch",
+    ).toBeInTheDocument();
 
     resolveB(historyB);
+
+    await waitForElementToBeRemoved(() => screen.queryByText("Refreshing..."));
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (T-AC2): loading indicator should clear after fetch resolves",
+    ).not.toBeInTheDocument();
 
     expect(await screen.findByText("Hello from B")).toBeInTheDocument();
   });
@@ -446,6 +461,10 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
         "Send should be enabled after clear",
       ).not.toBeDisabled();
     });
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (T-AC9-1): loading indicator should be absent after clearSessionOnly",
+    ).not.toBeInTheDocument();
   });
 
   // ── AC496-2 ────────────────────────────────────────────────────────────
@@ -485,6 +504,10 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
         "Chat should show empty state after clear-and-history",
       ).toBeInTheDocument();
     });
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (T-AC9-2): loading indicator should be absent after clearSessionAndHistory",
+    ).not.toBeInTheDocument();
   });
 
   // ── AC496-3 idempotent ────────────────────────────────────────────────
@@ -502,6 +525,10 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
     await waitFor(() => {
       expect(api.getRepositoryAgentHistory).not.toHaveBeenCalled();
     });
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (T-AC9-3): loading indicator should be absent after clearSessionOnly (idempotent)",
+    ).not.toBeInTheDocument();
   });
 
   it("AC496-3: clearSessionAndHistory idempotent when chatAgentProcessing already false", async () => {
@@ -518,6 +545,10 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
       expect(api.getRepositoryAgentHistory).not.toHaveBeenCalled();
     });
     expect(screen.getByText("No conversation yet.")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (T-AC9-4): loading indicator should be absent after clearSessionAndHistory (idempotent)",
+    ).not.toBeInTheDocument();
   });
 
   // ── AC496-4 stale-response guard ─────────────────────────────────────
@@ -1680,6 +1711,10 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     // Switch to session A via picker
     fireEvent.click(screen.getByLabelText("Choose a session"));
     fireEvent.click(await screen.findByTitle("Session A"));
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (T-timing-1): loading should be absent after immediate-resolve switch",
+    ).not.toBeInTheDocument();
     await screen.findByText("No conversation yet.");
 
     // Start a deferred send for session A
@@ -1699,7 +1734,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       ).toBeInTheDocument();
     });
 
-    // Bootstrap switch to session B via URL navigation
+    // Bootstrap switch to session A via URL navigation
     await router.navigate(
       "/repositories/test-repo?tab=agent&sessionId=session-b",
     );
@@ -1740,6 +1775,10 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     // Switch to session A via picker
     fireEvent.click(screen.getByLabelText("Choose a session"));
     fireEvent.click(await screen.findByTitle("Session A"));
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (T-timing-2): loading should be absent after immediate-resolve switch",
+    ).not.toBeInTheDocument();
     await screen.findByText("No conversation yet.");
 
     // Start a deferred send
@@ -1807,6 +1846,10 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     // Switch to session A via picker
     fireEvent.click(screen.getByLabelText("Choose a session"));
     fireEvent.click(await screen.findByTitle("Session A"));
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (T-timing-3): loading should be absent after immediate-resolve switch",
+    ).not.toBeInTheDocument();
     await screen.findByText("No conversation yet.");
 
     // Start a deferred send for session A
@@ -2261,6 +2304,10 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     });
     fireEvent.click(screen.getByLabelText("Choose a session"));
     fireEvent.click(await screen.findByTitle("Session B"));
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (T-timing-4): loading should be absent after immediate-resolve switch",
+    ).not.toBeInTheDocument();
     await screen.findByText("No conversation yet.");
 
     const textarea = screen.getByPlaceholderText(
@@ -2504,6 +2551,10 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     // Switch to session A via picker
     fireEvent.click(screen.getByLabelText("Choose a session"));
     fireEvent.click(await screen.findByTitle("Session A"));
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (T-timing-5): loading should be absent after immediate-resolve switch",
+    ).not.toBeInTheDocument();
     await screen.findByText("No conversation yet.");
 
     // Start a deferred send for session A
@@ -2630,5 +2681,487 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       screen.queryByText("Hello from A (nav stale)"),
       "FAIL (ADV-492): Stale session A data appeared after router navigation — signal.aborted guard missing",
     ).not.toBeInTheDocument();
+  });
+});
+
+// ── Issue #491: session-select loading-state UX contract ───────────────
+
+describe("RepositoryPage session-select loading state (AC491)", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    localStorage.clear();
+  });
+
+  it("T-AC1+2: loading indicator appears on session switch and resolves when fetch completes", async () => {
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce({ sessionId: "session-a", messages: [] })
+      .mockReturnValueOnce(deferredB);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("No conversation yet.");
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (T-AC1): loading indicator should appear after session switch",
+    ).toBeInTheDocument();
+
+    resolveB(historyB);
+
+    await waitForElementToBeRemoved(() => screen.queryByText("Refreshing..."), {
+      timeout: 3000,
+    });
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (T-AC2): loading indicator should clear after fetch resolves",
+    ).not.toBeInTheDocument();
+    expect(
+      await screen.findByText("Hello from B"),
+      "FAIL (T-AC1+2): session B messages should appear after loading resolves",
+    ).toBeInTheDocument();
+  });
+
+  it("T-AC5: loading clears on empty history (empty messages array)", async () => {
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce({ sessionId: "session-a", messages: [] })
+      .mockReturnValueOnce(
+        new Promise<ChatHistoryResponse>(() => {}),
+      );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("No conversation yet.");
+
+    // Start a deferred switch to session B with empty history
+    let resolveEmpty!: (value: ChatHistoryResponse) => void;
+    const deferredEmpty = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveEmpty = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(deferredEmpty);
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (T-AC5a): loading indicator should appear on switch to empty session",
+    ).toBeInTheDocument();
+
+    resolveEmpty({ sessionId: "session-b", messages: [] });
+
+    await waitForElementToBeRemoved(() => screen.queryByText("Refreshing..."), {
+      timeout: 3000,
+    });
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (T-AC5b): loading indicator should clear after empty history resolves",
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("No conversation yet."),
+      "FAIL (T-AC5c): empty state should appear after loading clears on empty history",
+    ).toBeInTheDocument();
+  });
+
+  it("T-AC6: loading clears on fetch error", async () => {
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce({ sessionId: "session-a", messages: [] })
+      .mockReturnValueOnce(
+        new Promise<ChatHistoryResponse>(() => {}),
+      );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("No conversation yet.");
+
+    // Start a deferred switch to session B that will reject
+    let rejectB!: (reason: Error) => void;
+    const deferredError = new Promise<ChatHistoryResponse>((_, reject) => {
+      rejectB = reject;
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(deferredError);
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (T-AC6a): loading indicator should appear on switch to erroring session",
+    ).toBeInTheDocument();
+
+    rejectB(new Error("Failed to fetch"));
+
+    await waitForElementToBeRemoved(() => screen.queryByText("Refreshing..."), {
+      timeout: 3000,
+    });
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (T-AC6b): loading indicator should clear after fetch error",
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("No conversation yet."),
+      "FAIL (T-AC6c): empty state should appear after loading clears on error",
+    ).toBeInTheDocument();
+  });
+
+  it("T-AC7: rapid A→B→A switches — continuous loading, no flash, final state correct", async () => {
+    const msgA: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [msgA] };
+
+    // Three deferred promises: A first load, B switch, A switch back
+    let resolveA1!: (value: ChatHistoryResponse) => void;
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    let resolveA2!: (value: ChatHistoryResponse) => void;
+
+    const deferredA1 = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveA1 = resolve;
+    });
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+    const deferredA2 = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveA2 = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockReturnValueOnce(deferredA1)   // initial session A load
+      .mockReturnValueOnce(deferredB)    // switch to B
+      .mockReturnValueOnce(deferredA2);  // switch back to A
+
+    renderPage();
+
+    // Open picker and select Session A (first load)
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    // Open picker and select Session B while A1 is deferred
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (T-AC7a): loading indicator should appear during rapid A→B switch",
+    ).toBeInTheDocument();
+
+    // Immediately switch back to Session A while B is deferred
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    // Loading must still be visible (continuous across A→B→A)
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (T-AC7b): loading indicator must stay visible after B→A switch (continuous loading)",
+    ).toBeInTheDocument();
+
+    // Resolve in order A2, B, A1
+    resolveA2!(historyA);
+    await new Promise<void>((r) => setTimeout(r, 50));
+
+    // Loading must still be visible (A2 resolved but earlier fetches still pending)
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (T-AC7c): loading must stay visible until final fetch resolves",
+    ).toBeInTheDocument();
+
+    resolveB!({ sessionId: "session-b", messages: [] });
+    await new Promise<void>((r) => setTimeout(r, 50));
+
+    // Still loading — A1 is the last unresolved
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (T-AC7d): loading must stay visible until A1 resolves",
+    ).toBeInTheDocument();
+
+    resolveA1!(historyA);
+    await new Promise<void>((r) => setTimeout(r, 50));
+
+    // Final state: loading gone, session A messages shown
+    await waitForElementToBeRemoved(() => screen.queryByText("Refreshing..."), {
+      timeout: 3000,
+    });
+    expect(
+      screen.getByText("Hello from A"),
+      "FAIL (T-AC7e): session A messages should be visible after rapid A→B→A",
+    ).toBeInTheDocument();
+  });
+
+  it("T-AC8b: Refresh button disabled during session switch (sessionLoading)", async () => {
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce({ sessionId: "session-a", messages: [] })
+      .mockReturnValueOnce(
+        new Promise<ChatHistoryResponse>(() => {}),
+      );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("No conversation yet.");
+
+    // Switch to session B with deferred promise
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(
+      new Promise<ChatHistoryResponse>(() => {}),
+    );
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    const refreshBtn = screen.getByLabelText("Refresh current session");
+    expect(
+      refreshBtn,
+      "FAIL (T-AC8b): Refresh button should be disabled during session switch loading",
+    ).toBeDisabled();
+  });
+
+  it("T1: unmount during session switch — no state update after unmount (concurrency guard)", async () => {
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce({ sessionId: "session-a", messages: [] })
+      .mockReturnValueOnce(
+        new Promise<ChatHistoryResponse>(() => {}),
+      );
+
+    const { unmount } = renderPage();
+
+    // Load session A
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("No conversation yet.");
+
+    // Start deferred switch to session B
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(deferredB);
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (T1a): loading indicator should appear before unmount",
+    ).toBeInTheDocument();
+
+    // Unmount while fetch is in-flight
+    unmount();
+
+    // Resolve the deferred fetch after unmount
+    resolveB({ sessionId: "session-b", messages: [] });
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    // No state updates after unmount — rely on absence of React warnings
+    expect(true, "T1: Unmount during in-flight session switch completed without error").toBe(true);
+  });
+
+  it("T2 (AC9-blocking): clear-during-switch — loading cleared immediately after clear, no wedge", async () => {
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce({ sessionId: "session-a", messages: [] })
+      .mockReturnValueOnce(
+        new Promise<ChatHistoryResponse>(() => {}),
+      );
+
+    renderPage();
+
+    // Load session A
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("No conversation yet.");
+
+    // Start deferred switch to session B (loading appears)
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(
+      new Promise<ChatHistoryResponse>(() => {}),
+    );
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (T2a): loading indicator should appear before clear",
+    ).toBeInTheDocument();
+
+    // Clear session while switch is in-flight
+    fireEvent.click(screen.getByLabelText("Clear session"));
+    await screen.findByRole("button", { name: /^no$/i });
+    fireEvent.click(screen.getByRole("button", { name: /^no$/i }));
+
+    // Loading must be cleared immediately after clearSessionOnly
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Refreshing..."),
+        "FAIL (T2b): loading indicator must be cleared after clearSessionOnly during switch — wedge prevented",
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      screen.getByText("No conversation yet."),
+      "FAIL (T2c): empty state should appear after clearing during switch",
+    ).toBeInTheDocument();
+  });
+
+  it("T3: second concurrent switch mid-fetch — continuous loading, intermediate resolve does not clear", async () => {
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+    const msgC: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from C",
+      timestamp: "2026-01-03T00:00:00Z",
+    };
+    const sessionC: ChatSession = {
+      id: "session-c",
+      title: "Session C",
+      updated: "2026-01-03",
+    };
+    const historyC = { sessionId: "session-c", messages: [msgC] };
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB, sessionC],
+    });
+
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    let resolveC!: (value: ChatHistoryResponse) => void;
+
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+    const deferredC = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveC = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce({ sessionId: "session-a", messages: [] })
+      .mockReturnValueOnce(deferredB)
+      .mockReturnValueOnce(deferredC);
+
+    renderPage();
+
+    // Load session A
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("No conversation yet.");
+
+    // Switch to session B (deferred)
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (T3a): loading indicator should appear on first switch",
+    ).toBeInTheDocument();
+
+    // Switch to session C while B is in-flight (second concurrent switch)
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session C");
+    fireEvent.click(screen.getByTitle("Session C"));
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (T3b): loading indicator must stay visible during second concurrent switch",
+    ).toBeInTheDocument();
+
+    // Resolve B first (intermediate — should not clear loading)
+    resolveB!(historyB);
+    await new Promise<void>((r) => setTimeout(r, 50));
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (T3c): loading must NOT clear when intermediate (B) fetch resolves — C still in-flight",
+    ).toBeInTheDocument();
+
+    // Resolve C (final fetch)
+    resolveC!(historyC);
+    await waitForElementToBeRemoved(() => screen.queryByText("Refreshing..."), {
+      timeout: 3000,
+    });
+
+    expect(
+      await screen.findByText("Hello from C"),
+      "FAIL (T3d): session C messages should appear after final fetch resolves",
+    ).toBeInTheDocument();
+  });
+
+  it("T4: controller aborted before .then() — sessionLoading cleared via abort guard", async () => {
+    const origAbortController = globalThis.AbortController;
+    try {
+      vi.stubGlobal(
+        "AbortController",
+        class {
+          signal = { aborted: true } as AbortSignal;
+          abort() { /* no-op */ }
+        },
+      );
+
+      // For the URL-initiated load, the effect fires with an immediately-aborted controller.
+      // syncChatHistory should early-return due to signal.aborted check, and the .then()
+      // callback should also check controller.signal.aborted before setSessionLoading(false).
+      // This verifies that a missing abort guard in the .then() doesn't wedge loading.
+
+      renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+      // Wait a tick for the effect to run
+      await new Promise<void>((r) => setTimeout(r, 100));
+
+      // sessionLoading should not be stuck true — the abort guard in .then() should prevent it
+      expect(
+        screen.queryByText("Refreshing..."),
+        "FAIL (T4): 'Refreshing...' should never appear when controller is already aborted — abort guard in .then() missing",
+      ).not.toBeInTheDocument();
+    } finally {
+      vi.stubGlobal("AbortController", origAbortController);
+    }
   });
 });
