@@ -1226,7 +1226,12 @@ export const RepositoryPage: React.FC = () => {
   useEffect(() => {
     if (chatAgentProcessing || !name || !sessionId) return;
     const controller = new AbortController();
-    syncChatHistory(controller.signal);
+    void syncChatHistory(controller.signal).finally(() => {
+      if (!controller.signal.aborted) {
+        setIsRefreshing(false);
+        isRefreshingRef.current = false;
+      }
+    });
     return () => controller.abort(); // No argument — preserves DOMException('AbortError') shape
   }, [chatAgentProcessing, name, sessionId, syncChatHistory]);
 
@@ -1399,6 +1404,10 @@ export const RepositoryPage: React.FC = () => {
     setSessionModalOpen(false);
     setChatAgentProcessing(false);
     setChatError(null);
+    if (sessionId) {
+      setIsRefreshing(true);
+      isRefreshingRef.current = true;
+    }
     setChat([]);
     setSessionId(session.id);
   };
