@@ -152,6 +152,12 @@ jobs:
         env:
           # Built-in token only — PAT must never enter the model context.
           OPENCODE_GH_TOKEN: ${{ github.token }}
+          OPENCODE_GITHUB_REPOSITORY: ${{ github.repository }}
+          OPENCODE_GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          OPENCODE_GITHUB_SERVER_URL: ${{ github.server_url }}
+          OPENCODE_GITHUB_API_URL: ${{ github.api_url }}
+          OPENCODE_GITHUB_GRAPHQL_URL: ${{ github.graphql_url }}
+          OPENCODE_GH_REPO: ${{ github.repository }}
         run: |
           RESULTS_FILE="${{ inputs.run-name }}-results.txt"
 
@@ -160,6 +166,12 @@ jobs:
               PATH="$HOME/.opencode/bin:$PATH" \
               HOME="$HOME" \
               GH_TOKEN="$OPENCODE_GH_TOKEN" \
+              GITHUB_REPOSITORY="$OPENCODE_GITHUB_REPOSITORY" \
+              GITHUB_REPOSITORY_OWNER="$OPENCODE_GITHUB_REPOSITORY_OWNER" \
+              GITHUB_SERVER_URL="$OPENCODE_GITHUB_SERVER_URL" \
+              GITHUB_API_URL="$OPENCODE_GITHUB_API_URL" \
+              GITHUB_GRAPHQL_URL="$OPENCODE_GITHUB_GRAPHQL_URL" \
+              GH_REPO="$OPENCODE_GH_REPO" \
               opencode run "$@"
           }
 
@@ -204,6 +216,12 @@ jobs:
         if: ${{ success() && inputs.post-run-nudge-prompt != '' }}
         env:
           OPENCODE_GH_TOKEN: ${{ github.token }}
+          OPENCODE_GITHUB_REPOSITORY: ${{ github.repository }}
+          OPENCODE_GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          OPENCODE_GITHUB_SERVER_URL: ${{ github.server_url }}
+          OPENCODE_GITHUB_API_URL: ${{ github.api_url }}
+          OPENCODE_GITHUB_GRAPHQL_URL: ${{ github.graphql_url }}
+          OPENCODE_GH_REPO: ${{ github.repository }}
           NUDGE_PROMPT: ${{ inputs.post-run-nudge-prompt }}
         run: |
           RESULTS_FILE="${{ inputs.run-name }}-results.txt"
@@ -212,6 +230,12 @@ jobs:
             PATH="$HOME/.opencode/bin:$PATH" \
             HOME="$HOME" \
             GH_TOKEN="$OPENCODE_GH_TOKEN" \
+            GITHUB_REPOSITORY="$OPENCODE_GITHUB_REPOSITORY" \
+            GITHUB_REPOSITORY_OWNER="$OPENCODE_GITHUB_REPOSITORY_OWNER" \
+            GITHUB_SERVER_URL="$OPENCODE_GITHUB_SERVER_URL" \
+            GITHUB_API_URL="$OPENCODE_GITHUB_API_URL" \
+            GITHUB_GRAPHQL_URL="$OPENCODE_GITHUB_GRAPHQL_URL" \
+            GH_REPO="$OPENCODE_GH_REPO" \
             opencode run \
               --continue \
               --model "${{ inputs.model }}" \
