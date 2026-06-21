@@ -273,7 +273,9 @@ describe("RepositoryPage session selection", () => {
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
 
-    expect(await screen.findByText("Loading session history…")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Loading session history…"),
+    ).toBeInTheDocument();
 
     resolveB(historyB);
 
@@ -311,7 +313,9 @@ describe("RepositoryPage session selection", () => {
     fireEvent.click(screen.getByTitle("Session B"));
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
-    expect(await screen.findByText("Loading session history…")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Loading session history…"),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Cancel")).not.toBeInTheDocument();
 
     rejectB!(new Error("Fetch failed"));
@@ -355,12 +359,14 @@ describe("RepositoryPage session selection", () => {
     fireEvent.click(screen.getByTitle("Session B"));
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
-    expect(await screen.findByText("Loading session history…")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Loading session history…"),
+    ).toBeInTheDocument();
 
     resolveB!({ sessionId: "session-b", messages: [] });
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
-
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(document.querySelector(".empty")).toBeInTheDocument();
+    });
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
     expect(document.querySelectorAll(".alert").length).toBe(0);
   });
@@ -799,9 +805,7 @@ describe("RepositoryPage session-select loading state (R1-R7)", () => {
       ).not.toBeInTheDocument();
     });
 
-    expect(
-      await screen.findByText("Hello from B"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Hello from B")).toBeInTheDocument();
   });
 
   // ── R4: Error after deferred rejection clears loading (AC4) ──────
@@ -909,7 +913,7 @@ describe("RepositoryPage session-select loading state (R1-R7)", () => {
     const reopenedBtn = await screen.findByTitle("Session A");
     fireEvent.click(reopenedBtn);
 
-    await new Promise<void>((r) => setTimeout(r, 200));
+    await screen.findByText("Hello from A");
 
     expect(
       screen.queryByText("Loading session history…"),

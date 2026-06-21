@@ -1222,7 +1222,7 @@ export const RepositoryPage: React.FC = () => {
         setChatLoading(false);
       }
     },
-    [name, sessionId, setChat, setChatError],
+    [name, sessionId, setChat, setChatError, setChatLoading],
   );
 
   useEffect(() => {
@@ -1373,6 +1373,7 @@ export const RepositoryPage: React.FC = () => {
     sendRequestIdRef.current += 1;
     setSessionId(null);
     setChatAgentProcessing(false);
+    setChatLoading(false);
     setChatError(null);
     setPendingPrompt(lastSentPromptRef.current);
     lastSentPromptRef.current = "";
@@ -1384,6 +1385,7 @@ export const RepositoryPage: React.FC = () => {
     sendRequestIdRef.current += 1;
     setSessionId(null);
     setChatAgentProcessing(false);
+    setChatLoading(false);
     setChatError(null);
     setPendingPrompt(lastSentPromptRef.current);
     lastSentPromptRef.current = "";
