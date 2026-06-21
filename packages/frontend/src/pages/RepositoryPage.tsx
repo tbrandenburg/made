@@ -137,8 +137,12 @@ const MODEL_OPTIONS = [
     label: "github-copilot/claude-opus-4.6",
   },
   {
-    value: "github-copilot/claude-sonnet-4",
-    label: "github-copilot/claude-sonnet-4",
+    value: "github-copilot/claude-opus-4.7",
+    label: "github-copilot/claude-opus-4.7",
+  },
+  {
+    value: "github-copilot/claude-opus-4.8",
+    label: "github-copilot/claude-opus-4.8",
   },
   {
     value: "github-copilot/claude-sonnet-4.5",
