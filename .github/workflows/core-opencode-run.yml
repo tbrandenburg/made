@@ -40,6 +40,11 @@ name: Core - Reusable OpenCode Run
           Command to use for OpenCode run (alternative to prompt/prompt-file)
         required: false
         type: string
+      branch:
+        description: Branch name to check out and operate on
+        required: false
+        type: string
+        default: ''
       runner:
         description: Runner to use for the job
         required: false
@@ -158,6 +163,7 @@ jobs:
           OPENCODE_GITHUB_API_URL: ${{ github.api_url }}
           OPENCODE_GITHUB_GRAPHQL_URL: ${{ github.graphql_url }}
           OPENCODE_GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ inputs.branch }}
         run: |
           RESULTS_FILE="${{ inputs.run-name }}-results.txt"
 
@@ -165,6 +171,7 @@ jobs:
             env -i \
               PATH="$HOME/.opencode/bin:$PATH" \
               HOME="$HOME" \
+              BRANCH="$BRANCH" \
               GH_TOKEN="$OPENCODE_GH_TOKEN" \
               GITHUB_REPOSITORY="$OPENCODE_GITHUB_REPOSITORY" \
               GITHUB_REPOSITORY_OWNER="$OPENCODE_GITHUB_REPOSITORY_OWNER" \
@@ -222,6 +229,7 @@ jobs:
           OPENCODE_GITHUB_API_URL: ${{ github.api_url }}
           OPENCODE_GITHUB_GRAPHQL_URL: ${{ github.graphql_url }}
           OPENCODE_GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ inputs.branch }}
           NUDGE_PROMPT: ${{ inputs.post-run-nudge-prompt }}
         run: |
           RESULTS_FILE="${{ inputs.run-name }}-results.txt"
@@ -229,6 +237,7 @@ jobs:
           printf '%s' "$NUDGE_PROMPT" | env -i \
             PATH="$HOME/.opencode/bin:$PATH" \
             HOME="$HOME" \
+            BRANCH="$BRANCH" \
             GH_TOKEN="$OPENCODE_GH_TOKEN" \
             GITHUB_REPOSITORY="$OPENCODE_GITHUB_REPOSITORY" \
             GITHUB_REPOSITORY_OWNER="$OPENCODE_GITHUB_REPOSITORY_OWNER" \

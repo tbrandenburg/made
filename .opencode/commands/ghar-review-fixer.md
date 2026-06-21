@@ -14,7 +14,7 @@ argument-hint: <issue-number>
 Extract the GitHub issue number from the first line of `$ARGUMENTS`. Set `ISSUE_NUMBER` to that numeric value and set:
 
 ```bash
-BRANCH="agent/issue-${ISSUE_NUMBER}-implementation"
+: "${BRANCH:?BRANCH must be provided by the workflow}"
 ```
 
 Use `gh api` with `GH_TOKEN` to read the issue and its comments. Never push to `main` or the repository default branch. Do not expose private reasoning; publish only the requested issue comment.

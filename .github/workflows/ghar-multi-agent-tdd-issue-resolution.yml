@@ -20,8 +20,6 @@ jobs:
     permissions:
       contents: write
       issues: read
-    outputs:
-      branch_name: ${{ steps.branch.outputs.branch_name }}
     steps:
       - name: Validate issue number
         env:
@@ -50,7 +48,6 @@ jobs:
           BRANCH="agent/issue-${ISSUE_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           git switch --create "$BRANCH"
           git push --set-upstream origin "$BRANCH"
-          echo "branch_name=$BRANCH" >> "$GITHUB_OUTPUT"
 
   planner-requirements:
     name: "1A. Planner: Requirements"
@@ -60,6 +57,7 @@ jobs:
       run-name: planner-requirements
       command: ghar-planner-requirements
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 30
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -79,6 +77,7 @@ jobs:
       run-name: planner-architecture
       command: ghar-planner-architecture
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 30
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -98,6 +97,7 @@ jobs:
       run-name: planner-risks
       command: ghar-planner-risks
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 30
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -111,12 +111,13 @@ jobs:
 
   planner-research:
     name: "1D. Planner: Research"
-    needs: [planner-requirements, planner-architecture, planner-risks]
+    needs: [setup-branch, planner-requirements, planner-architecture, planner-risks]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: planner-research
       command: ghar-planner-research
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 30
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -140,6 +141,7 @@ jobs:
       run-name: spec-synthesizer
       command: ghar-spec-synthesizer
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 30
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -153,12 +155,13 @@ jobs:
 
   spec-redteam:
     name: "3. Spec Red Team"
-    needs: spec-synthesizer
+    needs: [setup-branch, spec-synthesizer]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: spec-redteam
       command: ghar-spec-redteam
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 30
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -172,12 +175,13 @@ jobs:
 
   tdd-reviewer:
     name: "4. TDD Reviewer"
-    needs: spec-redteam
+    needs: [setup-branch, spec-redteam]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: tdd-reviewer
       command: ghar-tdd-reviewer
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 30
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -191,12 +195,13 @@ jobs:
 
   spec-finalizer:
     name: "5. Spec Finalizer"
-    needs: [spec-redteam, tdd-reviewer]
+    needs: [setup-branch, spec-redteam, tdd-reviewer]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: spec-finalizer
       command: ghar-spec-finalizer
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 30
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -210,12 +215,13 @@ jobs:
 
   test-agent:
     name: "6. Test Agent"
-    needs: spec-finalizer
+    needs: [setup-branch, spec-finalizer]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: test-agent
       command: ghar-test-agent
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 45
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -229,12 +235,13 @@ jobs:
 
   implementer:
     name: "7. Implementer"
-    needs: test-agent
+    needs: [setup-branch, test-agent]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: implementer
       command: ghar-implementer
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 60
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -248,12 +255,13 @@ jobs:
 
   pr-seeder:
     name: "7B. PR Seeder"
-    needs: implementer
+    needs: [setup-branch, implementer]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: pr-seeder
       command: ghar-pr-seeder
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 30
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -280,14 +288,14 @@ jobs:
         with:
           token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-          ref: ${{ needs.setup-branch.outputs.branch_name }}
+          ref: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Create PR
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ inputs.issue_number }}
-          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          BRANCH: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           AUTH_TOKEN="${GH_PAT:-$GITHUB_TOKEN}"
 
@@ -323,14 +331,14 @@ jobs:
           token: ${{ github.token }}
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ needs.setup-branch.outputs.branch_name }}
+          ref: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Retrigger CI
         id: retrigger
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_TOKEN: ${{ github.token }}
-          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          BRANCH: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
           if [ -z "$GH_PAT" ]; then
@@ -388,13 +396,13 @@ jobs:
           token: ${{ github.token }}
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ needs.setup-branch.outputs.branch_name }}
+          ref: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Wait for CI
         id: wait
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          BRANCH: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
           RETRIGGER_ACTION: ${{ needs.ci-retrigger-initial.outputs.retrigger_action }}
         run: |
           GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
@@ -448,12 +456,13 @@ jobs:
 
   implementation-review:
     name: "8A. Implementation Review"
-    needs: [implementer, create-pr]
+    needs: [setup-branch, implementer, create-pr]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: implementation-review
       command: ghar-implementation-review
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 45
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -467,12 +476,13 @@ jobs:
 
   maintainer-review:
     name: "8B. Maintainer Review"
-    needs: [implementer, create-pr]
+    needs: [setup-branch, implementer, create-pr]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: maintainer-review
       command: ghar-maintainer-review
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 30
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -486,12 +496,13 @@ jobs:
 
   adversarial-review:
     name: "8C. Adversarial Review"
-    needs: [implementer, create-pr]
+    needs: [setup-branch, implementer, create-pr]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: adversarial-review
       command: ghar-adversarial-review
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 45
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -505,12 +516,13 @@ jobs:
 
   residual-gap-review:
     name: "8D. Residual Gap Review"
-    needs: [implementer, create-pr]
+    needs: [setup-branch, implementer, create-pr]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: residual-gap-review
       command: ghar-residual-gap-review
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 45
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -524,12 +536,13 @@ jobs:
 
   e2e-evidence:
     name: "8E. E2E Evidence"
-    needs: [implementer, ci-wait-initial]
+    needs: [setup-branch, implementer, ci-wait-initial]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: e2e-evidence
       command: ghar-e2e-evidence
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 60
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -549,6 +562,7 @@ jobs:
   review-fixer:
     name: "9A. Review Fixer"
     needs:
+      - setup-branch
       - implementation-review
       - maintainer-review
       - adversarial-review
@@ -559,6 +573,7 @@ jobs:
       run-name: review-fixer
       command: ghar-review-fixer
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 60
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -589,14 +604,14 @@ jobs:
           token: ${{ github.token }}
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ needs.setup-branch.outputs.branch_name }}
+          ref: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Retrigger CI
         id: retrigger
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_TOKEN: ${{ github.token }}
-          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          BRANCH: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
           if [ -z "$GH_PAT" ]; then
@@ -654,13 +669,13 @@ jobs:
           token: ${{ github.token }}
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ needs.setup-branch.outputs.branch_name }}
+          ref: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Wait for CI
         id: wait
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          BRANCH: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
           RETRIGGER_ACTION: ${{ needs.ci-retrigger-1.outputs.retrigger_action }}
         run: |
           GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
@@ -714,13 +729,14 @@ jobs:
 
   ci-fixer-1:
     name: "9D. CI Fixer 1"
-    needs: [ci-wait-1]
+    needs: [setup-branch, ci-wait-1]
     if: needs.ci-wait-1.outputs.ci_status == 'failure'
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: ci-fixer-1
       command: ghar-ci-fixer
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 60
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -754,14 +770,14 @@ jobs:
           token: ${{ github.token }}
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ needs.setup-branch.outputs.branch_name }}
+          ref: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Retrigger CI
         id: retrigger
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_TOKEN: ${{ github.token }}
-          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          BRANCH: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
           if [ -z "$GH_PAT" ]; then
@@ -820,13 +836,13 @@ jobs:
           token: ${{ github.token }}
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ needs.setup-branch.outputs.branch_name }}
+          ref: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Wait for CI
         id: wait
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          BRANCH: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
           RETRIGGER_ACTION: ${{ needs.ci-retrigger-2.outputs.retrigger_action }}
         run: |
           GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
@@ -880,13 +896,14 @@ jobs:
 
   ci-fixer-2:
     name: "9G. CI Fixer 2"
-    needs: [ci-wait-2]
+    needs: [setup-branch, ci-wait-2]
     if: needs.ci-wait-2.outputs.ci_status == 'failure'
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: ci-fixer-2
       command: ghar-ci-fixer
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 60
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -920,14 +937,14 @@ jobs:
           token: ${{ github.token }}
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ needs.setup-branch.outputs.branch_name }}
+          ref: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Retrigger CI
         id: retrigger
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_TOKEN: ${{ github.token }}
-          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          BRANCH: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
           if [ -z "$GH_PAT" ]; then
@@ -986,13 +1003,13 @@ jobs:
           token: ${{ github.token }}
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ needs.setup-branch.outputs.branch_name }}
+          ref: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Wait for CI
         id: wait
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          BRANCH: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
           RETRIGGER_ACTION: ${{ needs.ci-retrigger-3.outputs.retrigger_action }}
         run: |
           GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
@@ -1046,13 +1063,14 @@ jobs:
 
   ci-fixer-3:
     name: "9J. CI Fixer 3"
-    needs: [ci-wait-3]
+    needs: [setup-branch, ci-wait-3]
     if: needs.ci-wait-3.outputs.ci_status == 'failure'
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: ci-fixer-3
       command: ghar-ci-fixer
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 60
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
@@ -1086,14 +1104,14 @@ jobs:
           token: ${{ github.token }}
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ needs.setup-branch.outputs.branch_name }}
+          ref: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Retrigger CI
         id: retrigger
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_TOKEN: ${{ github.token }}
-          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          BRANCH: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
           if [ -z "$GH_PAT" ]; then
@@ -1152,13 +1170,13 @@ jobs:
           token: ${{ github.token }}
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ needs.setup-branch.outputs.branch_name }}
+          ref: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Wait for CI
         id: wait
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          BRANCH: ${{ needs.setup-branch.outputs.branch_name }}
+          BRANCH: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
           RETRIGGER_ACTION: ${{ needs.ci-retrigger-post.outputs.retrigger_action }}
         run: |
           GHAR_WORKFLOW="GHAR Multi-Agent TDD Issue Resolution"
@@ -1212,13 +1230,14 @@ jobs:
 
   pr-finalizer:
     name: "10. PR Finalizer"
-    needs: ci-wait-post
+    needs: [setup-branch, ci-wait-post]
     if: ${{ !cancelled() }}
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: pr-finalizer
       command: ghar-pr-finalizer
       prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
       timeout-minutes: 30
       post-run-nudge-prompt: >
         Check the issue comments. If you have not yet posted the
