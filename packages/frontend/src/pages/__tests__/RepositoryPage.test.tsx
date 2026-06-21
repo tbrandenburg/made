@@ -268,7 +268,10 @@ describe("RepositoryPage session selection", () => {
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
 
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (U2): 'Loading session...' not visible during transition — AC490 stale assertion not updated to loading",
+    ).toBeInTheDocument();
 
     resolveB(historyB);
 
@@ -306,7 +309,10 @@ describe("RepositoryPage session selection", () => {
     fireEvent.click(screen.getByTitle("Session B"));
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (U5): 'Loading session...' not visible during error transition — AC490 stale assertion not updated",
+    ).toBeInTheDocument();
 
     rejectB!(new Error("Fetch failed"));
 
@@ -349,7 +355,10 @@ describe("RepositoryPage session selection", () => {
     fireEvent.click(screen.getByTitle("Session B"));
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (U12): 'Loading session...' not visible during empty-history transition",
+    ).toBeInTheDocument();
 
     resolveB!({ sessionId: "session-b", messages: [] });
     await new Promise<void>((resolve) => setTimeout(resolve, 50));
@@ -357,6 +366,649 @@ describe("RepositoryPage session selection", () => {
     expect(document.querySelector(".empty")).toBeInTheDocument();
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
     expect(document.querySelectorAll(".alert").length).toBe(0);
+  });
+
+  // ── U1: AC1 loading visible on session switch ─────────────────────────
+
+  it("U1 (AC1): Selecting different session shows 'Loading session...' before history resolves", async () => {
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(emptyHistory)
+      .mockReturnValueOnce(deferredB);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (U1): Loading session... not visible before history resolves",
+    ).toBeInTheDocument();
+
+    resolveB!(historyB);
+    await screen.findByText("Hello from B");
+
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (U1): Loading session... not dismissed after history resolves",
+    ).not.toBeInTheDocument();
+  });
+
+  // ── U3: AC3 exactly 1 API call ─────────────────────────────────────
+
+  it("U3 (AC3): Exactly 1 getRepositoryAgentHistory call per different-session select", async () => {
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentHistory,
+        "FAIL (U3): >1 API call per session select",
+      ).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ── U4: AC4 loading dismissed on success ───────────────────────────
+
+  it("U4 (AC4): 'Loading session...' disappears after history resolves; messages render", async () => {
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(emptyHistory)
+      .mockReturnValueOnce(deferredB);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (U4): loading not shown during switch",
+    ).toBeInTheDocument();
+
+    resolveB!(historyB);
+    await screen.findByText("Hello from B");
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U4): loading not dismissed after success",
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  // ── U6: AC6 aborted guard path ────────────────────────────────────
+
+  it("U6 (AC6): Aborted signal guard path — loading stays visible (no flicker)", async () => {
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+    let resolveA!: (value: ChatHistoryResponse) => void;
+    const deferredA = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveA = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockReturnValueOnce(deferredA)
+      .mockResolvedValueOnce(historyB);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (U6): loading not visible after switch to B",
+    ).toBeInTheDocument();
+
+    resolveA!(emptyHistory);
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (U6): loading cleared on abort — flicker bug",
+    ).toBeInTheDocument();
+
+    await screen.findByText("Hello from B");
+  });
+
+  // ── U7: AC6 AbortError catch path ─────────────────────────────────
+
+  it("U7 (AC6): AbortError catch path — loading stays visible, no error", async () => {
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockRejectedValueOnce(new DOMException("Aborted", "AbortError"))
+      .mockResolvedValueOnce(historyB);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (U7): loading not visible after switch to B",
+    ).toBeInTheDocument();
+
+    await screen.findByText("Hello from B");
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Failed to load chat history"),
+        "FAIL (U7): AbortError catch cleared loading or showed error",
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  // ── U8: AC7 negative ─────────────────────────────────────────────
+
+  it("U8 (AC7): Same-session re-select does NOT show 'Loading session...'", async () => {
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    const reopenedBtn = await screen.findByTitle("Session A");
+    fireEvent.click(reopenedBtn);
+
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (U8): loading appeared on same-session re-select",
+    ).not.toBeInTheDocument();
+  });
+
+  // ── U10: AC8 negative ────────────────────────────────────────────
+
+  it("U10 (AC8): Polling fires during chatAgentProcessing=true and does NOT show 'Loading session...'", async () => {
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await screen.findByText("No conversation yet.");
+
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
+
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (U10): polling interfered with loading indicator",
+    ).not.toBeInTheDocument();
+  });
+
+  // ── U13: AC1 mount ───────────────────────────────────────────────
+
+  it("U13 (AC1): Loading not visible when isHistoryLoading initially false on mount", async () => {
+    renderPage();
+
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (U13): loading visible on mount with no sessionId",
+    ).not.toBeInTheDocument();
+  });
+
+  // ── U14: AC1+AC6 empty session.id guard ──────────────────────────
+
+  it("U14 (AC1+AC6): Empty/null session.id in handleSessionSelect does not crash or hang loading", async () => {
+    const emptyIdSession: ChatSession = {
+      id: "",
+      title: "Empty ID Session",
+      updated: "2026-01-01",
+    };
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [emptyIdSession, sessionA],
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Empty ID Session"));
+
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (U14): loading stuck after empty session.id select",
+    ).not.toBeInTheDocument();
+  });
+
+  // ── I1: integration race A→B ──────────────────────────────────────
+
+  it("I1 (AC1+AC3+AC6): Session switch B while A's fetch in-flight — B's loading shown, B's fetch fires once", async () => {
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+    let resolveA!: (value: ChatHistoryResponse) => void;
+    const deferredA = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveA = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockReturnValueOnce(deferredA)
+      .mockResolvedValueOnce(historyB);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValueOnce(historyB);
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (I1): loading not shown after switch A→B",
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentHistory,
+        "FAIL (I1): >1 call on race A→B",
+      ).toHaveBeenCalledTimes(1);
+    });
+
+    resolveA!(emptyHistory);
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    await screen.findByText("Hello from B");
+  });
+
+  // ── I2: deferred stale resolution ─────────────────────────────────
+
+  it("I2 (AC2+AC6): Deferred stale A-resolution arrives after B selected — loading persists (no flicker)", async () => {
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+    let resolveA!: (value: ChatHistoryResponse) => void;
+    const deferredA = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveA = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockReturnValueOnce(deferredA)
+      .mockResolvedValueOnce(historyB);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (I2): loading not visible after switch A→B",
+    ).toBeInTheDocument();
+
+    expect(
+      screen.queryByText("Hello from A"),
+      "FAIL (I2): stale content visible — AC2 no-stale violated",
+    ).not.toBeInTheDocument();
+
+    resolveA!(emptyHistory);
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (I2): stale abort cleared loading — flicker",
+    ).toBeInTheDocument();
+
+    await screen.findByText("Hello from B");
+  });
+
+  // ── I3: loading priority ─────────────────────────────────────────
+
+  it("I3 (AC8+AC1): isHistoryLoading=true + chatAgentProcessing=true — 'Agent is thinking...' shown, not 'Loading session...'", async () => {
+    const msgA: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [msgA] };
+
+    let resolveHistory!: (value: ChatHistoryResponse) => void;
+    const deferred = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveHistory = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(deferred);
+
+    vi.mocked(api.sendAgentMessage).mockResolvedValue({
+      messageId: "m1",
+      sent: new Date().toISOString(),
+      response: "ok",
+      sessionId: "session-a",
+      processing: true,
+    });
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (I3): loading not visible during session switch",
+    ).toBeInTheDocument();
+
+    resolveHistory!(historyA);
+    await screen.findByText("Hello from A");
+
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "test" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await screen.findByText("Agent is thinking...");
+
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (I3): both indicators or wrong priority — loading shown over agentProcessing",
+    ).not.toBeInTheDocument();
+  });
+
+  // ── S1: full cycle ──────────────────────────────────────────────────
+
+  it("S1 (AC1–AC7): Full cycle — select A → loading → renders → select B → loading → renders → same-session re-select → refreshing", async () => {
+    const msgA: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [msgA] };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(historyA);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (S1): loading not dismissed after A loaded",
+      ).not.toBeInTheDocument();
+    });
+    await screen.findByText("Hello from A");
+
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockClear()
+      .mockReturnValueOnce(deferredB);
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (S1): loading not visible after switch to B",
+    ).toBeInTheDocument();
+
+    resolveB!(historyB);
+    await screen.findByText("Hello from B");
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (S1): loading not dismissed after B loaded",
+      ).not.toBeInTheDocument();
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (S1): loading appeared on same-session re-select",
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Refreshing..."),
+      "FAIL (S1): refreshing not shown on same-session re-select",
+    ).not.toBeInTheDocument();
+  });
+
+  // ── S2: error cycle ────────────────────────────────────────────────
+
+  it("S2 (AC1+AC4+AC5+AC7): Error cycle — select A → loading → API fails → error visible, loading gone → select B → loading → succeeds", async () => {
+    const msgA: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [msgA] };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+    let rejectA!: (error: Error) => void;
+    const deferredA = new Promise<ChatHistoryResponse>((_, reject) => {
+      rejectA = reject;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyA)
+      .mockReturnValueOnce(deferredA);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (S2): loading not visible after switch to B",
+    ).toBeInTheDocument();
+
+    rejectA!(new Error("Network failure"));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (S2): loading not dismissed after error",
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      screen.getByText("Network failure"),
+      "FAIL (S2): error not visible after API failure",
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector(".empty"),
+      "FAIL (S2): empty state not preserved after error",
+    ).toBeInTheDocument();
+
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockClear()
+      .mockResolvedValueOnce(historyB);
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (S2): loading not visible on second switch to B",
+    ).toBeInTheDocument();
+
+    await screen.findByText("Hello from B");
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (S2): loading not dismissed after B loaded",
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText("Network failure"),
+      "FAIL (S2): previous error not cleared on new session",
+    ).not.toBeInTheDocument();
   });
 });
 
