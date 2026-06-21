@@ -20,6 +20,7 @@ interface ChatWindowProps {
   chat: ChatMessage[];
   chatWindowRef?: React.RefObject<ChatWindowHandle>;
   agentProcessing: boolean;
+  sessionLoading?: boolean;
   refreshing?: boolean;
   emptyMessage: string;
   sessionId?: string | null;
@@ -128,6 +129,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
     chat,
     chatWindowRef,
     agentProcessing,
+    sessionLoading,
     refreshing,
     emptyMessage,
     sessionId,
@@ -267,13 +269,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
             <span>Refreshing...</span>
           </div>
         )}
-        {chat.length === 0 && !refreshing && agentProcessing && (
+        {chat.length === 0 && !refreshing && sessionLoading && (
+          <div className="loading-indicator">
+            <div className="loading-spinner"></div>
+            <span>Loading session...</span>
+          </div>
+        )}
+        {chat.length === 0 && !refreshing && !sessionLoading && agentProcessing && (
           <div className="loading-indicator">
             <div className="loading-spinner"></div>
             <span>Agent is thinking...</span>
           </div>
         )}
-        {chat.length === 0 && !refreshing && !agentProcessing && (
+        {chat.length === 0 && !refreshing && !sessionLoading && !agentProcessing && (
           <div className="empty">{emptyMessage}</div>
         )}
         {chat.length === 0 && sessionId && (

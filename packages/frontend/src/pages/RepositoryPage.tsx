@@ -440,6 +440,7 @@ export const RepositoryPage: React.FC = () => {
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatAgentProcessing, setChatAgentProcessing] = useState(false);
+  const [sessionLoading, setSessionLoading] = useState(false);
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
   const savedSessionTitles = useMemo(
@@ -604,8 +605,9 @@ export const RepositoryPage: React.FC = () => {
         return;
       }
       setChatError(null);
-      setSessionId(incomingSessionId);
       setChat([]);
+      setSessionLoading(true);
+      setSessionId(incomingSessionId);
       sendRequestIdRef.current += 1;
       try {
         localStorage.setItem(sessionStorageKey, incomingSessionId);
@@ -1185,6 +1187,7 @@ export const RepositoryPage: React.FC = () => {
       console.info("[ChatHistory] Request started");
       try {
         setChatError(null);
+        const sessionIdAtFetchStart = sessionId;
         const currentTimestamp = lastKnownTimestampRef.current;
         const startTimestamp = currentTimestamp
           ? currentTimestamp + 1
@@ -1196,10 +1199,16 @@ export const RepositoryPage: React.FC = () => {
           signal,
         );
 
-        if (signal?.aborted) return;
+        if (signal?.aborted) { setSessionLoading(false); return; }
+
+        if (sessionIdRef.current !== sessionIdAtFetchStart) {
+          setSessionLoading(false);
+          return;
+        }
 
         if (!history.messages?.length) {
           console.info("[ChatHistory] Request completed with no new messages");
+          setSessionLoading(false);
           return;
         }
 
@@ -1208,8 +1217,10 @@ export const RepositoryPage: React.FC = () => {
           console.info("[ChatHistory] Request completed; merge finished");
           return mergeChatMessages(previousChat, mapped);
         });
+        setSessionLoading(false);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
+          setSessionLoading(false);
           return;
         }
         console.error("Failed to load chat history", error);
@@ -1218,9 +1229,10 @@ export const RepositoryPage: React.FC = () => {
             ? error.message
             : "Failed to load chat history";
         setChatError(message);
+        setSessionLoading(false);
       }
     },
-    [name, sessionId, setChat, setChatError],
+    [name, sessionId, setChat, setChatError, setSessionLoading],
   );
 
   useEffect(() => {
@@ -1390,7 +1402,9 @@ export const RepositoryPage: React.FC = () => {
 
   const handleSessionSelect = (session: ChatSession) => {
     if (!name) return;
+    if (!session.id) return;
     if (session.id === sessionId) {
+      setSessionLoading(false);
       setSessionModalOpen(false);
       reloadCurrentSession();
       return;
@@ -1400,6 +1414,7 @@ export const RepositoryPage: React.FC = () => {
     setChatAgentProcessing(false);
     setChatError(null);
     setChat([]);
+    setSessionLoading(true);
     setSessionId(session.id);
   };
 
@@ -1998,6 +2013,7 @@ export const RepositoryPage: React.FC = () => {
             chat={chat}
             chatWindowRef={chatWindowRef}
             agentProcessing={chatAgentProcessing}
+            sessionLoading={sessionLoading}
             refreshing={isRefreshing}
             emptyMessage="No conversation yet."
             sessionId={sessionId}
