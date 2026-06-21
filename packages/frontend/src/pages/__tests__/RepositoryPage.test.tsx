@@ -3313,4 +3313,113 @@ describe("RepositoryPage session-loading UX (AC1-AC9)", () => {
       ).toBeInTheDocument();
     });
   });
+
+  it("ADV-rapid-switch: rapid A→B→C preserves loading indicator through stale abort handler", async () => {
+    const msgA: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const msgC: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from C",
+      timestamp: "2026-01-03T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [msgA] };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+    const historyC = { sessionId: "session-c", messages: [msgC] };
+    const sessionC: ChatSession = {
+      id: "session-c",
+      title: "Session C",
+      updated: "2026-01-03",
+    };
+
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    let resolveC!: (value: ChatHistoryResponse) => void;
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+    const deferredC = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveC = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyA)
+      .mockReturnValueOnce(deferredB)
+      .mockReturnValueOnce(deferredC);
+
+    renderPage();
+
+    // Load session A
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    // Click session B (deferred)
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB, sessionC],
+    });
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(2);
+    });
+
+    // Verify loading indicator visible for B
+    await waitFor(() => {
+      expect(
+        document.querySelector(".loading-indicator"),
+        "FAIL (ADV-rapid-switch pre): loading not shown for B",
+      ).toBeTruthy();
+    });
+
+    // Immediately click session C WHILE B's fetch is in-flight
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB, sessionC],
+    });
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session C");
+    fireEvent.click(screen.getByTitle("Session C"));
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(3);
+    });
+
+    // Loading indicator should still be visible (now for C)
+    await waitFor(() => {
+      expect(
+        document.querySelector(".loading-indicator"),
+        "FAIL (ADV-rapid-switch-1): loading disappeared after rapid B→C switch",
+      ).toBeTruthy();
+    });
+
+    // Resolve B's stale deferred — this triggers signal.aborted guard → setSessionLoading(false)
+    resolveB(historyB);
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    // ADVERSARIAL: loading indicator should STILL be visible because C is still loading
+    expect(
+      document.querySelector(".loading-indicator"),
+      "FAIL (ADV-rapid-switch-2): B's aborted handler cleared sessionLoading while C was still loading — setSessionLoading(false) in abort path should not clear C's loading state",
+    ).toBeTruthy();
+
+    // Resolve C's deferred — loading should clear
+    resolveC(historyC);
+    await screen.findByText("Hello from C");
+
+    expect(
+      document.querySelector(".loading-indicator"),
+      "FAIL (ADV-rapid-switch-3): loading persisted after C resolved",
+    ).toBeFalsy();
+  });
 });
