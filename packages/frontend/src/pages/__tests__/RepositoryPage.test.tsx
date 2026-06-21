@@ -1066,6 +1066,58 @@ describe("RepositoryPage session-select loading state (R1-R7)", () => {
       "FAIL (R7): Unmount during loading completed without React state-update warning — AbortController signal.aborted guard protected setChatLoading(false)",
     ).toBe(true);
   });
+
+  // ── ADV-loading-clear: Clear session while loading (adversarial) ──
+
+  it("ADV-loading-clear: Clear session-and-history while loading dismisses loading indicator (fails: chatLoading leak in clear handlers)", async () => {
+    const sessionAMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [sessionAMsg] };
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyA)
+      .mockReturnValueOnce(deferredB);
+
+    renderPage();
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    // Start session switch to B → loading shows
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    expect(
+      await screen.findByText("Loading session history…"),
+      "FAIL (ADV-loading-clear): Loading indicator not visible before clear",
+    ).toBeInTheDocument();
+
+    // Clear session-and-history while loading is active
+    fireEvent.click(screen.getByLabelText("Clear session"));
+    await screen.findByRole("button", { name: /^yes$/i });
+    fireEvent.click(screen.getByRole("button", { name: /^yes$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session history…"),
+        "FAIL (ADV-loading-clear): Loading indicator persisted after clear — clear handlers must reset chatLoading",
+      ).not.toBeInTheDocument();
+    });
+
+    resolveB!(emptyHistory);
+  });
 });
 
 // ── AC497: refreshAgentStatus !sessionId guard ────────────────────────
