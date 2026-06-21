@@ -548,8 +548,28 @@ jobs:
     permissions: {contents: read, issues: write, pull-requests: write}
     secrets: inherit
 
+  frontier-scoring-review:
+    name: "8F. Frontier Scoring Review"
+    needs: [setup-branch, implementer, create-pr]
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: frontier-scoring-review
+      command: ghar-frontier-scoring-review
+      prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
+      timeout-minutes: 45
+      post-run-nudge-prompt: >
+        Check the issue comments. If you have not yet posted the
+        `<!-- frontier-scoring-findings -->` marker comment, do it now.
+        Reply 'done' when complete.
+      post-run-bash-command: |
+        gh api --paginate "repos/${{ github.repository }}/issues/${{ inputs.issue_number }}/comments" \
+          --jq '.[].body' | grep -q '<!-- frontier-scoring-findings -->'
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
   e2e-evidence:
-    name: "8F. E2E Evidence"
+    name: "8G. E2E Evidence"
     needs: [setup-branch, implementer, ci-wait-initial]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
@@ -582,6 +602,7 @@ jobs:
       - timing-reviewer
       - adversarial-review
       - residual-gap-review
+      - frontier-scoring-review
       - e2e-evidence
     uses: ./.github/workflows/core-opencode-run.yml
     with:

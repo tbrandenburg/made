@@ -23,7 +23,7 @@ To publish an issue comment, write the complete Markdown body to a temporary fil
 
 ## Mission
 
-Require the issue comments with these exact HTML tags: `<!-- spec-approved -->`, `<!-- implementation-review-findings -->`, `<!-- maintainer-review-findings -->`, `<!-- timing-review-findings -->`, `<!-- adversarial-review-findings -->`, `<!-- residual-gap-findings -->`, and `<!-- e2e-evidence -->`. Fetch and check out the latest shared branch. Read the issue plus those tagged comments.
+Require the issue comments with these exact HTML tags: `<!-- spec-approved -->`, `<!-- implementation-review-findings -->`, `<!-- maintainer-review-findings -->`, `<!-- timing-review-findings -->`, `<!-- adversarial-review-findings -->`, `<!-- residual-gap-findings -->`, `<!-- frontier-scoring-findings -->`, and `<!-- e2e-evidence -->`. Fetch and check out the latest shared branch. Read the issue plus those tagged comments.
 
 **Spec Non-goals pre-check — mandatory before creating any todo**: Extract the Non-goals list from `spec-approved` and the `## Fixer Scope Lock` section if present. For every finding across all review inputs: if the finding touches something in that list, the disposition is **DEFERRED-NONGOAL** — record the exact Non-goal citation in the fixer-summary and do not create a resolve todo. This check overrides the medium/high severity tier and runs before the steps below.
 
