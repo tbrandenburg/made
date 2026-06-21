@@ -2664,10 +2664,7 @@ describe("RepositoryPage session-loading UX (AC1-AC9)", () => {
       timestamp: "2026-01-01T00:00:00Z",
     };
     const historyA = { sessionId: "session-a", messages: [msgA] };
-    let resolveB: (value: ChatHistoryResponse) => void = () => {};
-    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
-      resolveB = resolve;
-    });
+    const deferredB = new Promise<ChatHistoryResponse>(() => {});
 
     vi.mocked(api.getRepositoryAgentHistory)
       .mockResolvedValueOnce(historyA)
@@ -2875,10 +2872,7 @@ describe("RepositoryPage session-loading UX (AC1-AC9)", () => {
       timestamp: "2026-01-01T00:00:00Z",
     };
     const historyA = { sessionId: "session-a", messages: [msgA] };
-    let resolveB: (value: ChatHistoryResponse) => void = () => {};
-    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
-      resolveB = resolve;
-    });
+    const deferredB = new Promise<ChatHistoryResponse>(() => {});
 
     vi.mocked(api.getRepositoryAgentHistory)
       .mockResolvedValueOnce(historyA)
@@ -2920,10 +2914,7 @@ describe("RepositoryPage session-loading UX (AC1-AC9)", () => {
       timestamp: "2026-01-01T00:00:00Z",
     };
     const historyA = { sessionId: "session-a", messages: [msgA] };
-    let resolveB: (value: ChatHistoryResponse) => void = () => {};
-    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
-      resolveB = resolve;
-    });
+    const deferredB = new Promise<ChatHistoryResponse>(() => {});
 
     vi.mocked(api.getRepositoryAgentHistory)
       .mockResolvedValueOnce(historyA)
@@ -2963,10 +2954,7 @@ describe("RepositoryPage session-loading UX (AC1-AC9)", () => {
       timestamp: "2026-01-01T00:00:00Z",
     };
     const historyA = { sessionId: "session-a", messages: [msgA] };
-    let resolveRefresh: (value: ChatHistoryResponse) => void = () => {};
-    const deferredRefresh = new Promise<ChatHistoryResponse>((resolve) => {
-      resolveRefresh = resolve;
-    });
+    const deferredRefresh = new Promise<ChatHistoryResponse>(() => {});
 
     vi.mocked(api.getRepositoryAgentHistory)
       .mockResolvedValueOnce(historyA)
@@ -2986,9 +2974,11 @@ describe("RepositoryPage session-loading UX (AC1-AC9)", () => {
     await screen.findByTitle("Session A");
 
     // The third call (re-select) should use deferred — but mockReturnValueOnce was consumed on second call.
-    // Re-configure: only the re-select call is deferred via mockImplementationOnce.
+    // Re-configure: only the re-select call is deferred.
     vi.mocked(api.getRepositoryAgentHistory).mockClear();
-    vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(deferredRefresh);
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(
+      deferredRefresh,
+    );
     fireEvent.click(screen.getByTitle("Session A"));
 
     await waitFor(() => {
@@ -3002,16 +2992,11 @@ describe("RepositoryPage session-loading UX (AC1-AC9)", () => {
   // ── AC9: Bootstrap path shows loading indicator ────────────────
 
   it("AC9: Bootstrap URL-driven session switch shows loading indicator (fails: setSessionLoading(true) missing in switchSessionIfNeeded)", async () => {
-    let resolveBootstrap: (value: ChatHistoryResponse) => void = () => {};
-    const deferredBootstrap = new Promise<ChatHistoryResponse>((resolve) => {
-      resolveBootstrap = resolve;
-    });
+    const deferredBootstrap = new Promise<ChatHistoryResponse>(() => {});
 
     vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(deferredBootstrap);
 
-    renderPage([
-      "/repositories/test-repo?tab=agent&sessionId=session-b",
-    ]);
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
 
     await waitFor(() => {
       expect(
@@ -3031,10 +3016,7 @@ describe("RepositoryPage session-loading UX (AC1-AC9)", () => {
       timestamp: "2026-01-01T00:00:00Z",
     };
     const historyA = { sessionId: "session-a", messages: [msgA] };
-    let resolveB: (value: ChatHistoryResponse) => void = () => {};
-    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
-      resolveB = resolve;
-    });
+    const deferredB = new Promise<ChatHistoryResponse>(() => {});
 
     vi.mocked(api.getRepositoryAgentHistory)
       .mockResolvedValueOnce(historyA)
@@ -3092,10 +3074,7 @@ describe("RepositoryPage session-loading UX (AC1-AC9)", () => {
       timestamp: "2026-01-01T00:00:00Z",
     };
     const historyA = { sessionId: "session-a", messages: [msgA] };
-    let resolveEmpty: (value: ChatHistoryResponse) => void = () => {};
-    const deferredEmpty = new Promise<ChatHistoryResponse>((resolve) => {
-      resolveEmpty = resolve;
-    });
+    const deferredEmpty = new Promise<ChatHistoryResponse>(() => {});
 
     vi.mocked(api.getRepositoryAgentHistory)
       .mockResolvedValueOnce(historyA)
@@ -3295,10 +3274,7 @@ describe("RepositoryPage session-loading UX (AC1-AC9)", () => {
       timestamp: "2026-01-01T00:00:00Z",
     };
     const historyA = { sessionId: "session-a", messages: [msgA] };
-    let resolveRefresh: (value: ChatHistoryResponse) => void = () => {};
-    const deferredRefresh = new Promise<ChatHistoryResponse>((resolve) => {
-      resolveRefresh = resolve;
-    });
+    const deferredRefresh = new Promise<ChatHistoryResponse>(() => {});
 
     vi.mocked(api.getRepositoryAgentHistory)
       .mockResolvedValueOnce(historyA)
