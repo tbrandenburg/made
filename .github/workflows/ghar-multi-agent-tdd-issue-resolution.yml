@@ -173,29 +173,9 @@ jobs:
     permissions: {contents: read, issues: write, pull-requests: write}
     secrets: inherit
 
-  timing-reviewer:
-    name: "3B. Timing Reviewer"
-    needs: [setup-branch, spec-redteam]
-    uses: ./.github/workflows/core-opencode-run.yml
-    with:
-      run-name: timing-reviewer
-      command: ghar-timing-review
-      prompt: ${{ inputs.issue_number }}
-      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
-      timeout-minutes: 30
-      post-run-nudge-prompt: >
-        Check the issue comments. If you have not yet posted the
-        `<!-- timing-review-findings -->` marker comment, do it now.
-        Reply 'done' when complete.
-      post-run-bash-command: |
-        gh api --paginate "repos/${{ github.repository }}/issues/${{ inputs.issue_number }}/comments" \
-          --jq '.[].body' | grep -q '<!-- timing-review-findings -->'
-    permissions: {contents: read, issues: write, pull-requests: write}
-    secrets: inherit
-
   tdd-reviewer:
     name: "4. TDD Reviewer"
-    needs: [setup-branch, spec-redteam, timing-reviewer]
+    needs: [setup-branch, spec-redteam]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: tdd-reviewer
@@ -215,7 +195,7 @@ jobs:
 
   spec-finalizer:
     name: "5. Spec Finalizer"
-    needs: [setup-branch, spec-redteam, timing-reviewer, tdd-reviewer]
+    needs: [setup-branch, spec-redteam, tdd-reviewer]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: spec-finalizer
@@ -508,8 +488,28 @@ jobs:
     permissions: {contents: read, issues: write, pull-requests: write}
     secrets: inherit
 
+  timing-reviewer:
+    name: "8C. Timing Reviewer"
+    needs: [setup-branch, implementer, create-pr]
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: timing-reviewer
+      command: ghar-timing-review
+      prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
+      timeout-minutes: 45
+      post-run-nudge-prompt: >
+        Check the issue comments. If you have not yet posted the
+        `<!-- timing-review-findings -->` marker comment, do it now.
+        Reply 'done' when complete.
+      post-run-bash-command: |
+        gh api --paginate "repos/${{ github.repository }}/issues/${{ inputs.issue_number }}/comments" \
+          --jq '.[].body' | grep -q '<!-- timing-review-findings -->'
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
   adversarial-review:
-    name: "8C. Adversarial Review"
+    name: "8D. Adversarial Review"
     needs: [setup-branch, implementer, create-pr]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
@@ -529,7 +529,7 @@ jobs:
     secrets: inherit
 
   residual-gap-review:
-    name: "8D. Residual Gap Review"
+    name: "8E. Residual Gap Review"
     needs: [setup-branch, implementer, create-pr]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
@@ -549,7 +549,7 @@ jobs:
     secrets: inherit
 
   e2e-evidence:
-    name: "8E. E2E Evidence"
+    name: "8F. E2E Evidence"
     needs: [setup-branch, implementer, ci-wait-initial]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
@@ -579,6 +579,7 @@ jobs:
       - setup-branch
       - implementation-review
       - maintainer-review
+      - timing-reviewer
       - adversarial-review
       - residual-gap-review
       - e2e-evidence
