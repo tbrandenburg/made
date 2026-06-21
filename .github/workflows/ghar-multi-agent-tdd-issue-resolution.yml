@@ -173,9 +173,29 @@ jobs:
     permissions: {contents: read, issues: write, pull-requests: write}
     secrets: inherit
 
+  timing-reviewer:
+    name: "3B. Timing Reviewer"
+    needs: [setup-branch, spec-redteam]
+    uses: ./.github/workflows/core-opencode-run.yml
+    with:
+      run-name: timing-reviewer
+      command: ghar-timing-review
+      prompt: ${{ inputs.issue_number }}
+      branch: agent/issue-${{ inputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
+      timeout-minutes: 30
+      post-run-nudge-prompt: >
+        Check the issue comments. If you have not yet posted the
+        `<!-- timing-review-findings -->` marker comment, do it now.
+        Reply 'done' when complete.
+      post-run-bash-command: |
+        gh api --paginate "repos/${{ github.repository }}/issues/${{ inputs.issue_number }}/comments" \
+          --jq '.[].body' | grep -q '<!-- timing-review-findings -->'
+    permissions: {contents: read, issues: write, pull-requests: write}
+    secrets: inherit
+
   tdd-reviewer:
     name: "4. TDD Reviewer"
-    needs: [setup-branch, spec-redteam]
+    needs: [setup-branch, spec-redteam, timing-reviewer]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: tdd-reviewer
@@ -195,7 +215,7 @@ jobs:
 
   spec-finalizer:
     name: "5. Spec Finalizer"
-    needs: [setup-branch, spec-redteam, tdd-reviewer]
+    needs: [setup-branch, spec-redteam, timing-reviewer, tdd-reviewer]
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: spec-finalizer
@@ -351,16 +371,10 @@ jobs:
             "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
             --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | group_by(.workflow_id) | map(sort_by(.created_at) | last)" \
             2>/dev/null || echo '[]')
-          IN_PROGRESS=$(echo "$RUNS" | jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo '0')
           ALL_GREEN=$(echo "$RUNS" | jq '(length > 0) and all(.status == "completed" and (.conclusion == "success" or .conclusion == "skipped" or .conclusion == "neutral"))' 2>/dev/null || echo 'false')
           if [ "$ALL_GREEN" = "true" ]; then
             echo "CI already green for $SHA"
             echo "retrigger_action=green" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ "${IN_PROGRESS:-0}" -gt 0 ]; then
-            echo "$IN_PROGRESS run(s) still in progress for $SHA, not cancelling"
-            echo "retrigger_action=running" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           PR_NUMBER=$(GH_TOKEN="$GH_PAT" gh pr list \
@@ -624,16 +638,10 @@ jobs:
             "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
             --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | group_by(.workflow_id) | map(sort_by(.created_at) | last)" \
             2>/dev/null || echo '[]')
-          IN_PROGRESS=$(echo "$RUNS" | jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo '0')
           ALL_GREEN=$(echo "$RUNS" | jq '(length > 0) and all(.status == "completed" and (.conclusion == "success" or .conclusion == "skipped" or .conclusion == "neutral"))' 2>/dev/null || echo 'false')
           if [ "$ALL_GREEN" = "true" ]; then
             echo "CI already green for $SHA"
             echo "retrigger_action=green" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ "${IN_PROGRESS:-0}" -gt 0 ]; then
-            echo "$IN_PROGRESS run(s) still in progress for $SHA, not cancelling"
-            echo "retrigger_action=running" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           PR_NUMBER=$(GH_TOKEN="$GH_PAT" gh pr list \
@@ -790,16 +798,10 @@ jobs:
             "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
             --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | group_by(.workflow_id) | map(sort_by(.created_at) | last)" \
             2>/dev/null || echo '[]')
-          IN_PROGRESS=$(echo "$RUNS" | jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo '0')
           ALL_GREEN=$(echo "$RUNS" | jq '(length > 0) and all(.status == "completed" and (.conclusion == "success" or .conclusion == "skipped" or .conclusion == "neutral"))' 2>/dev/null || echo 'false')
           if [ "$ALL_GREEN" = "true" ]; then
             echo "CI already green for $SHA"
             echo "retrigger_action=green" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ "${IN_PROGRESS:-0}" -gt 0 ]; then
-            echo "$IN_PROGRESS run(s) still in progress for $SHA, not cancelling"
-            echo "retrigger_action=running" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           PR_NUMBER=$(GH_TOKEN="$GH_PAT" gh pr list \
@@ -957,16 +959,10 @@ jobs:
             "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
             --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | group_by(.workflow_id) | map(sort_by(.created_at) | last)" \
             2>/dev/null || echo '[]')
-          IN_PROGRESS=$(echo "$RUNS" | jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo '0')
           ALL_GREEN=$(echo "$RUNS" | jq '(length > 0) and all(.status == "completed" and (.conclusion == "success" or .conclusion == "skipped" or .conclusion == "neutral"))' 2>/dev/null || echo 'false')
           if [ "$ALL_GREEN" = "true" ]; then
             echo "CI already green for $SHA"
             echo "retrigger_action=green" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ "${IN_PROGRESS:-0}" -gt 0 ]; then
-            echo "$IN_PROGRESS run(s) still in progress for $SHA, not cancelling"
-            echo "retrigger_action=running" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           PR_NUMBER=$(GH_TOKEN="$GH_PAT" gh pr list \
@@ -1124,16 +1120,10 @@ jobs:
             "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA" \
             --jq "[.workflow_runs[] | select(.name != \"$GHAR_WORKFLOW\")] | group_by(.workflow_id) | map(sort_by(.created_at) | last)" \
             2>/dev/null || echo '[]')
-          IN_PROGRESS=$(echo "$RUNS" | jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo '0')
           ALL_GREEN=$(echo "$RUNS" | jq '(length > 0) and all(.status == "completed" and (.conclusion == "success" or .conclusion == "skipped" or .conclusion == "neutral"))' 2>/dev/null || echo 'false')
           if [ "$ALL_GREEN" = "true" ]; then
             echo "CI already green for $SHA"
             echo "retrigger_action=green" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ "${IN_PROGRESS:-0}" -gt 0 ]; then
-            echo "$IN_PROGRESS run(s) still in progress for $SHA, not cancelling"
-            echo "retrigger_action=running" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           PR_NUMBER=$(GH_TOKEN="$GH_PAT" gh pr list \

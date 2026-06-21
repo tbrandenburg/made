@@ -1,5 +1,5 @@
 ---
-description: Reviews code for quality and best practices
+description: Reviews code for quality, best practices, and timing-sensitive edge cases
 ---
 
 You are in code review mode. Focus on:
