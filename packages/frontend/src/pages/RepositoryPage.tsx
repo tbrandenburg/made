@@ -439,6 +439,7 @@ export const RepositoryPage: React.FC = () => {
   const normalizedSelectedModel = selectedModel ?? "default";
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [chatError, setChatError] = useState<string | null>(null);
+  const [chatLoading, setChatLoading] = useState(false);
   const [chatAgentProcessing, setChatAgentProcessing] = useState(false);
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
@@ -1218,6 +1219,7 @@ export const RepositoryPage: React.FC = () => {
             ? error.message
             : "Failed to load chat history";
         setChatError(message);
+        setChatLoading(false);
       }
     },
     [name, sessionId, setChat, setChatError],
@@ -1226,7 +1228,9 @@ export const RepositoryPage: React.FC = () => {
   useEffect(() => {
     if (chatAgentProcessing || !name || !sessionId) return;
     const controller = new AbortController();
-    syncChatHistory(controller.signal);
+    syncChatHistory(controller.signal).then(() => {
+      if (!controller.signal.aborted) setChatLoading(false);
+    });
     return () => controller.abort(); // No argument — preserves DOMException('AbortError') shape
   }, [chatAgentProcessing, name, sessionId, syncChatHistory]);
 
@@ -1400,6 +1404,7 @@ export const RepositoryPage: React.FC = () => {
     setChatAgentProcessing(false);
     setChatError(null);
     setChat([]);
+    setChatLoading(true);
     setSessionId(session.id);
   };
 
@@ -1999,7 +2004,9 @@ export const RepositoryPage: React.FC = () => {
             chatWindowRef={chatWindowRef}
             agentProcessing={chatAgentProcessing}
             refreshing={isRefreshing}
-            emptyMessage="No conversation yet."
+            emptyMessage={
+              chatLoading || chatError ? "" : "No conversation yet."
+            }
             sessionId={sessionId}
             onClearSession={() => setClearSessionModalOpen(true)}
             onSaveSession={handleSaveSession}
@@ -2008,6 +2015,11 @@ export const RepositoryPage: React.FC = () => {
             )}
             markdownOptions={chatMarkdownOptions}
           />
+          {chatLoading && chat.length === 0 && !chatError && (
+            <div className="alert" role="status" aria-live="polite">
+              Loading session history…
+            </div>
+          )}
           {chatError && <div className="alert">{chatError}</div>}
           <MentionPathTextarea
             id={chatInputId}
