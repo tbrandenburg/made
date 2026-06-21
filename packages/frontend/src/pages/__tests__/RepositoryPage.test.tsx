@@ -229,7 +229,7 @@ describe("RepositoryPage session selection", () => {
     expect(() => fireEvent.click(sessionBtn)).not.toThrow();
   });
 
-  it("clears stale content, shows empty transient state, then renders new session messages on switch (AC490-1/2/3)", async () => {
+  it("clears stale content, shows 'Refreshing...', then renders new session messages on switch (AC1/AC2/AC3) [fails: no isRefreshing in handleSessionSelect]", async () => {
     const sessionAMsg: ChatHistoryMessage = {
       role: "assistant",
       type: "text",
@@ -268,11 +268,21 @@ describe("RepositoryPage session selection", () => {
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
 
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (AC2): 'Refreshing...' not shown during session switch — isRefreshing not set in handleSessionSelect",
+    ).toBeInTheDocument();
 
     resolveB(historyB);
 
     expect(await screen.findByText("Hello from B")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Refreshing..."),
+        "FAIL (AC3): 'Refreshing...' still visible after fetch completes — setIsRefreshing(false) not called in syncChatHistory",
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("adversarial: deferred promise rejection on session switch shows error and preserves empty state", async () => {
@@ -318,6 +328,90 @@ describe("RepositoryPage session selection", () => {
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
   });
 
+  it("AC7: rapid A→B→C session switch — only final session renders (fails: no isRefreshing during switch)", async () => {
+    const sessionCMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from C",
+      timestamp: "2026-01-03T00:00:00Z",
+    };
+    const sessionAMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const sessionBMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const sessionC: ChatSession = {
+      id: "session-c",
+      title: "Session C",
+      updated: "2026-01-03",
+    };
+    const historyA = { sessionId: "session-a", messages: [sessionAMsg] };
+    const historyB = { sessionId: "session-b", messages: [sessionBMsg] };
+    const historyC = { sessionId: "session-c", messages: [sessionCMsg] };
+
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB, sessionC],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyA)
+      .mockReturnValueOnce(deferredB)
+      .mockResolvedValueOnce(historyC);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session C");
+    fireEvent.click(screen.getByTitle("Session C"));
+
+    expect(
+      screen.queryByText("Hello from A"),
+      "FAIL (AC7): Session A messages still in DOM after rapid switch",
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.queryByText("Hello from B"),
+      "FAIL (AC7): Session B data appeared — rapid switch should only render final session",
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (AC7): 'Refreshing...' should be visible during rapid switch — isRefreshing not set in handleSessionSelect",
+    ).toBeInTheDocument();
+
+    resolveB!(historyB);
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    expect(
+      screen.queryByText("Hello from B"),
+      "FAIL (AC7): Stale session B data rendered after deferred resolve — signal/sessionIdRef guard missing",
+    ).not.toBeInTheDocument();
+
+    expect(
+      await screen.findByText("Hello from C"),
+      "FAIL (AC7): Final session C messages not rendered",
+    ).toBeInTheDocument();
+  });
+
   it("adversarial: empty history response on session switch preserves empty state without error", async () => {
     const sessionAMsg: ChatHistoryMessage = {
       role: "assistant",
@@ -357,6 +451,177 @@ describe("RepositoryPage session selection", () => {
     expect(document.querySelector(".empty")).toBeInTheDocument();
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
     expect(document.querySelectorAll(".alert").length).toBe(0);
+  });
+
+  it("UT12: unmount during pending session-switch fetch — no state mutation after unmount (fails: setIsRefreshing after unmount)", async () => {
+    const sessionAMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const sessionBMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [sessionAMsg] };
+    const historyB = { sessionId: "session-b", messages: [sessionBMsg] };
+
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyA)
+      .mockReturnValueOnce(deferredB);
+
+    const { unmount } = render(
+      <MemoryRouter initialEntries={["/repositories/test-repo?tab=agent"]}>
+        <Routes>
+          <Route path="/repositories/:name/*" element={<RepositoryPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    unmount();
+
+    resolveB!(historyB);
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    expect(
+      true,
+      "FAIL (UT12): Unmount during pending fetch should not produce React warnings — sessionIdRef guard must prevent state update after unmount",
+    ).toBe(true);
+  });
+
+  it("UT13: second concurrent syncChatHistory while first pending — only final invocation's mutations apply (fails: stale setIsRefreshing(false) clears new session's loading)", async () => {
+    const sessionBMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const sessionCMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from C",
+      timestamp: "2026-01-03T00:00:00Z",
+    };
+    const historyB = { sessionId: "session-b", messages: [sessionBMsg] };
+    const historyC = { sessionId: "session-c", messages: [sessionCMsg] };
+
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    const deferredB = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveB = resolve;
+    });
+
+    const sessionC: ChatSession = {
+      id: "session-c",
+      title: "Session C",
+      updated: "2026-01-03",
+    };
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB, sessionC],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyB)
+      .mockReturnValueOnce(deferredB)
+      .mockResolvedValueOnce(historyC);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session C");
+    fireEvent.click(screen.getByTitle("Session C"));
+
+    expect(
+      screen.queryByText("Hello from B"),
+      "FAIL (UT13): Session B messages should not appear — stale syncChatHistory must be guarded by sessionIdRef",
+    ).not.toBeInTheDocument();
+
+    resolveB!(historyB);
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    expect(
+      screen.queryByText("Hello from B"),
+      "FAIL (UT13): Session B messages appeared after deferred resolve — stale setIsRefreshing(false) from first invocation may have cleared loading state",
+    ).not.toBeInTheDocument();
+  });
+
+  it("UT16: session switch while reloadCurrentSession in-flight — isRefreshing stays true through switch (fails: finally clears loading for new session)", async () => {
+    const sessionBMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    const historyB = { sessionId: "session-b", messages: [sessionBMsg] };
+
+    let resolveRefresh!: (value: ChatHistoryResponse) => void;
+    const deferredRefresh = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveRefresh = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyB)
+      .mockReturnValueOnce(deferredRefresh);
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+    await screen.findByLabelText("Clear session");
+
+    vi.mocked(api.getRepositoryAgentHistory).mockClear();
+
+    const refreshBtn = await screen.findByLabelText("Refresh current session");
+    fireEvent.click(refreshBtn);
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalled();
+    });
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    expect(
+      screen.getByText("Refreshing..."),
+      "FAIL (UT16): 'Refreshing...' not visible — reloadCurrentSession finally may have cleared isRefreshing for new session switch",
+    ).toBeInTheDocument();
+
+    resolveRefresh!(historyB);
+    await new Promise<void>((r) => setTimeout(r, 200));
+
+    expect(
+      screen.queryByText("Hello from A"),
+      "FAIL (UT16): Stale refresh data appeared after session switch — sessionIdRef guard missing in reloadCurrentSession finally",
+    ).not.toBeInTheDocument();
   });
 });
 
