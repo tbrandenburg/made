@@ -605,6 +605,7 @@ export const RepositoryPage: React.FC = () => {
         return;
       }
       setChatError(null);
+      setChatAgentProcessing(false);
       setChat([]);
       setSessionLoading(true);
       setSessionId(incomingSessionId);
@@ -1185,9 +1186,9 @@ export const RepositoryPage: React.FC = () => {
     async (signal?: AbortSignal) => {
       if (!name || !sessionId) return;
       console.info("[ChatHistory] Request started");
+      const sessionIdAtFetchStart = sessionId;
       try {
         setChatError(null);
-        const sessionIdAtFetchStart = sessionId;
         const currentTimestamp = lastKnownTimestampRef.current;
         const startTimestamp = currentTimestamp
           ? currentTimestamp + 1
@@ -1199,10 +1200,13 @@ export const RepositoryPage: React.FC = () => {
           signal,
         );
 
-        if (signal?.aborted) { setSessionLoading(false); return; }
+        if (signal?.aborted) {
+          if (sessionIdRef.current !== sessionIdAtFetchStart) return;
+          setSessionLoading(false);
+          return;
+        }
 
         if (sessionIdRef.current !== sessionIdAtFetchStart) {
-          setSessionLoading(false);
           return;
         }
 
@@ -1220,6 +1224,7 @@ export const RepositoryPage: React.FC = () => {
         setSessionLoading(false);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
+          if (sessionIdRef.current !== sessionIdAtFetchStart) return;
           setSessionLoading(false);
           return;
         }

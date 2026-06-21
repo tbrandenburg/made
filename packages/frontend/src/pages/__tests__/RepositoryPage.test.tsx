@@ -309,7 +309,7 @@ describe("RepositoryPage session selection", () => {
     fireEvent.click(screen.getByTitle("Session B"));
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(document.querySelector(".loading-indicator")).toBeInTheDocument();
 
     rejectB!(new Error("Fetch failed"));
 
@@ -317,6 +317,7 @@ describe("RepositoryPage session selection", () => {
       expect(screen.getByText("Fetch failed")).toBeInTheDocument();
     });
 
+    expect(document.querySelector(".loading-indicator")).toBeFalsy();
     expect(document.querySelector(".empty")).toBeInTheDocument();
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
   });
@@ -352,11 +353,12 @@ describe("RepositoryPage session selection", () => {
     fireEvent.click(screen.getByTitle("Session B"));
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(document.querySelector(".loading-indicator")).toBeInTheDocument();
 
     resolveB!({ sessionId: "session-b", messages: [] });
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
-
+    await waitFor(() => {
+      expect(document.querySelector(".loading-indicator")).toBeFalsy();
+    });
     expect(document.querySelector(".empty")).toBeInTheDocument();
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
     expect(document.querySelectorAll(".alert").length).toBe(0);
@@ -2643,6 +2645,7 @@ describe("RepositoryPage session-loading UX (AC1-AC9)", () => {
     cleanup();
     document.body.innerHTML = "";
     vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockReset();
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
     vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
       sessions: [sessionA, sessionB],
@@ -3297,14 +3300,15 @@ describe("RepositoryPage session-loading UX (AC1-AC9)", () => {
 
     await new Promise<void>((r) => setTimeout(r, 50));
 
-    // Now re-select session A (same-session re-select — should show "Refreshing...")
+    // Simulate switch completes to session B via handleSessionSelect
+    // Now re-select session B (same-session re-select — should show "Refreshing...")
     vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
       sessions: [sessionA, sessionB],
     });
     fireEvent.click(await screen.findByLabelText("Choose a session"));
-    await screen.findByTitle("Session A");
+    await screen.findByTitle("Session B");
     vi.mocked(api.getRepositoryAgentHistory).mockClear();
-    fireEvent.click(screen.getByTitle("Session A"));
+    fireEvent.click(screen.getByTitle("Session B"));
 
     await waitFor(() => {
       expect(
