@@ -1197,9 +1197,13 @@ export const RepositoryPage: React.FC = () => {
         );
 
         if (signal?.aborted) return;
+        if (history.sessionId && history.sessionId !== sessionId) return;
 
         if (!history.messages?.length) {
           console.info("[ChatHistory] Request completed with no new messages");
+          if (sessionIdRef.current !== sessionId) return;
+          setIsRefreshing(false);
+          isRefreshingRef.current = false;
           return;
         }
 
@@ -1208,6 +1212,9 @@ export const RepositoryPage: React.FC = () => {
           console.info("[ChatHistory] Request completed; merge finished");
           return mergeChatMessages(previousChat, mapped);
         });
+        if (sessionIdRef.current !== sessionId) return;
+        setIsRefreshing(false);
+        isRefreshingRef.current = false;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
@@ -1218,9 +1225,12 @@ export const RepositoryPage: React.FC = () => {
             ? error.message
             : "Failed to load chat history";
         setChatError(message);
+        if (sessionIdRef.current !== sessionId) return;
+        setIsRefreshing(false);
+        isRefreshingRef.current = false;
       }
     },
-    [name, sessionId, setChat, setChatError],
+    [name, sessionId, setChat, setChatError, setIsRefreshing, isRefreshingRef],
   );
 
   useEffect(() => {
@@ -1283,8 +1293,10 @@ export const RepositoryPage: React.FC = () => {
           : "Failed to reload session history";
       setChatError(message);
     } finally {
-      setIsRefreshing(false);
-      isRefreshingRef.current = false;
+      if (sessionIdRef.current === sessionIdAtCall) {
+        setIsRefreshing(false);
+        isRefreshingRef.current = false;
+      }
     }
   }, [name, sessionId, setChat, setChatError]);
 
@@ -1400,6 +1412,8 @@ export const RepositoryPage: React.FC = () => {
     setChatAgentProcessing(false);
     setChatError(null);
     setChat([]);
+    setIsRefreshing(true);
+    isRefreshingRef.current = true;
     setSessionId(session.id);
   };
 
