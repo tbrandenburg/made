@@ -3570,4 +3570,175 @@ describe("RepositoryPage bootstrap path loading indicator (AC1-AC7)", () => {
 
     resolveA!(emptyHistory);
   });
+
+  // ── U15 (AC2): Yes path concurrent-fetch during pending bootstrap ──
+
+  it("U15 (AC2): clear session and history during pending bootstrap preempts loading", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U15): loading not visible before clear",
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Clear session"));
+    fireEvent.click(await screen.findByRole("button", { name: /^yes$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC2): loading persisted after clearSessionAndHistory",
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText("No conversation yet."),
+        "FAIL (AC2): empty state not shown after clearSessionAndHistory",
+      ).toBeInTheDocument();
+    });
+
+    resolveFetch!(emptyHistory);
+  });
+
+  // ── U16 (AC1): explicit sessionLoading=false assertion ──
+
+  it("U16 (AC1): sessionLoading cleared after clearSessionOnly during pending fetch", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U16): loading not visible before clear",
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Clear session"));
+    fireEvent.click(await screen.findByRole("button", { name: /^no$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC1): sessionLoading not cleared",
+      ).not.toBeInTheDocument();
+    });
+
+    resolveFetch!(emptyHistory);
+  });
+
+  // ── U17 (AC5): idempotent clear (No path) during idle ──
+
+  it("U17 (AC5): clear session only during idle does not show loading", async () => {
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentHistory,
+        "FAIL (U17): history fetch not dispatched",
+      ).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U17): loading persisted after fetch resolved",
+      ).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Clear session"));
+    fireEvent.click(await screen.findByRole("button", { name: /^no$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC5): loading appeared after idempotent clear",
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  // ── U18 (AC5): idempotent clear (Yes path) during idle ──
+
+  it("U18 (AC5): clear session and history during idle does not show loading", async () => {
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentHistory,
+        "FAIL (U18): history fetch not dispatched",
+      ).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U18): loading persisted after fetch resolved",
+      ).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Clear session"));
+    fireEvent.click(await screen.findByRole("button", { name: /^yes$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC5): loading appeared after idempotent clear-and-history",
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText("No conversation yet."),
+        "Empty state should appear after clear-and-history",
+      ).toBeInTheDocument();
+    });
+  });
+
+  // ── U19 (AC6): concurrent-fetch resolve after clear ──
+
+  it("U19 (AC6): deferred fetch resolve after clear does not restore loading", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U19): loading not visible before clear",
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Clear session"));
+    fireEvent.click(await screen.findByRole("button", { name: /^yes$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U19): loading not cleared after clear",
+      ).not.toBeInTheDocument();
+    });
+
+    resolveFetch!(emptyHistory);
+
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (AC6): loading persisted after resolve following clear",
+    ).not.toBeInTheDocument();
+  });
 });
