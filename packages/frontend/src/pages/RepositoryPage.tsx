@@ -730,6 +730,7 @@ export const RepositoryPage: React.FC = () => {
   const [movePath, setMovePath] = useState("");
   const [loadingFile, setLoadingFile] = useState(false);
   const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
+  const [sessionLoading, setSessionLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isRefreshingRef = useRef(false);
   const chatInputId = "repository-agent-prompt";
@@ -1201,6 +1202,7 @@ export const RepositoryPage: React.FC = () => {
         );
 
         if (signal?.aborted) return;
+        setSessionLoading(false);
 
         if (!history.messages?.length) {
           console.info("[ChatHistory] Request completed with no new messages");
@@ -1221,6 +1223,7 @@ export const RepositoryPage: React.FC = () => {
           error instanceof Error
             ? error.message
             : "Failed to load chat history";
+        setSessionLoading(false);
         setChatError(message);
       }
     },
@@ -1394,6 +1397,10 @@ export const RepositoryPage: React.FC = () => {
 
   const handleSessionSelect = (session: ChatSession) => {
     if (!name) return;
+    if (!session.id) {
+      setSessionModalOpen(false);
+      return;
+    }
     if (session.id === sessionId) {
       setSessionModalOpen(false);
       reloadCurrentSession();
@@ -1404,6 +1411,7 @@ export const RepositoryPage: React.FC = () => {
     setChatAgentProcessing(false);
     setChatError(null);
     setChat([]);
+    setSessionLoading(true);
     setSessionId(session.id);
   };
 
@@ -2003,6 +2011,7 @@ export const RepositoryPage: React.FC = () => {
             chatWindowRef={chatWindowRef}
             agentProcessing={chatAgentProcessing}
             refreshing={isRefreshing}
+            sessionLoading={sessionLoading}
             emptyMessage="No conversation yet."
             sessionId={sessionId}
             onClearSession={() => setClearSessionModalOpen(true)}
