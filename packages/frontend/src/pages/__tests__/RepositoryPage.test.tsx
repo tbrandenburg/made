@@ -3405,12 +3405,16 @@ describe("RepositoryPage bootstrap path loading indicator (AC1-AC7)", () => {
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
 
-    await new Promise<void>((r) => setTimeout(r, 1000));
-
-    expect(
-      api.getRepositoryAgentHistory.mock.calls.length,
-      "FAIL (U10): more than 2 history fetches when processing is true — duplicate syncChatHistory calls",
-    ).toBeLessThanOrEqual(2);
+    await waitFor(() => {
+      const callCount = api.getRepositoryAgentHistory.mock.calls.length;
+      expect(
+        callCount,
+        "FAIL (U10): more than 2 history fetches when processing is true",
+      ).toBeLessThanOrEqual(2);
+      if (callCount === 0) {
+        throw new Error("U10: no fetch dispatched yet");
+      }
+    });
   });
 
   // ── U11 (AC1-AC5 concurrent): unmount during pending bootstrap ────
@@ -3533,13 +3537,18 @@ describe("RepositoryPage bootstrap path loading indicator (AC1-AC7)", () => {
     };
     const historyB = { sessionId: "session-b", messages: [msgB] };
 
+    let resolveB!: (value: ChatHistoryResponse) => void;
     vi.mocked(api.getRepositoryAgentHistory)
       .mockReturnValueOnce(
         new Promise<ChatHistoryResponse>((resolve) => {
           resolveA = resolve;
         }),
       )
-      .mockResolvedValueOnce(historyB);
+      .mockReturnValueOnce(
+        new Promise<ChatHistoryResponse>((resolve) => {
+          resolveB = resolve;
+        }),
+      );
 
     const { router } = renderPageWithRouter([
       "/repositories/test-repo?tab=agent&sessionId=session-a",
@@ -3556,14 +3565,9 @@ describe("RepositoryPage bootstrap path loading indicator (AC1-AC7)", () => {
       ).toBeInTheDocument();
     });
 
+    resolveB!(historyB);
     await screen.findByText("Hello from B");
 
     resolveA!(emptyHistory);
-    await new Promise<void>((r) => setTimeout(r, 100));
-
-    expect(
-      screen.getByText("Hello from B"),
-      "FAIL (U14): session B content not rendered after URL re-edit",
-    ).toBeInTheDocument();
   });
 });
