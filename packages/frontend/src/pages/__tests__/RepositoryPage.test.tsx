@@ -268,9 +268,13 @@ describe("RepositoryPage session selection", () => {
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
 
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(screen.getByText("Loading session...")).toBeInTheDocument();
 
     resolveB(historyB);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading session...")).not.toBeInTheDocument();
+    });
 
     expect(await screen.findByText("Hello from B")).toBeInTheDocument();
   });
@@ -306,12 +310,16 @@ describe("RepositoryPage session selection", () => {
     fireEvent.click(screen.getByTitle("Session B"));
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(screen.getByText("Loading session...")).toBeInTheDocument();
 
     rejectB!(new Error("Fetch failed"));
 
     await waitFor(() => {
       expect(screen.getByText("Fetch failed")).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading session...")).not.toBeInTheDocument();
     });
 
     expect(document.querySelector(".empty")).toBeInTheDocument();
@@ -349,14 +357,94 @@ describe("RepositoryPage session selection", () => {
     fireEvent.click(screen.getByTitle("Session B"));
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(screen.getByText("Loading session...")).toBeInTheDocument();
 
     resolveB!({ sessionId: "session-b", messages: [] });
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading session...")).not.toBeInTheDocument();
+    });
 
     expect(document.querySelector(".empty")).toBeInTheDocument();
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
     expect(document.querySelectorAll(".alert").length).toBe(0);
+  });
+
+  it("adversarial: rapid triple session switch A\u2192B\u2192C shows loading for C only", async () => {
+    const msgC: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from C",
+      timestamp: "2026-01-03T00:00:00Z",
+    };
+    const historyC = { sessionId: "session-c", messages: [msgC] };
+
+    const sessionC: ChatSession = {
+      id: "session-c",
+      title: "Session C",
+      updated: "2026-01-03",
+    };
+
+    let resolveA: (value: ChatHistoryResponse) => void;
+    let resolveC: (value: ChatHistoryResponse) => void;
+    const deferredA = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveA = resolve;
+    });
+    const deferredC = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveC = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB, sessionC],
+    });
+    // All calls are deferred
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockReturnValueOnce(deferredA)
+      .mockReturnValueOnce(new Promise<ChatHistoryResponse>(() => {}))
+      .mockReturnValueOnce(deferredC);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session C"));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (triple-switch): loading not visible for third switch",
+      ).toBeInTheDocument();
+    });
+
+    resolveA!({ sessionId: "session-a", messages: [] });
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (triple-switch): loading cleared after stale first fetch — signal?.aborted guard missing in syncChatHistory",
+    ).toBeInTheDocument();
+
+    resolveC!(historyC);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (triple-switch): loading not cleared after third fetch resolved",
+      ).not.toBeInTheDocument();
+    });
+
+    expect(
+      await screen.findByText("Hello from C"),
+      "FAIL (triple-switch): session C messages not shown after loading cleared",
+    ).toBeInTheDocument();
   });
 });
 
