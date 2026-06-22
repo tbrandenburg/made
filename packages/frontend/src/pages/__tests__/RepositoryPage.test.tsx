@@ -3144,3 +3144,430 @@ describe("RepositoryPage session loading indicator (AC1-AC10)", () => {
     expect(true).toBe(true);
   });
 });
+
+// ── AC1-AC7: bootstrap path loading indicator (Issue #522) ─────────────
+
+describe("RepositoryPage bootstrap path loading indicator (AC1-AC7)", () => {
+  const sessionStorageKey = "repository-session-test-repo-opencode";
+  const historyWithMessages: ChatHistoryResponse = {
+    sessionId: "session-b",
+    messages: [
+      {
+        role: "assistant",
+        type: "text",
+        content: "Hello from bootstrap",
+        timestamp: "2026-01-01T00:00:00Z",
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({ processing: false });
+  });
+
+  // ── U1 (AC1): ?sessionId=X → loading visible ─────────────────────────
+
+  it("U1 (AC1): ?sessionId=session-b shows loading indicator on page load", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U1): loading not visible on bootstrap — setSessionLoading(true) missing in switchSessionIfNeeded",
+      ).toBeInTheDocument();
+    });
+
+    resolveFetch!(emptyHistory);
+  });
+
+  // ── U2 (AC1): .empty absent during AC1 loading ──────────────────────
+
+  it("U2 (AC1): .empty state not visible during bootstrap loading", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U2): loading not visible — cannot assert .empty priority without loading",
+      ).toBeInTheDocument();
+    });
+
+    expect(
+      document.querySelector(".empty"),
+      "FAIL (U2): .empty visible during bootstrap loading — sessionLoading should take priority",
+    ).not.toBeInTheDocument();
+
+    resolveFetch!(emptyHistory);
+  });
+
+  // ── U3 (AC2): persisted session → loading visible ──────────────────
+
+  it("U3 (AC2): persisted session in localStorage shows loading on page load (no URL param)", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    localStorage.setItem(sessionStorageKey, "session-b");
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U3): loading not visible on reload with persisted session — setSessionLoading(true) missing in sync effect",
+      ).toBeInTheDocument();
+    });
+
+    resolveFetch!(emptyHistory);
+  });
+
+  // ── U4 (AC2): .empty absent during AC2 loading ──────────────────────
+
+  it("U4 (AC2): .empty state not visible during persisted-session loading", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    localStorage.setItem(sessionStorageKey, "session-b");
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U4): loading not visible for persisted session — cannot assert .empty priority",
+      ).toBeInTheDocument();
+    });
+
+    expect(
+      document.querySelector(".empty"),
+      "FAIL (U4): .empty visible during persisted-session loading",
+    ).not.toBeInTheDocument();
+
+    resolveFetch!(emptyHistory);
+  });
+
+  // ── U5 (AC3): fetch resolves with messages → loading clears ────────
+
+  it("U5 (AC3): bootstrap fetch resolves with messages — loading clears, messages rendered", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U5): loading not visible before fetch resolves",
+      ).toBeInTheDocument();
+    });
+
+    resolveFetch!(historyWithMessages);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U5): loading persisted after fetch resolved — clearSessionLoading not reached",
+      ).not.toBeInTheDocument();
+    });
+
+    expect(
+      await screen.findByText("Hello from bootstrap"),
+      "FAIL (U5): messages not rendered after loading cleared",
+    ).toBeInTheDocument();
+  });
+
+  // ── U6 (AC4): fetch resolves empty → loading clears, .empty shown ──
+
+  it("U6 (AC4): bootstrap fetch resolves empty — loading clears, .empty shown", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U6): loading not visible before empty fetch resolves",
+      ).toBeInTheDocument();
+    });
+
+    resolveFetch!({ sessionId: "session-b", messages: [] });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U6): loading persisted after empty fetch resolved",
+      ).not.toBeInTheDocument();
+    });
+
+    expect(
+      document.querySelector(".empty"),
+      "FAIL (U6): .empty not shown after loading cleared",
+    ).toBeInTheDocument();
+    expect(
+      document.querySelectorAll(".alert").length,
+      "FAIL (U6): alert shown instead of empty state for empty history",
+    ).toBe(0);
+  });
+
+  // ── U7 (AC5): fetch rejects → loading clears, .alert shows ─────────
+
+  it("U7 (AC5): bootstrap fetch rejects — loading clears, error shown", async () => {
+    let rejectFetch!: (reason: Error) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((_, reject) => {
+        rejectFetch = reject;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U7): loading not visible before fetch rejection",
+      ).toBeInTheDocument();
+    });
+
+    rejectFetch!(new Error("Bootstrap fetch failed"));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U7): loading persisted after fetch rejection",
+      ).not.toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText("Bootstrap fetch failed"),
+      "FAIL (U7): error message not shown after fetch rejection",
+    ).toBeInTheDocument();
+  });
+
+  // ── U9 (AC7): exactly 1 fetch when processing: false ───────────────
+
+  it("U9 (AC7): exactly one history fetch per bootstrap when processing: false", async () => {
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentHistory,
+        "FAIL (U9): history fetch not dispatched on bootstrap",
+      ).toHaveBeenCalled();
+    });
+
+    expect(
+      api.getRepositoryAgentHistory,
+      "FAIL (U9): more than 1 history fetch per bootstrap — guard missing",
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  // ── U10 (AC7): max 2 fetches when processing: true ─────────────────
+
+  it("U10 (AC7): max 2 history fetches when processing: true", async () => {
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({ processing: true });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      const callCount = api.getRepositoryAgentHistory.mock.calls.length;
+      expect(
+        callCount,
+        "FAIL (U10): more than 2 history fetches when processing is true",
+      ).toBeLessThanOrEqual(2);
+      if (callCount === 0) {
+        throw new Error("U10: no fetch dispatched yet");
+      }
+    });
+  });
+
+  // ── U11 (AC1-AC5 concurrent): unmount during pending bootstrap ────
+
+  it("U11 (concurrent): unmount during pending bootstrap fetch does not cause errors", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    const { unmount } = renderPage([
+      "/repositories/test-repo?tab=agent&sessionId=session-b",
+    ]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U11): loading not visible before unmount",
+      ).toBeInTheDocument();
+    });
+
+    unmount();
+
+    expect(
+      () => resolveFetch!(emptyHistory),
+      "FAIL (U11): resolve after unmount threw — setSessionLoading called on unmounted component",
+    ).not.toThrow();
+
+    await new Promise<void>((r) => setTimeout(r, 100));
+  });
+
+  // ── U12 (AC6 concurrent): picker switch during pending bootstrap ──
+
+  it("U12 (concurrent): picker switch during pending bootstrap shows second loading", async () => {
+    let resolveBootstrap!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveBootstrap = resolve;
+      }),
+    );
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U12): bootstrap loading not visible before picker switch",
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U12): loading not visible after picker switch during bootstrap",
+      ).toBeInTheDocument();
+    });
+
+    resolveBootstrap!(emptyHistory);
+  });
+
+  // ── U13 (AC3-AC5 concurrent): clear session during pending fetch ──
+
+  it("U13 (concurrent): clear session during pending bootstrap preempts loading", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U13): loading not visible before clear",
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Clear session"));
+    fireEvent.click(await screen.findByRole("button", { name: /^no$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U13): loading persisted after clearSessionOnly",
+      ).not.toBeInTheDocument();
+    });
+
+    resolveFetch!(emptyHistory);
+  });
+
+  // ── U14 (AC1/AC3 concurrent): URL re-edit ?sessionId=A→B ──────────
+
+  function renderPageWithRouter(initialEntries = ["/repositories/test-repo?tab=agent"]) {
+    const router = createMemoryRouter(
+      [{ path: "/repositories/:name/*", element: <RepositoryPage /> }],
+      { initialEntries },
+    );
+    const result = render(<RouterProvider router={router} />);
+    return { router, ...result };
+  }
+
+  it("U14 (concurrent): URL re-edit from ?sessionId=A to ?sessionId=B shows B's content", async () => {
+    let resolveA!: (value: ChatHistoryResponse) => void;
+    const msgB: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const historyB = { sessionId: "session-b", messages: [msgB] };
+
+    let resolveB!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockReturnValueOnce(
+        new Promise<ChatHistoryResponse>((resolve) => {
+          resolveA = resolve;
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise<ChatHistoryResponse>((resolve) => {
+          resolveB = resolve;
+        }),
+      );
+
+    const { router } = renderPageWithRouter([
+      "/repositories/test-repo?tab=agent&sessionId=session-a",
+    ]);
+
+    await router.navigate(
+      "/repositories/test-repo?tab=agent&sessionId=session-b",
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U14): loading not visible after URL re-edit from A to B",
+      ).toBeInTheDocument();
+    });
+
+    resolveB!(historyB);
+    await screen.findByText("Hello from B");
+
+    resolveA!(emptyHistory);
+  });
+});

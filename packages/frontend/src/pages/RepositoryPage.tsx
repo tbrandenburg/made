@@ -608,6 +608,7 @@ export const RepositoryPage: React.FC = () => {
         return;
       }
       setChatError(null);
+      setSessionLoading(true);
       setSessionId(incomingSessionId);
       setChat([]);
       sendRequestIdRef.current += 1;
@@ -1233,6 +1234,7 @@ export const RepositoryPage: React.FC = () => {
 
   useEffect(() => {
     if (chatAgentProcessing || !name || !sessionId) return;
+    setSessionLoading(true);
     const controller = new AbortController();
     syncChatHistory(controller.signal);
     return () => controller.abort(); // No argument — preserves DOMException('AbortError') shape
@@ -1376,6 +1378,7 @@ export const RepositoryPage: React.FC = () => {
   const handleClearSessionOnly = () => {
     sendRequestIdRef.current += 1;
     setSessionId(null);
+    clearSessionLoading();
     setChatAgentProcessing(false);
     setChatError(null);
     setPendingPrompt(lastSentPromptRef.current);
@@ -1387,6 +1390,7 @@ export const RepositoryPage: React.FC = () => {
   const handleClearSessionAndHistory = () => {
     sendRequestIdRef.current += 1;
     setSessionId(null);
+    clearSessionLoading();
     setChatAgentProcessing(false);
     setChatError(null);
     setPendingPrompt(lastSentPromptRef.current);
