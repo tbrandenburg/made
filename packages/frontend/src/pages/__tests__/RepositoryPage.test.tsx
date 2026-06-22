@@ -3168,8 +3168,12 @@ describe("RepositoryPage bootstrap path loading indicator (AC1-AC7)", () => {
     localStorage.clear();
     sessionStorage.clear();
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
-    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({ sessions: [] });
-    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({ processing: false });
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [],
+    });
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+    });
   });
 
   // ── U1 (AC1): ?sessionId=X → loading visible ─────────────────────────
@@ -3401,7 +3405,9 @@ describe("RepositoryPage bootstrap path loading indicator (AC1-AC7)", () => {
   // ── U10 (AC7): max 2 fetches when processing: true ─────────────────
 
   it("U10 (AC7): max 2 history fetches when processing: true", async () => {
-    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({ processing: true });
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+    });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
 
@@ -3518,7 +3524,9 @@ describe("RepositoryPage bootstrap path loading indicator (AC1-AC7)", () => {
 
   // ── U14 (AC1/AC3 concurrent): URL re-edit ?sessionId=A→B ──────────
 
-  function renderPageWithRouter(initialEntries = ["/repositories/test-repo?tab=agent"]) {
+  function renderPageWithRouter(
+    initialEntries = ["/repositories/test-repo?tab=agent"],
+  ) {
     const router = createMemoryRouter(
       [{ path: "/repositories/:name/*", element: <RepositoryPage /> }],
       { initialEntries },

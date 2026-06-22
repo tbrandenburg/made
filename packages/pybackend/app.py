@@ -843,7 +843,8 @@ def generate_repository_workflow_harnesses(name: str, payload: dict = Body(...))
         _repository_path(name)
         logger.info("Generating harnesses for repository workflows: %s", name)
         written = generate_workflow_harnesses(payload, get_workspace_home() / name)
-        return {"written": written}
+        cron_status = refresh_cron_clock()
+        return {"written": written, "cron": cron_status}
     except WorkflowParseError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
@@ -910,7 +911,8 @@ def generate_global_workflow_harnesses(payload: dict = Body(...)):
     try:
         logger.info("Generating harnesses for global workflows")
         written = generate_workflow_harnesses(payload, get_made_home())
-        return {"written": written}
+        cron_status = refresh_cron_clock()
+        return {"written": written, "cron": cron_status}
     except WorkflowParseError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)

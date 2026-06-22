@@ -1477,6 +1477,71 @@ class TestWorkflowEndpoints:
         assert response.status_code == 500
         assert "Cron refresh failed" in response.json()["detail"]
 
+    @patch("app.refresh_cron_clock")
+    @patch("app._repository_path")
+    @patch("app.generate_workflow_harnesses")
+    def test_generate_repository_workflow_harnesses_success(self, mock_generate, mock_repo_path, mock_refresh):
+        mock_repo_path.return_value = "/tmp/sample"
+        mock_generate.return_value = [".harness/test.sh"]
+        mock_refresh.return_value = {"running": True, "configuredJobs": 1}
+
+        response = client.post(
+            "/api/repositories/sample/workflows/generate-harnesses",
+            json={"workflows": []},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"written": [".harness/test.sh"], "cron": {"running": True, "configuredJobs": 1}}
+        mock_refresh.assert_called_once_with()
+
+    @patch("app._repository_path")
+    @patch("app.generate_workflow_harnesses")
+    def test_generate_repository_workflow_harnesses_validation_error(self, mock_generate, mock_repo_path):
+        from workflow_harness_service import WorkflowParseError
+
+        mock_repo_path.return_value = "/tmp/sample"
+        mock_generate.side_effect = WorkflowParseError("bad payload")
+
+        response = client.post(
+            "/api/repositories/sample/workflows/generate-harnesses",
+            json={"workflows": []},
+        )
+
+        assert response.status_code == 400
+
+    @patch("app.refresh_cron_clock")
+    @patch("app.get_made_home")
+    @patch("app.generate_workflow_harnesses")
+    def test_generate_global_workflow_harnesses_success(
+        self, mock_generate, mock_made_home, mock_refresh
+    ):
+        mock_made_home.return_value = Path("/tmp/made")
+        mock_generate.return_value = [".harness/test.sh"]
+        mock_refresh.return_value = {"running": True, "configuredJobs": 1}
+
+        response = client.post(
+            "/api/workflows/generate-harnesses",
+            json={"workflows": []},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"written": [".harness/test.sh"], "cron": {"running": True, "configuredJobs": 1}}
+        mock_generate.assert_called_once_with({"workflows": []}, Path("/tmp/made"))
+        mock_refresh.assert_called_once_with()
+
+    @patch("app.generate_workflow_harnesses")
+    def test_generate_global_workflow_harnesses_validation_error(self, mock_generate):
+        from workflow_harness_service import WorkflowParseError
+
+        mock_generate.side_effect = WorkflowParseError("bad payload")
+
+        response = client.post(
+            "/api/workflows/generate-harnesses",
+            json={"workflows": []},
+        )
+
+        assert response.status_code == 400
+
 
 class TestVersionEndpoint:
     """Test the /api/version endpoint."""
@@ -1499,61 +1564,3 @@ class TestVersionEndpoint:
         assert "commit_sha" in data
         assert "build_date" in data
         assert "environment" in data
-    @patch("app._repository_path")
-    @patch("app.generate_workflow_harnesses")
-    def test_generate_repository_workflow_harnesses_success(self, mock_generate, mock_repo_path):
-        mock_repo_path.return_value = "/tmp/sample"
-        mock_generate.return_value = [".harness/test.sh"]
-
-        response = client.post(
-            "/api/repositories/sample/workflows/generate-harnesses",
-            json={"workflows": []},
-        )
-
-        assert response.status_code == 200
-        assert response.json() == {"written": [".harness/test.sh"]}
-
-    @patch("app._repository_path")
-    @patch("app.generate_workflow_harnesses")
-    def test_generate_repository_workflow_harnesses_validation_error(self, mock_generate, mock_repo_path):
-        from workflow_harness_service import WorkflowParseError
-
-        mock_repo_path.return_value = "/tmp/sample"
-        mock_generate.side_effect = WorkflowParseError("bad payload")
-
-        response = client.post(
-            "/api/repositories/sample/workflows/generate-harnesses",
-            json={"workflows": []},
-        )
-
-        assert response.status_code == 400
-
-    @patch("app.get_made_home")
-    @patch("app.generate_workflow_harnesses")
-    def test_generate_global_workflow_harnesses_success(
-        self, mock_generate, mock_made_home
-    ):
-        mock_made_home.return_value = Path("/tmp/made")
-        mock_generate.return_value = [".harness/test.sh"]
-
-        response = client.post(
-            "/api/workflows/generate-harnesses",
-            json={"workflows": []},
-        )
-
-        assert response.status_code == 200
-        assert response.json() == {"written": [".harness/test.sh"]}
-        mock_generate.assert_called_once_with({"workflows": []}, Path("/tmp/made"))
-
-    @patch("app.generate_workflow_harnesses")
-    def test_generate_global_workflow_harnesses_validation_error(self, mock_generate):
-        from workflow_harness_service import WorkflowParseError
-
-        mock_generate.side_effect = WorkflowParseError("bad payload")
-
-        response = client.post(
-            "/api/workflows/generate-harnesses",
-            json={"workflows": []},
-        )
-
-        assert response.status_code == 400
