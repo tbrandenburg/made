@@ -110,47 +110,43 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.1.0
 
-      - name: Setup and Install OpenCode
+      - name: Cache OpenCode binary
+        id: cache-opencode
+        uses: actions/cache@v4
+        with:
+          path: ~/.opencode/bin
+          key: opencode-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Add OpenCode to PATH
+        run: echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
+
+      - name: Install OpenCode
+        if: steps.cache-opencode.outputs.cache-hit != 'true'
         run: |
-          # Add OpenCode to PATH first
-          echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
+          echo "System information:"
+          echo "OS: $(uname -s)"
+          echo "Arch: $(uname -m)"
+          echo "Install URL: ${{ env.OPENCODE_INSTALL_URL }}"
 
-          # Check if OpenCode is already installed and working
-          if command -v opencode >/dev/null 2>&1 \
-            && opencode --version >/dev/null 2>&1; then
-            echo "OpenCode is already installed and working"
-            opencode --version
-          else
-            echo "OpenCode not found or not working, installing..."
-
-            # Add debug information
-            echo "System information:"
-            echo "OS: $(uname -s)"
-            echo "Arch: $(uname -m)"
-            echo "Install URL: ${{ env.OPENCODE_INSTALL_URL }}"
-
-            # Install with better error handling
-            if ! curl -fsSL "${{ env.OPENCODE_INSTALL_URL }}" | bash; then
-              echo "WARNING: Latest OpenCode installation failed (GitHub API unreachable?)."
-              echo "Falling back to pinned version 1.14.40."
-              if ! curl -fsSL "${{ env.OPENCODE_INSTALL_URL }}" | bash -s -- --version 1.14.40; then
-                echo "ERROR: Pinned fallback installation also failed"
-                exit 1
-              fi
-            fi
-
-            echo "OpenCode installation completed"
-
-            # Verify installation with better error reporting
-            if ! env -i \
-              PATH="$HOME/.opencode/bin:$PATH" \
-              HOME="$HOME" \
-              opencode --version; then
-              echo "ERROR: OpenCode installation verification failed"
-              echo "Checking installation directory:"
-              ls -la "$HOME/.opencode/bin/" || echo "Installation directory not found"
+          if ! curl -fsSL "${{ env.OPENCODE_INSTALL_URL }}" | bash; then
+            echo "WARNING: Latest OpenCode installation failed (GitHub API unreachable?)."
+            echo "Falling back to pinned version 1.17.9."
+            if ! curl -fsSL "${{ env.OPENCODE_INSTALL_URL }}" | bash -s -- --version 1.17.9; then
+              echo "ERROR: Pinned fallback installation also failed"
               exit 1
             fi
+          fi
+
+          echo "OpenCode installation completed"
+
+          if ! env -i \
+            PATH="$HOME/.opencode/bin:$PATH" \
+            HOME="$HOME" \
+            opencode --version; then
+            echo "ERROR: OpenCode installation verification failed"
+            echo "Checking installation directory:"
+            ls -la "$HOME/.opencode/bin/" || echo "Installation directory not found"
+            exit 1
           fi
 
       - name: Run OpenCode ${{ inputs.run-name }}
