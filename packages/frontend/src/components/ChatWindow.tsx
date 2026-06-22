@@ -21,6 +21,7 @@ interface ChatWindowProps {
   chatWindowRef?: React.RefObject<ChatWindowHandle>;
   agentProcessing: boolean;
   refreshing?: boolean;
+  sessionLoading?: boolean;
   emptyMessage: string;
   sessionId?: string | null;
   onClearSession?: () => void;
@@ -129,6 +130,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
     chatWindowRef,
     agentProcessing,
     refreshing,
+    sessionLoading,
     emptyMessage,
     sessionId,
     onClearSession,
@@ -216,7 +218,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
                       <span>Refreshing...</span>
                     </div>
                   )}
-                  {!refreshing && agentProcessing && (
+                  {!refreshing && sessionLoading && (
+                    <div className="loading-indicator">
+                      <div className="loading-spinner"></div>
+                      <span>Loading session...</span>
+                    </div>
+                  )}
+                  {!refreshing && !sessionLoading && agentProcessing && (
                     <div className="loading-indicator">
                       <div className="loading-spinner"></div>
                       <span>Agent is thinking...</span>
@@ -267,15 +275,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
             <span>Refreshing...</span>
           </div>
         )}
-        {chat.length === 0 && !refreshing && agentProcessing && (
+        {chat.length === 0 && !refreshing && sessionLoading && (
           <div className="loading-indicator">
             <div className="loading-spinner"></div>
-            <span>Agent is thinking...</span>
+            <span>Loading session...</span>
           </div>
         )}
-        {chat.length === 0 && !refreshing && !agentProcessing && (
-          <div className="empty">{emptyMessage}</div>
-        )}
+        {chat.length === 0 &&
+          !refreshing &&
+          !sessionLoading &&
+          agentProcessing && (
+            <div className="loading-indicator">
+              <div className="loading-spinner"></div>
+              <span>Agent is thinking...</span>
+            </div>
+          )}
+        {chat.length === 0 &&
+          !refreshing &&
+          !sessionLoading &&
+          !agentProcessing && <div className="empty">{emptyMessage}</div>}
         {chat.length === 0 && sessionId && (
           <div className="chat-session-id" aria-label="Session ID">
             <span>Session ID: {sessionId}</span>

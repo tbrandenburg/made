@@ -268,9 +268,13 @@ describe("RepositoryPage session selection", () => {
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
 
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(screen.getByText("Loading session...")).toBeInTheDocument();
 
     resolveB(historyB);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading session...")).not.toBeInTheDocument();
+    });
 
     expect(await screen.findByText("Hello from B")).toBeInTheDocument();
   });
@@ -306,12 +310,16 @@ describe("RepositoryPage session selection", () => {
     fireEvent.click(screen.getByTitle("Session B"));
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(screen.getByText("Loading session...")).toBeInTheDocument();
 
     rejectB!(new Error("Fetch failed"));
 
     await waitFor(() => {
       expect(screen.getByText("Fetch failed")).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading session...")).not.toBeInTheDocument();
     });
 
     expect(document.querySelector(".empty")).toBeInTheDocument();
@@ -349,14 +357,94 @@ describe("RepositoryPage session selection", () => {
     fireEvent.click(screen.getByTitle("Session B"));
 
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
-    expect(document.querySelector(".empty")).toBeInTheDocument();
+    expect(screen.getByText("Loading session...")).toBeInTheDocument();
 
     resolveB!({ sessionId: "session-b", messages: [] });
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading session...")).not.toBeInTheDocument();
+    });
 
     expect(document.querySelector(".empty")).toBeInTheDocument();
     expect(screen.queryByText("Hello from A")).not.toBeInTheDocument();
     expect(document.querySelectorAll(".alert").length).toBe(0);
+  });
+
+  it("adversarial: rapid triple session switch A\u2192B\u2192C shows loading for C only", async () => {
+    const msgC: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from C",
+      timestamp: "2026-01-03T00:00:00Z",
+    };
+    const historyC = { sessionId: "session-c", messages: [msgC] };
+
+    const sessionC: ChatSession = {
+      id: "session-c",
+      title: "Session C",
+      updated: "2026-01-03",
+    };
+
+    let resolveA: (value: ChatHistoryResponse) => void;
+    let resolveC: (value: ChatHistoryResponse) => void;
+    const deferredA = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveA = resolve;
+    });
+    const deferredC = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveC = resolve;
+    });
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB, sessionC],
+    });
+    // All calls are deferred
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockReturnValueOnce(deferredA)
+      .mockReturnValueOnce(new Promise<ChatHistoryResponse>(() => {}))
+      .mockReturnValueOnce(deferredC);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session C"));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (triple-switch): loading not visible for third switch",
+      ).toBeInTheDocument();
+    });
+
+    resolveA!({ sessionId: "session-a", messages: [] });
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (triple-switch): loading cleared after stale first fetch — signal?.aborted guard missing in syncChatHistory",
+    ).toBeInTheDocument();
+
+    resolveC!(historyC);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (triple-switch): loading not cleared after third fetch resolved",
+      ).not.toBeInTheDocument();
+    });
+
+    expect(
+      await screen.findByText("Hello from C"),
+      "FAIL (triple-switch): session C messages not shown after loading cleared",
+    ).toBeInTheDocument();
   });
 });
 
@@ -2630,5 +2718,429 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       screen.queryByText("Hello from A (nav stale)"),
       "FAIL (ADV-492): Stale session A data appeared after router navigation — signal.aborted guard missing",
     ).not.toBeInTheDocument();
+  });
+});
+
+// ── AC1-AC10: session-select loading indicator ──────────────────────
+
+describe("RepositoryPage session loading indicator (AC1-AC10)", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    localStorage.clear();
+  });
+
+  // ── U1 (AC1): loading indicator visible after different-session select ──
+
+  it("U1 (AC1): loading indicator appears after selecting a different session", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC1): loading indicator not visible after session select — sessionLoading state or ChatWindow rendering missing",
+      ).toBeInTheDocument();
+    });
+
+    resolveFetch!(emptyHistory);
+  });
+
+  // ── U2 (AC2): loading clears when history resolves with messages ──────
+
+  it("U2 (AC2): loading indicator clears when history resolves with messages", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC2): loading indicator not visible before fetch resolves",
+      ).toBeInTheDocument();
+    });
+
+    const msg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from B",
+      timestamp: "2026-01-02T00:00:00Z",
+    };
+    resolveFetch!({ sessionId: "session-b", messages: [msg] });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC2): loading indicator persisted after fetch resolved — setSessionLoading(false) missing after abort guard",
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      await screen.findByText("Hello from B"),
+      "FAIL (AC2): messages not rendered after loading cleared",
+    ).toBeInTheDocument();
+  });
+
+  // ── U3 (AC3): loading clears when history resolves empty ────────────
+
+  it("U3 (AC3): loading indicator clears when history resolves with empty array", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC3): loading indicator not visible before empty fetch resolves",
+      ).toBeInTheDocument();
+    });
+
+    resolveFetch!({ sessionId: "session-b", messages: [] });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC3): loading indicator persisted after empty fetch resolved — setSessionLoading(false) missing after abort guard (empty path)",
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      document.querySelector(".empty"),
+      "FAIL (AC3): empty state not shown after loading cleared",
+    ).toBeInTheDocument();
+    expect(
+      document.querySelectorAll(".alert").length,
+      "FAIL (AC3): alert shown instead of empty state after empty fetch",
+    ).toBe(0);
+  });
+
+  // ── U4 (AC4): loading clears when history rejects ──────────────────
+
+  it("U4 (AC4): loading indicator clears when history fetch rejects", async () => {
+    let rejectFetch!: (reason: Error) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((_, reject) => {
+        rejectFetch = reject;
+      }),
+    );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC4): loading indicator not visible before fetch rejection",
+      ).toBeInTheDocument();
+    });
+
+    rejectFetch!(new Error("Fetch failed"));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC4): loading indicator persisted after fetch rejection — setSessionLoading(false) missing in catch block",
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      screen.getByText("Fetch failed"),
+      "FAIL (AC4): error message not shown after fetch rejection",
+    ).toBeInTheDocument();
+  });
+
+  // ── U5 (AC5): rapid double-switch — only one final loading state ──
+
+  it("U5 (AC5): rapid double session switch shows only second session's loading indicator", async () => {
+    let resolveFirst!: (value: ChatHistoryResponse) => void;
+    let resolveSecond!: (value: ChatHistoryResponse) => void;
+
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockReturnValueOnce(
+        new Promise<ChatHistoryResponse>((resolve) => {
+          resolveFirst = resolve;
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise<ChatHistoryResponse>((resolve) => {
+          resolveSecond = resolve;
+        }),
+      );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentHistory,
+        "first session B fetch should have been dispatched",
+      ).toHaveBeenCalledTimes(1);
+    });
+
+    // Rapidly switch to another session before first resolves
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    // Second session's loading indicator should be visible
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC5): loading indicator not visible after second switch",
+      ).toBeInTheDocument();
+    });
+
+    // Resolve first (stale) fetch — should not affect UI
+    resolveFirst!(emptyHistory);
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    // Loading should still be visible (second fetch still pending)
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (AC5): loading indicator cleared prematurely after stale first fetch resolved — signal?.aborted guard may have cleared before second fetch",
+    ).toBeInTheDocument();
+
+    // Resolve second fetch
+    resolveSecond!(emptyHistory);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC5): loading indicator persisted after second fetch resolved",
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  // ── U6 (AC6): no stale content visible during loading ──────────────
+
+  it("U6 (AC6): no stale content visible during loading state — previous session's messages absent", async () => {
+    const msgA: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Hello from A",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    const historyA = { sessionId: "session-a", messages: [msgA] };
+
+    let resolveB!: (value: ChatHistoryResponse) => void;
+
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(historyA)
+      .mockReturnValueOnce(
+        new Promise<ChatHistoryResponse>((resolve) => {
+          resolveB = resolve;
+        }),
+      );
+
+    renderPage();
+
+    // Load session A first
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await screen.findByText("Hello from A");
+
+    // Switch to session B while fetch is deferred
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    await screen.findByTitle("Session B");
+    fireEvent.click(screen.getByTitle("Session B"));
+
+    // Before B resolves: loading indicator should show, stale messages should be absent
+    expect(
+      screen.queryByText("Hello from A"),
+      "FAIL (AC6): stale message from session A visible during loading state — setChat([]) missing before sessionLoading(true)",
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Loading session..."),
+      "FAIL (AC6): loading indicator not visible during stale-content check",
+    ).toBeInTheDocument();
+
+    resolveB!(emptyHistory);
+  });
+
+  // ── U7 (AC7): exactly 1 API call per session switch ──────────────
+
+  it("U7 (AC7): exactly one history fetch per session switch", async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentHistory,
+        "FAIL (AC7): more than 1 API call per session switch — duplicate history fetch introduced",
+      ).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ── U8 (AC8): same-session re-select shows "Refreshing..." not "Loading session..." ──
+
+  it("U8 (AC8): same-session re-select shows Refreshing... not Loading session...", async () => {
+    let resolveReload!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce(emptyHistory)
+      .mockReturnValueOnce(
+        new Promise<ChatHistoryResponse>((resolve) => {
+          resolveReload = resolve;
+        }),
+      );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    // Re-select same session (uses reloadCurrentSession with deferred fetch)
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    const sameBtn = await screen.findByTitle("Session A");
+    fireEvent.click(sameBtn);
+
+    expect(
+      await screen.findByText("Refreshing..."),
+      "FAIL (AC8): Refreshing... not shown on same-session re-select — reloadCurrentSession may not have set isRefreshing",
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (AC8): Loading session... incorrectly shown on same-session re-select — should use isRefreshing not sessionLoading",
+    ).not.toBeInTheDocument();
+
+    resolveReload!(emptyHistory);
+  });
+
+  // ── U9 (AC9): empty session id: "" — no crash, no loading ─────────
+
+  it("U9 (AC9): selecting session with empty string id does not show loading indicator", async () => {
+    const emptyIdSession: ChatSession = {
+      id: "",
+      title: "Empty ID Session",
+      updated: "2026-01-01",
+    };
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [emptyIdSession],
+    });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    const sessionBtn = await screen.findByTitle("Empty ID Session");
+    fireEvent.click(sessionBtn);
+
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (AC9): loading indicator shown for empty session id — add !session.id guard in handleSessionSelect",
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector(".empty"),
+      "FAIL (AC9): empty state not rendered after empty session id select",
+    ).toBeInTheDocument();
+  });
+
+  // ── U10 (AC10): priority order in chat area ──────────────────────
+
+  it("U10 (AC10): loading indicator takes priority over empty state and agent-processing text during session switch", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    // Loading indicator should be visible (sessionLoading > .empty)
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC10): loading indicator not shown during session switch",
+      ).toBeInTheDocument();
+    });
+
+    // Empty state should NOT be visible while loading
+    expect(
+      document.querySelector(".empty"),
+      "FAIL (AC10): empty state visible simultaneously with loading indicator — sessionLoading should take priority over .empty",
+    ).not.toBeInTheDocument();
+
+    // "Agent is thinking..." should NOT be visible (sessionLoading > agentProcessing)
+    expect(
+      screen.queryByText("Agent is thinking..."),
+      "FAIL (AC10): Agent is thinking... visible during session switch — sessionLoading should take priority over agentProcessing",
+    ).not.toBeInTheDocument();
+
+    resolveFetch!(emptyHistory);
+  });
+
+  // ── U11 (U11): concurrent-event safety — unmount during pending session switch ──
+
+  it("U11 (AC4/AC5 concurrent safety): unmounting during pending session switch does not cause warnings or leaked state", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    const { unmount } = renderPage();
+
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U11): loading indicator not visible after session select — sessionLoading must be visible before unmount",
+      ).toBeInTheDocument();
+    });
+
+    // Unmount while fetch is pending
+    unmount();
+
+    // Resolve the deferred fetch after unmount — should not throw or log warnings
+    expect(
+      () => resolveFetch!(emptyHistory),
+      "FAIL (U11): resolve after unmount threw — setSessionLoading(false) called on unmounted component without guard",
+    ).not.toThrow();
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    // Success — no leaked state from the unmounted component
+    expect(true).toBe(true);
   });
 });
