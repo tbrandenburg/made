@@ -731,6 +731,7 @@ export const RepositoryPage: React.FC = () => {
   const [loadingFile, setLoadingFile] = useState(false);
   const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
   const [sessionLoading, setSessionLoading] = useState(false);
+  const clearSessionLoading = () => setSessionLoading(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isRefreshingRef = useRef(false);
   const chatInputId = "repository-agent-prompt";
@@ -1202,7 +1203,7 @@ export const RepositoryPage: React.FC = () => {
         );
 
         if (signal?.aborted) return;
-        setSessionLoading(false);
+        clearSessionLoading();
 
         if (!history.messages?.length) {
           console.info("[ChatHistory] Request completed with no new messages");
@@ -1223,7 +1224,7 @@ export const RepositoryPage: React.FC = () => {
           error instanceof Error
             ? error.message
             : "Failed to load chat history";
-        setSessionLoading(false);
+        clearSessionLoading();
         setChatError(message);
       }
     },
