@@ -3741,4 +3741,44 @@ describe("RepositoryPage bootstrap path loading indicator (AC1-AC7)", () => {
       "FAIL (AC6): loading persisted after resolve following clear",
     ).not.toBeInTheDocument();
   });
+
+  // ── U20 (AC6 No path): deferred fetch resolve after clearSessionOnly ──
+
+  it("U20 (AC6): deferred fetch resolve after clearSessionOnly does not restore loading", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U20): loading not visible before clear",
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Clear session"));
+    fireEvent.click(await screen.findByRole("button", { name: /^no$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U20): loading not cleared after clearSessionOnly",
+      ).not.toBeInTheDocument();
+    });
+
+    resolveFetch!(emptyHistory);
+
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (AC6): loading restored after deferred resolve following clearSessionOnly",
+    ).not.toBeInTheDocument();
+  });
+
 });
