@@ -20,6 +20,25 @@ def _workflow_path(repo_name: str | None = None) -> Path:
     return workflow_dir / "workflows.yml"
 
 
+def _workflow_dir(repo_name: str | None = None) -> Path:
+    if repo_name:
+        return ensure_directory(get_workspace_home() / repo_name / ".made")
+    return get_made_directory()
+
+
+def _workflow_paths(repo_name: str | None = None) -> list[Path]:
+    """Return all *.yml files in the .made directory, workflows.yml first."""
+    wf_dir = _workflow_dir(repo_name)
+    if not wf_dir.exists():
+        return []
+    files = sorted(wf_dir.glob("*.yml"))
+    default = wf_dir / "workflows.yml"
+    if default in files:
+        files.remove(default)
+        files.insert(0, default)
+    return files
+
+
 def _as_string(value: Any) -> str | None:
     if isinstance(value, str):
         stripped = value.strip()
@@ -98,6 +117,10 @@ def _normalize_workflow(workflow: Any, index: int) -> dict[str, Any] | None:
     if shell_script_path:
         normalized_workflow["shellScriptPath"] = shell_script_path
 
+    source_file = _as_string(workflow.get("sourceFile"))
+    if source_file:
+        normalized_workflow["sourceFile"] = source_file
+
     max_runtime_minutes = workflow.get("maxRuntimeMinutes")
     if isinstance(max_runtime_minutes, int) and max_runtime_minutes > 0:
         normalized_workflow["maxRuntimeMinutes"] = max_runtime_minutes
@@ -116,24 +139,50 @@ def _normalize_payload(payload: Any) -> dict[str, list[dict[str, Any]]]:
 
 
 def read_workflows(repo_name: str | None = None) -> dict[str, list[dict[str, Any]]]:
-    workflow_file = _workflow_path(repo_name)
-    if not workflow_file.exists():
-        return {"workflows": []}
-
-    data = yaml.safe_load(workflow_file.read_text(encoding="utf-8"))
-    return _normalize_payload(data)
+    all_workflows: list[dict[str, Any]] = []
+    for wf_path in _workflow_paths(repo_name):
+        if not wf_path.exists():
+            continue
+        data = yaml.safe_load(wf_path.read_text(encoding="utf-8"))
+        payload = _normalize_payload(data)
+        for wf in payload.get("workflows", []):
+            wf["sourceFile"] = wf_path.name
+            all_workflows.append(wf)
+    return {"workflows": all_workflows}
 
 
 def write_workflows(
     workflows_payload: dict[str, Any], repo_name: str | None = None
 ) -> dict[str, list[dict[str, Any]]]:
     normalized = _normalize_payload(workflows_payload)
-    workflow_file = _workflow_path(repo_name)
-    ensure_directory(workflow_file.parent)
-    workflow_file.write_text(
-        yaml.safe_dump(normalized, sort_keys=False, allow_unicode=True),
-        encoding="utf-8",
-    )
+
+    # Group by sourceFile; default to "workflows.yml" for backward compat
+    by_file: dict[str, list[dict[str, Any]]] = {}
+    for wf in normalized.get("workflows", []):
+        source = wf.get("sourceFile") or "workflows.yml"
+        by_file.setdefault(source, []).append(wf)
+
+    if not by_file:
+        # Ensure workflows.yml exists even when the list is empty
+        wf_path = _workflow_path(repo_name)
+        ensure_directory(wf_path.parent)
+        wf_path.write_text(
+            yaml.safe_dump({"workflows": []}, sort_keys=False, allow_unicode=True),
+            encoding="utf-8",
+        )
+        return normalized
+
+    wf_dir = _workflow_dir(repo_name)
+    for filename, workflows in by_file.items():
+        wf_path = wf_dir / filename
+        ensure_directory(wf_path.parent)
+        # Strip sourceFile before writing — it is transport metadata, not schema
+        cleaned = [{k: v for k, v in w.items() if k != "sourceFile"} for w in workflows]
+        wf_path.write_text(
+            yaml.safe_dump({"workflows": cleaned}, sort_keys=False, allow_unicode=True),
+            encoding="utf-8",
+        )
+
     return normalized
 
 

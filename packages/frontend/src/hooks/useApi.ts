@@ -332,6 +332,7 @@ export type WorkflowDefinition = {
   enabled: boolean;
   schedule: string | null;
   shellScriptPath?: string;
+  sourceFile?: string;
   steps: WorkflowStep[];
 };
 
