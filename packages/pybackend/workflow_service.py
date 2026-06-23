@@ -162,15 +162,16 @@ _SAFE_FILENAME_RE = re.compile(r'^[a-zA-Z0-9_\-]+\.yml$')
 def _safe_workflow_filename(name: str | None) -> str:
     """Return a sanitized workflow filename, defaulting to workflows.yml.
 
-    Strips path separators (prevents traversal) and enforces the *.yml extension
-    with an allowlist character set.
+    Rejects any input that contains path separators (prevents ../../ traversal)
+    and enforces the *.yml extension with an allowlist character set.
     """
     if not name:
         return "workflows.yml"
-    # Resolve to basename only — prevents ../../ traversal
-    base = Path(name).name
-    if _SAFE_FILENAME_RE.match(base):
-        return base
+    # Reject any input containing path separators — prevents ../../ traversal
+    if "/" in name or "\\" in name:
+        return "workflows.yml"
+    if _SAFE_FILENAME_RE.match(name):
+        return name
     return "workflows.yml"
 
 

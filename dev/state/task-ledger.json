@@ -1,0 +1,35 @@
+{
+  "T-01": {
+    "status": "done",
+    "evidence": [
+      "gh pr checks 534: 'Python Backend Tests with Coverage fail', 'Quality Assurance (Lint + Format + Unit Tests) fail'",
+      "CI log: FAILED tests/unit/test_workflow_service.py::test_safe_workflow_filename_rejects_traversal",
+      "AssertionError: assert 'evil.yml' == 'workflows.yml'",
+      "5xWhy: (1) Test fails because _safe_workflow_filename('../../evil.yml') returns 'evil.yml'. (2) Because Path('../../evil.yml').name == 'evil.yml' and that matches the regex. (3) Because the implementation strips path separators but does not reject inputs that CONTAIN separators. (4) Because the developer did Path(name).name to get basename without first checking whether the raw input had any path components. (5) Because the security intent (reject traversal) was confused with cleanup logic (strip traversal) — the correct behaviour is full rejection, not stripping."
+    ],
+    "last_verified": "2026-06-23T00:00:01Z"
+  },
+  "T-02": {
+    "status": "done",
+    "evidence": [
+      "Fix plan: In workflow_service.py _safe_workflow_filename(), add an explicit check: if '/' or '\\\\' appears anywhere in the raw name string, return 'workflows.yml' immediately, before calling Path(name).name. This means 'evil.yml' can never be returned for inputs like '../../evil.yml'.",
+      "Also check WorkflowBuilderPanel.tsx for formatting (prettier reformatted it in CI — need to apply locally and commit so format check stays clean)."
+    ],
+    "last_verified": "2026-06-23T00:00:02Z"
+  },
+  "T-03": {
+    "status": "in_progress",
+    "evidence": [],
+    "last_verified": "2026-06-23T00:00:03Z"
+  },
+  "T-04": {
+    "status": "pending",
+    "evidence": [],
+    "last_verified": "2026-06-23T00:00:04Z"
+  },
+  "T-05": {
+    "status": "pending",
+    "evidence": [],
+    "last_verified": "2026-06-23T00:00:05Z"
+  }
+}
