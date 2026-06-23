@@ -93,11 +93,15 @@
     "last_verified": "2026-06-23T05:45:00Z"
   },
   "T08_OBSERVE_CI": {
-    "status": "in_progress",
+    "status": "done",
     "evidence": [
       "PR #533 had mergeStateStatus: DIRTY after PR #534 merged to main at 3ead9bc",
-      "Rebasing fix/issue-532-multi-workflow-yaml onto latest origin/main to resolve conflicts"
+      "Rebased fix/issue-532-multi-workflow-yaml onto origin/main (3ead9bc): skipped duplicate feature commit, kept ngrok fix + path-traversal test",
+      "Corrected path-traversal test to match _safe_workflow_filename silent-fallback semantics (not ValueError raise)",
+      "make qa-quick: 431 passed, 1 skipped — includes new test_write_workflows_sanitises_path_traversal_in_source_file",
+      "Force-pushed b6a4a73 to origin/fix/issue-532-multi-workflow-yaml",
+      "Branch is 2 commits ahead of main, 0 behind — no conflicts"
     ],
-    "last_verified": "2026-06-23T05:50:00Z"
+    "last_verified": "2026-06-23T06:05:00Z"
   }
 }
