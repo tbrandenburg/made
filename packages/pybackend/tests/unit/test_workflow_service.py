@@ -444,3 +444,23 @@ def test_write_workflows_sanitises_path_traversal_in_source_file(mock_dir, tmp_p
     assert safe_path.exists()
     content = yaml.safe_load(safe_path.read_text())
     assert content["workflows"][0]["id"] == "wf_evil"
+
+
+# ---------------------------------------------------------------------------
+# write_workflows — non-workflow .yml files must never be touched
+# ---------------------------------------------------------------------------
+
+
+def test_write_workflows_does_not_overwrite_non_workflow_yml(tmp_path):
+    """A *.yml file without a top-level 'workflows' key must never be modified."""
+    original_content = {"agents": [{"name": "codex"}]}
+    (tmp_path / "agents.yml").write_text(yaml.safe_dump(original_content))
+
+    payload = {"workflows": []}
+
+    with patch("workflow_service._workflow_dir", return_value=tmp_path):
+        write_workflows(payload)
+
+    # agents.yml must be completely untouched
+    result = yaml.safe_load((tmp_path / "agents.yml").read_text())
+    assert result == original_content

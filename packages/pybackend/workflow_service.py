@@ -191,11 +191,19 @@ def write_workflows(
     # - All groups from the incoming payload
     # - Any existing *.yml files NOT in the payload → write empty list
     #   (handles the case where all workflows were deleted from a secondary file)
+    # NOTE: Only *.yml files that contain a top-level "workflows" key are treated
+    # as workflow files and eligible for orphan-cleanup. Non-workflow YAML files
+    # (e.g. .made/agents.yml) are never read here and will never be overwritten.
     files_to_write: dict[str, list[dict[str, Any]]] = dict(by_file)
     if wf_dir.exists():
         for existing_path in wf_dir.glob("*.yml"):
             if existing_path.name not in files_to_write:
-                files_to_write[existing_path.name] = []
+                try:
+                    data = yaml.safe_load(existing_path.read_text(encoding="utf-8"))
+                    if isinstance(data, dict) and "workflows" in data:
+                        files_to_write[existing_path.name] = []
+                except Exception:
+                    pass  # Unreadable or non-YAML file — skip silently
 
     if not files_to_write:
         # No workflows and no existing files — write an empty workflows.yml
