@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -155,20 +156,48 @@ def read_workflows(repo_name: str | None = None) -> dict[str, list[dict[str, Any
     return {"workflows": all_workflows}
 
 
+_SAFE_FILENAME_RE = re.compile(r'^[a-zA-Z0-9_\-]+\.yml$')
+
+
+def _safe_workflow_filename(name: str | None) -> str:
+    """Return a sanitized workflow filename, defaulting to workflows.yml.
+
+    Strips path separators (prevents traversal) and enforces the *.yml extension
+    with an allowlist character set.
+    """
+    if not name:
+        return "workflows.yml"
+    # Resolve to basename only — prevents ../../ traversal
+    base = Path(name).name
+    if _SAFE_FILENAME_RE.match(base):
+        return base
+    return "workflows.yml"
+
+
 def write_workflows(
     workflows_payload: dict[str, Any], repo_name: str | None = None
 ) -> dict[str, list[dict[str, Any]]]:
     normalized = _normalize_payload(workflows_payload)
     wf_dir = _workflow_dir(repo_name)
 
-    # Group workflows by sourceFile; default to workflows.yml (backward compat)
+    # Group workflows by sourceFile; sanitize each filename (path traversal guard)
     by_file: dict[str, list[dict[str, Any]]] = {}
     for wf in normalized.get("workflows", []):
-        source = wf.get("sourceFile") or "workflows.yml"
-        by_file.setdefault(source, []).append(wf)
+        safe_name = _safe_workflow_filename(wf.get("sourceFile"))
+        by_file.setdefault(safe_name, []).append(wf)
 
-    if not by_file:
-        # No workflows — write an empty workflows.yml to preserve the file
+    # Determine complete set of files to write:
+    # - All groups from the incoming payload
+    # - Any existing *.yml files NOT in the payload → write empty list
+    #   (handles the case where all workflows were deleted from a secondary file)
+    files_to_write: dict[str, list[dict[str, Any]]] = dict(by_file)
+    if wf_dir.exists():
+        for existing_path in wf_dir.glob("*.yml"):
+            if existing_path.name not in files_to_write:
+                files_to_write[existing_path.name] = []
+
+    if not files_to_write:
+        # No workflows and no existing files — write an empty workflows.yml
         default_path = wf_dir / "workflows.yml"
         ensure_directory(default_path.parent)
         default_path.write_text(
@@ -177,7 +206,7 @@ def write_workflows(
         )
         return normalized
 
-    for filename, workflows in by_file.items():
+    for filename, workflows in files_to_write.items():
         wf_path = wf_dir / filename
         ensure_directory(wf_path.parent)
         # Strip sourceFile before writing — it is pipeline metadata, not YAML schema

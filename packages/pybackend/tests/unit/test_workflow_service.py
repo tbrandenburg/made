@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import yaml
 
-from workflow_service import _normalize_payload, _normalize_workflow, _workflow_paths, list_workspace_workflows, read_workflows, write_workflows
+from workflow_service import _normalize_payload, _normalize_workflow, _safe_workflow_filename, _workflow_paths, list_workspace_workflows, read_workflows, write_workflows
 
 
 def test_normalize_payload_keeps_shell_script_path():
@@ -354,3 +354,59 @@ def test_write_workflows_defaults_to_workflows_yml_when_no_source_file(tmp_path)
     content = yaml.safe_load((tmp_path / "workflows.yml").read_text())
     assert content["workflows"][0]["id"] == "wf_1"
     assert not (tmp_path / "team.yml").exists()
+
+
+# ---------------------------------------------------------------------------
+# _safe_workflow_filename — path traversal guard
+# ---------------------------------------------------------------------------
+
+
+def test_safe_workflow_filename_rejects_traversal():
+    assert _safe_workflow_filename("../../evil.yml") == "workflows.yml"
+    assert _safe_workflow_filename("/etc/cron.d/evil") == "workflows.yml"
+    assert _safe_workflow_filename("../sibling/hack.yml") == "workflows.yml"
+
+
+def test_safe_workflow_filename_rejects_non_yml():
+    assert _safe_workflow_filename("evil.sh") == "workflows.yml"
+    assert _safe_workflow_filename("evil.yaml") == "workflows.yml"
+
+
+def test_safe_workflow_filename_accepts_valid_names():
+    assert _safe_workflow_filename("team-a.yml") == "team-a.yml"
+    assert _safe_workflow_filename("workflows.yml") == "workflows.yml"
+    assert _safe_workflow_filename("my_workflows_2.yml") == "my_workflows_2.yml"
+
+
+def test_safe_workflow_filename_defaults_for_none_or_empty():
+    assert _safe_workflow_filename(None) == "workflows.yml"
+    assert _safe_workflow_filename("") == "workflows.yml"
+
+
+# ---------------------------------------------------------------------------
+# write_workflows — clears orphaned secondary files on delete
+# ---------------------------------------------------------------------------
+
+
+def test_write_workflows_clears_secondary_file_when_all_its_workflows_deleted(tmp_path):
+    # Pre-existing team.yml on disk
+    (tmp_path / "team.yml").write_text(
+        yaml.safe_dump({"workflows": [{"id": "wf_b", "name": "B", "enabled": False, "schedule": None, "steps": []}]})
+    )
+
+    # Payload only contains wf_a — wf_b was deleted by user
+    payload = {
+        "workflows": [
+            {"id": "wf_a", "name": "A", "enabled": False, "schedule": None, "steps": [], "sourceFile": "workflows.yml"},
+        ]
+    }
+
+    with patch("workflow_service._workflow_dir", return_value=tmp_path):
+        write_workflows(payload)
+
+    # team.yml must exist but be empty
+    team_content = yaml.safe_load((tmp_path / "team.yml").read_text())
+    assert team_content["workflows"] == []
+    # wf_a still in workflows.yml
+    default_content = yaml.safe_load((tmp_path / "workflows.yml").read_text())
+    assert default_content["workflows"][0]["id"] == "wf_a"
