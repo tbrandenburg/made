@@ -112,3 +112,12 @@ def test_generate_workflow_harnesses_raises_on_dry_run_failure(mock_run: Mock, t
 
     with pytest.raises(WorkflowVerificationError, match="script dry run failed"):
         generate_workflow_harnesses(sample_payload(), tmp_path)
+
+
+def test_parse_workflow_payload_rejects_sourceFile_field():
+    """sourceFile must never reach the harness service — guard/sentinel test."""
+    payload = sample_payload()
+    payload["workflows"][0]["sourceFile"] = "workflows.yml"
+
+    with pytest.raises(WorkflowParseError):
+        parse_workflow_payload(payload)

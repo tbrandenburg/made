@@ -29,7 +29,6 @@ export type WorkflowDefinition = {
   enabled: boolean;
   schedule: string | null;
   shellScriptPath?: string;
-  sourceFile?: string;
   steps: WorkflowStep[];
 };
 
@@ -111,7 +110,6 @@ const newWorkflow = (): WorkflowDefinition => ({
   enabled: false,
   schedule: null,
   steps: [],
-  sourceFile: "workflows.yml",
 });
 
 export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
@@ -250,31 +248,10 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
         <div className="empty">No workflows yet.</div>
       )}
       <div className="workflow-list">
-        {workflows.map((workflow, index) => {
+        {workflows.map((workflow) => {
           const expanded = expandedIds[workflow.id] ?? true;
-          const prevSourceFile =
-            index > 0
-              ? workflows[index - 1].sourceFile || "workflows.yml"
-              : null;
-          const currSourceFile = workflow.sourceFile || "workflows.yml";
-          const showDivider =
-            prevSourceFile !== null && prevSourceFile !== currSourceFile;
           return (
             <React.Fragment key={workflow.id}>
-              {showDivider && (
-                <div
-                  style={{
-                    borderTop: "1px dashed rgba(255,255,255,0.4)",
-                    margin: "8px 0",
-                    paddingTop: "8px",
-                    textAlign: "center",
-                    fontSize: "0.7rem",
-                    color: "rgba(255,255,255,0.5)",
-                  }}
-                >
-                  {currSourceFile}
-                </div>
-              )}
               <div className="workflow-card">
                 <div className="workflow-card__header">
                   <button

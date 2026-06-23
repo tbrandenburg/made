@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import yaml
 
-from workflow_service import _normalize_payload, _normalize_workflow, _safe_workflow_filename, _workflow_paths, list_workspace_workflows, read_workflows, write_workflows
+from workflow_service import _normalize_payload, _normalize_workflow, _workflow_paths, list_workspace_workflows, read_workflows, write_workflows
 
 
 def test_normalize_payload_keeps_shell_script_path():
@@ -245,32 +245,6 @@ def test_workflow_paths_no_yml_files_returns_empty(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# _normalize_workflow — sourceFile passthrough
-# ---------------------------------------------------------------------------
-
-
-def test_normalize_workflow_preserves_source_file():
-    wf = {
-        "id": "wf_1",
-        "name": "Test",
-        "enabled": True,
-        "schedule": None,
-        "steps": [],
-        "sourceFile": "my-team.yml",
-    }
-    result = _normalize_workflow(wf, 0)
-    assert result is not None
-    assert result["sourceFile"] == "my-team.yml"
-
-
-def test_normalize_workflow_no_source_file_omitted():
-    wf = {"id": "wf_1", "name": "Test", "enabled": False, "schedule": None, "steps": []}
-    result = _normalize_workflow(wf, 0)
-    assert result is not None
-    assert "sourceFile" not in result
-
-
-# ---------------------------------------------------------------------------
 # read_workflows — multi-file aggregation
 # ---------------------------------------------------------------------------
 
@@ -290,10 +264,6 @@ def test_read_workflows_aggregates_multiple_files(tmp_path):
     assert "wf_a" in ids
     assert "wf_b" in ids
 
-    sources = {wf["id"]: wf["sourceFile"] for wf in result["workflows"]}
-    assert sources["wf_a"] == "workflows.yml"
-    assert sources["wf_b"] == "team.yml"
-
 
 def test_read_workflows_single_file_backward_compat(tmp_path):
     (tmp_path / "workflows.yml").write_text(
@@ -305,7 +275,6 @@ def test_read_workflows_single_file_backward_compat(tmp_path):
 
     assert len(result["workflows"]) == 1
     assert result["workflows"][0]["id"] == "wf_1"
-    assert result["workflows"][0]["sourceFile"] == "workflows.yml"
 
 
 def test_read_workflows_empty_directory_returns_empty(tmp_path):
@@ -327,7 +296,6 @@ def test_read_workflows_skips_malformed_file(tmp_path):
     # Good workflow must still be present; malformed file is skipped
     assert len(result["workflows"]) == 1
     assert result["workflows"][0]["id"] == "wf_1"
-    assert result["workflows"][0]["sourceFile"] == "workflows.yml"
 
 
 def test_read_workflows_all_malformed_returns_empty(tmp_path):
@@ -345,26 +313,21 @@ def test_read_workflows_all_malformed_returns_empty(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_write_workflows_per_file_writeback(tmp_path):
+def test_write_workflows_writes_all_to_workflows_yml(tmp_path):
     payload = {
         "workflows": [
-            {"id": "wf_a", "name": "A", "enabled": False, "schedule": None, "steps": [], "sourceFile": "workflows.yml"},
-            {"id": "wf_b", "name": "B", "enabled": False, "schedule": None, "steps": [], "sourceFile": "team.yml"},
+            {"id": "wf_a", "name": "A", "enabled": False, "schedule": None, "steps": []},
+            {"id": "wf_b", "name": "B", "enabled": False, "schedule": None, "steps": []},
         ]
     }
 
     with patch("workflow_service._workflow_dir", return_value=tmp_path):
         write_workflows(payload)
 
-    default_content = yaml.safe_load((tmp_path / "workflows.yml").read_text())
-    team_content = yaml.safe_load((tmp_path / "team.yml").read_text())
-
-    assert [wf["id"] for wf in default_content["workflows"]] == ["wf_a"]
-    assert [wf["id"] for wf in team_content["workflows"]] == ["wf_b"]
-
-    # sourceFile must NOT appear in the written YAML
-    assert "sourceFile" not in default_content["workflows"][0]
-    assert "sourceFile" not in team_content["workflows"][0]
+    content = yaml.safe_load((tmp_path / "workflows.yml").read_text())
+    assert [wf["id"] for wf in content["workflows"]] == ["wf_a", "wf_b"]
+    assert "sourceFile" not in content["workflows"][0]
+    assert "sourceFile" not in content["workflows"][1]
 
 
 def test_write_workflows_defaults_to_workflows_yml_when_no_source_file(tmp_path):
@@ -383,47 +346,20 @@ def test_write_workflows_defaults_to_workflows_yml_when_no_source_file(tmp_path)
 
 
 # ---------------------------------------------------------------------------
-# _safe_workflow_filename — path traversal guard
-# ---------------------------------------------------------------------------
-
-
-def test_safe_workflow_filename_rejects_traversal():
-    assert _safe_workflow_filename("../../evil.yml") == "workflows.yml"
-    assert _safe_workflow_filename("/etc/cron.d/evil") == "workflows.yml"
-    assert _safe_workflow_filename("../sibling/hack.yml") == "workflows.yml"
-
-
-def test_safe_workflow_filename_rejects_non_yml():
-    assert _safe_workflow_filename("evil.sh") == "workflows.yml"
-    assert _safe_workflow_filename("evil.yaml") == "workflows.yml"
-
-
-def test_safe_workflow_filename_accepts_valid_names():
-    assert _safe_workflow_filename("team-a.yml") == "team-a.yml"
-    assert _safe_workflow_filename("workflows.yml") == "workflows.yml"
-    assert _safe_workflow_filename("my_workflows_2.yml") == "my_workflows_2.yml"
-
-
-def test_safe_workflow_filename_defaults_for_none_or_empty():
-    assert _safe_workflow_filename(None) == "workflows.yml"
-    assert _safe_workflow_filename("") == "workflows.yml"
-
-
-# ---------------------------------------------------------------------------
 # write_workflows — clears orphaned secondary files on delete
 # ---------------------------------------------------------------------------
 
 
-def test_write_workflows_clears_secondary_file_when_all_its_workflows_deleted(tmp_path):
+def test_write_workflows_empties_secondary_yml_files(tmp_path):
     # Pre-existing team.yml on disk
     (tmp_path / "team.yml").write_text(
         yaml.safe_dump({"workflows": [{"id": "wf_b", "name": "B", "enabled": False, "schedule": None, "steps": []}]})
     )
 
-    # Payload only contains wf_a — wf_b was deleted by user
+    # Payload only contains wf_a — wf_b was deleted by user; no sourceFile in payload
     payload = {
         "workflows": [
-            {"id": "wf_a", "name": "A", "enabled": False, "schedule": None, "steps": [], "sourceFile": "workflows.yml"},
+            {"id": "wf_a", "name": "A", "enabled": False, "schedule": None, "steps": []},
         ]
     }
 
@@ -436,40 +372,6 @@ def test_write_workflows_clears_secondary_file_when_all_its_workflows_deleted(tm
     # wf_a still in workflows.yml
     default_content = yaml.safe_load((tmp_path / "workflows.yml").read_text())
     assert default_content["workflows"][0]["id"] == "wf_a"
-
-
-# ---------------------------------------------------------------------------
-# write_workflows — path traversal guard (sourceFile sanitised, not raised)
-# ---------------------------------------------------------------------------
-
-
-@patch("workflow_service._workflow_dir")
-def test_write_workflows_sanitises_path_traversal_in_source_file(mock_dir, tmp_path):
-    """_safe_workflow_filename silently maps traversal inputs to workflows.yml."""
-    mock_dir.return_value = tmp_path
-
-    payload = {
-        "workflows": [
-            {
-                "id": "wf_evil",
-                "name": "Evil",
-                "enabled": False,
-                "schedule": None,
-                "steps": [],
-                "sourceFile": "../../evil.yml",
-            }
-        ]
-    }
-
-    write_workflows(payload)
-
-    # Must NOT have created any file outside tmp_path
-    assert not (tmp_path / "../../evil.yml").exists()
-    # The workflow must have been written to the safe fallback instead
-    safe_path = tmp_path / "workflows.yml"
-    assert safe_path.exists()
-    content = yaml.safe_load(safe_path.read_text())
-    assert content["workflows"][0]["id"] == "wf_evil"
 
 
 # ---------------------------------------------------------------------------
