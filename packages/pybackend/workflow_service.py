@@ -156,7 +156,7 @@ def read_workflows(repo_name: str | None = None) -> dict[str, list[dict[str, Any
     return {"workflows": all_workflows}
 
 
-_SAFE_FILENAME_RE = re.compile(r'^[a-zA-Z0-9_\-]+\.yml$')
+_SAFE_FILENAME_RE = re.compile(r"^[a-zA-Z0-9_\-]+\.yml$")
 
 
 def _safe_workflow_filename(name: str | None) -> str:

@@ -410,3 +410,37 @@ def test_write_workflows_clears_secondary_file_when_all_its_workflows_deleted(tm
     # wf_a still in workflows.yml
     default_content = yaml.safe_load((tmp_path / "workflows.yml").read_text())
     assert default_content["workflows"][0]["id"] == "wf_a"
+
+
+# ---------------------------------------------------------------------------
+# write_workflows — path traversal guard (sourceFile sanitised, not raised)
+# ---------------------------------------------------------------------------
+
+
+@patch("workflow_service._workflow_dir")
+def test_write_workflows_sanitises_path_traversal_in_source_file(mock_dir, tmp_path):
+    """_safe_workflow_filename silently maps traversal inputs to workflows.yml."""
+    mock_dir.return_value = tmp_path
+
+    payload = {
+        "workflows": [
+            {
+                "id": "wf_evil",
+                "name": "Evil",
+                "enabled": False,
+                "schedule": None,
+                "steps": [],
+                "sourceFile": "../../evil.yml",
+            }
+        ]
+    }
+
+    write_workflows(payload)
+
+    # Must NOT have created any file outside tmp_path
+    assert not (tmp_path / "../../evil.yml").exists()
+    # The workflow must have been written to the safe fallback instead
+    safe_path = tmp_path / "workflows.yml"
+    assert safe_path.exists()
+    content = yaml.safe_load(safe_path.read_text())
+    assert content["workflows"][0]["id"] == "wf_evil"

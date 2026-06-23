@@ -352,7 +352,9 @@ jobs:
           ngrok version
 
           # Start ngrok v4 CLI directly with environment auth token
-          nohup ngrok http $target_port --log=stdout > ngrok.log 2>&1 &
+          # --pooling-enabled: allows starting a new tunnel even if the reserved domain
+          # is already online (e.g., from a previous CI run that hasn't yet expired).
+          nohup ngrok http $target_port --log=stdout --pooling-enabled > ngrok.log 2>&1 &
           NGROK_PID=$!
           echo "🧩 ngrok process started with PID $NGROK_PID"
           sleep 3
