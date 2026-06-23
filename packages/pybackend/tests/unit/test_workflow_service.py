@@ -1,7 +1,9 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from workflow_service import _normalize_payload, list_workspace_workflows
+import yaml
+
+from workflow_service import _normalize_payload, _normalize_workflow, _workflow_paths, list_workspace_workflows, read_workflows, write_workflows
 
 
 def test_normalize_payload_keeps_shell_script_path():
@@ -210,3 +212,145 @@ def test_list_workspace_workflows_includes_scheduled_tasks(
             }
         ]
     }
+
+
+# ---------------------------------------------------------------------------
+# _workflow_paths
+# ---------------------------------------------------------------------------
+
+
+def test_workflow_paths_workflows_yml_first(tmp_path):
+    (tmp_path / "b-team.yml").write_text("workflows: []")
+    (tmp_path / "workflows.yml").write_text("workflows: []")
+    (tmp_path / "a-team.yml").write_text("workflows: []")
+
+    with patch("workflow_service._workflow_dir", return_value=tmp_path):
+        paths = _workflow_paths()
+
+    names = [p.name for p in paths]
+    assert names[0] == "workflows.yml"
+    assert names[1:] == sorted(names[1:])
+
+
+def test_workflow_paths_no_directory_returns_empty(tmp_path):
+    missing = tmp_path / "nonexistent"
+    with patch("workflow_service._workflow_dir", return_value=missing):
+        assert _workflow_paths() == []
+
+
+def test_workflow_paths_no_yml_files_returns_empty(tmp_path):
+    (tmp_path / "readme.md").write_text("hi")
+    with patch("workflow_service._workflow_dir", return_value=tmp_path):
+        assert _workflow_paths() == []
+
+
+# ---------------------------------------------------------------------------
+# _normalize_workflow — sourceFile passthrough
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_workflow_preserves_source_file():
+    wf = {
+        "id": "wf_1",
+        "name": "Test",
+        "enabled": True,
+        "schedule": None,
+        "steps": [],
+        "sourceFile": "my-team.yml",
+    }
+    result = _normalize_workflow(wf, 0)
+    assert result is not None
+    assert result["sourceFile"] == "my-team.yml"
+
+
+def test_normalize_workflow_no_source_file_omitted():
+    wf = {"id": "wf_1", "name": "Test", "enabled": False, "schedule": None, "steps": []}
+    result = _normalize_workflow(wf, 0)
+    assert result is not None
+    assert "sourceFile" not in result
+
+
+# ---------------------------------------------------------------------------
+# read_workflows — multi-file aggregation
+# ---------------------------------------------------------------------------
+
+
+def test_read_workflows_aggregates_multiple_files(tmp_path):
+    (tmp_path / "workflows.yml").write_text(
+        yaml.safe_dump({"workflows": [{"id": "wf_a", "name": "A", "enabled": False, "schedule": None, "steps": []}]})
+    )
+    (tmp_path / "team.yml").write_text(
+        yaml.safe_dump({"workflows": [{"id": "wf_b", "name": "B", "enabled": False, "schedule": None, "steps": []}]})
+    )
+
+    with patch("workflow_service._workflow_dir", return_value=tmp_path):
+        result = read_workflows()
+
+    ids = [wf["id"] for wf in result["workflows"]]
+    assert "wf_a" in ids
+    assert "wf_b" in ids
+
+    sources = {wf["id"]: wf["sourceFile"] for wf in result["workflows"]}
+    assert sources["wf_a"] == "workflows.yml"
+    assert sources["wf_b"] == "team.yml"
+
+
+def test_read_workflows_single_file_backward_compat(tmp_path):
+    (tmp_path / "workflows.yml").write_text(
+        yaml.safe_dump({"workflows": [{"id": "wf_1", "name": "Solo", "enabled": False, "schedule": None, "steps": []}]})
+    )
+
+    with patch("workflow_service._workflow_dir", return_value=tmp_path):
+        result = read_workflows()
+
+    assert len(result["workflows"]) == 1
+    assert result["workflows"][0]["id"] == "wf_1"
+    assert result["workflows"][0]["sourceFile"] == "workflows.yml"
+
+
+def test_read_workflows_empty_directory_returns_empty(tmp_path):
+    with patch("workflow_service._workflow_dir", return_value=tmp_path):
+        result = read_workflows()
+    assert result == {"workflows": []}
+
+
+# ---------------------------------------------------------------------------
+# write_workflows — per-file write-back
+# ---------------------------------------------------------------------------
+
+
+def test_write_workflows_per_file_writeback(tmp_path):
+    payload = {
+        "workflows": [
+            {"id": "wf_a", "name": "A", "enabled": False, "schedule": None, "steps": [], "sourceFile": "workflows.yml"},
+            {"id": "wf_b", "name": "B", "enabled": False, "schedule": None, "steps": [], "sourceFile": "team.yml"},
+        ]
+    }
+
+    with patch("workflow_service._workflow_dir", return_value=tmp_path):
+        write_workflows(payload)
+
+    default_content = yaml.safe_load((tmp_path / "workflows.yml").read_text())
+    team_content = yaml.safe_load((tmp_path / "team.yml").read_text())
+
+    assert [wf["id"] for wf in default_content["workflows"]] == ["wf_a"]
+    assert [wf["id"] for wf in team_content["workflows"]] == ["wf_b"]
+
+    # sourceFile must NOT appear in the written YAML
+    assert "sourceFile" not in default_content["workflows"][0]
+    assert "sourceFile" not in team_content["workflows"][0]
+
+
+def test_write_workflows_defaults_to_workflows_yml_when_no_source_file(tmp_path):
+    payload = {
+        "workflows": [
+            {"id": "wf_1", "name": "Solo", "enabled": False, "schedule": None, "steps": []},
+        ]
+    }
+
+    with patch("workflow_service._workflow_dir", return_value=tmp_path):
+        write_workflows(payload)
+
+    content = yaml.safe_load((tmp_path / "workflows.yml").read_text())
+    assert content["workflows"][0]["id"] == "wf_1"
+    assert not (tmp_path / "team.yml").exists()
