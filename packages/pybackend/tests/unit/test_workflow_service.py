@@ -314,6 +314,32 @@ def test_read_workflows_empty_directory_returns_empty(tmp_path):
     assert result == {"workflows": []}
 
 
+def test_read_workflows_skips_malformed_file(tmp_path):
+    (tmp_path / "workflows.yml").write_text(
+        yaml.safe_dump({"workflows": [{"id": "wf_1", "name": "Good", "enabled": False, "schedule": None, "steps": []}]})
+    )
+    # Write a malformed YAML file alongside the valid one
+    (tmp_path / "bad.yml").write_text("{invalid: yaml: broken", encoding="utf-8")
+
+    with patch("workflow_service._workflow_dir", return_value=tmp_path):
+        result = read_workflows()
+
+    # Good workflow must still be present; malformed file is skipped
+    assert len(result["workflows"]) == 1
+    assert result["workflows"][0]["id"] == "wf_1"
+    assert result["workflows"][0]["sourceFile"] == "workflows.yml"
+
+
+def test_read_workflows_all_malformed_returns_empty(tmp_path):
+    (tmp_path / "workflows.yml").write_text(": broken yaml: [", encoding="utf-8")
+    (tmp_path / "extra.yml").write_text("also: [bad: yaml", encoding="utf-8")
+
+    with patch("workflow_service._workflow_dir", return_value=tmp_path):
+        result = read_workflows()
+
+    assert result == {"workflows": []}
+
+
 # ---------------------------------------------------------------------------
 # write_workflows — per-file write-back
 # ---------------------------------------------------------------------------
