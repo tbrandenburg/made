@@ -18,18 +18,86 @@
     "last_verified": "2026-06-23T00:00:02Z"
   },
   "T-03": {
-    "status": "in_progress",
-    "evidence": [],
+    "status": "done",
+    "evidence": [
+      "workflow_service.py _safe_workflow_filename: added '/' / '\\\\' separator check before Path().name",
+      "test_safe_workflow_filename_rejects_traversal now passes: _safe_workflow_filename('../../evil.yml') == 'workflows.yml'"
+    ],
     "last_verified": "2026-06-23T00:00:03Z"
   },
   "T-04": {
-    "status": "pending",
-    "evidence": [],
+    "status": "done",
+    "evidence": [
+      "make qa-quick passed: all tests green including test_safe_workflow_filename_rejects_traversal"
+    ],
     "last_verified": "2026-06-23T00:00:04Z"
   },
   "T-05": {
-    "status": "pending",
-    "evidence": [],
+    "status": "done",
+    "evidence": [
+      "PR #534 merged to main at commit 3ead9bc"
+    ],
     "last_verified": "2026-06-23T00:00:05Z"
+  },
+  "T01_CREATE_LEDGER": {
+    "status": "done",
+    "evidence": [
+      "mkdir -p dev/state && created task-ledger.json"
+    ],
+    "last_verified": "2026-06-23T05:20:00Z"
+  },
+  "T02_ROOT_CAUSE_ANALYSIS": {
+    "status": "done",
+    "evidence": [
+      "gh pr view 533 --json mergeStateStatus → UNSTABLE (preview job in-progress), now CLEAN",
+      "gh pr view 533 comments → automated review identified: path traversal in write_workflows via sourceFile, unused import pytest",
+      "5xWhy analysis: WHY merge-unstable? → preview pending; WHY code issue? → sourceFile not validated; WHY not validated? → designed as internal transport metadata; WHY no guard added? → security review post-facto; WHY path-traversal risk? → wf_dir/filename uses untrusted frontend input directly"
+    ],
+    "last_verified": "2026-06-23T05:20:00Z"
+  },
+  "T03_PLAN_FIX": {
+    "status": "done",
+    "evidence": [
+      "Fix plan: path-traversal guard in write_workflows(), new test, remove unused import, ngrok --pooling-enabled"
+    ],
+    "last_verified": "2026-06-23T05:25:00Z"
+  },
+  "T04_FIX_PATH_TRAVERSAL": {
+    "status": "done",
+    "evidence": [
+      "Main's _safe_workflow_filename (merged via PR #534) already handles traversal correctly: '/' or '\\\\' in name → returns 'workflows.yml'",
+      "Added test_write_workflows_sanitises_path_traversal_in_source_file verifying silent fallback semantics"
+    ],
+    "last_verified": "2026-06-23T05:30:00Z"
+  },
+  "T05_FIX_UNUSED_IMPORT": {
+    "status": "done",
+    "evidence": [
+      "Removed 'import pytest' from test_workflow_service.py (not referenced after refactor)"
+    ],
+    "last_verified": "2026-06-23T05:35:00Z"
+  },
+  "T06_QA_QUICK": {
+    "status": "done",
+    "evidence": [
+      "make qa-quick passed: 426 tests pass (1 new test added)"
+    ],
+    "last_verified": "2026-06-23T05:40:00Z"
+  },
+  "T07_COMMIT_PUSH": {
+    "status": "done",
+    "evidence": [
+      "Committed d35dd6f: fix(#532): harden write_workflows against sourceFile path traversal; remove unused import",
+      "Committed e9c3710: fix(CI): add --pooling-enabled to ngrok to resolve ERR_NGROK_334 on preview job"
+    ],
+    "last_verified": "2026-06-23T05:45:00Z"
+  },
+  "T08_OBSERVE_CI": {
+    "status": "in_progress",
+    "evidence": [
+      "PR #533 had mergeStateStatus: DIRTY after PR #534 merged to main at 3ead9bc",
+      "Rebasing fix/issue-532-multi-workflow-yaml onto latest origin/main to resolve conflicts"
+    ],
+    "last_verified": "2026-06-23T05:50:00Z"
   }
 }
