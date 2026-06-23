@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Any
@@ -8,6 +9,8 @@ import yaml
 
 from config import ensure_directory, get_made_directory, get_workspace_home
 from task_service import list_scheduled_tasks
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_WORKFLOW_NAME = "New workflow"
 
@@ -148,7 +151,11 @@ def read_workflows(repo_name: str | None = None) -> dict[str, list[dict[str, Any
     for wf_path in _workflow_paths(repo_name):
         if not wf_path.exists():
             continue
-        data = yaml.safe_load(wf_path.read_text(encoding="utf-8"))
+        try:
+            data = yaml.safe_load(wf_path.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            logger.warning("Skipping malformed workflow file: %s (%s)", wf_path, exc)
+            continue
         payload = _normalize_payload(data)
         for wf in payload.get("workflows", []):
             wf["sourceFile"] = wf_path.name
