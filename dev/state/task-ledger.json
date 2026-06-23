@@ -1,0 +1,48 @@
+{
+  "T01_CREATE_LEDGER": {
+    "status": "done",
+    "evidence": [
+      "mkdir -p dev/state && created task-ledger.json"
+    ],
+    "last_verified": "2026-06-23T05:20:00Z"
+  },
+  "T02_ROOT_CAUSE_ANALYSIS": {
+    "status": "in_progress",
+    "evidence": [
+      "gh pr view 533 --json mergeStateStatus → UNSTABLE (preview job in-progress), now CLEAN",
+      "gh pr view 533 comments → automated review identified: path traversal in write_workflows via sourceFile, unused import pytest",
+      "5xWhy analysis: WHY merge-unstable? → preview pending; WHY code issue? → sourceFile not validated; WHY not validated? → designed as internal transport metadata; WHY no guard added? → security review post-facto; WHY path-traversal risk? → wf_dir/filename uses untrusted frontend input directly"
+    ],
+    "last_verified": "2026-06-23T05:20:00Z"
+  },
+  "T03_PLAN_FIX": {
+    "status": "pending",
+    "evidence": [],
+    "last_verified": ""
+  },
+  "T04_FIX_PATH_TRAVERSAL": {
+    "status": "pending",
+    "evidence": [],
+    "last_verified": ""
+  },
+  "T05_FIX_UNUSED_IMPORT": {
+    "status": "pending",
+    "evidence": [],
+    "last_verified": ""
+  },
+  "T06_QA_QUICK": {
+    "status": "pending",
+    "evidence": [],
+    "last_verified": ""
+  },
+  "T07_COMMIT_PUSH": {
+    "status": "pending",
+    "evidence": [],
+    "last_verified": ""
+  },
+  "T08_OBSERVE_CI": {
+    "status": "pending",
+    "evidence": [],
+    "last_verified": ""
+  }
+}

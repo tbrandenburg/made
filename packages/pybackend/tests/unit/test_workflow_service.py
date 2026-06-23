@@ -1,7 +1,6 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 import yaml
 
 from workflow_service import (
@@ -364,3 +363,30 @@ def test_list_workspace_workflows_includes_scheduled_tasks(
             }
         ]
     }
+
+
+# ── write_workflows — path traversal guard ──────────────────────────────────
+
+
+@patch("workflow_service._workflow_dir")
+def test_write_workflows_rejects_path_traversal_in_source_file(mock_dir, tmp_path):
+    mock_dir.return_value = tmp_path
+
+    payload = {
+        "workflows": [
+            {
+                "id": "wf_evil",
+                "name": "Evil",
+                "enabled": False,
+                "schedule": None,
+                "steps": [],
+                "sourceFile": "../../evil.yml",
+            }
+        ]
+    }
+
+    try:
+        write_workflows(payload)
+        assert False, "Expected ValueError for path traversal in sourceFile"
+    except ValueError as exc:
+        assert "sourceFile" in str(exc).lower() or "invalid" in str(exc).lower()

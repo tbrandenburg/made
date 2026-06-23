@@ -330,10 +330,14 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                     <button
                       className="copy-button workflow-icon-button"
                       title={
-                        workflow.enabled ? "Disable workflow" : "Enable workflow"
+                        workflow.enabled
+                          ? "Disable workflow"
+                          : "Enable workflow"
                       }
                       aria-label={
-                        workflow.enabled ? "Disable workflow" : "Enable workflow"
+                        workflow.enabled
+                          ? "Disable workflow"
+                          : "Enable workflow"
                       }
                       onClick={() => {
                         const next = workflows.map((item) =>
@@ -512,7 +516,9 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                                     <option value="default">default</option>
                                   ) : (
                                     agentNames.map((agentName) => (
-                                      <option key={agentName}>{agentName}</option>
+                                      <option key={agentName}>
+                                        {agentName}
+                                      </option>
                                     ))
                                   )}
                                 </select>
@@ -531,9 +537,10 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                                                 if (itemIndex !== stepIndex) {
                                                   return itemStep;
                                                 }
-                                                const varName = toBashVariableName(
-                                                  event.target.value,
-                                                );
+                                                const varName =
+                                                  toBashVariableName(
+                                                    event.target.value,
+                                                  );
                                                 return {
                                                   ...itemStep,
                                                   varName,
@@ -563,7 +570,10 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                                       ? `/${step.command}${step.prompt ? ` ${step.prompt}` : ""}`
                                       : step.prompt || ""
                                     : step.run || "";
-                                setEditStep({ workflowId: workflow.id, stepIndex });
+                                setEditStep({
+                                  workflowId: workflow.id,
+                                  stepIndex,
+                                });
                                 setEditStepValue(currentText);
                               }}
                             >
@@ -577,7 +587,10 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                                 aria-label="Move step up"
                                 onClick={() => {
                                   const next = workflows.map((item) => {
-                                    if (item.id !== workflow.id || stepIndex === 0)
+                                    if (
+                                      item.id !== workflow.id ||
+                                      stepIndex === 0
+                                    )
                                       return item;
                                     const steps = [...item.steps];
                                     [steps[stepIndex - 1], steps[stepIndex]] = [
@@ -595,7 +608,9 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                               </button>
                               <button
                                 className="copy-button workflow-icon-button"
-                                disabled={stepIndex === workflow.steps.length - 1}
+                                disabled={
+                                  stepIndex === workflow.steps.length - 1
+                                }
                                 title="Move step down"
                                 aria-label="Move step down"
                                 onClick={() => {

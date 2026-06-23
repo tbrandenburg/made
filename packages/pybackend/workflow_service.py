@@ -174,6 +174,11 @@ def write_workflows(
 
     wf_dir = _workflow_dir(repo_name)
     for filename, workflows in by_file.items():
+        # Guard against path traversal: sourceFile must be a plain filename, not a path
+        if Path(filename).name != filename:
+            raise ValueError(
+                f"Invalid sourceFile '{filename}': must be a plain filename without path separators"
+            )
         wf_path = wf_dir / filename
         ensure_directory(wf_path.parent)
         # Strip sourceFile before writing — it is transport metadata, not schema
