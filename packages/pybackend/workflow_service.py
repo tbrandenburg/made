@@ -14,15 +14,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_WORKFLOW_NAME = "New workflow"
 
 
-def _workflow_path(repo_name: str | None = None) -> Path:
-    if repo_name:
-        base_path = get_workspace_home() / repo_name
-    else:
-        base_path = get_made_directory()
-    workflow_dir = ensure_directory(base_path / ".made") if repo_name else base_path
-    return workflow_dir / "workflows.yml"
-
-
 def _workflow_dir(repo_name: str | None = None) -> Path:
     """Return the .made directory path for global or per-repo context (does not create)."""
     if repo_name:
