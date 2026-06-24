@@ -3490,9 +3490,9 @@ describe("RepositoryPage bootstrap path loading indicator (AC1-AC7)", () => {
     resolveBootstrap!(emptyHistory);
   });
 
-  // ── U13 (AC3-AC5 concurrent): clear session during pending fetch ──
+  // ── U13 (AC1/AC3-AC5 concurrent): clear session during pending fetch ──
 
-  it("U13 (concurrent): clear session during pending bootstrap preempts loading", async () => {
+  it("U13 (AC1/concurrent): clearSessionOnly during pending bootstrap preempts loading", async () => {
     let resolveFetch!: (value: ChatHistoryResponse) => void;
     vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
       new Promise<ChatHistoryResponse>((resolve) => {
@@ -3577,6 +3577,184 @@ describe("RepositoryPage bootstrap path loading indicator (AC1-AC7)", () => {
     await screen.findByText("Hello from B");
 
     resolveA!(emptyHistory);
+  });
+
+  // ── U15 (AC2): clearSessionAndHistory during pending fetch clears loading ──
+
+  it("U15 (AC2): clearSessionAndHistory during pending bootstrap preempts loading", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U15): loading not visible before clear",
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Clear session"));
+    fireEvent.click(await screen.findByRole("button", { name: /^yes$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U15): loading persisted after clearSessionAndHistory — clearSessionLoading() missing in handler",
+      ).not.toBeInTheDocument();
+    });
+
+    resolveFetch!(emptyHistory);
+  });
+
+  // ── U17 (AC5 No path): clearSessionOnly during idle does not introduce loading ──
+
+  it("U17 (AC5): clearSessionOnly from idle state does not show loading", async () => {
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    // Wait for loading to clear (fast-resolving mock from beforeEach)
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U17): loading not visible during bootstrap — prerequisite for idle check",
+      ).not.toBeInTheDocument();
+    });
+
+    await screen.findByLabelText("Clear session");
+
+    fireEvent.click(screen.getByLabelText("Clear session"));
+    fireEvent.click(await screen.findByRole("button", { name: /^no$/i }));
+
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (U17): loading appeared after clearSessionOnly from idle — spurious setSessionLoading(true)",
+    ).not.toBeInTheDocument();
+  });
+
+  // ── U18 (AC5 Yes path): clearSessionAndHistory during idle does not introduce loading ──
+
+  it("U18 (AC5): clearSessionAndHistory from idle state does not show loading", async () => {
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    // Wait for loading to clear (fast-resolving mock from beforeEach)
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U18): loading not visible during bootstrap — prerequisite for idle check",
+      ).not.toBeInTheDocument();
+    });
+
+    await screen.findByLabelText("Clear session");
+
+    fireEvent.click(screen.getByLabelText("Clear session"));
+    fireEvent.click(await screen.findByRole("button", { name: /^yes$/i }));
+
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (U18): loading appeared after clearSessionAndHistory from idle — spurious setSessionLoading(true)",
+    ).not.toBeInTheDocument();
+  });
+
+  // ── U19 (AC6 Yes path): deferred fetch resolve after clearSessionAndHistory does not restore loading ──
+
+  it("U19 (AC6): deferred fetch resolve after clearSessionAndHistory does not restore loading", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    // 1. Wait for loading to appear
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U19): loading not visible before clear",
+      ).toBeInTheDocument();
+    });
+
+    // 2. Clear session and history
+    fireEvent.click(screen.getByLabelText("Clear session"));
+    fireEvent.click(await screen.findByRole("button", { name: /^yes$/i }));
+
+    // 3. Loading should be gone after clear
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U19): loading persisted after clearSessionAndHistory",
+      ).not.toBeInTheDocument();
+    });
+
+    // 4. Resolve the stale deferred fetch (aborted by effect cleanup)
+    resolveFetch!(emptyHistory);
+
+    // 5. Loading must NOT re-appear after the stale fetch resolves
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U19): loading re-appeared after stale fetch resolved — signal.aborted guard missing or clearSessionLoading() missing in handler",
+      ).not.toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByText("No conversation yet."),
+      "FAIL (U19): empty state not shown after clear — sessionLoading not reset",
+    ).toBeInTheDocument();
+  });
+
+  // ── U20 (AC6 No path): deferred fetch resolve after clearSessionOnly does not restore loading ──
+
+  it("U20 (AC6): deferred fetch resolve after clearSessionOnly does not restore loading", async () => {
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    // 1. Wait for loading to appear
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U20): loading not visible before clear",
+      ).toBeInTheDocument();
+    });
+
+    // 2. Clear session only (No path)
+    fireEvent.click(screen.getByLabelText("Clear session"));
+    fireEvent.click(await screen.findByRole("button", { name: /^no$/i }));
+
+    // 3. Loading should be gone after clear
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U20): loading persisted after clearSessionOnly",
+      ).not.toBeInTheDocument();
+    });
+
+    // 4. Resolve the stale deferred fetch (aborted by effect cleanup)
+    resolveFetch!(emptyHistory);
+
+    // 5. Loading must NOT re-appear after the stale fetch resolves
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (U20): loading re-appeared after stale fetch resolved — signal.aborted guard missing or clearSessionLoading() missing in handler",
+      ).not.toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByText("No conversation yet."),
+      "FAIL (U20): empty state not shown after clear — sessionLoading not reset",
+    ).toBeInTheDocument();
   });
 });
 
