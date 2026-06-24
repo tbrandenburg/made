@@ -7,7 +7,7 @@ import cron_service
 
 def teardown_function():
     cron_service.stop_cron_clock()
-    cron_service._cron_issues = []
+    cron_service._cron_issues.clear()
     cron_service._running_process_by_job = {}
     cron_service._last_run_by_job = {}
     cron_service._last_finished_by_job = {}

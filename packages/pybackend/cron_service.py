@@ -428,7 +428,7 @@ def start_cron_clock() -> None:
     scheduler = BackgroundScheduler()
     configured_jobs = 0
     invalid_jobs = 0
-    _cron_issues.clear()
+    _new_issues: list[dict] = []
 
     for repo_path in get_workspace_home().iterdir():
         if not repo_path.is_dir():
@@ -449,11 +449,13 @@ def start_cron_clock() -> None:
                     workflow_id,
                     repo_name,
                 )
-                _cron_issues.append({
-                    "repository": repo_name,
-                    "workflowId": workflow_id,
-                    "message": "missing schedule",
-                })
+                _new_issues.append(
+                    {
+                        "repository": repo_name,
+                        "workflowId": workflow_id,
+                        "message": "missing schedule",
+                    }
+                )
                 continue
             if not isinstance(shell_script_path, str) or not shell_script_path.strip():
                 logger.warning(
@@ -461,11 +463,13 @@ def start_cron_clock() -> None:
                     workflow_id,
                     repo_name,
                 )
-                _cron_issues.append({
-                    "repository": repo_name,
-                    "workflowId": workflow_id,
-                    "message": "missing shellScriptPath",
-                })
+                _new_issues.append(
+                    {
+                        "repository": repo_name,
+                        "workflowId": workflow_id,
+                        "message": "missing shellScriptPath",
+                    }
+                )
                 continue
 
             script_path = _resolve_script_path(repo_path, shell_script_path)
@@ -476,11 +480,13 @@ def start_cron_clock() -> None:
                     repo_name,
                     script_path,
                 )
-                _cron_issues.append({
-                    "repository": repo_name,
-                    "workflowId": workflow_id,
-                    "message": f"script not found at '{script_path}'",
-                })
+                _new_issues.append(
+                    {
+                        "repository": repo_name,
+                        "workflowId": workflow_id,
+                        "message": f"script not found at '{script_path}'",
+                    }
+                )
                 continue
 
             job_id = f"{repo_name}:{workflow_id}"
@@ -510,11 +516,13 @@ def start_cron_clock() -> None:
                     repo_name,
                     schedule,
                 )
-                _cron_issues.append({
-                    "repository": repo_name,
-                    "workflowId": workflow_id,
-                    "message": f"invalid cron expression '{schedule}'",
-                })
+                _new_issues.append(
+                    {
+                        "repository": repo_name,
+                        "workflowId": workflow_id,
+                        "message": f"invalid cron expression '{schedule}'",
+                    }
+                )
 
     for task in list_scheduled_tasks():
         task_name = str(task.get("name") or "task.md")
@@ -536,11 +544,13 @@ def start_cron_clock() -> None:
         except ValueError:
             invalid_jobs += 1
             logger.warning("Skipping task '%s': invalid cron '%s'", task_name, schedule)
-            _cron_issues.append({
-                "repository": "__tasks__",
-                "workflowId": task_name,
-                "message": f"invalid cron expression '{schedule}'",
-            })
+            _new_issues.append(
+                {
+                    "repository": "__tasks__",
+                    "workflowId": task_name,
+                    "message": f"invalid cron expression '{schedule}'",
+                }
+            )
 
     try:
         scheduler.start()
@@ -565,6 +575,8 @@ def start_cron_clock() -> None:
         _configured_jobs = configured_jobs
         _invalid_jobs = invalid_jobs
         _started_at = datetime.now(timezone.utc)
+        _cron_issues.clear()
+        _cron_issues.extend(_new_issues)
         _last_run_by_job.clear()
         _last_finished_by_job.clear()
         _last_duration_ms_by_job.clear()

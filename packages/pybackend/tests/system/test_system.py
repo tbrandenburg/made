@@ -44,6 +44,10 @@ class TestSystemHealth:
         assert "status" in data
         assert "workspace" in data
         assert "made" in data
+        assert "cron" in data
+        assert "running" in data["cron"]
+        assert "configuredJobs" in data["cron"]
+        assert isinstance(data["cron"]["issues"], list)
 
 
 class TestAPIErrorHandling:
