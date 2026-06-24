@@ -3663,4 +3663,37 @@ describe("RepositoryPage polling tick — agent status check (AC545)", () => {
       { timeout: 8000 },
     );
   });
+
+  it("AC545-3: spinner clears after transient network error in status check recovers", { timeout: 15000 }, async () => {
+    // Arrange: mount returns true (spinner shows), first tick errors (network),
+    // second tick returns false (done) — spinner must eventually clear.
+    vi.mocked(api.getRepositoryAgentStatus)
+      .mockResolvedValueOnce({
+        processing: true,
+        startedAt: new Date().toISOString(),
+      }) // mount call → processing=true, spinner shows
+      .mockRejectedValueOnce(new Error("Network error")) // first tick error → must keep polling
+      .mockResolvedValue({ processing: false }); // subsequent calls → done
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Spinner should appear on mount
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Agent is thinking..."),
+        "FAIL (AC545-3): spinner should appear when processing=true",
+      ).toBeInTheDocument();
+    });
+
+    // Spinner must clear even though first tick had a network error
+    await waitFor(
+      () => {
+        expect(
+          screen.queryByText("Agent is thinking..."),
+          "FAIL (AC545-3): spinner did not clear after transient network error — polling stopped prematurely",
+        ).not.toBeInTheDocument();
+      },
+      { timeout: 15000 },
+    );
+  });
 });
