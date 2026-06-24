@@ -7,6 +7,7 @@ import cron_service
 
 def teardown_function():
     cron_service.stop_cron_clock()
+    cron_service._cron_issues = []
     cron_service._running_process_by_job = {}
     cron_service._last_run_by_job = {}
     cron_service._last_finished_by_job = {}
@@ -92,6 +93,12 @@ def test_start_cron_clock_registers_only_enabled_workflows_with_existing_scripts
     assert status["configuredJobs"] == 1
     assert status["trafficLight"] == "ok"
 
+    issues = cron_service.get_cron_issues()
+    assert len(issues) == 1
+    assert issues[0]["repository"] == "repo-a"
+    assert issues[0]["workflowId"] == "missing-script"
+    assert "missing.sh" in issues[0]["message"]
+
 
 @patch("cron_service.BackgroundScheduler")
 @patch("cron_service.list_scheduled_tasks")
@@ -146,6 +153,12 @@ def test_start_cron_clock_marks_invalid_cron_as_warning(
     assert status["configuredJobs"] == 0
     assert status["invalidSchedules"] == 1
     assert status["trafficLight"] == "warning"
+
+    issues = cron_service.get_cron_issues()
+    assert len(issues) == 1
+    assert issues[0]["repository"] == "repo-a"
+    assert issues[0]["workflowId"] == "bad"
+    assert "invalid cron" in issues[0]["message"]
 
 
 @patch("cron_service.subprocess.Popen")
