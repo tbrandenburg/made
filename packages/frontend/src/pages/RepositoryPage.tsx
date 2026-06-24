@@ -1248,9 +1248,10 @@ export const RepositoryPage: React.FC = () => {
 
     const tick = async () => {
       await syncChatHistory(controller.signal);
-      if (!controller.signal.aborted) {
-        timeoutId = window.setTimeout(tick, 5000);
-      }
+      if (controller.signal.aborted) return;
+      const stillProcessing = await refreshAgentStatus();
+      if (!stillProcessing) return;
+      timeoutId = window.setTimeout(tick, 5000);
     };
 
     tick();
@@ -1261,7 +1262,7 @@ export const RepositoryPage: React.FC = () => {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [chatAgentProcessing, name, sessionId, syncChatHistory]);
+  }, [chatAgentProcessing, name, sessionId, syncChatHistory, refreshAgentStatus]);
 
   const reloadCurrentSession = useCallback(async () => {
     if (!name || !sessionId || isRefreshingRef.current) return;

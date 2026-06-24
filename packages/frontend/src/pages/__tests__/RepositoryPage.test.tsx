@@ -3579,3 +3579,88 @@ describe("RepositoryPage bootstrap path loading indicator (AC1-AC7)", () => {
     resolveA!(emptyHistory);
   });
 });
+
+// ── AC545: polling tick calls refreshAgentStatus to detect session end ──
+
+describe("RepositoryPage polling tick — agent status check (AC545)", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    localStorage.clear();
+  });
+
+  it("AC545-1: spinner clears when refreshAgentStatus returns processing=false during polling", async () => {
+    // Arrange: first status call (mount) returns true so spinner shows;
+    // subsequent calls (polling tick) return false → spinner must disappear.
+    vi.mocked(api.getRepositoryAgentStatus)
+      .mockResolvedValueOnce({
+        processing: true,
+        startedAt: new Date().toISOString(),
+      })
+      .mockResolvedValue({ processing: false });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Wait for spinner to appear (chatAgentProcessing=true on mount)
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Agent is thinking..."),
+        "FAIL (AC545-1): spinner should appear when processing=true",
+      ).toBeInTheDocument();
+    });
+
+    // Wait for polling tick to call refreshAgentStatus and get processing=false
+    await waitFor(
+      () => {
+        expect(
+          screen.queryByText("Agent is thinking..."),
+          "FAIL (AC545-1): spinner did not clear after polling tick detected processing=false",
+        ).not.toBeInTheDocument();
+      },
+      { timeout: 8000 },
+    );
+  });
+
+  it("AC545-2: polling continues and calls refreshAgentStatus when processing stays true", async () => {
+    // Arrange: status always returns true — refreshAgentStatus should be called
+    // on mount AND again from each polling tick.
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    await screen.findByLabelText("Clear session");
+
+    // Spinner must remain visible while still processing
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Agent is thinking..."),
+        "FAIL (AC545-2): spinner disappeared when status is still processing=true",
+      ).toBeInTheDocument();
+    });
+
+    // refreshAgentStatus (getRepositoryAgentStatus) should be called at least
+    // twice: once on mount and once from the first polling tick.
+    await waitFor(
+      () => {
+        expect(
+          vi.mocked(api.getRepositoryAgentStatus).mock.calls.length,
+          "FAIL (AC545-2): refreshAgentStatus not called during polling tick",
+        ).toBeGreaterThanOrEqual(2);
+      },
+      { timeout: 8000 },
+    );
+  });
+});
