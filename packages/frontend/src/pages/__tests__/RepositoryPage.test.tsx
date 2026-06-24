@@ -3727,11 +3727,16 @@ describe("RepositoryPage loading state clears on mid-flight abort (AC546)", () =
     );
 
     let resolveFetch!: (value: ChatHistoryResponse) => void;
-    vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(
-      new Promise<ChatHistoryResponse>((resolve) => {
-        resolveFetch = resolve;
-      }),
-    );
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockReturnValueOnce(
+        new Promise<ChatHistoryResponse>((resolve) => {
+          resolveFetch = resolve;
+        }),
+      )
+      // All subsequent calls (polling tick, etc.) return a never-resolving promise so that
+      // clearSessionLoading() can ONLY be reached via the effect cleanup — not via a concurrent
+      // syncChatHistory invocation that uses a fresh (non-aborted) AbortSignal.
+      .mockReturnValue(new Promise<ChatHistoryResponse>(() => {}));
 
     renderPage();
     fireEvent.click(await screen.findByLabelText("Choose a session"));
@@ -3750,6 +3755,8 @@ describe("RepositoryPage loading state clears on mid-flight abort (AC546)", () =
     resolveStatus({ processing: true, startedAt: new Date().toISOString() });
 
     // Loading must clear: cleanup fires clearSessionLoading(); new effect returns early (chatAgentProcessing guard)
+    // Without the fix: cleanup only calls controller.abort() — loading stays true (stuck) because the
+    // polling tick's syncChatHistory is also blocked (never-resolving mock), so nothing clears loading.
     await waitFor(() => {
       expect(
         screen.queryByText("Loading session..."),
