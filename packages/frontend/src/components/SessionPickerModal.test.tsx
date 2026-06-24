@@ -41,7 +41,7 @@ describe("SessionPickerModal", () => {
       <SessionPickerModal {...defaultProps} loading={true} sessions={[]} />,
     );
 
-    expect(screen.getByText(/loading sessions/i)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toBeInTheDocument();
   });
 
   it("shows error state", () => {
