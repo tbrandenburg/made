@@ -112,3 +112,12 @@ def test_generate_workflow_harnesses_raises_on_dry_run_failure(mock_run: Mock, t
 
     with pytest.raises(WorkflowVerificationError, match="script dry run failed"):
         generate_workflow_harnesses(sample_payload(), tmp_path)
+
+
+def test_parse_workflow_payload_rejects_source_file():
+    """Regression test for #541: sourceFile in payload must raise WorkflowParseError."""
+    payload = sample_payload()
+    payload["workflows"][0]["sourceFile"] = "workflows.yml"
+
+    with pytest.raises(WorkflowParseError, match="sourceFile"):
+        parse_workflow_payload(payload)

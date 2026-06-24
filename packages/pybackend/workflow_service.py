@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from pathlib import Path
 from typing import Any
 
@@ -22,29 +21,6 @@ def _workflow_path(repo_name: str | None = None) -> Path:
         base_path = get_made_directory()
     workflow_dir = ensure_directory(base_path / ".made") if repo_name else base_path
     return workflow_dir / "workflows.yml"
-
-
-def _workflow_dir(repo_name: str | None = None) -> Path:
-    """Return the .made directory path for global or per-repo context (does not create)."""
-    if repo_name:
-        return get_workspace_home() / repo_name / ".made"
-    return get_made_directory()
-
-
-def _workflow_paths(repo_name: str | None = None) -> list[Path]:
-    """Return ordered list of *.yml paths under the .made directory.
-
-    workflows.yml is always first for backward compatibility.
-    Remaining files are sorted alphabetically.
-    """
-    wf_dir = _workflow_dir(repo_name)
-    if not wf_dir.exists():
-        return []
-    default = wf_dir / "workflows.yml"
-    others = sorted(p for p in wf_dir.glob("*.yml") if p != default)
-    if default.exists():
-        return [default, *others]
-    return others
 
 
 def _as_string(value: Any) -> str | None:
@@ -129,10 +105,6 @@ def _normalize_workflow(workflow: Any, index: int) -> dict[str, Any] | None:
     if isinstance(max_runtime_minutes, int) and max_runtime_minutes > 0:
         normalized_workflow["maxRuntimeMinutes"] = max_runtime_minutes
 
-    source_file = _as_string(workflow.get("sourceFile"))
-    if source_file:
-        normalized_workflow["sourceFile"] = source_file
-
     return normalized_workflow
 
 
@@ -147,91 +119,31 @@ def _normalize_payload(payload: Any) -> dict[str, list[dict[str, Any]]]:
 
 
 def read_workflows(repo_name: str | None = None) -> dict[str, list[dict[str, Any]]]:
-    all_workflows: list[dict[str, Any]] = []
-    for wf_path in _workflow_paths(repo_name):
-        if not wf_path.exists():
-            continue
-        try:
-            data = yaml.safe_load(wf_path.read_text(encoding="utf-8"))
-        except yaml.YAMLError as exc:
-            logger.warning("Skipping malformed workflow file: %s (%s)", wf_path, exc)
-            continue
-        payload = _normalize_payload(data)
-        for wf in payload.get("workflows", []):
-            wf["sourceFile"] = wf_path.name
-            all_workflows.append(wf)
-    return {"workflows": all_workflows}
-
-
-_SAFE_FILENAME_RE = re.compile(r"^[a-zA-Z0-9_\-]+\.yml$")
-
-
-def _safe_workflow_filename(name: str | None) -> str:
-    """Return a sanitized workflow filename, defaulting to workflows.yml.
-
-    Rejects any input that contains path separators (prevents ../../ traversal)
-    and enforces the *.yml extension with an allowlist character set.
-    """
-    if not name:
-        return "workflows.yml"
-    # Reject any input containing path separators — prevents ../../ traversal
-    if "/" in name or "\\" in name:
-        return "workflows.yml"
-    if _SAFE_FILENAME_RE.match(name):
-        return name
-    return "workflows.yml"
+    wf_path = _workflow_path(repo_name)
+    if not wf_path.exists():
+        return {"workflows": []}
+    try:
+        data = yaml.safe_load(wf_path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        logger.warning("Malformed workflow file: %s (%s)", wf_path, exc)
+        return {"workflows": []}
+    return _normalize_payload(data)
 
 
 def write_workflows(
     workflows_payload: dict[str, Any], repo_name: str | None = None
 ) -> dict[str, list[dict[str, Any]]]:
     normalized = _normalize_payload(workflows_payload)
-    wf_dir = _workflow_dir(repo_name)
-
-    # Group workflows by sourceFile; sanitize each filename (path traversal guard)
-    by_file: dict[str, list[dict[str, Any]]] = {}
-    for wf in normalized.get("workflows", []):
-        safe_name = _safe_workflow_filename(wf.get("sourceFile"))
-        by_file.setdefault(safe_name, []).append(wf)
-
-    # Determine complete set of files to write:
-    # - All groups from the incoming payload
-    # - Any existing *.yml files NOT in the payload → write empty list
-    #   (handles the case where all workflows were deleted from a secondary file)
-    # NOTE: Only *.yml files that contain a top-level "workflows" key are treated
-    # as workflow files and eligible for orphan-cleanup. Non-workflow YAML files
-    # (e.g. .made/agents.yml) are never read here and will never be overwritten.
-    files_to_write: dict[str, list[dict[str, Any]]] = dict(by_file)
-    if wf_dir.exists():
-        for existing_path in wf_dir.glob("*.yml"):
-            if existing_path.name not in files_to_write:
-                try:
-                    data = yaml.safe_load(existing_path.read_text(encoding="utf-8"))
-                    if isinstance(data, dict) and "workflows" in data:
-                        files_to_write[existing_path.name] = []
-                except Exception:
-                    pass  # Unreadable or non-YAML file — skip silently
-
-    if not files_to_write:
-        # No workflows and no existing files — write an empty workflows.yml
-        default_path = wf_dir / "workflows.yml"
-        ensure_directory(default_path.parent)
-        default_path.write_text(
-            yaml.safe_dump({"workflows": []}, sort_keys=False, allow_unicode=True),
-            encoding="utf-8",
-        )
-        return normalized
-
-    for filename, workflows in files_to_write.items():
-        wf_path = wf_dir / filename
-        ensure_directory(wf_path.parent)
-        # Strip sourceFile before writing — it is pipeline metadata, not YAML schema
-        cleaned = [{k: v for k, v in w.items() if k != "sourceFile"} for w in workflows]
-        wf_path.write_text(
-            yaml.safe_dump({"workflows": cleaned}, sort_keys=False, allow_unicode=True),
-            encoding="utf-8",
-        )
-
+    wf_path = _workflow_path(repo_name)
+    ensure_directory(wf_path.parent)
+    wf_path.write_text(
+        yaml.safe_dump(
+            {"workflows": normalized.get("workflows", [])},
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
     return normalized
 
 
