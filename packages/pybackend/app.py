@@ -71,6 +71,8 @@ from workflow_harness_service import (
 )
 from cron_service import (
     force_terminate_job,
+    get_cron_clock_status,
+    get_cron_issues,
     get_cron_job_diagnostics,
     get_cron_job_last_runs,
     list_workflow_logs,
@@ -221,11 +223,17 @@ def _save_workflows_and_refresh_cron(
 
 @app.get("/api/health")
 def health_check():
+    cron_status = get_cron_clock_status()
     return {
         "status": "ok",
         "version": _VERSION,
         "workspace": str(get_workspace_home()),
         "made": str(get_made_directory()),
+        "cron": {
+            "running": cron_status["running"],
+            "configuredJobs": cron_status["configuredJobs"],
+            "issues": get_cron_issues(),
+        },
     }
 
 

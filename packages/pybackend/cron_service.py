@@ -95,6 +95,7 @@ _last_stdout_by_job: dict[str, str] = {}
 _last_stderr_by_job: dict[str, str] = {}
 _running_process_by_job: dict[str, subprocess.Popen[str]] = {}
 _job_start_times: dict[str, datetime] = {}
+_cron_issues: list[dict] = []
 
 DEFAULT_MAX_RUNTIME_MINUTES = 120  # 2 hours default
 _workflow_max_runtime: dict[str, int] = {}
@@ -427,6 +428,7 @@ def start_cron_clock() -> None:
     scheduler = BackgroundScheduler()
     configured_jobs = 0
     invalid_jobs = 0
+    _new_issues: list[dict] = []
 
     for repo_path in get_workspace_home().iterdir():
         if not repo_path.is_dir():
@@ -447,12 +449,26 @@ def start_cron_clock() -> None:
                     workflow_id,
                     repo_name,
                 )
+                _new_issues.append(
+                    {
+                        "repository": repo_name,
+                        "workflowId": workflow_id,
+                        "message": "missing schedule",
+                    }
+                )
                 continue
             if not isinstance(shell_script_path, str) or not shell_script_path.strip():
                 logger.warning(
                     "Skipping workflow '%s' in '%s': missing shellScriptPath",
                     workflow_id,
                     repo_name,
+                )
+                _new_issues.append(
+                    {
+                        "repository": repo_name,
+                        "workflowId": workflow_id,
+                        "message": "missing shellScriptPath",
+                    }
                 )
                 continue
 
@@ -463,6 +479,13 @@ def start_cron_clock() -> None:
                     workflow_id,
                     repo_name,
                     script_path,
+                )
+                _new_issues.append(
+                    {
+                        "repository": repo_name,
+                        "workflowId": workflow_id,
+                        "message": f"script not found at '{script_path}'",
+                    }
                 )
                 continue
 
@@ -493,6 +516,13 @@ def start_cron_clock() -> None:
                     repo_name,
                     schedule,
                 )
+                _new_issues.append(
+                    {
+                        "repository": repo_name,
+                        "workflowId": workflow_id,
+                        "message": f"invalid cron expression '{schedule}'",
+                    }
+                )
 
     for task in list_scheduled_tasks():
         task_name = str(task.get("name") or "task.md")
@@ -514,6 +544,13 @@ def start_cron_clock() -> None:
         except ValueError:
             invalid_jobs += 1
             logger.warning("Skipping task '%s': invalid cron '%s'", task_name, schedule)
+            _new_issues.append(
+                {
+                    "repository": "__tasks__",
+                    "workflowId": task_name,
+                    "message": f"invalid cron expression '{schedule}'",
+                }
+            )
 
     try:
         scheduler.start()
@@ -538,6 +575,8 @@ def start_cron_clock() -> None:
         _configured_jobs = configured_jobs
         _invalid_jobs = invalid_jobs
         _started_at = datetime.now(timezone.utc)
+        _cron_issues.clear()
+        _cron_issues.extend(_new_issues)
         _last_run_by_job.clear()
         _last_finished_by_job.clear()
         _last_duration_ms_by_job.clear()
@@ -636,6 +675,12 @@ def get_cron_clock_status() -> dict[str, object]:
         "successfulJobsSinceStartup": successful_jobs,
         "failedJobsSinceStartup": failed_jobs,
     }
+
+
+def get_cron_issues() -> list[dict]:
+    """Return a snapshot of cron configuration issues from the last clock start."""
+    with _state_lock:
+        return list(_cron_issues)
 
 
 def get_cron_job_last_runs() -> dict[str, str | None]:

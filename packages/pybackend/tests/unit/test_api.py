@@ -18,12 +18,23 @@ client = TestClient(app)
 class TestHealthEndpoint:
     """Test the health check endpoint."""
 
+    @patch("app.get_cron_clock_status")
+    @patch("app.get_cron_issues")
     @patch("app.get_workspace_home")
     @patch("app.get_made_directory")
-    def test_health_check_success(self, mock_made_dir, mock_workspace_home):
+    def test_health_check_success(
+        self, mock_made_dir, mock_workspace_home, mock_cron_issues, mock_cron_status
+    ):
         """Test successful health check."""
         mock_workspace_home.return_value = "/test/workspace"
         mock_made_dir.return_value = "/test/made"
+        mock_cron_status.return_value = {
+            "running": True,
+            "configuredJobs": 2,
+        }
+        mock_cron_issues.return_value = [
+            {"repository": "repo-a", "workflowId": "wf_1", "message": "script not found at '/repo-a/.made/run.sh'"}
+        ]
 
         response = client.get("/api/health")
 
@@ -33,6 +44,10 @@ class TestHealthEndpoint:
         assert "version" in data
         assert data["workspace"] == "/test/workspace"
         assert data["made"] == "/test/made"
+        assert data["cron"]["running"] is True
+        assert data["cron"]["configuredJobs"] == 2
+        assert len(data["cron"]["issues"]) == 1
+        assert data["cron"]["issues"][0]["repository"] == "repo-a"
 
 
 class TestDashboardEndpoint:
