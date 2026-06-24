@@ -252,180 +252,204 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
           const expanded = expandedIds[workflow.id] ?? true;
           return (
             <div key={workflow.id} className="workflow-card">
-                <div className="workflow-card__header">
-                  <button
-                    className="copy-button workflow-icon-button"
-                    onClick={() =>
-                      setExpandedIds((prev) => ({
-                        ...prev,
-                        [workflow.id]: !expanded,
-                      }))
-                    }
-                    title={expanded ? "Collapse workflow" : "Expand workflow"}
-                    aria-label={
-                      expanded ? "Collapse workflow" : "Expand workflow"
+              <div className="workflow-card__header">
+                <button
+                  className="copy-button workflow-icon-button"
+                  onClick={() =>
+                    setExpandedIds((prev) => ({
+                      ...prev,
+                      [workflow.id]: !expanded,
+                    }))
+                  }
+                  title={expanded ? "Collapse workflow" : "Expand workflow"}
+                  aria-label={
+                    expanded ? "Collapse workflow" : "Expand workflow"
+                  }
+                >
+                  <span
+                    className={
+                      expanded
+                        ? "workflow-icon workflow-icon--down"
+                        : "workflow-icon workflow-icon--right"
                     }
                   >
-                    <span
-                      className={
-                        expanded
-                          ? "workflow-icon workflow-icon--down"
-                          : "workflow-icon workflow-icon--right"
-                      }
-                    >
-                      <ArrowDownIcon />
-                    </span>
-                  </button>
-                  <input
-                    className="workflow-name-input"
-                    value={workflow.name}
-                    onChange={(event) => {
-                      const next = workflows.map((item) =>
-                        item.id === workflow.id
-                          ? { ...item, name: event.target.value }
-                          : item,
+                    <ArrowDownIcon />
+                  </span>
+                </button>
+                <input
+                  className="workflow-name-input"
+                  value={workflow.name}
+                  onChange={(event) => {
+                    const next = workflows.map((item) =>
+                      item.id === workflow.id
+                        ? { ...item, name: event.target.value }
+                        : item,
+                    );
+                    void persist(next);
+                  }}
+                />
+                <button
+                  className="copy-button workflow-icon-button"
+                  title={
+                    workflow.enabled ? "Disable workflow" : "Enable workflow"
+                  }
+                  aria-label={
+                    workflow.enabled ? "Disable workflow" : "Enable workflow"
+                  }
+                  onClick={() => {
+                    const next = workflows.map((item) =>
+                      item.id === workflow.id
+                        ? { ...item, enabled: !item.enabled }
+                        : item,
+                    );
+                    void persist(next);
+                  }}
+                >
+                  <span
+                    className={
+                      workflow.enabled
+                        ? "workflow-icon workflow-icon--enabled"
+                        : "workflow-icon"
+                    }
+                  >
+                    <CheckboxIcon checked={workflow.enabled} />
+                  </span>
+                </button>
+                <button
+                  className="copy-button workflow-icon-button"
+                  title={workflow.schedule || "Set schedule"}
+                  aria-label={
+                    workflow.schedule
+                      ? `Edit schedule: ${workflow.schedule}`
+                      : "Set schedule"
+                  }
+                  onClick={() =>
+                    setScheduleEditor({
+                      workflowId: workflow.id,
+                      value: workflow.schedule || "",
+                    })
+                  }
+                >
+                  <ClockIcon />
+                </button>
+                <button
+                  className="copy-button workflow-icon-button"
+                  onClick={() => addStep(workflow.id)}
+                  title="Add step"
+                  aria-label="Add step"
+                >
+                  <PlusIcon />
+                </button>
+                <button
+                  className="copy-button workflow-icon-button"
+                  title="Run workflow"
+                  aria-label="Run workflow"
+                  onClick={async () => {
+                    const shellScriptPath = workflowShellScriptPath(
+                      workflow.name,
+                    );
+                    setConversionMessage(null);
+                    setConversionError(null);
+                    const next = workflows.map((item) =>
+                      item.id === workflow.id
+                        ? { ...item, shellScriptPath }
+                        : item,
+                    );
+                    const persisted = await persist(next);
+                    if (!persisted) {
+                      setConversionError(
+                        "Failed to save workflow before conversion. Check required fields and try again.",
                       );
-                      void persist(next);
-                    }}
-                  />
-                  <button
-                    className="copy-button workflow-icon-button"
-                    title={
-                      workflow.enabled ? "Disable workflow" : "Enable workflow"
+                      return;
                     }
-                    aria-label={
-                      workflow.enabled ? "Disable workflow" : "Enable workflow"
-                    }
-                    onClick={() => {
-                      const next = workflows.map((item) =>
-                        item.id === workflow.id
-                          ? { ...item, enabled: !item.enabled }
-                          : item,
+                    try {
+                      await onRunWorkflow(next);
+                      setConversionMessage(
+                        `Workflow converted to harness shell script: ${shellScriptPath}`,
                       );
-                      void persist(next);
-                    }}
-                  >
-                    <span
-                      className={
-                        workflow.enabled
-                          ? "workflow-icon workflow-icon--enabled"
-                          : "workflow-icon"
-                      }
-                    >
-                      <CheckboxIcon checked={workflow.enabled} />
-                    </span>
-                  </button>
-                  <button
-                    className="copy-button workflow-icon-button"
-                    title={workflow.schedule || "Set schedule"}
-                    aria-label={
-                      workflow.schedule
-                        ? `Edit schedule: ${workflow.schedule}`
-                        : "Set schedule"
-                    }
-                    onClick={() =>
-                      setScheduleEditor({
-                        workflowId: workflow.id,
-                        value: workflow.schedule || "",
-                      })
-                    }
-                  >
-                    <ClockIcon />
-                  </button>
-                  <button
-                    className="copy-button workflow-icon-button"
-                    onClick={() => addStep(workflow.id)}
-                    title="Add step"
-                    aria-label="Add step"
-                  >
-                    <PlusIcon />
-                  </button>
-                  <button
-                    className="copy-button workflow-icon-button"
-                    title="Run workflow"
-                    aria-label="Run workflow"
-                    onClick={async () => {
-                      const shellScriptPath = workflowShellScriptPath(
-                        workflow.name,
+                    } catch (error) {
+                      const message =
+                        error instanceof Error && error.message
+                          ? error.message
+                          : "unknown error";
+                      setConversionError(
+                        `Failed to convert workflow to harness shell script (${message}). Check workflow schema, especially vars values, and try again.`,
                       );
-                      setConversionMessage(null);
-                      setConversionError(null);
-                      const next = workflows.map((item) =>
-                        item.id === workflow.id
-                          ? { ...item, shellScriptPath }
-                          : item,
-                      );
-                      const persisted = await persist(next);
-                      if (!persisted) {
-                        setConversionError(
-                          "Failed to save workflow before conversion. Check required fields and try again.",
-                        );
-                        return;
-                      }
-                      try {
-                        await onRunWorkflow(next);
-                        setConversionMessage(
-                          `Workflow converted to harness shell script: ${shellScriptPath}`,
-                        );
-                      } catch (error) {
-                        const message =
-                          error instanceof Error && error.message
-                            ? error.message
-                            : "unknown error";
-                        setConversionError(
-                          `Failed to convert workflow to harness shell script (${message}). Check workflow schema, especially vars values, and try again.`,
-                        );
-                      }
-                    }}
-                  >
-                    <PlayIcon />
-                  </button>
-                  <button
-                    className="copy-button workflow-icon-button workflow-icon-button--danger"
-                    title="Remove workflow"
-                    aria-label="Remove workflow"
-                    onClick={() =>
-                      void persist(
-                        workflows.filter((item) => item.id !== workflow.id),
-                      )
                     }
-                  >
-                    <TrashIcon />
-                  </button>
-                </div>
-                {expanded && (
-                  <div className="workflow-steps">
-                    {workflow.steps.length === 0 ? (
-                      <div className="empty">No steps yet.</div>
-                    ) : (
-                      workflow.steps.map((step, stepIndex) => (
-                        <div
-                          className="workflow-step-row"
-                          key={`${workflow.id}-${stepIndex}`}
-                        >
-                          <div className="workflow-step-target">
+                  }}
+                >
+                  <PlayIcon />
+                </button>
+                <button
+                  className="copy-button workflow-icon-button workflow-icon-button--danger"
+                  title="Remove workflow"
+                  aria-label="Remove workflow"
+                  onClick={() =>
+                    void persist(
+                      workflows.filter((item) => item.id !== workflow.id),
+                    )
+                  }
+                >
+                  <TrashIcon />
+                </button>
+              </div>
+              {expanded && (
+                <div className="workflow-steps">
+                  {workflow.steps.length === 0 ? (
+                    <div className="empty">No steps yet.</div>
+                  ) : (
+                    workflow.steps.map((step, stepIndex) => (
+                      <div
+                        className="workflow-step-row"
+                        key={`${workflow.id}-${stepIndex}`}
+                      >
+                        <div className="workflow-step-target">
+                          <select
+                            value={step.type}
+                            onChange={(event) => {
+                              const nextType = event.target.value as
+                                | "agent"
+                                | "bash"
+                                | "vars";
+                              const nextStep: WorkflowStep =
+                                nextType === "bash"
+                                  ? { type: "bash", run: "" }
+                                  : nextType === "vars"
+                                    ? {
+                                        type: "vars",
+                                        varName: "",
+                                        run: "",
+                                        values: {},
+                                      }
+                                    : {
+                                        type: "agent",
+                                        agent: agentNames[0] || "default",
+                                        prompt: "",
+                                      };
+                              const next = workflows.map((item) =>
+                                item.id === workflow.id
+                                  ? {
+                                      ...item,
+                                      steps: item.steps.map(
+                                        (itemStep, itemIndex) =>
+                                          itemIndex === stepIndex
+                                            ? nextStep
+                                            : itemStep,
+                                      ),
+                                    }
+                                  : item,
+                              );
+                              void persist(next);
+                            }}
+                          >
+                            <option value="agent">Agent</option>
+                            <option value="bash">Bash</option>
+                            <option value="vars">Vars</option>
+                          </select>
+                          {step.type === "agent" ? (
                             <select
-                              value={step.type}
+                              value={step.agent || "default"}
                               onChange={(event) => {
-                                const nextType = event.target.value as
-                                  | "agent"
-                                  | "bash"
-                                  | "vars";
-                                const nextStep: WorkflowStep =
-                                  nextType === "bash"
-                                    ? { type: "bash", run: "" }
-                                    : nextType === "vars"
-                                      ? {
-                                          type: "vars",
-                                          varName: "",
-                                          run: "",
-                                          values: {},
-                                        }
-                                      : {
-                                          type: "agent",
-                                          agent: agentNames[0] || "default",
-                                          prompt: "",
-                                        };
                                 const next = workflows.map((item) =>
                                   item.id === workflow.id
                                     ? {
@@ -433,7 +457,10 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                                         steps: item.steps.map(
                                           (itemStep, itemIndex) =>
                                             itemIndex === stepIndex
-                                              ? nextStep
+                                              ? {
+                                                  ...itemStep,
+                                                  agent: event.target.value,
+                                                }
                                               : itemStep,
                                         ),
                                       }
@@ -442,157 +469,126 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                                 void persist(next);
                               }}
                             >
-                              <option value="agent">Agent</option>
-                              <option value="bash">Bash</option>
-                              <option value="vars">Vars</option>
+                              {agentNames.length === 0 ? (
+                                <option value="default">default</option>
+                              ) : (
+                                agentNames.map((agentName) => (
+                                  <option key={agentName}>{agentName}</option>
+                                ))
+                              )}
                             </select>
-                            {step.type === "agent" ? (
-                              <select
-                                value={step.agent || "default"}
-                                onChange={(event) => {
-                                  const next = workflows.map((item) =>
-                                    item.id === workflow.id
-                                      ? {
-                                          ...item,
-                                          steps: item.steps.map(
-                                            (itemStep, itemIndex) =>
-                                              itemIndex === stepIndex
+                          ) : step.type === "vars" ? (
+                            <input
+                              className="workflow-step-target__input"
+                              value={step.varName || ""}
+                              placeholder="VARIABLE_NAME"
+                              onChange={(event) => {
+                                const next = workflows.map((item) =>
+                                  item.id === workflow.id
+                                    ? {
+                                        ...item,
+                                        steps: item.steps.map(
+                                          (itemStep, itemIndex) => {
+                                            if (itemIndex !== stepIndex) {
+                                              return itemStep;
+                                            }
+                                            const varName = toBashVariableName(
+                                              event.target.value,
+                                            );
+                                            return {
+                                              ...itemStep,
+                                              varName,
+                                              values: varName
                                                 ? {
-                                                    ...itemStep,
-                                                    agent: event.target.value,
+                                                    [varName]:
+                                                      itemStep.run || "",
                                                   }
-                                                : itemStep,
-                                          ),
-                                        }
-                                      : item,
-                                  );
-                                  void persist(next);
-                                }}
-                              >
-                                {agentNames.length === 0 ? (
-                                  <option value="default">default</option>
-                                ) : (
-                                  agentNames.map((agentName) => (
-                                    <option key={agentName}>{agentName}</option>
-                                  ))
-                                )}
-                              </select>
-                            ) : step.type === "vars" ? (
-                              <input
-                                className="workflow-step-target__input"
-                                value={step.varName || ""}
-                                placeholder="VARIABLE_NAME"
-                                onChange={(event) => {
-                                  const next = workflows.map((item) =>
-                                    item.id === workflow.id
-                                      ? {
-                                          ...item,
-                                          steps: item.steps.map(
-                                            (itemStep, itemIndex) => {
-                                              if (itemIndex !== stepIndex) {
-                                                return itemStep;
-                                              }
-                                              const varName =
-                                                toBashVariableName(
-                                                  event.target.value,
-                                                );
-                                              return {
-                                                ...itemStep,
-                                                varName,
-                                                values: varName
-                                                  ? {
-                                                      [varName]:
-                                                        itemStep.run || "",
-                                                    }
-                                                  : {},
-                                              };
-                                            },
-                                          ),
-                                        }
-                                      : item,
-                                  );
-                                  void persist(next);
-                                }}
-                              />
-                            ) : null}
-                          </div>
+                                                : {},
+                                            };
+                                          },
+                                        ),
+                                      }
+                                    : item,
+                                );
+                                void persist(next);
+                              }}
+                            />
+                          ) : null}
+                        </div>
+                        <button
+                          className="workflow-step-preview"
+                          onClick={() => {
+                            const currentText =
+                              step.type === "agent"
+                                ? step.command
+                                  ? `/${step.command}${step.prompt ? ` ${step.prompt}` : ""}`
+                                  : step.prompt || ""
+                                : step.run || "";
+                            setEditStep({
+                              workflowId: workflow.id,
+                              stepIndex,
+                            });
+                            setEditStepValue(currentText);
+                          }}
+                        >
+                          {previewText(step)}
+                        </button>
+                        <div className="workflow-step-controls">
                           <button
-                            className="workflow-step-preview"
+                            className="copy-button workflow-icon-button"
+                            disabled={stepIndex === 0}
+                            title="Move step up"
+                            aria-label="Move step up"
                             onClick={() => {
-                              const currentText =
-                                step.type === "agent"
-                                  ? step.command
-                                    ? `/${step.command}${step.prompt ? ` ${step.prompt}` : ""}`
-                                    : step.prompt || ""
-                                  : step.run || "";
-                              setEditStep({
-                                workflowId: workflow.id,
-                                stepIndex,
+                              const next = workflows.map((item) => {
+                                if (item.id !== workflow.id || stepIndex === 0)
+                                  return item;
+                                const steps = [...item.steps];
+                                [steps[stepIndex - 1], steps[stepIndex]] = [
+                                  steps[stepIndex],
+                                  steps[stepIndex - 1],
+                                ];
+                                return { ...item, steps };
                               });
-                              setEditStepValue(currentText);
+                              void persist(next);
                             }}
                           >
-                            {previewText(step)}
+                            <span className="workflow-icon workflow-icon--up">
+                              <ArrowDownIcon />
+                            </span>
                           </button>
-                          <div className="workflow-step-controls">
-                            <button
-                              className="copy-button workflow-icon-button"
-                              disabled={stepIndex === 0}
-                              title="Move step up"
-                              aria-label="Move step up"
-                              onClick={() => {
-                                const next = workflows.map((item) => {
-                                  if (
-                                    item.id !== workflow.id ||
-                                    stepIndex === 0
-                                  )
-                                    return item;
-                                  const steps = [...item.steps];
-                                  [steps[stepIndex - 1], steps[stepIndex]] = [
-                                    steps[stepIndex],
-                                    steps[stepIndex - 1],
-                                  ];
-                                  return { ...item, steps };
-                                });
-                                void persist(next);
-                              }}
-                            >
-                              <span className="workflow-icon workflow-icon--up">
-                                <ArrowDownIcon />
-                              </span>
-                            </button>
-                            <button
-                              className="copy-button workflow-icon-button"
-                              disabled={stepIndex === workflow.steps.length - 1}
-                              title="Move step down"
-                              aria-label="Move step down"
-                              onClick={() => {
-                                const next = workflows.map((item) => {
-                                  if (
-                                    item.id !== workflow.id ||
-                                    stepIndex >= item.steps.length - 1
-                                  )
-                                    return item;
-                                  const steps = [...item.steps];
-                                  [steps[stepIndex + 1], steps[stepIndex]] = [
-                                    steps[stepIndex],
-                                    steps[stepIndex + 1],
-                                  ];
-                                  return { ...item, steps };
-                                });
-                                void persist(next);
-                              }}
-                            >
-                              <span className="workflow-icon workflow-icon--down">
-                                <ArrowDownIcon />
-                              </span>
-                            </button>
-                          </div>
+                          <button
+                            className="copy-button workflow-icon-button"
+                            disabled={stepIndex === workflow.steps.length - 1}
+                            title="Move step down"
+                            aria-label="Move step down"
+                            onClick={() => {
+                              const next = workflows.map((item) => {
+                                if (
+                                  item.id !== workflow.id ||
+                                  stepIndex >= item.steps.length - 1
+                                )
+                                  return item;
+                                const steps = [...item.steps];
+                                [steps[stepIndex + 1], steps[stepIndex]] = [
+                                  steps[stepIndex],
+                                  steps[stepIndex + 1],
+                                ];
+                                return { ...item, steps };
+                              });
+                              void persist(next);
+                            }}
+                          >
+                            <span className="workflow-icon workflow-icon--down">
+                              <ArrowDownIcon />
+                            </span>
+                          </button>
                         </div>
-                       ))
-                     )}
-                   </div>
-                 )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
