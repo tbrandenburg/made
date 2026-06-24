@@ -1237,7 +1237,10 @@ export const RepositoryPage: React.FC = () => {
     setSessionLoading(true);
     const controller = new AbortController();
     syncChatHistory(controller.signal);
-    return () => controller.abort(); // No argument — preserves DOMException('AbortError') shape
+    return () => {
+      controller.abort(); // No argument — preserves DOMException('AbortError') shape
+      clearSessionLoading(); // Ensure loading state is cleared if effect is torn down before fetch completes
+    };
   }, [chatAgentProcessing, name, sessionId, syncChatHistory]);
 
   useEffect(() => {

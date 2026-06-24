@@ -3697,3 +3697,124 @@ describe("RepositoryPage polling tick — agent status check (AC545)", () => {
     );
   });
 });
+
+// ── AC546: "Loading session..." clears when fetch is aborted mid-flight ──
+
+describe("RepositoryPage loading state clears on mid-flight abort (AC546)", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    // Default: agent not processing, history empty
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    localStorage.clear();
+  });
+
+  it("AC546-1: sessionLoading clears when chatAgentProcessing flips to true while history fetch is in-flight", async () => {
+    // Arrange: history fetch is pending; status check is also pending (controlled)
+    let resolveStatus!: (value: { processing: boolean; startedAt?: string | null }) => void;
+    vi.mocked(api.getRepositoryAgentStatus).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveStatus = resolve;
+      }),
+    );
+
+    let resolveFetch!: (value: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage();
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    // Loading indicator must appear: non-polling effect fires (chatAgentProcessing=false, status pending)
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC546-1): loading not visible when fetch is in-flight",
+      ).toBeInTheDocument();
+    });
+
+    // Flip chatAgentProcessing to true by resolving the pending status check
+    // This triggers the non-polling effect cleanup, which must call clearSessionLoading()
+    resolveStatus({ processing: true, startedAt: new Date().toISOString() });
+
+    // Loading must clear: cleanup fires clearSessionLoading(); new effect returns early (chatAgentProcessing guard)
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC546-1): loading stuck after chatAgentProcessing flipped to true — clearSessionLoading() missing in effect cleanup",
+      ).not.toBeInTheDocument();
+    });
+
+    // Resolve the stale fetch after loading has cleared — must not re-show loading
+    resolveFetch(emptyHistory);
+    await new Promise<void>((r) => setTimeout(r, 50));
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (AC546-1): loading reappeared after stale fetch resolved — clearSessionLoading on abort path accidentally re-triggered",
+    ).not.toBeInTheDocument();
+  });
+
+  it("AC546-2: AbortError from a session-switch cleanup does not show an error message", async () => {
+    // Arrange: first fetch is pending (manually controlled); second fetch resolves immediately
+    const abortError = new DOMException("The operation was aborted", "AbortError");
+    let rejectFirst!: (reason: DOMException) => void;
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockReturnValueOnce(
+        new Promise<ChatHistoryResponse>((_, reject) => {
+          rejectFirst = reject;
+        }),
+      )
+      .mockResolvedValueOnce(emptyHistory);
+
+    renderPage();
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC546-2): loading not visible when first fetch is in-flight",
+      ).toBeInTheDocument();
+    });
+
+    // Switch to Session A — cleanup fires (clearSessionLoading + abort), new session fetch resolves
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    // Wait for loading to settle after the switch
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC546-2): loading stuck after session switch before stale AbortError",
+      ).not.toBeInTheDocument();
+    });
+
+    // Now reject the stale first fetch with AbortError (simulating native abort rejection)
+    rejectFirst(abortError);
+    await new Promise<void>((r) => setTimeout(r, 50));
+
+    // AbortError must not produce a user-visible error message
+    expect(
+      screen.queryByText("The operation was aborted"),
+      "FAIL (AC546-2): AbortError message visible — setChatError was called on AbortError path",
+    ).not.toBeInTheDocument();
+
+    // Loading must remain cleared
+    expect(
+      screen.queryByText("Loading session..."),
+      "FAIL (AC546-2): loading stuck after stale AbortError rejection",
+    ).not.toBeInTheDocument();
+  });
+});
