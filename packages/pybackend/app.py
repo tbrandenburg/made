@@ -46,6 +46,7 @@ from agent_service import (
     send_agent_message,
     terminate_agent_process,
 )
+from docker_service import list_running_containers, stop_container
 from constitution_service import (
     delete_constitution,
     list_constitutions,
@@ -1037,6 +1038,38 @@ def terminate_agent_cli_process(pid: int):
         raise
     except Exception as exc:
         logger.exception("Failed to terminate agent CLI process pid=%s", pid)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/docker-containers")
+def list_docker_containers():
+    try:
+        logger.info("Listing running Docker containers")
+        return {"containers": list_running_containers()}
+    except Exception as exc:
+        logger.exception("Failed to list Docker containers")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.post("/api/docker-containers/{container_id}/stop")
+def stop_docker_container(container_id: str):
+    try:
+        logger.info("Stopping Docker container id=%s", container_id)
+        success = stop_container(container_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Container not found or already stopped",
+            )
+        return {"stopped": True}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to stop Docker container id=%s", container_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )

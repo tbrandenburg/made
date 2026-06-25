@@ -21,6 +21,8 @@ vi.mock("../hooks/useApi", async () => {
       getWorkflowLogs: vi.fn(),
       getAgentProcesses: vi.fn(),
       terminateAgentProcess: vi.fn(),
+      getDockerContainers: vi.fn(),
+      stopDockerContainer: vi.fn(),
     },
   };
 });
@@ -31,6 +33,7 @@ describe("TasksPage", () => {
     vi.mocked(api.getWorkspaceWorkflows).mockResolvedValue({ workflows: [] });
     vi.mocked(api.getWorkflowLogs).mockResolvedValue({ logs: [] });
     vi.mocked(api.getAgentProcesses).mockResolvedValue({ processes: [] });
+    vi.mocked(api.getDockerContainers).mockResolvedValue({ containers: [] });
   });
 
   it("renders task schedules as green schedule tags", async () => {
@@ -305,6 +308,47 @@ describe("TasksPage", () => {
 
     await waitFor(() => {
       expect(api.terminateAgentProcess).toHaveBeenCalledWith(1234);
+    });
+  });
+
+  it("renders and stops running Docker containers", async () => {
+    vi.mocked(api.listTasks).mockResolvedValue({ tasks: [] });
+    vi.mocked(api.getDockerContainers)
+      .mockResolvedValueOnce({
+        containers: [
+          {
+            id: "abc123def456abc123def456abc123def456abc123def456",
+            shortId: "abc123def456",
+            image: "nginx:latest",
+            command: "nginx -g 'daemon off;'",
+            createdAt: "2026-06-25T12:00:00Z",
+            status: "Up 3 minutes",
+            ports: "0.0.0.0:8080->80/tcp",
+            names: "my-nginx",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ containers: [] });
+    vi.mocked(api.stopDockerContainer).mockResolvedValue(undefined);
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText("Running Docker Containers"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("nginx:latest")).toBeInTheDocument();
+    expect(screen.getByText("Up 3 minutes")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+
+    await waitFor(() => {
+      expect(api.stopDockerContainer).toHaveBeenCalledWith(
+        "abc123def456abc123def456abc123def456abc123def456",
+      );
     });
   });
 

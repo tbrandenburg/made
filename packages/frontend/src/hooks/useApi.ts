@@ -358,6 +358,17 @@ export type AgentProcessSummary = {
   workingDirectory?: string | null;
 };
 
+export type DockerContainerSummary = {
+  id: string;
+  shortId: string;
+  image: string;
+  command: string;
+  createdAt: string;
+  status: string;
+  ports: string;
+  names: string;
+};
+
 function toHarnessCompatibleWorkflowStep(step: WorkflowStep): WorkflowStep {
   if (step.type !== "vars") return step;
 
@@ -688,6 +699,10 @@ export const api = {
         method: "POST",
       },
     ),
+  getDockerContainers: () =>
+    request<{ containers: DockerContainerSummary[] }>("/docker-containers"),
+  stopDockerContainer: (id: string) =>
+    request<void>(`/docker-containers/${id}/stop`, { method: "POST" }),
   saveWorkflows: (workflows: WorkflowDefinition[]) =>
     request<{ workflows: WorkflowDefinition[] }>("/workflows", {
       method: "PUT",

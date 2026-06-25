@@ -170,6 +170,55 @@ class TestAgentProcessesEndpoint:
         assert response.status_code == 404
 
 
+class TestDockerContainersEndpoint:
+    @patch("app.list_running_containers")
+    def test_list_docker_containers_success(self, mock_list):
+        mock_list.return_value = [
+            {
+                "id": "abc123def456abc123def456abc123def456abc123def456",
+                "shortId": "abc123def456",
+                "image": "nginx:latest",
+                "command": "nginx -g 'daemon off;'",
+                "createdAt": "2026-06-25T12:00:00Z",
+                "status": "Up 3 minutes",
+                "ports": "0.0.0.0:8080->80/tcp",
+                "names": "my-nginx",
+            }
+        ]
+
+        response = client.get("/api/docker-containers")
+
+        assert response.status_code == 200
+        assert response.json() == {"containers": mock_list.return_value}
+
+    @patch("app.list_running_containers")
+    def test_list_docker_containers_empty_when_docker_missing(self, mock_list):
+        mock_list.return_value = []
+
+        response = client.get("/api/docker-containers")
+
+        assert response.status_code == 200
+        assert response.json() == {"containers": []}
+
+    @patch("app.stop_container")
+    def test_stop_docker_container_success(self, mock_stop):
+        mock_stop.return_value = True
+
+        response = client.post("/api/docker-containers/abc/stop")
+
+        assert response.status_code == 200
+        assert response.json()["stopped"] is True
+        mock_stop.assert_called_once_with("abc")
+
+    @patch("app.stop_container")
+    def test_stop_docker_container_not_found(self, mock_stop):
+        mock_stop.return_value = False
+
+        response = client.post("/api/docker-containers/abc/stop")
+
+        assert response.status_code == 404
+
+
 class TestChatHistoryEndpoint:
     @patch("app.export_chat_history")
     def test_repository_history_success(self, mock_export):
