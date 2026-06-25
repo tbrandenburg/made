@@ -4109,3 +4109,342 @@ describe("RepositoryPage syncChatHistory full-fetch on session load (#481)", () 
     );
   });
 });
+
+// ── Session selection regression: Knowledge, Constitution, Task pages ─────────
+
+function renderTaskPage(initialEntries = ["/tasks/test-task?tab=agent"]) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Routes>
+        <Route path="/tasks/:name/*" element={<TaskPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function renderKnowledgePage(
+  initialEntries = ["/knowledge/test-artefact?tab=agent"],
+) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Routes>
+        <Route path="/knowledge/:name/*" element={<KnowledgeArtefactPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function renderConstitutionPage(
+  initialEntries = ["/constitutions/test-constitution?tab=agent"],
+) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Routes>
+        <Route
+          path="/constitutions/:name/*"
+          element={<ConstitutionPage />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe("TaskPage session selection", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getTaskAgentHistory).mockResolvedValue(emptyHistory);
+    localStorage.clear();
+  });
+
+  it("session select triggers exactly 1 API call (not 3)", async () => {
+    vi.mocked(api.getTaskAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    renderTaskPage(["/tasks/test-task"]);
+
+    // Navigate to the agent tab (default is "content")
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    const chooseBtn = await screen.findByLabelText("Choose a session");
+    fireEvent.click(chooseBtn);
+
+    const sessionBtn = await screen.findByTitle("Session A");
+    fireEvent.click(sessionBtn);
+
+    await waitFor(() => {
+      expect(api.getTaskAgentHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("page load with ?sessionId=X triggers exactly 1 API call", async () => {
+    renderTaskPage(["/tasks/test-task?sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(api.getTaskAgentHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("re-selecting the same session triggers full refresh", async () => {
+    vi.mocked(api.getTaskAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    renderTaskPage(["/tasks/test-task"]);
+
+    // Navigate to the agent tab (default is "content")
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    const chooseBtn = await screen.findByLabelText("Choose a session");
+    fireEvent.click(chooseBtn);
+
+    const sessionBtn = await screen.findByTitle("Session A");
+    fireEvent.click(sessionBtn);
+
+    await waitFor(() => {
+      expect(api.getTaskAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    vi.mocked(api.getTaskAgentHistory).mockClear();
+    vi.mocked(api.getTaskAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    fireEvent.click(chooseBtn);
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getTaskAgentHistory).toHaveBeenCalled();
+    });
+  });
+});
+
+describe("KnowledgeArtefactPage session selection", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getKnowledgeAgentHistory).mockResolvedValue(emptyHistory);
+    localStorage.clear();
+  });
+
+  it("session select triggers exactly 1 API call", async () => {
+    vi.mocked(api.getKnowledgeAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    renderKnowledgePage(["/knowledge/test-artefact"]);
+
+    // Navigate to the agent tab (default is "content")
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    const chooseBtn = await screen.findByLabelText("Choose a session");
+    fireEvent.click(chooseBtn);
+
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getKnowledgeAgentHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("page load with ?sessionId=X triggers exactly 1 API call", async () => {
+    renderKnowledgePage([
+      "/knowledge/test-artefact?sessionId=session-b",
+    ]);
+
+    await waitFor(() => {
+      expect(api.getKnowledgeAgentHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+describe("ConstitutionPage session selection", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getConstitutionAgentHistory).mockResolvedValue(emptyHistory);
+    localStorage.clear();
+  });
+
+  it("session select triggers exactly 1 API call", async () => {
+    vi.mocked(api.getConstitutionAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    renderConstitutionPage(["/constitutions/test-constitution"]);
+
+    // Navigate to the agent tab (default is "content")
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    const chooseBtn = await screen.findByLabelText("Choose a session");
+    fireEvent.click(chooseBtn);
+
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getConstitutionAgentHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("page load with ?sessionId=X triggers exactly 1 API call", async () => {
+    renderConstitutionPage([
+      "/constitutions/test-constitution?sessionId=session-b",
+    ]);
+
+    await waitFor(() => {
+      expect(api.getConstitutionAgentHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("re-selecting the same session triggers full refresh", async () => {
+    vi.mocked(api.getConstitutionAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    renderConstitutionPage(["/constitutions/test-constitution"]);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    const chooseBtn = await screen.findByLabelText("Choose a session");
+    fireEvent.click(chooseBtn);
+
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getConstitutionAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    vi.mocked(api.getConstitutionAgentHistory).mockClear();
+    vi.mocked(api.getConstitutionAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    fireEvent.click(chooseBtn);
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getConstitutionAgentHistory).toHaveBeenCalled();
+    });
+  });
+});
+
+// ── sessionError display tests ────────────────────────────────────────────────
+
+describe("TaskPage sessionError display", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("shows error alert when session history fetch fails", async () => {
+    vi.mocked(api.getTaskAgentHistory).mockRejectedValue(
+      new Error("Network failure"),
+    );
+
+    renderTaskPage(["/tasks/test-task?sessionId=session-b"]);
+
+    // Navigate to agent tab so the alert becomes visible
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Network failure")).toBeInTheDocument();
+    });
+  });
+});
+
+describe("KnowledgeArtefactPage session selection — same-session refresh", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getKnowledgeAgentHistory).mockResolvedValue(emptyHistory);
+    localStorage.clear();
+  });
+
+  it("re-selecting the same session triggers full refresh", async () => {
+    vi.mocked(api.getKnowledgeAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    renderKnowledgePage(["/knowledge/test-artefact"]);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    const chooseBtn = await screen.findByLabelText("Choose a session");
+    fireEvent.click(chooseBtn);
+
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getKnowledgeAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    vi.mocked(api.getKnowledgeAgentHistory).mockClear();
+    vi.mocked(api.getKnowledgeAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    fireEvent.click(chooseBtn);
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getKnowledgeAgentHistory).toHaveBeenCalled();
+    });
+  });
+});
+
+describe("KnowledgeArtefactPage sessionError display", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("shows error alert when session history fetch fails", async () => {
+    vi.mocked(api.getKnowledgeAgentHistory).mockRejectedValue(
+      new Error("Network failure"),
+    );
+
+    renderKnowledgePage(["/knowledge/test-artefact?sessionId=session-b"]);
+
+    // Navigate to agent tab so the alert becomes visible
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Network failure")).toBeInTheDocument();
+    });
+  });
+});
+
+describe("ConstitutionPage sessionError display", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("shows error alert when session history fetch fails", async () => {
+    vi.mocked(api.getConstitutionAgentHistory).mockRejectedValue(
+      new Error("Network failure"),
+    );
+
+    renderConstitutionPage([
+      "/constitutions/test-constitution?sessionId=session-b",
+    ]);
+
+    // Navigate to agent tab so the alert becomes visible
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Network failure")).toBeInTheDocument();
+    });
+  });
+});
