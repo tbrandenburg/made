@@ -31,6 +31,7 @@ interface UseSessionLoaderResult {
  * - Sets sessionLoading=true for the duration of the fetch.
  * - Ignores AbortError (stale request cancelled by cleanup).
  * - Surfaces other errors in sessionError.
+ * - Resets sessionError when name/sessionId becomes falsy (e.g. session clear).
  */
 export function useSessionLoader({
   name,
@@ -40,6 +41,13 @@ export function useSessionLoader({
 }: UseSessionLoaderParams): UseSessionLoaderResult {
   const [sessionLoading, setSessionLoading] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
+
+  // Reset error state when the session is cleared (name or sessionId goes falsy).
+  useEffect(() => {
+    if (!name || !sessionId) {
+      setSessionError(null);
+    }
+  }, [name, sessionId]);
 
   useEffect(() => {
     if (!name || !sessionId) return;

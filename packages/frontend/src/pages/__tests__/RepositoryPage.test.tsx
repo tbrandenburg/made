@@ -4299,4 +4299,152 @@ describe("ConstitutionPage session selection", () => {
       expect(api.getConstitutionAgentHistory).toHaveBeenCalledTimes(1);
     });
   });
+
+  it("re-selecting the same session triggers full refresh", async () => {
+    vi.mocked(api.getConstitutionAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    renderConstitutionPage(["/constitutions/test-constitution"]);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    const chooseBtn = await screen.findByLabelText("Choose a session");
+    fireEvent.click(chooseBtn);
+
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getConstitutionAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    vi.mocked(api.getConstitutionAgentHistory).mockClear();
+    vi.mocked(api.getConstitutionAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    fireEvent.click(chooseBtn);
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getConstitutionAgentHistory).toHaveBeenCalled();
+    });
+  });
+});
+
+// ── sessionError display tests ────────────────────────────────────────────────
+
+describe("TaskPage sessionError display", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("shows error alert when session history fetch fails", async () => {
+    vi.mocked(api.getTaskAgentHistory).mockRejectedValue(
+      new Error("Network failure"),
+    );
+
+    renderTaskPage(["/tasks/test-task?sessionId=session-b"]);
+
+    // Navigate to agent tab so the alert becomes visible
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Network failure")).toBeInTheDocument();
+    });
+  });
+});
+
+describe("KnowledgeArtefactPage session selection — same-session refresh", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getKnowledgeAgentHistory).mockResolvedValue(emptyHistory);
+    localStorage.clear();
+  });
+
+  it("re-selecting the same session triggers full refresh", async () => {
+    vi.mocked(api.getKnowledgeAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    renderKnowledgePage(["/knowledge/test-artefact"]);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    const chooseBtn = await screen.findByLabelText("Choose a session");
+    fireEvent.click(chooseBtn);
+
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getKnowledgeAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    vi.mocked(api.getKnowledgeAgentHistory).mockClear();
+    vi.mocked(api.getKnowledgeAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    fireEvent.click(chooseBtn);
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getKnowledgeAgentHistory).toHaveBeenCalled();
+    });
+  });
+});
+
+describe("KnowledgeArtefactPage sessionError display", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("shows error alert when session history fetch fails", async () => {
+    vi.mocked(api.getKnowledgeAgentHistory).mockRejectedValue(
+      new Error("Network failure"),
+    );
+
+    renderKnowledgePage(["/knowledge/test-artefact?sessionId=session-b"]);
+
+    // Navigate to agent tab so the alert becomes visible
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Network failure")).toBeInTheDocument();
+    });
+  });
+});
+
+describe("ConstitutionPage sessionError display", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("shows error alert when session history fetch fails", async () => {
+    vi.mocked(api.getConstitutionAgentHistory).mockRejectedValue(
+      new Error("Network failure"),
+    );
+
+    renderConstitutionPage([
+      "/constitutions/test-constitution?sessionId=session-b",
+    ]);
+
+    // Navigate to agent tab so the alert becomes visible
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Network failure")).toBeInTheDocument();
+    });
+  });
 });
