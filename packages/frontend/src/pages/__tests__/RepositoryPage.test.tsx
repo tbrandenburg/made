@@ -3842,38 +3842,42 @@ describe("RepositoryPage polling tick — agent status check (AC545)", () => {
     );
   });
 
-  it("AC545-3: spinner clears after transient network error in status check recovers", { timeout: 15000 }, async () => {
-    // Arrange: mount returns true (spinner shows), first tick errors (network),
-    // second tick returns false (done) — spinner must eventually clear.
-    vi.mocked(api.getRepositoryAgentStatus)
-      .mockResolvedValueOnce({
-        processing: true,
-        startedAt: new Date().toISOString(),
-      }) // mount call → processing=true, spinner shows
-      .mockRejectedValueOnce(new Error("Network error")) // first tick error → must keep polling
-      .mockResolvedValue({ processing: false }); // subsequent calls → done
+  it(
+    "AC545-3: spinner clears after transient network error in status check recovers",
+    { timeout: 15000 },
+    async () => {
+      // Arrange: mount returns true (spinner shows), first tick errors (network),
+      // second tick returns false (done) — spinner must eventually clear.
+      vi.mocked(api.getRepositoryAgentStatus)
+        .mockResolvedValueOnce({
+          processing: true,
+          startedAt: new Date().toISOString(),
+        }) // mount call → processing=true, spinner shows
+        .mockRejectedValueOnce(new Error("Network error")) // first tick error → must keep polling
+        .mockResolvedValue({ processing: false }); // subsequent calls → done
 
-    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+      renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
 
-    // Spinner should appear on mount
-    await waitFor(() => {
-      expect(
-        screen.queryByText("Agent is thinking..."),
-        "FAIL (AC545-3): spinner should appear when processing=true",
-      ).toBeInTheDocument();
-    });
-
-    // Spinner must clear even though first tick had a network error
-    await waitFor(
-      () => {
+      // Spinner should appear on mount
+      await waitFor(() => {
         expect(
           screen.queryByText("Agent is thinking..."),
-          "FAIL (AC545-3): spinner did not clear after transient network error — polling stopped prematurely",
-        ).not.toBeInTheDocument();
-      },
-      { timeout: 15000 },
-    );
-  });
+          "FAIL (AC545-3): spinner should appear when processing=true",
+        ).toBeInTheDocument();
+      });
+
+      // Spinner must clear even though first tick had a network error
+      await waitFor(
+        () => {
+          expect(
+            screen.queryByText("Agent is thinking..."),
+            "FAIL (AC545-3): spinner did not clear after transient network error — polling stopped prematurely",
+          ).not.toBeInTheDocument();
+        },
+        { timeout: 15000 },
+      );
+    },
+  );
 });
 
 // ── AC546: "Loading session..." clears when fetch is aborted mid-flight ──
@@ -3897,12 +3901,16 @@ describe("RepositoryPage loading state clears on mid-flight abort (AC546)", () =
 
   it("AC546-1 (post-478): status check runs after history resolves, not concurrently", async () => {
     // Arrange: history resolves normally; status check is controlled
-    let resolveStatus!: (value: { processing: boolean; startedAt?: string | null }) => void;
-    const statusPromise = new Promise<{ processing: boolean; startedAt?: string | null }>(
-      (resolve) => {
-        resolveStatus = resolve;
-      },
-    );
+    let resolveStatus!: (value: {
+      processing: boolean;
+      startedAt?: string | null;
+    }) => void;
+    const statusPromise = new Promise<{
+      processing: boolean;
+      startedAt?: string | null;
+    }>((resolve) => {
+      resolveStatus = resolve;
+    });
     vi.mocked(api.getRepositoryAgentStatus).mockReturnValueOnce(statusPromise);
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
 
@@ -3935,7 +3943,10 @@ describe("RepositoryPage loading state clears on mid-flight abort (AC546)", () =
 
   it("AC546-2: AbortError from a session-switch cleanup does not show an error message", async () => {
     // Arrange: first fetch is pending (manually controlled); second fetch resolves immediately
-    const abortError = new DOMException("The operation was aborted", "AbortError");
+    const abortError = new DOMException(
+      "The operation was aborted",
+      "AbortError",
+    );
     let rejectFirst!: (reason: DOMException) => void;
     vi.mocked(api.getRepositoryAgentHistory)
       .mockReturnValueOnce(
@@ -4012,10 +4023,7 @@ describe("RepositoryPage syncChatHistory full-fetch on session load (#481)", () 
       timestamp: "2026-01-01T00:00:00.000Z",
     };
     // sessionStorageKey = "repository-session-test-repo-opencode" (agentCli defaults to "opencode")
-    localStorage.setItem(
-      "repository-session-test-repo-opencode",
-      "session-a",
-    );
+    localStorage.setItem("repository-session-test-repo-opencode", "session-a");
     localStorage.setItem(
       "repository-chat-test-repo",
       JSON.stringify([cachedMessage]),
@@ -4032,7 +4040,12 @@ describe("RepositoryPage syncChatHistory full-fetch on session load (#481)", () 
     expect(
       api.getRepositoryAgentHistory,
       "FAIL (AC481-1): session-load used incremental startTimestamp instead of undefined (full fetch)",
-    ).toHaveBeenCalledWith("test-repo", "session-a", undefined, expect.anything());
+    ).toHaveBeenCalledWith(
+      "test-repo",
+      "session-a",
+      undefined,
+      expect.anything(),
+    );
   });
 
   it("AC481-3: stale localStorage timestamp does not prevent server messages from appearing", async () => {
@@ -4050,10 +4063,7 @@ describe("RepositoryPage syncChatHistory full-fetch on session load (#481)", () 
       text: "Corrupted cached message",
       timestamp: "2099-01-01T00:00:00.000Z",
     };
-    localStorage.setItem(
-      "repository-session-test-repo-opencode",
-      "session-a",
-    );
+    localStorage.setItem("repository-session-test-repo-opencode", "session-a");
     localStorage.setItem(
       "repository-chat-test-repo",
       JSON.stringify([futureMessage]),
@@ -4122,10 +4132,7 @@ function renderConstitutionPage(
   return render(
     <MemoryRouter initialEntries={initialEntries}>
       <Routes>
-        <Route
-          path="/constitutions/:name/*"
-          element={<ConstitutionPage />}
-        />
+        <Route path="/constitutions/:name/*" element={<ConstitutionPage />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -4233,9 +4240,7 @@ describe("KnowledgeArtefactPage session selection", () => {
   });
 
   it("page load with ?sessionId=X triggers exactly 1 API call", async () => {
-    renderKnowledgePage([
-      "/knowledge/test-artefact?sessionId=session-b",
-    ]);
+    renderKnowledgePage(["/knowledge/test-artefact?sessionId=session-b"]);
 
     await waitFor(() => {
       expect(api.getKnowledgeAgentHistory).toHaveBeenCalledTimes(1);
@@ -4437,7 +4442,9 @@ describe("RepositoryPage status check sequencing after session load (AC478)", ()
     document.body.innerHTML = "";
     vi.clearAllMocks();
     localStorage.clear();
-    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [],
+    });
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
       processing: false,
       startedAt: null,
@@ -4542,5 +4549,146 @@ describe("RepositoryPage status check sequencing after session load (AC478)", ()
       api.getRepositoryAgentStatus,
       "FAIL (AC478-3): getRepositoryAgentStatus was called after history failure — would clear the error message",
     ).not.toHaveBeenCalled();
+  });
+});
+
+describe("RepositoryPage lifecycle guard semantics (issue #475)", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    localStorage.clear();
+  });
+
+  it("L1: streaming→hydrated transition does NOT re-trigger a full history fetch", async () => {
+    // Setup: agent returns processing:true on first status check, then false
+    vi.mocked(api.getRepositoryAgentStatus)
+      .mockResolvedValueOnce({
+        processing: true,
+        startedAt: new Date().toISOString(),
+      })
+      .mockResolvedValue({ processing: false, startedAt: null });
+
+    // All history fetches resolve immediately so the polling tick can complete
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Wait for the first status check — lifecycle becomes 'streaming'
+    await waitFor(() => {
+      expect(api.getRepositoryAgentStatus).toHaveBeenCalledTimes(1);
+    });
+
+    // lifecycle is now 'streaming'; polling loop fires.
+    // The first polling tick: history + status(processing:false) → lifecycle='hydrated'
+    await waitFor(() => {
+      expect(api.getRepositoryAgentStatus).toHaveBeenCalledTimes(2);
+    });
+
+    // Record history call count AFTER the streaming→hydrated transition
+    const callsAfterTransition = vi.mocked(api.getRepositoryAgentHistory).mock
+      .calls.length;
+
+    // Wait a tick for any spurious Effect 1 re-runs
+    await new Promise((r) => setTimeout(r, 50));
+
+    // KEY ASSERTION: no additional full history fetches after streaming→hydrated transition
+    // Effect 1 guards on lifecycle === 'loading', so it must NOT re-fire here
+    expect(
+      vi.mocked(api.getRepositoryAgentHistory).mock.calls.length,
+      "FAIL (L1): Effect 1 re-fired after streaming ended — lifecycle guard not applied",
+    ).toBe(callsAfterTransition);
+  });
+
+  it("L2: polling loop does NOT start during session-load (lifecycle = 'loading')", async () => {
+    // Simulate slow history fetch — status check must not fire until after history resolves
+    let resolveHistory!: (value: ChatHistoryResponse) => void;
+    const historyPromise = new Promise<ChatHistoryResponse>((resolve) => {
+      resolveHistory = resolve;
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(
+      historyPromise,
+    );
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // History fetch is in-flight; status must not be called yet
+    await new Promise((r) => setTimeout(r, 50));
+    expect(
+      api.getRepositoryAgentStatus,
+      "FAIL (L2): status check fired while history fetch was in-flight — polling started during 'loading'",
+    ).not.toHaveBeenCalled();
+
+    // Resolve history → now status check runs
+    resolveHistory(emptyHistory);
+    await waitFor(() => {
+      expect(api.getRepositoryAgentStatus).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("L3: send message transitions lifecycle to streaming then hydrated on completion", async () => {
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    vi.mocked(api.sendAgentMessage).mockResolvedValue({
+      messageId: "m1",
+      sent: new Date().toISOString(),
+      response: "ok",
+      sessionId: "session-a",
+      processing: false,
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Wait for initial hydration (status check runs once after history loads)
+    await waitFor(() => {
+      expect(api.getRepositoryAgentStatus).toHaveBeenCalled();
+    });
+
+    // Send button should be present (lifecycle = 'hydrated')
+    const sendBtn = await screen.findByRole("button", { name: /send/i });
+    expect(sendBtn).toBeInTheDocument();
+
+    const input = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(input, { target: { value: "Hello" } });
+    fireEvent.click(sendBtn);
+
+    // sendAgentMessage resolves with processing:false → lifecycle = 'hydrated' → Send visible again
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /send/i })).toBeInTheDocument();
+    });
+  });
+
+  it("L4: clearSessionOnly resets lifecycle to idle (no loading spinner)", async () => {
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Wait for hydration
+    await waitFor(() => {
+      expect(api.getRepositoryAgentStatus).toHaveBeenCalled();
+    });
+
+    // Open and confirm clear session (clear-only, no history wipe)
+    const clearBtn = await screen.findByLabelText("Clear session");
+    fireEvent.click(clearBtn);
+    const noBtn = screen.getByRole("button", { name: /^no$/i });
+    fireEvent.click(noBtn);
+
+    // Loading spinner (session loading) must not be visible after clear
+    expect(
+      screen.queryByText(/loading session/i),
+      "FAIL (L4): session loading spinner still visible after clearSessionOnly",
+    ).not.toBeInTheDocument();
   });
 });

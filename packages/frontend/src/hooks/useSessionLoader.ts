@@ -66,7 +66,8 @@ export function useSessionLoader({
         setChat(mapped);
       })
       .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setSessionLoading(false);
         const message =
           error instanceof Error
