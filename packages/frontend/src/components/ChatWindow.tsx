@@ -166,6 +166,90 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
       [markdownOptions],
     );
 
+    // Keep a ref so the stable Footer closure always reads fresh prop values
+    // without causing the `components` object reference to change.
+    const footerPropsRef = React.useRef({
+      refreshing,
+      sessionLoading,
+      agentProcessing,
+      sessionId,
+      isSessionSaved,
+      onClearSession,
+      onSaveSession,
+    });
+    footerPropsRef.current = {
+      refreshing,
+      sessionLoading,
+      agentProcessing,
+      sessionId,
+      isSessionSaved,
+      onClearSession,
+      onSaveSession,
+    };
+
+    const stableComponents = React.useMemo(
+      () => ({
+        Item: SpacedItem,
+        Footer: () => {
+          const p = footerPropsRef.current;
+          return (
+            <>
+              {p.refreshing && (
+                <div className="loading-indicator">
+                  <div className="loading-spinner"></div>
+                  <span>Refreshing...</span>
+                </div>
+              )}
+              {!p.refreshing && p.sessionLoading && (
+                <div className="loading-indicator">
+                  <div className="loading-spinner"></div>
+                  <span>Loading session...</span>
+                </div>
+              )}
+              {!p.refreshing && !p.sessionLoading && p.agentProcessing && (
+                <div className="loading-indicator">
+                  <div className="loading-spinner"></div>
+                  <span>Agent is thinking...</span>
+                </div>
+              )}
+              {p.sessionId && (
+                <div className="chat-session-id" aria-label="Session ID">
+                  <span>Session ID: {p.sessionId}</span>
+                  <button
+                    type="button"
+                    className="icon-button-small"
+                    aria-label={
+                      p.isSessionSaved ? "Session saved" : "Save session"
+                    }
+                    title={
+                      p.isSessionSaved
+                        ? "Session already saved"
+                        : "Save session"
+                    }
+                    onClick={p.onSaveSession}
+                    disabled={!p.onSaveSession || p.isSessionSaved}
+                  >
+                    <SaveIcon />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button-small"
+                    aria-label="Clear session"
+                    title="Clear session"
+                    onClick={p.onClearSession}
+                    disabled={!p.onClearSession}
+                  >
+                    <TrashIcon />
+                  </button>
+                </div>
+              )}
+            </>
+          );
+        },
+      }),
+      [], // Created once; Footer reads latest values via footerPropsRef
+    );
+
     return (
       <div className="chat-window" ref={setChatWindowElement}>
         {chat.length > 0 && (
@@ -179,62 +263,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
             customScrollParent={scrollParent ?? undefined}
             data={chat}
             itemContent={itemContent}
-            components={{
-              Item: SpacedItem,
-              Footer: () => (
-                <>
-                  {refreshing && (
-                    <div className="loading-indicator">
-                      <div className="loading-spinner"></div>
-                      <span>Refreshing...</span>
-                    </div>
-                  )}
-                  {!refreshing && sessionLoading && (
-                    <div className="loading-indicator">
-                      <div className="loading-spinner"></div>
-                      <span>Loading session...</span>
-                    </div>
-                  )}
-                  {!refreshing && !sessionLoading && agentProcessing && (
-                    <div className="loading-indicator">
-                      <div className="loading-spinner"></div>
-                      <span>Agent is thinking...</span>
-                    </div>
-                  )}
-                  {sessionId && (
-                    <div className="chat-session-id" aria-label="Session ID">
-                      <span>Session ID: {sessionId}</span>
-                      <button
-                        type="button"
-                        className="icon-button-small"
-                        aria-label={
-                          isSessionSaved ? "Session saved" : "Save session"
-                        }
-                        title={
-                          isSessionSaved
-                            ? "Session already saved"
-                            : "Save session"
-                        }
-                        onClick={onSaveSession}
-                        disabled={!onSaveSession || isSessionSaved}
-                      >
-                        <SaveIcon />
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button-small"
-                        aria-label="Clear session"
-                        title="Clear session"
-                        onClick={onClearSession}
-                        disabled={!onClearSession}
-                      >
-                        <TrashIcon />
-                      </button>
-                    </div>
-                  )}
-                </>
-              ),
-            }}
+            components={stableComponents}
             followOutput={(atBottom) => (atBottom ? "auto" : false)}
             increaseViewportBy={{ top: 300, bottom: 300 }}
             style={{ height: "auto" }}

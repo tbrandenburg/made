@@ -6,6 +6,18 @@ import { ChatMessage } from "../types/chat";
 
 const scrollToIndexMock = vi.hoisted(() => vi.fn());
 const initialTopMostItemIndexMock = vi.hoisted(() => vi.fn());
+// Captures the `followOutput` callback reference for direct invocation in tests
+const followOutputCapture = vi.hoisted(
+  (): { current: ((atBottom: boolean) => "auto" | false) | undefined } => ({
+    current: undefined,
+  }),
+);
+// Captures the `components` prop reference to assert referential stability
+const componentsCapture = vi.hoisted(
+  (): { current: { Item?: unknown; Footer?: unknown } | undefined } => ({
+    current: undefined,
+  }),
+);
 
 interface MockVirtuosoHandle {
   scrollToIndex: (location: {
@@ -23,6 +35,7 @@ interface MockVirtuosoProps {
     Footer?: ComponentType;
   };
   initialTopMostItemIndex?: number | { index: number; align?: string; behavior?: string };
+  followOutput?: (atBottom: boolean) => "auto" | false;
 }
 
 vi.mock("react-virtuoso", async () => {
@@ -30,7 +43,7 @@ vi.mock("react-virtuoso", async () => {
 
   return {
     Virtuoso: ReactModule.forwardRef<MockVirtuosoHandle, MockVirtuosoProps>(
-      function MockVirtuoso({ data, itemContent, components, initialTopMostItemIndex }, ref) {
+      function MockVirtuoso({ data, itemContent, components, initialTopMostItemIndex, followOutput }, ref) {
         ReactModule.useImperativeHandle(ref, () => ({
           scrollToIndex: scrollToIndexMock,
         }));
@@ -38,6 +51,8 @@ vi.mock("react-virtuoso", async () => {
         const Footer = components?.Footer;
 
         initialTopMostItemIndexMock(initialTopMostItemIndex);
+        followOutputCapture.current = followOutput;
+        componentsCapture.current = components;
 
         return (
           <div>
@@ -65,6 +80,8 @@ describe("ChatWindow", () => {
   beforeEach(() => {
     scrollToIndexMock.mockClear();
     initialTopMostItemIndexMock.mockClear();
+    followOutputCapture.current = undefined;
+    componentsCapture.current = undefined;
   });
 
   afterEach(() => {
@@ -550,5 +567,52 @@ describe("ChatWindow", () => {
       screen.getByText("No messages"),
       "FAIL (AC2 reg): emptyMessage not visible when both refreshing and agentProcessing are false",
     ).toBeInTheDocument();
+  });
+
+  it("followOutput returns false when user is scrolled up (no auto-scroll on streaming arrival)", () => {
+    render(
+      <ChatWindow
+        chat={[makeMessage()]}
+        agentProcessing
+        emptyMessage="No messages"
+      />,
+    );
+
+    const cb = followOutputCapture.current;
+    expect(cb, "followOutput callback must be captured by the mock").toBeDefined();
+    // User scrolled up → Virtuoso must NOT auto-scroll
+    expect(cb!(false)).toBe(false);
+    // User is at bottom → Virtuoso may auto-scroll
+    expect(cb!(true)).toBe("auto");
+  });
+
+  it("passes a referentially stable components prop to Virtuoso across loading-spinner re-renders", () => {
+    const { rerender } = render(
+      <ChatWindow
+        chat={[makeMessage()]}
+        agentProcessing={false}
+        sessionLoading
+        emptyMessage="No messages"
+      />,
+    );
+
+    const firstRef = componentsCapture.current;
+    expect(firstRef, "components must be captured on first render").toBeDefined();
+
+    // Toggle sessionLoading — a prop change that updates the Footer's displayed content
+    // but must NOT create a new components object reference.
+    rerender(
+      <ChatWindow
+        chat={[makeMessage()]}
+        agentProcessing={false}
+        sessionLoading={false}
+        emptyMessage="No messages"
+      />,
+    );
+
+    expect(
+      componentsCapture.current,
+      "components object reference must be stable across loading-state re-renders",
+    ).toBe(firstRef);
   });
 });
