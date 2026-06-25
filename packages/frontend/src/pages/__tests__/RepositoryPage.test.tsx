@@ -1295,15 +1295,21 @@ describe("RepositoryPage reload current session (AC1-AC7)", () => {
   // ── AC6: concurrent-fetch guard (Refresh button path) ───────────
 
   it("AC6-REFRESH: 3 rapid Refresh clicks → exactly 1 API call (fails: button missing or guard)", async () => {
+    // Initial load uses beforeEach's resolving mock so lifecycle reaches 'hydrated'
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Wait for full hydration so chatAgentProcessing = false and Refresh is enabled
+    await waitFor(() => {
+      expect(api.getRepositoryAgentStatus).toHaveBeenCalled();
+    });
+
+    // Now set up never-resolving history mock for the rapid-click scenario
     let resolveFetch!: (value: ChatHistoryResponse) => void;
     vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
       new Promise<ChatHistoryResponse>((resolve) => {
         resolveFetch = resolve;
       }),
     );
-
-    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
-    await screen.findByLabelText("Clear session");
 
     const refreshBtn = await screen.findByLabelText("Refresh current session");
 
@@ -1587,15 +1593,21 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
   });
 
   it("I1 (ADV-5): ChatWindow shows 'Refreshing...' instead of 'Agent is thinking...' during refresh", async () => {
+    // Initial load uses beforeEach's resolving mock so lifecycle reaches 'hydrated'
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Wait for full hydration so chatAgentProcessing = false and Refresh is enabled
+    await waitFor(() => {
+      expect(api.getRepositoryAgentStatus).toHaveBeenCalled();
+    });
+
+    // Now set up never-resolving history mock for the Refresh click
     let resolveFetch!: (value: ChatHistoryResponse) => void;
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(
       new Promise<ChatHistoryResponse>((resolve) => {
         resolveFetch = resolve;
       }),
     );
-
-    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
-    await screen.findByLabelText("Clear session");
 
     vi.mocked(api.getRepositoryAgentHistory).mockClear();
     const refreshBtn = await screen.findByLabelText("Refresh current session");
@@ -4693,6 +4705,126 @@ describe("RepositoryPage lifecycle guard semantics (issue #475)", () => {
   });
 });
 
+// ── AC559: Send button disabled when agent status unknown on page load ──────
+describe("RepositoryPage Send button disabled during status-unknown state (AC559)", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [],
+    });
+    vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
+    localStorage.clear();
+  });
+
+  it("AC559-1: Send disabled during initial load when agent is processing", async () => {
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "test" } });
+
+    // Send button must be disabled while status is unknown (lifecycle = 'loading')
+    const sendBtn = screen.getByRole("button", { name: /send/i });
+    expect(
+      sendBtn,
+      "FAIL (AC559-1a): Send button should be disabled during initial status check",
+    ).toBeDisabled();
+
+    // After status resolves to processing=true, Cancel appears
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+        "FAIL (AC559-1b): Cancel should appear after status resolves to processing=true",
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("AC559-2: Send disabled during initial load when agent is not processing, then enabled", async () => {
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "test" } });
+
+    // Send button must be disabled while status is unknown (lifecycle = 'loading')
+    expect(
+      screen.getByRole("button", { name: /send/i }),
+      "FAIL (AC559-2a): Send button should be disabled during initial status check",
+    ).toBeDisabled();
+
+    // After status resolves to processing=false, Send becomes enabled
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /send/i }),
+        "FAIL (AC559-2b): Send should be enabled after status resolves to processing=false",
+      ).not.toBeDisabled();
+    });
+  });
+
+  it("AC559-3: Send button enabled immediately when no session exists", async () => {
+    // No sessionId — lifecycle stays 'idle' without a session, chatAgentProcessing = false
+    renderPage(["/repositories/test-repo?tab=agent"]);
+
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "test" } });
+
+    // No session means no pending status check; Send should be enabled immediately
+    expect(
+      screen.getByRole("button", { name: /send/i }),
+      "FAIL (AC559-3): Send should be enabled when there is no session",
+    ).not.toBeDisabled();
+  });
+
+  it("AC559-4: AgentSelector and Model select disabled during unknown state, enabled after idle resolves", async () => {
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Both selects must be disabled while status is unknown
+    expect(
+      screen.getByLabelText("Agent"),
+      "FAIL (AC559-4a): Agent selector should be disabled during initial status check",
+    ).toBeDisabled();
+
+    expect(
+      screen.getByLabelText("Model"),
+      "FAIL (AC559-4b): Model selector should be disabled during initial status check",
+    ).toBeDisabled();
+
+    // After status resolves to idle, both should be enabled
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText("Agent"),
+        "FAIL (AC559-4c): Agent selector should be enabled after status resolves to idle",
+      ).not.toBeDisabled();
+    });
+    expect(
+      screen.getByLabelText("Model"),
+      "FAIL (AC559-4d): Model selector should be enabled after status resolves to idle",
+    ).not.toBeDisabled();
+  });
+});
+
 // ── Issue #562: optimistic Cancel ──────────────────────────────────────────
 describe("issue #562: handleCancelAgent optimistic update", () => {
   beforeEach(() => {
@@ -4704,6 +4836,7 @@ describe("issue #562: handleCancelAgent optimistic update", () => {
       sessions: [],
     });
     vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
+    // Default: status resolves to idle so page can hydrate
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
       processing: false,
       startedAt: null,
@@ -4712,14 +4845,6 @@ describe("issue #562: handleCancelAgent optimistic update", () => {
   });
 
   it("562-1: Send button appears immediately on Cancel click before cancel API resolves", async () => {
-    // sendAgentMessage never resolves so lifecycle stays streaming after Send
-    vi.mocked(api.sendAgentMessage).mockReturnValue(
-      new Promise<AgentReply>(() => {}),
-    );
-    // getRepositoryAgentStatus never resolves → polling never flips lifecycle back to hydrated
-    vi.mocked(api.getRepositoryAgentStatus).mockReturnValue(
-      new Promise(() => {}),
-    );
     // cancelRepositoryAgent never resolves — the critical test condition
     let resolveCancel!: () => void;
     vi.mocked(api.cancelRepositoryAgent).mockReturnValue(
@@ -4729,7 +4854,19 @@ describe("issue #562: handleCancelAgent optimistic update", () => {
     );
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
-    await screen.findByLabelText("Clear session");
+
+    // Wait for initial hydration so chatAgentProcessing = false and Send is enabled
+    await waitFor(() => {
+      expect(api.getRepositoryAgentStatus).toHaveBeenCalled();
+    });
+
+    // Now override mocks for streaming scenario: sendAgentMessage + status polling never resolve
+    vi.mocked(api.sendAgentMessage).mockReturnValue(
+      new Promise<AgentReply>(() => {}),
+    );
+    vi.mocked(api.getRepositoryAgentStatus).mockReturnValue(
+      new Promise(() => {}),
+    );
 
     // Enter streaming state by sending a message
     const textarea = screen.getByPlaceholderText(
@@ -4771,21 +4908,25 @@ describe("issue #562: handleCancelAgent optimistic update", () => {
   });
 
   it("562-2: cancel API failure still shows Send button (optimistic update fired before rejection)", async () => {
-    // sendAgentMessage never resolves so lifecycle stays streaming
-    vi.mocked(api.sendAgentMessage).mockReturnValue(
-      new Promise<AgentReply>(() => {}),
-    );
-    // getRepositoryAgentStatus never resolves → polling doesn't interfere
-    vi.mocked(api.getRepositoryAgentStatus).mockReturnValue(
-      new Promise(() => {}),
-    );
     // cancelRepositoryAgent rejects — simulates network failure
     vi.mocked(api.cancelRepositoryAgent).mockRejectedValue(
       new Error("network failure"),
     );
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
-    await screen.findByLabelText("Clear session");
+
+    // Wait for initial hydration so chatAgentProcessing = false and Send is enabled
+    await waitFor(() => {
+      expect(api.getRepositoryAgentStatus).toHaveBeenCalled();
+    });
+
+    // Now override mocks for streaming scenario
+    vi.mocked(api.sendAgentMessage).mockReturnValue(
+      new Promise<AgentReply>(() => {}),
+    );
+    vi.mocked(api.getRepositoryAgentStatus).mockReturnValue(
+      new Promise(() => {}),
+    );
 
     const textarea = screen.getByPlaceholderText(
       "Describe the change or ask the agent...",

@@ -453,7 +453,12 @@ export const RepositoryPage: React.FC = () => {
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [chatError, setChatError] = useState<string | null>(null);
   const [lifecycle, setLifecycle] = useState<Lifecycle>("idle");
-  const chatAgentProcessing = lifecycle === "streaming";
+  const chatAgentProcessing: boolean | null =
+    lifecycle === "streaming"
+      ? true
+      : lifecycle === "loading" || (lifecycle === "idle" && !!sessionId)
+        ? null
+        : false;
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
   const savedSessionTitles = useMemo(
@@ -2009,7 +2014,7 @@ export const RepositoryPage: React.FC = () => {
                   onClick={reloadCurrentSession}
                   aria-label="Refresh current session"
                   title="Refresh current session"
-                  disabled={chatAgentProcessing || isRefreshing}
+                  disabled={chatAgentProcessing !== false || isRefreshing}
                 >
                   <RefreshIcon />
                 </button>
@@ -2045,7 +2050,7 @@ export const RepositoryPage: React.FC = () => {
           <ChatWindow
             chat={chat}
             chatWindowRef={chatWindowRef}
-            agentProcessing={chatAgentProcessing}
+            agentProcessing={chatAgentProcessing === true}
             refreshing={isRefreshing}
             sessionLoading={sessionLoading}
             emptyMessage="No conversation yet."
@@ -2073,7 +2078,7 @@ export const RepositoryPage: React.FC = () => {
                 selectId="agent-select"
                 selectedAgent={normalizedSelectedAgent}
                 onChange={setSelectedAgent}
-                disabled={chatAgentProcessing}
+                disabled={chatAgentProcessing !== false}
                 repositoryName={name || undefined}
               />
               <label className="model-select" htmlFor="agent-model-select">
@@ -2081,7 +2086,7 @@ export const RepositoryPage: React.FC = () => {
                   id="agent-model-select"
                   value={normalizedSelectedModel}
                   onChange={(event) => setSelectedModel(event.target.value)}
-                  disabled={chatAgentProcessing}
+                  disabled={chatAgentProcessing !== false}
                   aria-label="Model"
                 >
                   {MODEL_OPTIONS.map((option) => (
@@ -2105,7 +2110,7 @@ export const RepositoryPage: React.FC = () => {
                 <button
                   className="primary"
                   onClick={() => handleSendMessage()}
-                  disabled={!pendingPrompt.trim()}
+                  disabled={!pendingPrompt.trim() || chatAgentProcessing === null}
                 >
                   Send
                 </button>
