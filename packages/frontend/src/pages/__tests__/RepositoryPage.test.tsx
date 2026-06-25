@@ -4956,3 +4956,76 @@ describe("issue #562: handleCancelAgent optimistic update", () => {
     });
   });
 });
+
+// ── AC560: refreshAgentStatus must NOT set chatError ──────────────────────────
+
+describe("RepositoryPage refreshAgentStatus does not set chatError (AC560)", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [],
+    });
+    vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    localStorage.clear();
+  });
+
+  it("AC560-1: no error banner on page load when agent is processing", async () => {
+    // Arrange: status returns processing:true on mount (agent already running)
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Wait for the Cancel button to appear (lifecycle correctly set to streaming)
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+        "FAIL (AC560-1): Cancel button should appear when processing=true",
+      ).toBeInTheDocument();
+    });
+
+    // Error banner must NOT appear — agent being busy is a normal state, not an error
+    expect(
+      document.querySelectorAll(".alert").length,
+      "FAIL (AC560-1): error banner appeared on page load with processing=true — setChatError must be removed from refreshAgentStatus",
+    ).toBe(0);
+  });
+
+  it("AC560-2: no error banner after cancel when agent is still processing", async () => {
+    // Arrange: status always returns processing:true (simulate agent still running after cancel)
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Wait for Cancel button to appear
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+      ).toBeInTheDocument();
+    });
+
+    // Click Cancel
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    // Allow the cancel + refreshAgentStatus finally block to resolve
+    await new Promise<void>((resolve) => setTimeout(resolve, 200));
+
+    // Error banner must NOT appear after cancel + status poll
+    expect(
+      document.querySelectorAll(".alert").length,
+      "FAIL (AC560-2): error banner appeared after cancel when processing=true — setChatError must be removed from refreshAgentStatus",
+    ).toBe(0);
+  });
+});
