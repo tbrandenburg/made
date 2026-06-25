@@ -1187,15 +1187,16 @@ export const RepositoryPage: React.FC = () => {
   }, [refreshAgentStatus]);
 
   const syncChatHistory = useCallback(
-    async (signal?: AbortSignal) => {
+    async (signal?: AbortSignal, fullFetch?: boolean) => {
       if (!name || !sessionId) return;
       console.info("[ChatHistory] Request started");
       try {
         setChatError(null);
-        const currentTimestamp = lastKnownTimestampRef.current;
-        const startTimestamp = currentTimestamp
-          ? currentTimestamp + 1
-          : undefined;
+        const startTimestamp = fullFetch
+          ? undefined
+          : lastKnownTimestampRef.current
+            ? lastKnownTimestampRef.current + 1
+            : undefined;
         const history = await api.getRepositoryAgentHistory(
           name,
           sessionId,
@@ -1236,7 +1237,7 @@ export const RepositoryPage: React.FC = () => {
     if (chatAgentProcessing || !name || !sessionId) return;
     setSessionLoading(true);
     const controller = new AbortController();
-    syncChatHistory(controller.signal);
+    syncChatHistory(controller.signal, true);
     return () => {
       controller.abort(); // No argument — preserves DOMException('AbortError') shape
       clearSessionLoading(); // Ensure loading state is cleared if effect is torn down before fetch completes
