@@ -4,6 +4,7 @@ import {
   AgentProcessSummary,
   api,
   ArtefactSummary,
+  DockerContainerSummary,
   WorkflowLogSummary,
   WorkspaceWorkflowSummary,
 } from "../hooks/useApi";
@@ -145,6 +146,8 @@ export const TasksPage: React.FC = () => {
   const [terminatingAgentPid, setTerminatingAgentPid] = useState<number | null>(
     null,
   );
+  const [dockerContainers, setDockerContainers] = useState<DockerContainerSummary[]>([]);
+  const [stoppingContainer, setStoppingContainer] = useState<string | null>(null);
   const [terminatingWorkflow, setTerminatingWorkflow] = useState<string | null>(
     null,
   );
@@ -191,12 +194,14 @@ export const TasksPage: React.FC = () => {
       api.getWorkspaceWorkflows(),
       api.getWorkflowLogs(),
       api.getAgentProcesses(),
+      api.getDockerContainers(),
     ])
-      .then(([workflowRes, logRes, processRes]) => {
+      .then(([workflowRes, logRes, processRes, dockerRes]) => {
         setWorkspaceWorkflows(workflowRes.workflows);
         setWorkflowLogs(logRes.logs);
         setWorkflowLogsPage(1);
         setAgentProcesses(processRes.processes);
+        setDockerContainers(dockerRes.containers);
       })
       .catch((error) => console.error("Failed to load tasks page data", error));
   }, []);
@@ -304,6 +309,22 @@ export const TasksPage: React.FC = () => {
       );
     } finally {
       setTerminatingAgentPid(null);
+    }
+  };
+
+  const handleStopDockerContainer = async (id: string) => {
+    setStoppingContainer(id);
+    try {
+      await api.stopDockerContainer(id);
+      const dockerRes = await api.getDockerContainers();
+      setDockerContainers(dockerRes.containers);
+    } catch (error) {
+      console.error("Failed to stop Docker container", error);
+      alert(
+        `Failed to stop container: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    } finally {
+      setStoppingContainer(null);
     }
   };
 
@@ -536,13 +557,60 @@ export const TasksPage: React.FC = () => {
                               <button
                                 className="danger"
                                 onClick={() =>
-                                  void handleTerminateAgentProcess(process.pid)
+                                   void handleTerminateAgentProcess(process.pid)
+                                 }
+                                 disabled={terminatingAgentPid === process.pid}
+                               >
+                                 {terminatingAgentPid === process.pid
+                                   ? "Terminating..."
+                                   : "Terminate"}
+                               </button>
+                             </td>
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
+                   )}
+                 </Panel>
+
+                <Panel title="Running Docker Containers">
+                  {dockerContainers.length === 0 ? (
+                    <div className="empty">No running Docker containers.</div>
+                  ) : (
+                    <table className="git-table">
+                      <thead>
+                        <tr>
+                          <th>CONTAINER ID</th>
+                          <th>IMAGE</th>
+                          <th>COMMAND</th>
+                          <th>CREATED</th>
+                          <th>STATUS</th>
+                          <th>PORTS</th>
+                          <th>NAMES</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dockerContainers.map((container) => (
+                          <tr key={container.id}>
+                            <td><code>{container.shortId}</code></td>
+                            <td>{container.image}</td>
+                            <td><code>{container.command}</code></td>
+                            <td>{container.createdAt}</td>
+                            <td>{container.status}</td>
+                            <td>{container.ports || "-"}</td>
+                            <td>{container.names}</td>
+                            <td>
+                              <button
+                                className="danger"
+                                onClick={() =>
+                                  void handleStopDockerContainer(container.id)
                                 }
-                                disabled={terminatingAgentPid === process.pid}
+                                disabled={stoppingContainer === container.id}
                               >
-                                {terminatingAgentPid === process.pid
-                                  ? "Terminating..."
-                                  : "Terminate"}
+                                {stoppingContainer === container.id
+                                  ? "Stopping..."
+                                  : "Stop"}
                               </button>
                             </td>
                           </tr>
@@ -552,7 +620,7 @@ export const TasksPage: React.FC = () => {
                   )}
                 </Panel>
 
-                <div className="button-bar">
+                 <div className="button-bar">
                   <button
                     className="primary"
                     onClick={() => setCreateOpen(true)}
