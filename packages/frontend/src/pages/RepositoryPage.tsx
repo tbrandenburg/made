@@ -1395,16 +1395,19 @@ export const RepositoryPage: React.FC = () => {
     }
   };
 
-  const handleCancelAgent = async () => {
+  const handleCancelAgent = () => {
     if (!name) return;
-    try {
-      await api.cancelRepositoryAgent(name, sessionId || undefined);
-    } catch (error) {
-      console.error("Failed to cancel agent request", error);
-      setChatError("Unable to cancel the agent request.");
-    } finally {
-      await refreshAgentStatus();
-    }
+    // Optimistic update: flip to hydrated immediately so Send button renders on the next frame
+    setLifecycle("hydrated");
+    api
+      .cancelRepositoryAgent(name, sessionId || undefined)
+      .catch((error) => {
+        console.error("Failed to cancel agent request", error);
+        setChatError("Unable to cancel the agent request.");
+      })
+      .finally(() => {
+        refreshAgentStatus();
+      });
   };
 
   const handleCancelClearSession = () => {
