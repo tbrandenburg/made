@@ -4805,5 +4805,13 @@ describe("issue #562: handleCancelAgent optimistic update", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /send/i })).toBeInTheDocument();
     });
+
+    // Error message must appear — the .catch() path in handleCancelAgent fires setChatError
+    await waitFor(() => {
+      expect(
+        screen.getByText("Unable to cancel the agent request."),
+        "Error message must appear after cancel API failure (.catch() path)",
+      ).toBeInTheDocument();
+    });
   });
 });
