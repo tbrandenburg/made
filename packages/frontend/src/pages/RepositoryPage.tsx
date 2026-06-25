@@ -1392,7 +1392,7 @@ export const RepositoryPage: React.FC = () => {
 
   const handleCancelAgent = () => {
     if (!name) return;
-    // Optimistic update: flip to idle immediately so Send button renders on the next frame
+    // Optimistic update: flip to hydrated immediately so Send button renders on the next frame
     setLifecycle("hydrated");
     api
       .cancelRepositoryAgent(name, sessionId || undefined)
