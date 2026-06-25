@@ -389,6 +389,15 @@ const MagnifyingGlassIcon: React.FC = () => (
   </svg>
 );
 
+/** Explicit session-load and agent-streaming state machine for RepositoryPage.
+ *  - 'idle'      : no session loaded yet (initial state or after session clear)
+ *  - 'loading'   : history fetch in progress (session select / URL bootstrap / init mount)
+ *  - 'hydrated'  : session fully loaded; agent not processing
+ *  - 'streaming' : agent actively processing; polling loop is running
+ *  - 'error'     : reserved for future error-state UI (currently unused; errors surface via chatError)
+ */
+type Lifecycle = "idle" | "loading" | "hydrated" | "streaming" | "error";
+
 export const RepositoryPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
@@ -443,7 +452,6 @@ export const RepositoryPage: React.FC = () => {
   const normalizedSelectedModel = selectedModel ?? "default";
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [chatError, setChatError] = useState<string | null>(null);
-  type Lifecycle = "idle" | "loading" | "hydrated" | "streaming" | "error";
   const [lifecycle, setLifecycle] = useState<Lifecycle>("idle");
   const chatAgentProcessing = lifecycle === "streaming";
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
