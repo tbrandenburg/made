@@ -4054,6 +4054,10 @@ describe("RepositoryPage syncChatHistory full-fetch on session load (#481)", () 
   });
 
   it("AC481-3: stale localStorage timestamp does not prevent server messages from appearing", async () => {
+    // AC481-2 is omitted: after handleSessionSelect calls setChat([]), lastKnownTimestamp
+    // becomes undefined before the session-load effect fires, so the session-switch path
+    // already uses startTimestamp=undefined without the fix. The regression is specific to
+    // initial page load where setChat([]) is NOT called (covered by AC481-1 above).
     // Arrange: localStorage has a message with a far-future timestamp simulating clock skew
     // or data corruption. The mock returns real messages only for a full fetch (startTimestamp=undefined).
     // Without the fix, the incremental fetch (startTimestamp = futureTs + 1) returns empty and
