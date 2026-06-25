@@ -4692,3 +4692,118 @@ describe("RepositoryPage lifecycle guard semantics (issue #475)", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+// ── Issue #562: optimistic Cancel ──────────────────────────────────────────
+describe("issue #562: handleCancelAgent optimistic update", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [],
+    });
+    vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    localStorage.clear();
+  });
+
+  it("562-1: Send button appears immediately on Cancel click before cancel API resolves", async () => {
+    // sendAgentMessage never resolves so lifecycle stays streaming after Send
+    vi.mocked(api.sendAgentMessage).mockReturnValue(
+      new Promise<AgentReply>(() => {}),
+    );
+    // getRepositoryAgentStatus never resolves → polling never flips lifecycle back to hydrated
+    vi.mocked(api.getRepositoryAgentStatus).mockReturnValue(
+      new Promise(() => {}),
+    );
+    // cancelRepositoryAgent never resolves — the critical test condition
+    let resolveCancel!: () => void;
+    vi.mocked(api.cancelRepositoryAgent).mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveCancel = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+    await screen.findByLabelText("Clear session");
+
+    // Enter streaming state by sending a message
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "hello" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    // Cancel button should appear (lifecycle = streaming)
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+        "Cancel button should appear when lifecycle=streaming",
+      ).toBeInTheDocument();
+    });
+
+    // Act: click Cancel while cancel API is still pending (never resolves)
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    // Assert: Send appears immediately (optimistic update, before cancel API resolves)
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /send/i }),
+        "Send button must appear immediately via optimistic update",
+      ).toBeInTheDocument();
+    });
+
+    // Cancel button must be gone
+    expect(
+      screen.queryByRole("button", { name: /cancel/i }),
+      "Cancel button must disappear after optimistic update",
+    ).not.toBeInTheDocument();
+
+    // API must have been called
+    expect(api.cancelRepositoryAgent).toHaveBeenCalled();
+
+    // Cleanup — resolve so no lingering unhandled promise
+    resolveCancel();
+  });
+
+  it("562-2: cancel API failure still shows Send button (optimistic update fired before rejection)", async () => {
+    // sendAgentMessage never resolves so lifecycle stays streaming
+    vi.mocked(api.sendAgentMessage).mockReturnValue(
+      new Promise<AgentReply>(() => {}),
+    );
+    // getRepositoryAgentStatus never resolves → polling doesn't interfere
+    vi.mocked(api.getRepositoryAgentStatus).mockReturnValue(
+      new Promise(() => {}),
+    );
+    // cancelRepositoryAgent rejects — simulates network failure
+    vi.mocked(api.cancelRepositoryAgent).mockRejectedValue(
+      new Error("network failure"),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+    await screen.findByLabelText("Clear session");
+
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "hello" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    // Send still appears (optimistic setLifecycle("hydrated") fired before the rejection)
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /send/i })).toBeInTheDocument();
+    });
+  });
+});
