@@ -34,7 +34,9 @@ interface MockVirtuosoProps {
     Item?: ComponentType<React.HTMLAttributes<HTMLDivElement>>;
     Footer?: ComponentType;
   };
-  initialTopMostItemIndex?: number | { index: number; align?: string; behavior?: string };
+  initialTopMostItemIndex?:
+    | number
+    | { index: number; align?: string; behavior?: string };
   followOutput?: (atBottom: boolean) => "auto" | false;
 }
 
@@ -43,7 +45,16 @@ vi.mock("react-virtuoso", async () => {
 
   return {
     Virtuoso: ReactModule.forwardRef<MockVirtuosoHandle, MockVirtuosoProps>(
-      function MockVirtuoso({ data, itemContent, components, initialTopMostItemIndex, followOutput }, ref) {
+      function MockVirtuoso(
+        {
+          data,
+          itemContent,
+          components,
+          initialTopMostItemIndex,
+          followOutput,
+        },
+        ref,
+      ) {
         ReactModule.useImperativeHandle(ref, () => ({
           scrollToIndex: scrollToIndexMock,
         }));
@@ -579,7 +590,10 @@ describe("ChatWindow", () => {
     );
 
     const cb = followOutputCapture.current;
-    expect(cb, "followOutput callback must be captured by the mock").toBeDefined();
+    expect(
+      cb,
+      "followOutput callback must be captured by the mock",
+    ).toBeDefined();
     // User scrolled up → Virtuoso must NOT auto-scroll
     expect(cb!(false)).toBe(false);
     // User is at bottom → Virtuoso may auto-scroll
@@ -597,7 +611,10 @@ describe("ChatWindow", () => {
     );
 
     const firstRef = componentsCapture.current;
-    expect(firstRef, "components must be captured on first render").toBeDefined();
+    expect(
+      firstRef,
+      "components must be captured on first render",
+    ).toBeDefined();
 
     // Toggle sessionLoading — a prop change that updates the Footer's displayed content
     // but must NOT create a new components object reference.

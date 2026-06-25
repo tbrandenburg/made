@@ -73,7 +73,11 @@ export const SessionPickerModal: React.FC<SessionPickerModalProps> = ({
   return (
     <Modal open={open} title="Choose a session" onClose={onClose}>
       {loading && (
-        <div className="loading-indicator" role="status" aria-label="Loading sessions">
+        <div
+          className="loading-indicator"
+          role="status"
+          aria-label="Loading sessions"
+        >
           <div className="loading-spinner"></div>
         </div>
       )}
