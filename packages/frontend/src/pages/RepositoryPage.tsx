@@ -1191,11 +1191,8 @@ export const RepositoryPage: React.FC = () => {
       );
       if (sessionIdRef.current !== sessionId) return false;
       setLifecycle(status.processing ? "streaming" : "hydrated");
-      setChatError(
-        status.processing
-          ? "Agent is still processing the previous message."
-          : null,
-      );
+      // No error — agent running is a normal state, not a user-facing error.
+      // chatError is set exclusively by handleSendMessage's catch block (HTTP 409 conflict).
       return status.processing;
     } catch (error) {
       console.error("Failed to load agent status", error);
