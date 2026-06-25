@@ -4109,3 +4109,194 @@ describe("RepositoryPage syncChatHistory full-fetch on session load (#481)", () 
     );
   });
 });
+
+// ── Session selection regression: Knowledge, Constitution, Task pages ─────────
+
+function renderTaskPage(initialEntries = ["/tasks/test-task?tab=agent"]) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Routes>
+        <Route path="/tasks/:name/*" element={<TaskPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function renderKnowledgePage(
+  initialEntries = ["/knowledge/test-artefact?tab=agent"],
+) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Routes>
+        <Route path="/knowledge/:name/*" element={<KnowledgeArtefactPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function renderConstitutionPage(
+  initialEntries = ["/constitutions/test-constitution?tab=agent"],
+) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Routes>
+        <Route
+          path="/constitutions/:name/*"
+          element={<ConstitutionPage />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe("TaskPage session selection", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getTaskAgentHistory).mockResolvedValue(emptyHistory);
+    localStorage.clear();
+  });
+
+  it("session select triggers exactly 1 API call (not 3)", async () => {
+    vi.mocked(api.getTaskAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    renderTaskPage(["/tasks/test-task"]);
+
+    // Navigate to the agent tab (default is "content")
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    const chooseBtn = await screen.findByLabelText("Choose a session");
+    fireEvent.click(chooseBtn);
+
+    const sessionBtn = await screen.findByTitle("Session A");
+    fireEvent.click(sessionBtn);
+
+    await waitFor(() => {
+      expect(api.getTaskAgentHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("page load with ?sessionId=X triggers exactly 1 API call", async () => {
+    renderTaskPage(["/tasks/test-task?sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(api.getTaskAgentHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("re-selecting the same session triggers full refresh", async () => {
+    vi.mocked(api.getTaskAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    renderTaskPage(["/tasks/test-task"]);
+
+    // Navigate to the agent tab (default is "content")
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    const chooseBtn = await screen.findByLabelText("Choose a session");
+    fireEvent.click(chooseBtn);
+
+    const sessionBtn = await screen.findByTitle("Session A");
+    fireEvent.click(sessionBtn);
+
+    await waitFor(() => {
+      expect(api.getTaskAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    vi.mocked(api.getTaskAgentHistory).mockClear();
+    vi.mocked(api.getTaskAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    fireEvent.click(chooseBtn);
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getTaskAgentHistory).toHaveBeenCalled();
+    });
+  });
+});
+
+describe("KnowledgeArtefactPage session selection", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getKnowledgeAgentHistory).mockResolvedValue(emptyHistory);
+    localStorage.clear();
+  });
+
+  it("session select triggers exactly 1 API call", async () => {
+    vi.mocked(api.getKnowledgeAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    renderKnowledgePage(["/knowledge/test-artefact"]);
+
+    // Navigate to the agent tab (default is "content")
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    const chooseBtn = await screen.findByLabelText("Choose a session");
+    fireEvent.click(chooseBtn);
+
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getKnowledgeAgentHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("page load with ?sessionId=X triggers exactly 1 API call", async () => {
+    renderKnowledgePage([
+      "/knowledge/test-artefact?sessionId=session-b",
+    ]);
+
+    await waitFor(() => {
+      expect(api.getKnowledgeAgentHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+describe("ConstitutionPage session selection", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getConstitutionAgentHistory).mockResolvedValue(emptyHistory);
+    localStorage.clear();
+  });
+
+  it("session select triggers exactly 1 API call", async () => {
+    vi.mocked(api.getConstitutionAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+
+    renderConstitutionPage(["/constitutions/test-constitution"]);
+
+    // Navigate to the agent tab (default is "content")
+    fireEvent.click(await screen.findByRole("button", { name: "Agent" }));
+
+    const chooseBtn = await screen.findByLabelText("Choose a session");
+    fireEvent.click(chooseBtn);
+
+    fireEvent.click(await screen.findByTitle("Session A"));
+
+    await waitFor(() => {
+      expect(api.getConstitutionAgentHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("page load with ?sessionId=X triggers exactly 1 API call", async () => {
+    renderConstitutionPage([
+      "/constitutions/test-constitution?sessionId=session-b",
+    ]);
+
+    await waitFor(() => {
+      expect(api.getConstitutionAgentHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+});

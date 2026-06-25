@@ -31,6 +31,7 @@ import {
   formatChatMessageTimestamp,
   mapHistoryToMessages,
 } from "../utils/chat";
+import { useSessionLoader } from "../hooks/useSessionLoader";
 import { appendRestrictedAccessPolicy } from "../utils/agentPrompt";
 import { ClearSessionModal } from "../components/ClearSessionModal";
 const SessionPickerModal = React.lazy(
@@ -150,6 +151,18 @@ export const KnowledgeArtefactPage: React.FC = () => {
     chatRef.current = chat;
   }, [chat]);
 
+  const getKnowledgeHistory = useCallback(
+    (n: string, sid: string, signal?: AbortSignal) =>
+      api.getKnowledgeAgentHistory(n, sid, undefined, signal),
+    [],
+  );
+  const { sessionLoading, sessionError } = useSessionLoader({
+    name: isExternal ? undefined : name,
+    sessionId,
+    setChat,
+    getHistory: getKnowledgeHistory,
+  });
+
   const scrollToBottom = useCallback(() => {
     chatWindowRef.current?.scrollToBottom();
   }, []);
@@ -159,45 +172,18 @@ export const KnowledgeArtefactPage: React.FC = () => {
     const { sessionId: incomingSessionId, message: incomingMessage } =
       getChatBootstrapParams(searchParams);
     if (!incomingSessionId && !incomingMessage) return;
-    let cancelled = false;
 
     const { nextParams, changed } = stripChatBootstrapParams(searchParams);
     if (changed) {
       setSearchParams(nextParams, { replace: true });
     }
 
-    const switchSessionIfNeeded = async () => {
-      if (!incomingSessionId || incomingSessionId === sessionId) {
-        return;
-      }
-
+    const switchSessionIfNeeded = () => {
+      if (!incomingSessionId || incomingSessionId === sessionId) return;
       setSessionId(incomingSessionId);
-      setChat([]);
-      setChatAgentProcessing(true);
-      try {
-        const history = await api.getKnowledgeAgentHistory(
-          name,
-          incomingSessionId,
-        );
-        if (cancelled) return;
-        const mapped = mapHistoryToMessages(history.messages || []);
-        setChat(mapped);
-        setAgentStatus(null);
-      } catch (error) {
-        if (cancelled) return;
-        console.error("Failed to load session history", error);
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Failed to load session history";
-        setAgentStatus(message);
-      } finally {
-        if (!cancelled) {
-          setChatAgentProcessing(false);
-        }
-      }
+      // useSessionLoader effect handles setChat([]) + loading
     };
-    void switchSessionIfNeeded();
+    switchSessionIfNeeded();
 
     if (
       hasConsumedChatBootstrap(
@@ -225,12 +211,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
       textarea?.focus();
       textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
     });
-
-    return () => {
-      cancelled = true;
-    };
   }, [
-    api,
     location.pathname,
     name,
     searchParams,
@@ -315,7 +296,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
       return status.processing;
     } catch (error) {
       console.error("Failed to load agent status", error);
-      return false;
+      return null; // network error — caller should not stop polling
     }
   }, [isExternal, name, sessionId]);
 
@@ -490,28 +471,22 @@ export const KnowledgeArtefactPage: React.FC = () => {
     setClearSessionModalOpen(false);
   };
 
-  const handleSessionSelect = async (session: ChatSession) => {
+  const handleSessionSelect = (session: ChatSession) => {
     if (!name) return;
+    if (!session.id) {
+      setSessionModalOpen(false);
+      return;
+    }
+    if (session.id === sessionId) {
+      setSessionModalOpen(false);
+      reloadCurrentSession();
+      return;
+    }
     sendRequestIdRef.current += 1;
     setSessionModalOpen(false);
-    setChat([]);
+    setChatAgentProcessing(false);
+    setAgentStatus(null);
     setSessionId(session.id);
-    setChatAgentProcessing(true);
-    try {
-      const history = await api.getKnowledgeAgentHistory(name, session.id);
-      const mapped = mapHistoryToMessages(history.messages || []);
-      setChat(mapped);
-      setAgentStatus(null);
-    } catch (error) {
-      console.error("Failed to load session history", error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to load session history";
-      setAgentStatus(message);
-    } finally {
-      setChatAgentProcessing(false);
-    }
   };
 
   const reloadCurrentSession = useCallback(async () => {
@@ -519,7 +494,6 @@ export const KnowledgeArtefactPage: React.FC = () => {
     const sessionIdAtCall = sessionId;
     isRefreshingRef.current = true;
     setIsRefreshing(true);
-    setChatAgentProcessing(true);
     const chatBeforeRefresh = chatRef.current;
     setChat([]);
     try {
@@ -537,18 +511,10 @@ export const KnowledgeArtefactPage: React.FC = () => {
           : "Failed to load session history";
       setAgentStatus(message);
     } finally {
-      setChatAgentProcessing(false);
       setIsRefreshing(false);
       isRefreshingRef.current = false;
     }
-  }, [
-    name,
-    sessionId,
-    isExternal,
-    setChat,
-    setChatAgentProcessing,
-    setAgentStatus,
-  ]);
+  }, [name, sessionId, isExternal, setChat, setAgentStatus]);
 
   const handleSaveSession = useCallback(() => {
     if (!sessionId) return;
@@ -743,6 +709,8 @@ export const KnowledgeArtefactPage: React.FC = () => {
             chat={chat}
             chatWindowRef={chatWindowRef}
             agentProcessing={chatAgentProcessing}
+            sessionLoading={sessionLoading}
+            refreshing={isRefreshing}
             emptyMessage="Start a conversation to collaborate with agents."
             sessionId={sessionId}
             onClearSession={() => setClearSessionModalOpen(true)}
@@ -752,7 +720,9 @@ export const KnowledgeArtefactPage: React.FC = () => {
             )}
             markdownOptions={chatMarkdownOptions}
           />
-          {agentStatus && <div className="alert">{agentStatus}</div>}
+          {(agentStatus || sessionError) && (
+            <div className="alert">{agentStatus ?? sessionError}</div>
+          )}
           <MentionPathTextarea
             id={chatInputId}
             value={prompt}
