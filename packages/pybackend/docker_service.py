@@ -11,7 +11,9 @@ def list_running_containers() -> list[dict[str, Any]]:
     try:
         result = subprocess.run(
             ["docker", "ps", "--format", "{{json .}}"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
     except (subprocess.SubprocessError, FileNotFoundError) as exc:
         logger.warning("Failed to list Docker containers: %s", exc)
@@ -25,16 +27,18 @@ def list_running_containers() -> list[dict[str, Any]]:
             raw = json.loads(line)
         except json.JSONDecodeError:
             continue
-        containers.append({
-            "id": raw.get("ID", ""),
-            "shortId": raw.get("ID", "")[:12],
-            "image": raw.get("Image", ""),
-            "command": raw.get("Command", ""),
-            "createdAt": raw.get("CreatedAt", ""),
-            "status": raw.get("Status", ""),
-            "ports": raw.get("Ports", ""),
-            "names": raw.get("Names", ""),
-        })
+        containers.append(
+            {
+                "id": raw.get("ID", ""),
+                "shortId": raw.get("ID", "")[:12],
+                "image": raw.get("Image", ""),
+                "command": raw.get("Command", ""),
+                "createdAt": raw.get("CreatedAt", ""),
+                "status": raw.get("Status", ""),
+                "ports": raw.get("Ports", ""),
+                "names": raw.get("Names", ""),
+            }
+        )
     return containers
 
 
@@ -43,7 +47,9 @@ def stop_container(container_id: str) -> bool:
     try:
         result = subprocess.run(
             ["docker", "stop", container_id],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
     except (subprocess.SubprocessError, FileNotFoundError):
         return False

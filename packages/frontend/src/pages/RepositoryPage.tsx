@@ -2107,7 +2107,9 @@ export const RepositoryPage: React.FC = () => {
                 <button
                   className="primary"
                   onClick={() => handleSendMessage()}
-                  disabled={!pendingPrompt.trim() || chatAgentProcessing === null}
+                  disabled={
+                    !pendingPrompt.trim() || chatAgentProcessing === null
+                  }
                 >
                   Send
                 </button>

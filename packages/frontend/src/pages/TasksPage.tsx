@@ -146,8 +146,12 @@ export const TasksPage: React.FC = () => {
   const [terminatingAgentPid, setTerminatingAgentPid] = useState<number | null>(
     null,
   );
-  const [dockerContainers, setDockerContainers] = useState<DockerContainerSummary[]>([]);
-  const [stoppingContainer, setStoppingContainer] = useState<string | null>(null);
+  const [dockerContainers, setDockerContainers] = useState<
+    DockerContainerSummary[]
+  >([]);
+  const [stoppingContainer, setStoppingContainer] = useState<string | null>(
+    null,
+  );
   const [terminatingWorkflow, setTerminatingWorkflow] = useState<string | null>(
     null,
   );
@@ -557,21 +561,21 @@ export const TasksPage: React.FC = () => {
                               <button
                                 className="danger"
                                 onClick={() =>
-                                   void handleTerminateAgentProcess(process.pid)
-                                 }
-                                 disabled={terminatingAgentPid === process.pid}
-                               >
-                                 {terminatingAgentPid === process.pid
-                                   ? "Terminating..."
-                                   : "Terminate"}
-                               </button>
-                             </td>
-                           </tr>
-                         ))}
-                       </tbody>
-                     </table>
-                   )}
-                 </Panel>
+                                  void handleTerminateAgentProcess(process.pid)
+                                }
+                                disabled={terminatingAgentPid === process.pid}
+                              >
+                                {terminatingAgentPid === process.pid
+                                  ? "Terminating..."
+                                  : "Terminate"}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </Panel>
 
                 <Panel title="Running Docker Containers">
                   {dockerContainers.length === 0 ? (
@@ -593,9 +597,13 @@ export const TasksPage: React.FC = () => {
                       <tbody>
                         {dockerContainers.map((container) => (
                           <tr key={container.id}>
-                            <td><code>{container.shortId}</code></td>
+                            <td>
+                              <code>{container.shortId}</code>
+                            </td>
                             <td>{container.image}</td>
-                            <td><code>{container.command}</code></td>
+                            <td>
+                              <code>{container.command}</code>
+                            </td>
                             <td>{container.createdAt}</td>
                             <td>{container.status}</td>
                             <td>{container.ports || "-"}</td>
@@ -620,7 +628,7 @@ export const TasksPage: React.FC = () => {
                   )}
                 </Panel>
 
-                 <div className="button-bar">
+                <div className="button-bar">
                   <button
                     className="primary"
                     onClick={() => setCreateOpen(true)}
