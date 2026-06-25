@@ -10,7 +10,7 @@ def list_running_containers() -> list[dict[str, Any]]:
     """Return running containers via `docker ps --format json`."""
     try:
         result = subprocess.run(
-            ["docker", "ps", "--format", "{{json .}}"],
+            ["docker", "ps", "--no-trunc", "--format", "{{json .}}"],
             capture_output=True,
             text=True,
             timeout=10,
