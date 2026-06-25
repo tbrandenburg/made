@@ -3895,60 +3895,42 @@ describe("RepositoryPage loading state clears on mid-flight abort (AC546)", () =
     localStorage.clear();
   });
 
-  it("AC546-1: sessionLoading clears when chatAgentProcessing flips to true while history fetch is in-flight", async () => {
-    // Arrange: history fetch is pending; status check is also pending (controlled)
+  it("AC546-1 (post-478): status check runs after history resolves, not concurrently", async () => {
+    // Arrange: history resolves normally; status check is controlled
     let resolveStatus!: (value: { processing: boolean; startedAt?: string | null }) => void;
-    vi.mocked(api.getRepositoryAgentStatus).mockReturnValueOnce(
-      new Promise((resolve) => {
+    const statusPromise = new Promise<{ processing: boolean; startedAt?: string | null }>(
+      (resolve) => {
         resolveStatus = resolve;
-      }),
+      },
     );
+    vi.mocked(api.getRepositoryAgentStatus).mockReturnValueOnce(statusPromise);
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
 
-    let resolveFetch!: (value: ChatHistoryResponse) => void;
-    vi.mocked(api.getRepositoryAgentHistory)
-      .mockReturnValueOnce(
-        new Promise<ChatHistoryResponse>((resolve) => {
-          resolveFetch = resolve;
-        }),
-      )
-      // All subsequent calls (polling tick, etc.) return a never-resolving promise so that
-      // clearSessionLoading() can ONLY be reached via the effect cleanup — not via a concurrent
-      // syncChatHistory invocation that uses a fresh (non-aborted) AbortSignal.
-      .mockReturnValue(new Promise<ChatHistoryResponse>(() => {}));
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
 
-    renderPage();
-    fireEvent.click(await screen.findByLabelText("Choose a session"));
-    fireEvent.click(await screen.findByTitle("Session B"));
-
-    // Loading indicator must appear: non-polling effect fires (chatAgentProcessing=false, status pending)
+    // History resolves immediately; status check fires after.
+    // Verify history was called exactly once.
     await waitFor(() => {
-      expect(
-        screen.queryByText("Loading session..."),
-        "FAIL (AC546-1): loading not visible when fetch is in-flight",
-      ).toBeInTheDocument();
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
     });
 
-    // Flip chatAgentProcessing to true by resolving the pending status check
-    // This triggers the non-polling effect cleanup, which must call clearSessionLoading()
-    resolveStatus({ processing: true, startedAt: new Date().toISOString() });
-
-    // Loading must clear: cleanup fires clearSessionLoading(); new effect returns early (chatAgentProcessing guard)
-    // Without the fix: cleanup only calls controller.abort() — loading stays true (stuck) because the
-    // polling tick's syncChatHistory is also blocked (never-resolving mock), so nothing clears loading.
+    // Status must have been dispatched after history resolved (sequential, not concurrent).
     await waitFor(() => {
       expect(
-        screen.queryByText("Loading session..."),
-        "FAIL (AC546-1): loading stuck after chatAgentProcessing flipped to true — clearSessionLoading() missing in effect cleanup",
+        api.getRepositoryAgentStatus,
+        "FAIL (AC546-1 post-478): getRepositoryAgentStatus was never called after history resolved",
+      ).toHaveBeenCalledTimes(1);
+    });
+
+    // Resolve status as processing=false — no Cancel button expected.
+    resolveStatus({ processing: false, startedAt: null });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /cancel/i }),
+        "FAIL (AC546-1 post-478): Cancel should NOT appear when processing=false",
       ).not.toBeInTheDocument();
     });
-
-    // Resolve the stale fetch after loading has cleared — must not re-show loading
-    resolveFetch(emptyHistory);
-    await new Promise<void>((r) => setTimeout(r, 50));
-    expect(
-      screen.queryByText("Loading session..."),
-      "FAIL (AC546-1): loading reappeared after stale fetch resolved — clearSessionLoading on abort path accidentally re-triggered",
-    ).not.toBeInTheDocument();
   });
 
   it("AC546-2: AbortError from a session-switch cleanup does not show an error message", async () => {
@@ -4446,5 +4428,87 @@ describe("ConstitutionPage sessionError display", () => {
     await waitFor(() => {
       expect(screen.getByText("Network failure")).toBeInTheDocument();
     });
+  });
+});
+
+describe("RepositoryPage status check sequencing after session load (AC478)", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({ sessions: [] });
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue({
+      sessionId: "session-b",
+      messages: [],
+    });
+  });
+
+  it("AC478-1: status check is not dispatched while history fetch is in-flight", async () => {
+    // Arrange: freeze history so we can observe whether status fires concurrently
+    let resolveHistory!: (v: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveHistory = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    // Wait for the history fetch to be in-flight
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    // Status must NOT have been called while history is still pending
+    expect(
+      api.getRepositoryAgentStatus,
+      "FAIL (AC478-1): getRepositoryAgentStatus was dispatched concurrently with history fetch — standalone effect still present",
+    ).not.toHaveBeenCalled();
+
+    resolveHistory({ sessionId: "session-b", messages: [] });
+
+    // After history resolves, status SHOULD be called
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentStatus,
+        "FAIL (AC478-1): getRepositoryAgentStatus was never called after history resolved",
+      ).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("AC478-2: when status returns processing=true after history loads, Cancel button appears without history being re-fetched", async () => {
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
+    // Effect C fetches history once (completes). Effect D's first polling tick
+    // immediately starts a second fetch; keep it pending to isolate the two calls.
+    vi.mocked(api.getRepositoryAgentHistory)
+      .mockResolvedValueOnce({ sessionId: "session-b", messages: [] }) // Effect C (completes)
+      .mockReturnValue(new Promise<ChatHistoryResponse>(() => {})); // Effect D tick (in-flight)
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    // Cancel button should appear after sequential status check resolves processing=true.
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+        "FAIL (AC478-2): Cancel button not visible after status=processing",
+      ).toBeInTheDocument();
+    });
+
+    // Effect C fetched history exactly once (completed, not aborted).
+    // Effect D's first tick has started a second fetch (in-flight, pending).
+    // In the old concurrent race, the initial history fetch would have been
+    // aborted before the status check completed — causing a retry or lost data.
+    expect(
+      api.getRepositoryAgentHistory,
+      "FAIL (AC478-2): expected 2 history calls (1 completed by Effect C + 1 in-flight by Effect D), indicating no abort-and-retry occurred",
+    ).toHaveBeenCalledTimes(2);
   });
 });
