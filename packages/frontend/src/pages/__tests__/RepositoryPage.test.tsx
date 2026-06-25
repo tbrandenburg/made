@@ -4003,3 +4003,109 @@ describe("RepositoryPage loading state clears on mid-flight abort (AC546)", () =
     ).not.toBeInTheDocument();
   });
 });
+
+describe("RepositoryPage syncChatHistory full-fetch on session load (#481)", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [],
+    });
+    localStorage.clear();
+  });
+
+  it("AC481-1: session-load calls API with startTimestamp=undefined even when localStorage has a cached timestamp", async () => {
+    // Arrange: pre-seed localStorage with BOTH the session ID and a chat message so that
+    // on initial render sessionId is non-null AND lastKnownTimestampRef.current is Tn (non-null).
+    // switchSessionIfNeeded returns early (incomingSessionId === sessionId) which means
+    // setChat([]) is NOT called — the stale timestamp persists in the ref.
+    // Without the fix, syncChatHistory would use startTimestamp = Tn + 1 (incremental fetch).
+    // With the fix, it uses startTimestamp = undefined (full fetch).
+    const cachedMessage = {
+      id: "cached-1",
+      role: "agent",
+      text: "Cached message",
+      timestamp: "2026-01-01T00:00:00.000Z",
+    };
+    // sessionStorageKey = "repository-session-test-repo-opencode" (agentCli defaults to "opencode")
+    localStorage.setItem(
+      "repository-session-test-repo-opencode",
+      "session-a",
+    );
+    localStorage.setItem(
+      "repository-chat-test-repo",
+      JSON.stringify([cachedMessage]),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalled();
+    });
+
+    // The session-load path must use startTimestamp=undefined regardless of the cached timestamp.
+    // FAIL without fix: called with startTimestamp = Date.parse("2026-01-01T00:00:00.000Z") + 1
+    expect(
+      api.getRepositoryAgentHistory,
+      "FAIL (AC481-1): session-load used incremental startTimestamp instead of undefined (full fetch)",
+    ).toHaveBeenCalledWith("test-repo", "session-a", undefined, expect.anything());
+  });
+
+  it("AC481-3: stale localStorage timestamp does not prevent server messages from appearing", async () => {
+    // AC481-2 is omitted: after handleSessionSelect calls setChat([]), lastKnownTimestamp
+    // becomes undefined before the session-load effect fires, so the session-switch path
+    // already uses startTimestamp=undefined without the fix. The regression is specific to
+    // initial page load where setChat([]) is NOT called (covered by AC481-1 above).
+    // Arrange: localStorage has a message with a far-future timestamp simulating clock skew
+    // or data corruption. The mock returns real messages only for a full fetch (startTimestamp=undefined).
+    // Without the fix, the incremental fetch (startTimestamp = futureTs + 1) returns empty and
+    // the server message is never shown. With the fix, full fetch returns the server message.
+    const futureMessage = {
+      id: "future-1",
+      role: "agent",
+      text: "Corrupted cached message",
+      timestamp: "2099-01-01T00:00:00.000Z",
+    };
+    localStorage.setItem(
+      "repository-session-test-repo-opencode",
+      "session-a",
+    );
+    localStorage.setItem(
+      "repository-chat-test-repo",
+      JSON.stringify([futureMessage]),
+    );
+
+    const serverMsg: ChatHistoryMessage = {
+      role: "assistant",
+      type: "text",
+      content: "Real server message",
+      timestamp: "2026-01-01T00:00:00Z",
+    };
+    // Only return server messages for a full fetch (startTimestamp=undefined).
+    // An incremental fetch (any non-undefined startTimestamp) returns empty.
+    vi.mocked(api.getRepositoryAgentHistory).mockImplementation(
+      async (_name, _sessionId, startTimestamp) => {
+        if (startTimestamp === undefined) {
+          return { sessionId: "session-a", messages: [serverMsg] };
+        }
+        return emptyHistory;
+      },
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Server message must appear because full fetch retrieved it.
+    // FAIL without fix: incremental fetch with futureTs+1 returns empty → "Real server message" missing
+    await waitFor(
+      () => {
+        expect(
+          screen.queryByText("Real server message"),
+          "FAIL (AC481-3): server message missing — incremental fetch with stale timestamp returned empty",
+        ).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
+  });
+});
