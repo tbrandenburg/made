@@ -4506,9 +4506,41 @@ describe("RepositoryPage status check sequencing after session load (AC478)", ()
     // Effect D's first tick has started a second fetch (in-flight, pending).
     // In the old concurrent race, the initial history fetch would have been
     // aborted before the status check completed — causing a retry or lost data.
+    // Wrap in waitFor to ensure both Effect C and Effect D have dispatched their calls.
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentHistory,
+        "FAIL (AC478-2): expected 2 history calls (1 completed by Effect C + 1 in-flight by Effect D), indicating no abort-and-retry occurred",
+      ).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("AC478-3: when history fetch fails, agent status is never checked and error message is preserved", async () => {
+    // Arrange: history rejects; status mock would clear the error if incorrectly called
+    vi.mocked(api.getRepositoryAgentHistory).mockRejectedValue(
+      new Error("History network error"),
+    );
+    // If status were called with processing=false it would invoke setChatError(null),
+    // wiping out the history error. Verify that never happens.
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    // Error message must appear
+    await waitFor(() => {
+      expect(
+        screen.getByText("History network error"),
+        "FAIL (AC478-3): error message not shown after history fetch failure",
+      ).toBeInTheDocument();
+    });
+
+    // Status must NOT have been called (ok=false from syncChatHistory gates the call)
     expect(
-      api.getRepositoryAgentHistory,
-      "FAIL (AC478-2): expected 2 history calls (1 completed by Effect C + 1 in-flight by Effect D), indicating no abort-and-retry occurred",
-    ).toHaveBeenCalledTimes(2);
+      api.getRepositoryAgentStatus,
+      "FAIL (AC478-3): getRepositoryAgentStatus was called after history failure — would clear the error message",
+    ).not.toHaveBeenCalled();
   });
 });

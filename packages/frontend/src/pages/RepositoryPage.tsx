@@ -1254,6 +1254,8 @@ export const RepositoryPage: React.FC = () => {
     let timeoutId: number | undefined;
 
     const tick = async () => {
+      // boolean return from syncChatHistory is intentionally ignored here:
+      // polling must still check agent status regardless of history fetch result
       await syncChatHistory(controller.signal);
       if (controller.signal.aborted) return;
       const stillProcessing = await refreshAgentStatus();
