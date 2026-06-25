@@ -1182,13 +1182,9 @@ export const RepositoryPage: React.FC = () => {
     }
   }, [name, sessionId]);
 
-  useEffect(() => {
-    refreshAgentStatus();
-  }, [refreshAgentStatus]);
-
   const syncChatHistory = useCallback(
-    async (signal?: AbortSignal, fullFetch?: boolean) => {
-      if (!name || !sessionId) return;
+    async (signal?: AbortSignal, fullFetch?: boolean): Promise<boolean> => {
+      if (!name || !sessionId) return false;
       console.info("[ChatHistory] Request started");
       try {
         setChatError(null);
@@ -1204,12 +1200,12 @@ export const RepositoryPage: React.FC = () => {
           signal,
         );
 
-        if (signal?.aborted) return;
+        if (signal?.aborted) return false;
         clearSessionLoading();
 
         if (!history.messages?.length) {
           console.info("[ChatHistory] Request completed with no new messages");
-          return;
+          return true;
         }
 
         setChat((previousChat) => {
@@ -1217,9 +1213,10 @@ export const RepositoryPage: React.FC = () => {
           console.info("[ChatHistory] Request completed; merge finished");
           return mergeChatMessages(previousChat, mapped);
         });
+        return true;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
-          return;
+          return false;
         }
         console.error("Failed to load chat history", error);
         const message =
@@ -1228,6 +1225,7 @@ export const RepositoryPage: React.FC = () => {
             : "Failed to load chat history";
         clearSessionLoading();
         setChatError(message);
+        return false;
       }
     },
     [name, sessionId, setChat, setChatError],
@@ -1237,12 +1235,17 @@ export const RepositoryPage: React.FC = () => {
     if (chatAgentProcessing || !name || !sessionId) return;
     setSessionLoading(true);
     const controller = new AbortController();
-    syncChatHistory(controller.signal, true);
+    const run = async () => {
+      const ok = await syncChatHistory(controller.signal, true);
+      if (!ok || controller.signal.aborted) return;
+      await refreshAgentStatus();
+    };
+    run();
     return () => {
       controller.abort(); // No argument — preserves DOMException('AbortError') shape
       clearSessionLoading(); // Ensure loading state is cleared if effect is torn down before fetch completes
     };
-  }, [chatAgentProcessing, name, sessionId, syncChatHistory]);
+  }, [chatAgentProcessing, name, sessionId, syncChatHistory, refreshAgentStatus]);
 
   useEffect(() => {
     if (!chatAgentProcessing || !name || !sessionId) return;
@@ -1251,6 +1254,8 @@ export const RepositoryPage: React.FC = () => {
     let timeoutId: number | undefined;
 
     const tick = async () => {
+      // boolean return from syncChatHistory is intentionally ignored here:
+      // polling must still check agent status regardless of history fetch result
       await syncChatHistory(controller.signal);
       if (controller.signal.aborted) return;
       const stillProcessing = await refreshAgentStatus();
