@@ -388,8 +388,11 @@ class TestAgentService:
     @patch("agent_service.get_agent_cli")
     def test_send_agent_message_error_handling(self, mock_get_cli):
         """Test error handling in agent message sending."""
-        from agent_service import send_agent_message
+        from agent_service import send_agent_message, _clear_channel_processing
         from agent_results import RunResult
+
+        # Ensure clean state (prior success tests leave entries in _processing_channels)
+        _clear_channel_processing("test-repo")
 
         # Mock the CLI to return a failure result
         mock_cli = Mock()
@@ -406,6 +409,8 @@ class TestAgentService:
         result = send_agent_message("test-repo", "This will fail")
         assert result["response"] == "Processing..."  # Status message only
         assert result["processing"] is True  # Indicates polling needed
+        # Entry stays in _processing_channels; clear before next call on same channel
+        _clear_channel_processing("test-repo")
         # Error will be available through export API, not immediate response
 
         # Test FileNotFoundError
@@ -452,6 +457,134 @@ class TestAgentService:
                 raise ChannelBusyError("Agent is still processing a previous message for this chat.")
         finally:
             _clear_channel_processing("ses_X")
+
+    @patch("agent_service.get_agent_cli")
+    def test_success_keeps_processing_entry_after_return(self, mock_get_cli):
+        """Success path must leave _processing_channels entry intact after return."""
+        from agent_service import (
+            send_agent_message,
+            _processing_channels,
+            _clear_channel_processing,
+        )
+        from agent_results import RunResult
+
+        mock_cli = Mock()
+        mock_get_cli.return_value = mock_cli
+        mock_result = RunResult(
+            success=True,
+            session_id="session_stale_test",
+            response_parts=[],
+        )
+        mock_cli.run_agent.return_value = mock_result
+
+        result = send_agent_message("test-stale-repo", "Hello")
+
+        assert result["processing"] is True
+        # Entry must still be present so GET /status returns True before first poll
+        assert "test-stale-repo" in _processing_channels
+        _clear_channel_processing("test-stale-repo")  # cleanup
+
+    @patch("agent_service.get_agent_cli")
+    def test_file_not_found_clears_processing_entry(self, mock_get_cli):
+        """FileNotFoundError path must clear the processing entry before returning."""
+        from agent_service import send_agent_message, _processing_channels
+
+        mock_cli = Mock()
+        mock_get_cli.return_value = mock_cli
+        mock_cli.run_agent.side_effect = FileNotFoundError("CLI not found")
+        mock_cli.missing_command_error.return_value = "CLI not found error"
+
+        result = send_agent_message("test-fnf-repo", "Hi")
+
+        assert result["processing"] is False
+        assert "test-fnf-repo" not in _processing_channels
+
+    @patch("agent_service.get_agent_cli")
+    def test_exception_clears_processing_entry(self, mock_get_cli):
+        """Generic Exception path must clear the processing entry before returning."""
+        from agent_service import send_agent_message, _processing_channels
+
+        mock_cli = Mock()
+        mock_get_cli.return_value = mock_cli
+        mock_cli.run_agent.side_effect = Exception("Boom")
+
+        result = send_agent_message("test-exc-repo", "Hi")
+
+        assert result["processing"] is False
+        assert "test-exc-repo" not in _processing_channels
+
+    def test_mark_channel_processing_replaces_exited_process_entry(self):
+        """_mark_channel_processing must replace entries whose process has exited."""
+        from unittest.mock import MagicMock
+        from datetime import UTC, datetime
+        from agent_service import (
+            _mark_channel_processing,
+            _clear_channel_processing,
+            _processing_channels,
+            _active_processes,
+            _processing_lock,
+        )
+
+        channel = "stale-exited-channel"
+        try:
+            # Simulate a stale entry with an exited process
+            with _processing_lock:
+                _processing_channels[channel] = datetime.now(UTC)
+                mock_proc = MagicMock()
+                mock_proc.poll.return_value = 0  # process has exited
+                _active_processes[channel] = mock_proc
+
+            # Should succeed: stale exited process is replaced
+            assert _mark_channel_processing(channel) is True
+        finally:
+            _clear_channel_processing(channel)
+
+    def test_mark_channel_processing_rejects_running_process_entry(self):
+        """_mark_channel_processing must reject entries whose process is still running."""
+        from unittest.mock import MagicMock
+        from datetime import UTC, datetime
+        from agent_service import (
+            _mark_channel_processing,
+            _clear_channel_processing,
+            _processing_channels,
+            _active_processes,
+            _processing_lock,
+        )
+
+        channel = "running-channel"
+        try:
+            with _processing_lock:
+                _processing_channels[channel] = datetime.now(UTC)
+                mock_proc = MagicMock()
+                mock_proc.poll.return_value = None  # process still running
+                _active_processes[channel] = mock_proc
+
+            assert _mark_channel_processing(channel) is False
+        finally:
+            _clear_channel_processing(channel)
+
+    def test_get_channel_status_clears_exited_process_entry(self):
+        """get_channel_status must detect and clean up entries for completed processes."""
+        from unittest.mock import MagicMock
+        from datetime import UTC, datetime
+        from agent_service import (
+            get_channel_status,
+            _processing_channels,
+            _active_processes,
+            _processing_lock,
+        )
+
+        channel = "status-stale-channel"
+        with _processing_lock:
+            _processing_channels[channel] = datetime.now(UTC)
+            mock_proc = MagicMock()
+            mock_proc.poll.return_value = 0  # process exited
+            _active_processes[channel] = mock_proc
+
+        status = get_channel_status(channel)
+
+        assert status["processing"] is False
+        assert channel not in _processing_channels
 
     @patch("agent_service.get_agent_cli")
     def test_list_chat_sessions(self, mock_get_cli):

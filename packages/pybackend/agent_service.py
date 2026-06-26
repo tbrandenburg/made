@@ -173,7 +173,15 @@ def _resolve_part_timestamp(
 def _mark_channel_processing(channel: str) -> bool:
     with _processing_lock:
         if channel in _processing_channels:
-            return False
+            process = _active_processes.get(channel)
+            # Only replace if we can confirm the process has exited (stale entry)
+            if process is None or process.poll() is None:
+                return False  # Truly busy or in-flight; reject
+            # Process confirmed exited: clean up stale entry and re-mark
+            _processing_channels.pop(channel, None)
+            _cancelled_channels.discard(channel)
+            _active_processes.pop(channel, None)
+            _cancel_events.pop(channel, None)
         _processing_channels[channel] = datetime.now(UTC)
         return True
 
@@ -232,6 +240,15 @@ def cancel_agent_message(lock_key: str) -> bool:
 def get_channel_status(lock_key: str) -> dict[str, object]:
     with _processing_lock:
         started_at = _processing_channels.get(lock_key)
+        if started_at is not None:
+            process = _active_processes.get(lock_key)
+            # Only clean up if we can confirm the process has exited
+            if process is not None and process.poll() is not None:
+                _processing_channels.pop(lock_key, None)
+                _cancelled_channels.discard(lock_key)
+                _active_processes.pop(lock_key, None)
+                _cancel_events.pop(lock_key, None)
+                started_at = None
 
     return {
         "processing": started_at is not None,
@@ -635,6 +652,7 @@ def send_agent_message(
     except FileNotFoundError:
         response = get_agent_cli(working_dir).missing_command_error()
         logger.error("Agent command not found for channel %s", channel)
+        _clear_channel_processing(lock_key)
 
         # Return error immediately - no process to poll
         sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -651,6 +669,7 @@ def send_agent_message(
         logger.exception(
             "Unexpected error sending agent message on channel %s", channel
         )
+        _clear_channel_processing(lock_key)
 
         # Return error immediately - no process to poll
         sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -662,8 +681,6 @@ def send_agent_message(
             "sessionId": _conversation_sessions.get(lock_key),
             "processing": False,
         }
-    finally:
-        _clear_channel_processing(lock_key)
 
     sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
