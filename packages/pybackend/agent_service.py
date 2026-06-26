@@ -5,7 +5,7 @@ import re
 import signal
 import subprocess
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Event, Lock
 
@@ -43,10 +43,16 @@ def _get_agent_state_path() -> Path:
 def _dump_processing_state() -> None:
     path = _get_agent_state_path()
     try:
-        data = {k: v.isoformat() for k, v in _processing_channels.items()}
-        path.write_text(json.dumps(data))
+        with _processing_lock:
+            snapshot = {k: v.isoformat() for k, v in _processing_channels.items()}
+        path.write_text(json.dumps(snapshot))
     except Exception:
         logger.warning("Failed to persist agent processing state", exc_info=True)
+
+
+# Persisted entries older than this are considered stale (e.g. after a backend restart
+# with no live process) and are silently discarded on load.
+_MAX_PROCESSING_AGE = timedelta(hours=1)
 
 
 def _load_processing_state() -> dict[str, datetime]:
@@ -55,7 +61,12 @@ def _load_processing_state() -> dict[str, datetime]:
         return {}
     try:
         data = json.loads(path.read_text())
-        return {k: datetime.fromisoformat(v) for k, v in data.items()}
+        now = datetime.now(UTC)
+        return {
+            k: dt
+            for k, v in data.items()
+            if (dt := datetime.fromisoformat(v)) and now - dt < _MAX_PROCESSING_AGE
+        }
     except Exception:
         logger.warning("Failed to load persisted agent processing state", exc_info=True)
         return {}
@@ -293,6 +304,7 @@ def cancel_agent_message(lock_key: str) -> bool:
 
 def get_channel_status(lock_key: str) -> dict[str, object]:
     needs_dump = False
+
     with _processing_lock:
         started_at = _processing_channels.get(lock_key)
 
@@ -308,19 +320,11 @@ def get_channel_status(lock_key: str) -> dict[str, object]:
                         _processing_channels[lock_key] = started_at
                     break
 
-        # Fallback 2: persisted state (survives backend restart)
-        if started_at is None:
-            persisted = _load_processing_state()
-            persisted_started = persisted.get(lock_key)
-            if persisted_started is None:
-                # Also try reverse lookup in persisted state
-                for ch, sid in list(_conversation_sessions.items()):
-                    if sid == lock_key:
-                        persisted_started = persisted.get(ch)
-                        break
-            if persisted_started is not None:
-                _processing_channels[lock_key] = persisted_started
-                started_at = persisted_started
+        # Snapshot the session map so we can do disk I/O outside the lock below.
+        needs_disk_fallback = started_at is None
+        session_snapshot = (
+            list(_conversation_sessions.items()) if needs_disk_fallback else []
+        )
 
         if started_at is not None:
             process = _active_processes.get(lock_key)
@@ -333,6 +337,22 @@ def get_channel_status(lock_key: str) -> dict[str, object]:
                     _cancel_events.pop(key, None)
                 needs_dump = True
                 started_at = None
+
+    # Fallback 2: persisted state (survives backend restart) — outside the lock
+    # to avoid blocking all threads on file I/O.
+    if needs_disk_fallback and started_at is None:
+        persisted = _load_processing_state()
+        persisted_started = persisted.get(lock_key)
+        if persisted_started is None:
+            # Also try reverse lookup in persisted state via session map snapshot
+            for ch, sid in session_snapshot:
+                if sid == lock_key:
+                    persisted_started = persisted.get(ch)
+                    break
+        if persisted_started is not None:
+            with _processing_lock:
+                _processing_channels[lock_key] = persisted_started
+            started_at = persisted_started
 
     if needs_dump:
         _dump_processing_state()

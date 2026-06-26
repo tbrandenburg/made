@@ -808,3 +808,41 @@ class TestAgentService:
         with patch("agent_service._dump_processing_state") as mock_dump:
             _clear_channel_processing(channel)
             mock_dump.assert_called_once()
+
+    def test_load_processing_state_discards_stale_entries(self):
+        """_load_processing_state must discard entries older than _MAX_PROCESSING_AGE."""
+        from datetime import UTC, datetime, timedelta
+        from unittest.mock import patch
+        from agent_service import _load_processing_state, _MAX_PROCESSING_AGE
+
+        recent_time = datetime.now(UTC) - timedelta(minutes=10)
+        stale_time = datetime.now(UTC) - _MAX_PROCESSING_AGE - timedelta(minutes=1)
+
+        fake_data = {
+            "recent-session": recent_time.isoformat(),
+            "stale-session": stale_time.isoformat(),
+        }
+
+        with patch("agent_service._get_agent_state_path") as mock_path:
+            mock_file = mock_path.return_value
+            mock_file.exists.return_value = True
+            mock_file.read_text.return_value = __import__("json").dumps(fake_data)
+
+            result = _load_processing_state()
+
+        assert "recent-session" in result
+        assert "stale-session" not in result
+
+    def test_get_channel_status_ignores_stale_persisted_entry(self):
+        """get_channel_status must not report processing for entries beyond the TTL."""
+        from datetime import UTC, datetime, timedelta
+        from unittest.mock import patch
+        from agent_service import get_channel_status, _MAX_PROCESSING_AGE
+
+        stale_time = datetime.now(UTC) - _MAX_PROCESSING_AGE - timedelta(minutes=1)
+
+        with patch("agent_service._load_processing_state") as mock_load:
+            mock_load.return_value = {}  # stale entry already filtered by _load
+            status = get_channel_status("ghost-session-after-restart")
+
+        assert status["processing"] is False
