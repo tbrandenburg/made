@@ -49,6 +49,8 @@ export default defineConfig(async ({ mode }) => ({
           // Markdown renderer + sanitizer — used only in lazy-loaded detail pages
           if (id.includes("marked") || id.includes("dompurify"))
             return "vendor-markdown";
+          // Icon library — must come BEFORE /react/ check because @heroicons/react/* paths contain '/react/'
+          if (id.includes("@heroicons")) return "vendor-icons";
           // Core React runtime — highly stable, long-lived cache
           if (id.includes("react-dom") || id.includes("/react/"))
             return "vendor-react";
@@ -56,8 +58,6 @@ export default defineConfig(async ({ mode }) => ({
           if (id.includes("react-router")) return "vendor-router";
           // Virtualised list — used in ChatWindow inside lazy pages
           if (id.includes("react-virtuoso")) return "vendor-virtuoso";
-          // Icon library — split from app so icon updates don't bust react-dom cache
-          if (id.includes("@heroicons")) return "vendor-icons";
           // Everything else from node_modules
           if (id.includes("node_modules")) return "vendor";
         },
