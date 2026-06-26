@@ -5247,3 +5247,211 @@ describe("RepositoryPage skeleton states", () => {
     ).toBeInTheDocument();
   });
 });
+
+// ── Issue #588: Simplified lifecycle state machine ─────────────────────────
+describe("RepositoryPage simplified lifecycle (issue #588)", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [],
+    });
+    vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
+    localStorage.clear();
+  });
+
+  it("AC588-1: mounts without sessionId — isLoadingHistory=false, Send enabled when prompt typed", () => {
+    renderPage(["/repositories/test-repo?tab=agent"]);
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "hello" } });
+    expect(
+      screen.getByRole("button", { name: /send/i }),
+      "FAIL (AC588-1): Send button should be enabled when no session (no history loading in progress)",
+    ).not.toBeDisabled();
+    expect(
+      screen.queryByText(/loading session/i),
+      "FAIL (AC588-1): Loading indicator should not appear without a session",
+    ).not.toBeInTheDocument();
+  });
+
+  it("AC588-2: fetches history + checks status on mount when sessionId is present", async () => {
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentHistory,
+        "FAIL (AC588-2): history not fetched on mount",
+      ).toHaveBeenCalledWith(
+        "test-repo",
+        "session-a",
+        undefined,
+        expect.anything(),
+      );
+      expect(
+        api.getRepositoryAgentStatus,
+        "FAIL (AC588-2): status not checked on mount",
+      ).toHaveBeenCalledWith("test-repo", "session-a");
+    });
+  });
+
+  it("AC588-3: polls every 5s when agent is busy (isAgentBusy=true)", async () => {
+    // First status returns processing:true, subsequent return false after first tick
+    vi.mocked(api.getRepositoryAgentStatus)
+      .mockResolvedValueOnce({
+        processing: true,
+        startedAt: new Date().toISOString(),
+      })
+      .mockResolvedValue({
+        processing: true,
+        startedAt: new Date().toISOString(),
+      });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Cancel button should appear (isAgentBusy=true)
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /cancel/i }),
+        "FAIL (AC588-3): Cancel button not shown when isAgentBusy=true",
+      ).toBeInTheDocument();
+    });
+
+    // Wait for second status call (polling started and tick fired)
+    await waitFor(
+      () => {
+        expect(
+          vi.mocked(api.getRepositoryAgentStatus).mock.calls.length,
+          "FAIL (AC588-3): status not polled when agent busy",
+        ).toBeGreaterThanOrEqual(2);
+      },
+      { timeout: 8000 },
+    );
+  });
+
+  it("AC588-4: stops polling when isAgentBusy transitions to false", async () => {
+    vi.mocked(api.getRepositoryAgentStatus)
+      .mockResolvedValueOnce({
+        processing: true,
+        startedAt: new Date().toISOString(),
+      })
+      .mockResolvedValueOnce({ processing: false, startedAt: null });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Agent becomes busy, then polling tick returns false → busy clears
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/agent is thinking/i),
+        "FAIL (AC588-4): spinner should appear when busy",
+      ).toBeInTheDocument();
+    });
+
+    // Wait for spinner to clear (polling tick returned processing=false)
+    await waitFor(
+      () => {
+        expect(
+          screen.queryByText(/agent is thinking/i),
+          "FAIL (AC588-4): spinner did not clear after polling detected done",
+        ).not.toBeInTheDocument();
+      },
+      { timeout: 8000 },
+    );
+  });
+
+  it("AC588-5: shows Cancel when isAgentBusy=true, Send when false", async () => {
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+    vi.mocked(api.sendAgentMessage).mockResolvedValue({
+      messageId: "m1",
+      sent: new Date().toISOString(),
+      response: "ok",
+      sessionId: "session-a",
+      processing: true,
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Wait for initial load to complete
+    await waitFor(() =>
+      expect(api.getRepositoryAgentStatus).toHaveBeenCalled(),
+    );
+
+    const sendBtn = await screen.findByRole("button", { name: /send/i });
+    expect(
+      sendBtn,
+      "FAIL (AC588-5): Send not shown when agent idle",
+    ).toBeInTheDocument();
+
+    const input = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(input, { target: { value: "Hello" } });
+    fireEvent.click(sendBtn);
+
+    // After optimistic setIsAgentBusy(true), Cancel should appear
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /cancel/i }),
+        "FAIL (AC588-5): Cancel button not shown after send",
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("AC588-6: disables Send during isLoadingHistory=true", async () => {
+    let resolveHistory!: (v: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveHistory = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // During history loading, Send must be disabled
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "test" } });
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /send/i }),
+        "FAIL (AC588-6): Send should be disabled during history loading",
+      ).toBeDisabled();
+    });
+
+    resolveHistory(emptyHistory);
+
+    // After loading completes, Send should be enabled
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /send/i }),
+        "FAIL (AC588-6): Send should be enabled after history loading completes",
+      ).not.toBeDisabled();
+    });
+  });
+
+  it("AC588-7: shows 'Agent is thinking...' when isAgentBusy=true", async () => {
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/agent is thinking/i),
+        "FAIL (AC588-7): 'Agent is thinking...' not shown when isAgentBusy=true",
+      ).toBeInTheDocument();
+    });
+  });
+});
