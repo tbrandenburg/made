@@ -439,7 +439,9 @@ export const RepositoryPage: React.FC = () => {
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [chatError, setChatError] = useState<string | null>(null);
   const [isAgentBusy, setIsAgentBusy] = useState(false);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  // Initialize from sessionId so history loading state is correct on first render
+  // for persisted sessions (avoids brief flash of stale localStorage content).
+  const [isLoadingHistory, setIsLoadingHistory] = useState(() => Boolean(sessionId));
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
   const savedSessionTitles = useMemo(
