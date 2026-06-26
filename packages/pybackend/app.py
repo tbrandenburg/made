@@ -15,6 +15,7 @@ import termios
 import tempfile
 from copy import deepcopy
 from pathlib import Path
+from typing import Annotated
 from urllib.parse import quote
 
 from uvicorn.config import LOGGING_CONFIG
@@ -25,6 +26,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Path as PathParam,
     Query,
     Request,
     UploadFile,
@@ -46,7 +48,7 @@ from agent_service import (
     send_agent_message,
     terminate_agent_process,
 )
-from docker_service import list_running_containers, stop_container
+from docker_service import CONTAINER_ID_PATTERN, list_running_containers, stop_container
 from constitution_service import (
     delete_constitution,
     list_constitutions,
@@ -1056,7 +1058,11 @@ def list_docker_containers():
 
 
 @app.post("/api/docker-containers/{container_id}/stop")
-def stop_docker_container(container_id: str):
+def stop_docker_container(
+    container_id: Annotated[
+        str, PathParam(pattern=CONTAINER_ID_PATTERN)
+    ],
+):
     try:
         logger.info("Stopping Docker container id=%s", container_id)
         success = stop_container(container_id)

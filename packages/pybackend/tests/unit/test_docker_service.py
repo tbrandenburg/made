@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from docker_service import list_running_containers
+from docker_service import list_running_containers, stop_container
 
 
 class TestListRunningContainers:
@@ -95,3 +95,70 @@ class TestListRunningContainers:
         assert c["status"] == "Up 1 hour"
         assert c["ports"] == "6379/tcp"
         assert c["names"] == "my-redis"
+
+
+class TestStopContainer:
+    @patch("docker_service.subprocess.run")
+    def test_stop_valid_container_success(self, mock_run):
+        """Valid container_id returns True when docker stop succeeds."""
+        mock_run.return_value = MagicMock(returncode=0)
+
+        result = stop_container("abc123def456")
+
+        assert result is True
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args[0][0]
+        assert call_args == ["docker", "stop", "abc123def456"]
+
+    @patch("docker_service.subprocess.run")
+    def test_stop_invalid_id_starting_with_dash(self, mock_run):
+        """container_id starting with '--' is rejected before subprocess call."""
+        result = stop_container("--time=0")
+
+        assert result is False
+        mock_run.assert_not_called()
+
+    @patch("docker_service.subprocess.run")
+    def test_stop_empty_container_id(self, mock_run):
+        """Empty string is rejected before subprocess call."""
+        result = stop_container("")
+
+        assert result is False
+        mock_run.assert_not_called()
+
+    @patch("docker_service.subprocess.run")
+    def test_stop_container_id_with_special_chars(self, mock_run):
+        """container_id with shell special chars is rejected."""
+        result = stop_container("abc;rm -rf /")
+
+        assert result is False
+        mock_run.assert_not_called()
+
+    @patch("docker_service.subprocess.run")
+    def test_stop_container_not_found(self, mock_run):
+        """Returns False when docker stop exits non-zero."""
+        mock_run.return_value = MagicMock(returncode=1)
+
+        result = stop_container("abc123")
+
+        assert result is False
+
+    @patch("docker_service.subprocess.run")
+    def test_stop_container_subprocess_error(self, mock_run):
+        """Returns False on SubprocessError."""
+        mock_run.side_effect = subprocess.SubprocessError("timeout")
+
+        result = stop_container("abc123")
+
+        assert result is False
+
+    @patch("docker_service.subprocess.run")
+    def test_stop_container_full_64char_id(self, mock_run):
+        """Full 64-char hex container ID is accepted."""
+        full_id = "a" * 64
+        mock_run.return_value = MagicMock(returncode=0)
+
+        result = stop_container(full_id)
+
+        assert result is True
+        mock_run.assert_called_once()
