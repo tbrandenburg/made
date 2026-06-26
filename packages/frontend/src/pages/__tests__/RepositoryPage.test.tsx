@@ -1329,6 +1329,30 @@ describe("RepositoryPage reload current session (AC1-AC7)", () => {
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
     resolveFetch!(emptyHistory);
   });
+
+  it("AC585: reloadCurrentSession calls refreshAgentStatus (getRepositoryAgentStatus) after successful history fetch", async () => {
+    // Arrange: getRepositoryAgentStatus mock auto-resolves via Proxy (processing: false by default)
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // Wait for initial load to complete (refreshAgentStatus fires on mount)
+    await waitFor(() => {
+      expect(api.getRepositoryAgentStatus).toHaveBeenCalled();
+    });
+
+    vi.mocked(api.getRepositoryAgentStatus).mockClear();
+
+    // Act: click Refresh button
+    const refreshBtn = await screen.findByLabelText("Refresh current session");
+    fireEvent.click(refreshBtn);
+
+    // Assert: getRepositoryAgentStatus is called once after the history fetch
+    await waitFor(() => {
+      expect(
+        api.getRepositoryAgentStatus,
+        "FAIL (AC585): getRepositoryAgentStatus not called after manual refresh — refreshAgentStatus missing from reloadCurrentSession",
+      ).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 
 // ── AC4 cross-page ─────────────────────────────────────────────────

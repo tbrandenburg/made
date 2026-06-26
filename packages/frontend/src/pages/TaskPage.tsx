@@ -440,6 +440,7 @@ export const TaskPage: React.FC = () => {
       const mapped = mapHistoryToMessages(history.messages || []);
       setChat(mapped);
       setAgentStatus(null);
+      await refreshAgentStatus();
     } catch (error) {
       setChat(chatBeforeRefresh);
       console.error("Failed to load session history", error);
@@ -452,7 +453,7 @@ export const TaskPage: React.FC = () => {
       setIsRefreshing(false);
       isRefreshingRef.current = false;
     }
-  }, [name, sessionId, setChat, setAgentStatus]);
+  }, [name, sessionId, setChat, setAgentStatus, refreshAgentStatus]);
 
   const handleSaveSession = useCallback(() => {
     if (!sessionId) return;
