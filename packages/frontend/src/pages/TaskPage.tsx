@@ -128,9 +128,7 @@ export const TaskPage: React.FC = () => {
     [name],
   );
 
-  useEffect(() => {
-    sessionIdRef.current = sessionId;
-  }, [sessionId]);
+  sessionIdRef.current = sessionId;
   useEffect(() => {
     chatRef.current = chat;
   }, [chat]);

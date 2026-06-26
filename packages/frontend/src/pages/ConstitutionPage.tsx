@@ -146,9 +146,7 @@ export const ConstitutionPage: React.FC = () => {
     [isExternal, name],
   );
 
-  useEffect(() => {
-    sessionIdRef.current = sessionId;
-  }, [sessionId]);
+  sessionIdRef.current = sessionId;
   useEffect(() => {
     chatRef.current = chat;
   }, [chat]);
