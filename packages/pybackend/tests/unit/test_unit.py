@@ -687,3 +687,124 @@ class TestAgentService:
             },
             {"name": "plan", "type": "primary", "details": ["allow: think"]},
         ]
+
+    def test_get_channel_status_reverse_lookup_via_conversation_sessions(self):
+        """get_channel_status must find processing entry by reverse lookup when lock_key is a session_id."""
+        from datetime import UTC, datetime
+        from agent_service import (
+            get_channel_status,
+            _conversation_sessions,
+            _processing_channels,
+            _processing_lock,
+        )
+
+        channel = "reverse-lookup-repo"
+        session_id = "reverse-session-123"
+        try:
+            with _processing_lock:
+                _conversation_sessions[channel] = session_id
+                _processing_channels[channel] = datetime.now(UTC)
+
+            status = get_channel_status(session_id)
+
+            assert status["processing"] is True
+            # session_id key should now be populated (propagated by get_channel_status)
+            with _processing_lock:
+                assert session_id in _processing_channels
+        finally:
+            with _processing_lock:
+                _conversation_sessions.pop(channel, None)
+                _processing_channels.pop(channel, None)
+                _processing_channels.pop(session_id, None)
+
+    def test_get_channel_status_falls_back_to_persisted_state(self):
+        """get_channel_status must restore processing=True from disk when in-memory is empty."""
+        from datetime import UTC, datetime
+        from unittest.mock import patch
+        from agent_service import (
+            get_channel_status,
+            _processing_channels,
+            _active_processes,
+            _processing_lock,
+        )
+
+        lock_key = "persisted-session-456"
+        with _processing_lock:
+            _processing_channels.pop(lock_key, None)
+            _active_processes.pop(lock_key, None)
+
+        with patch("agent_service._load_processing_state") as mock_load:
+            mock_load.return_value = {lock_key: datetime.now(UTC)}
+            with patch("agent_service._dump_processing_state"):
+                status = get_channel_status(lock_key)
+
+        assert status["processing"] is True
+        assert status["startedAt"] is not None
+
+    def test_alias_cleanup_removes_all_related_keys_on_process_exit(self):
+        """get_channel_status cleanup must remove both channel and session_id keys when process exits."""
+        from datetime import UTC, datetime
+        from unittest.mock import MagicMock, patch
+        from agent_service import (
+            get_channel_status,
+            _conversation_sessions,
+            _processing_channels,
+            _active_processes,
+            _processing_lock,
+        )
+
+        channel = "alias-cleanup-repo"
+        session_id = "alias-cleanup-session"
+        try:
+            mock_proc = MagicMock()
+            mock_proc.poll.return_value = 0  # process exited
+            with _processing_lock:
+                _conversation_sessions[channel] = session_id
+                _processing_channels[channel] = datetime.now(UTC)
+                _processing_channels[session_id] = datetime.now(UTC)
+                _active_processes[session_id] = mock_proc
+
+            with patch("agent_service._dump_processing_state"):
+                get_channel_status(session_id)
+
+            with _processing_lock:
+                assert channel not in _processing_channels
+                assert session_id not in _processing_channels
+        finally:
+            with _processing_lock:
+                _conversation_sessions.pop(channel, None)
+                _processing_channels.pop(channel, None)
+                _processing_channels.pop(session_id, None)
+
+    def test_mark_channel_processing_persists_state(self):
+        """_mark_channel_processing must call _dump_processing_state."""
+        from unittest.mock import patch
+        from agent_service import _mark_channel_processing, _clear_channel_processing
+
+        channel = "persist-mark-channel"
+        try:
+            with patch("agent_service._dump_processing_state") as mock_dump:
+                result = _mark_channel_processing(channel)
+                assert result is True
+                mock_dump.assert_called_once()
+        finally:
+            with patch("agent_service._dump_processing_state"):
+                _clear_channel_processing(channel)
+
+    def test_clear_channel_processing_persists_state(self):
+        """_clear_channel_processing must call _dump_processing_state."""
+        from datetime import UTC, datetime
+        from unittest.mock import patch
+        from agent_service import (
+            _clear_channel_processing,
+            _processing_channels,
+            _processing_lock,
+        )
+
+        channel = "persist-clear-channel"
+        with _processing_lock:
+            _processing_channels[channel] = datetime.now(UTC)
+
+        with patch("agent_service._dump_processing_state") as mock_dump:
+            _clear_channel_processing(channel)
+            mock_dump.assert_called_once()
