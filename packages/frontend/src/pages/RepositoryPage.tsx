@@ -455,12 +455,9 @@ export const RepositoryPage: React.FC = () => {
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [chatError, setChatError] = useState<string | null>(null);
   const [lifecycle, setLifecycle] = useState<Lifecycle>("idle");
-  const chatAgentProcessing: boolean | null =
-    lifecycle === "streaming"
-      ? true
-      : lifecycle === "loading" || (lifecycle === "idle" && !!sessionId)
-        ? null
-        : false;
+  const chatAgentProcessing = lifecycle === "streaming";
+  const sessionLoading =
+    lifecycle === "loading" || (lifecycle === "idle" && !!sessionId);
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
   const savedSessionTitles = useMemo(
@@ -746,7 +743,6 @@ export const RepositoryPage: React.FC = () => {
   const [movePath, setMovePath] = useState("");
   const [loadingFile, setLoadingFile] = useState(false);
   const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
-  const sessionLoading = lifecycle === "loading";
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isRefreshingRef = useRef(false);
   const chatInputId = "repository-agent-prompt";
@@ -2017,7 +2013,9 @@ export const RepositoryPage: React.FC = () => {
                   onClick={reloadCurrentSession}
                   aria-label="Refresh current session"
                   title="Refresh current session"
-                  disabled={chatAgentProcessing !== false || isRefreshing}
+                  disabled={
+                    chatAgentProcessing || sessionLoading || isRefreshing
+                  }
                 >
                   <RefreshIcon />
                 </button>
@@ -2053,7 +2051,7 @@ export const RepositoryPage: React.FC = () => {
           <ChatWindow
             chat={chat}
             chatWindowRef={chatWindowRef}
-            agentProcessing={chatAgentProcessing === true}
+            agentProcessing={chatAgentProcessing}
             refreshing={isRefreshing}
             sessionLoading={sessionLoading}
             emptyMessage="No conversation yet."
@@ -2081,7 +2079,7 @@ export const RepositoryPage: React.FC = () => {
                 selectId="agent-select"
                 selectedAgent={normalizedSelectedAgent}
                 onChange={setSelectedAgent}
-                disabled={chatAgentProcessing !== false}
+                disabled={chatAgentProcessing || sessionLoading}
                 repositoryName={name || undefined}
               />
               <label className="model-select" htmlFor="agent-model-select">
@@ -2089,7 +2087,7 @@ export const RepositoryPage: React.FC = () => {
                   id="agent-model-select"
                   value={normalizedSelectedModel}
                   onChange={(event) => setSelectedModel(event.target.value)}
-                  disabled={chatAgentProcessing !== false}
+                  disabled={chatAgentProcessing || sessionLoading}
                   aria-label="Model"
                 >
                   {MODEL_OPTIONS.map((option) => (
@@ -2114,7 +2112,9 @@ export const RepositoryPage: React.FC = () => {
                   className="primary"
                   onClick={() => handleSendMessage()}
                   disabled={
-                    !pendingPrompt.trim() || chatAgentProcessing === null
+                    !pendingPrompt.trim() ||
+                    sessionLoading ||
+                    chatAgentProcessing
                   }
                 >
                   Send
