@@ -8,7 +8,7 @@ const scrollToIndexMock = vi.hoisted(() => vi.fn());
 const initialTopMostItemIndexMock = vi.hoisted(() => vi.fn());
 // Captures the `followOutput` callback reference for direct invocation in tests
 const followOutputCapture = vi.hoisted(
-  (): { current: ((atBottom: boolean) => "auto" | false) | undefined } => ({
+  (): { current: ((atBottom: boolean) => "smooth" | false) | undefined } => ({
     current: undefined,
   }),
 );
@@ -32,13 +32,14 @@ interface MockVirtuosoProps {
   itemContent: (index: number, message: ChatMessage) => ReactNode;
   components?: {
     Item?: ComponentType<React.HTMLAttributes<HTMLDivElement>>;
-    Footer?: ComponentType;
+    Footer?: ComponentType<{ context?: Record<string, unknown> }>;
   };
   computeItemKey?: (index: number, message: ChatMessage) => string;
   initialTopMostItemIndex?:
     | number
     | { index: number; align?: string; behavior?: string };
-  followOutput?: (atBottom: boolean) => "auto" | false;
+  followOutput?: (atBottom: boolean) => "smooth" | false;
+  context?: Record<string, unknown>;
 }
 
 vi.mock("react-virtuoso", async () => {
@@ -54,6 +55,7 @@ vi.mock("react-virtuoso", async () => {
           computeItemKey,
           initialTopMostItemIndex,
           followOutput,
+          context,
         },
         ref,
       ) {
@@ -76,7 +78,7 @@ vi.mock("react-virtuoso", async () => {
               const content = itemContent(index, message);
               return Item ? <Item key={key}>{content}</Item> : content;
             })}
-            {Footer ? <Footer /> : null}
+            {Footer ? <Footer context={context} /> : null}
           </div>
         );
       },
@@ -602,8 +604,8 @@ describe("ChatWindow", () => {
     ).toBeDefined();
     // User scrolled up → Virtuoso must NOT auto-scroll
     expect(cb!(false)).toBe(false);
-    // User is at bottom → Virtuoso may auto-scroll
-    expect(cb!(true)).toBe("auto");
+    // User is at bottom → Virtuoso smoothly scrolls
+    expect(cb!(true)).toBe("smooth");
   });
 
   it("passes a referentially stable components prop to Virtuoso across loading-spinner re-renders", () => {
