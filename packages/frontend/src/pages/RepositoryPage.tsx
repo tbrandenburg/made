@@ -692,9 +692,7 @@ export const RepositoryPage: React.FC = () => {
   useEffect(() => {
     lastKnownTimestampRef.current = lastKnownTimestamp;
   }, [lastKnownTimestamp]);
-  useEffect(() => {
-    sessionIdRef.current = sessionId;
-  }, [sessionId]);
+  sessionIdRef.current = sessionId;
   const chatRef = useRef(chat);
   useEffect(() => {
     chatRef.current = chat;
