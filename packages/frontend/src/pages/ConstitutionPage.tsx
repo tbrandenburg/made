@@ -22,7 +22,6 @@ const CommandsTab = React.lazy(() => import("../components/CommandsTab"));
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import { usePersistentStringList } from "../hooks/usePersistentStringList";
-import { useAgentCli } from "../hooks/useAgentCli";
 import { api, ChatSession } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
@@ -67,24 +66,20 @@ export const ConstitutionPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("content");
   const [frontmatter, setFrontmatter] = useState<Record<string, unknown>>({});
   const [content, setContent] = useState("");
-  const agentCli = useAgentCli();
   const chatStorageKey = useMemo(
     () => (name ? `constitution-chat-${name}` : "constitution-chat"),
     [name],
   );
   const sessionStorageKey = useMemo(
-    () =>
-      name
-        ? `constitution-session-${name}-${agentCli}`
-        : `constitution-session-${agentCli}`,
-    [agentCli, name],
+    () => (name ? `constitution-session-${name}` : "constitution-session"),
+    [name],
   );
   const savedSessionStorageKey = useMemo(
     () =>
       name
-        ? `constitution-saved-sessions-${name}-${agentCli}`
-        : `constitution-saved-sessions-${agentCli}`,
-    [agentCli, name],
+        ? `constitution-saved-sessions-${name}`
+        : "constitution-saved-sessions",
+    [name],
   );
   const harnessHistoryStorageKey = useMemo(
     () =>
