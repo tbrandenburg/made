@@ -1069,7 +1069,7 @@ def stop_docker_container(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Container not found or already stopped",
             )
-        return {"stopped": True}
+        return {"success": True, "message": "Container stopped"}
     except HTTPException:
         raise
     except Exception as exc:
