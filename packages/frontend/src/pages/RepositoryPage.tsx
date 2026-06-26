@@ -759,9 +759,10 @@ export const RepositoryPage: React.FC = () => {
   // Trigger session load when a session is available and lifecycle has not been set yet
   useEffect(() => {
     if (lifecycle === "idle" && name && sessionId) {
+      setChat([]);
       setLifecycle("loading");
     }
-  }, [lifecycle, name, sessionId]);
+  }, [lifecycle, name, sessionId, setChat]);
 
   useEffect(() => {
     const search = splitMentionSearch(mentionQuery);

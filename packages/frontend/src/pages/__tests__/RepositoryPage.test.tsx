@@ -4114,6 +4114,95 @@ describe("RepositoryPage syncChatHistory full-fetch on session load (#481)", () 
   });
 });
 
+describe("RepositoryPage AC590 — stale localStorage chat cleared on page refresh", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [],
+    });
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+    });
+    localStorage.clear();
+  });
+
+  it("AC590-1: stale localStorage message is NOT visible during session loading on page refresh", async () => {
+    // Arrange: localStorage has stale chat from a previous session
+    const staleMsg = {
+      id: "stale-1",
+      role: "user",
+      text: "Stale message from before",
+      timestamp: "2026-01-01T00:00:00.000Z",
+    };
+    localStorage.setItem("repository-session-test-repo-opencode", "session-a");
+    localStorage.setItem(
+      "repository-chat-test-repo",
+      JSON.stringify([staleMsg]),
+    );
+
+    let resolveFetch!: (v: ChatHistoryResponse) => void;
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise<ChatHistoryResponse>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent"]);
+
+    // During loading, stale message must NOT be visible; spinner must show
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Loading session..."),
+        "FAIL (AC590-1): loading indicator not shown — stale messages still in chat or lifecycle not entering loading",
+      ).toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByText("Stale message from before"),
+      "FAIL (AC590-1): stale localStorage message visible during loading — setChat([]) missing in idle→loading transition",
+    ).not.toBeInTheDocument();
+
+    resolveFetch!(emptyHistory);
+  });
+
+  it("AC590-2: after fetch failure, stale localStorage message is NOT shown (error state, not stale data)", async () => {
+    // Arrange: localStorage has stale chat
+    const staleMsg = {
+      id: "stale-2",
+      role: "user",
+      text: "Stale message must not persist on error",
+      timestamp: "2026-01-01T00:00:00.000Z",
+    };
+    localStorage.setItem("repository-session-test-repo-opencode", "session-a");
+    localStorage.setItem(
+      "repository-chat-test-repo",
+      JSON.stringify([staleMsg]),
+    );
+
+    vi.mocked(api.getRepositoryAgentHistory).mockRejectedValue(
+      new Error("Network failure"),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent"]);
+
+    // Wait for error state
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Network failure"),
+        "FAIL (AC590-2): error message not shown after fetch failure",
+      ).toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByText("Stale message must not persist on error"),
+      "FAIL (AC590-2): stale localStorage message visible after fetch failure — setChat([]) missing, stale data persists permanently",
+    ).not.toBeInTheDocument();
+  });
+});
+
 // ── Session selection regression: Knowledge, Constitution, Task pages ─────────
 
 function renderTaskPage(initialEntries = ["/tasks/test-task?tab=agent"]) {
