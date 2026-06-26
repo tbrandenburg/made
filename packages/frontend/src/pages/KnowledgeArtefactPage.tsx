@@ -502,6 +502,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
       const mapped = mapHistoryToMessages(history.messages || []);
       setChat(mapped);
       setAgentStatus(null);
+      await refreshAgentStatus();
     } catch (error) {
       setChat(chatBeforeRefresh);
       console.error("Failed to load session history", error);
@@ -514,7 +515,14 @@ export const KnowledgeArtefactPage: React.FC = () => {
       setIsRefreshing(false);
       isRefreshingRef.current = false;
     }
-  }, [name, sessionId, isExternal, setChat, setAgentStatus]);
+  }, [
+    name,
+    sessionId,
+    isExternal,
+    setChat,
+    setAgentStatus,
+    refreshAgentStatus,
+  ]);
 
   const handleSaveSession = useCallback(() => {
     if (!sessionId) return;

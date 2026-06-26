@@ -1325,6 +1325,7 @@ export const RepositoryPage: React.FC = () => {
         setChat(mapped);
       }
       setChatError(null);
+      await refreshAgentStatus();
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setChat(chatBeforeRefresh);
@@ -1338,7 +1339,7 @@ export const RepositoryPage: React.FC = () => {
       setIsRefreshing(false);
       isRefreshingRef.current = false;
     }
-  }, [name, sessionId, setChat, setChatError]);
+  }, [name, sessionId, setChat, setChatError, refreshAgentStatus]);
 
   const handleSendMessage = async (prompt?: string) => {
     if (!name) return;
