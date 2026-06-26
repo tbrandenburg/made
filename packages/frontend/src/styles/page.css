@@ -599,17 +599,17 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .skeleton {
-    animation: none;
-  }
-}
-
 .skeleton {
   background: var(--border);
   border-radius: 0.5rem;
   animation: skeleton-pulse 1.5s ease-in-out infinite;
   display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
 }
 
 /* Repository metadata badge row */
