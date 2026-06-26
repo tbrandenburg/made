@@ -76,9 +76,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
   );
   const savedSessionStorageKey = useMemo(
     () =>
-      name
-        ? `knowledge-saved-sessions-${name}`
-        : "knowledge-saved-sessions",
+      name ? `knowledge-saved-sessions-${name}` : "knowledge-saved-sessions",
     [name],
   );
   const harnessHistoryStorageKey = useMemo(
