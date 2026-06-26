@@ -313,6 +313,3 @@ workspace/
 
 # dev files
 dev/
-!dev/state/
-!dev/state/*.json
-dev/state/task-ledger.json
