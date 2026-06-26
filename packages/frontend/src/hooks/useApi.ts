@@ -702,7 +702,10 @@ export const api = {
   getDockerContainers: () =>
     request<{ containers: DockerContainerSummary[] }>("/docker-containers"),
   stopDockerContainer: (id: string) =>
-    request<void>(`/docker-containers/${id}/stop`, { method: "POST" }),
+    request<{ success: boolean; message?: string }>(
+      `/docker-containers/${encodeURIComponent(id)}/stop`,
+      { method: "POST" },
+    ),
   saveWorkflows: (workflows: WorkflowDefinition[]) =>
     request<{ workflows: WorkflowDefinition[] }>("/workflows", {
       method: "PUT",

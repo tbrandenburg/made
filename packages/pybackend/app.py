@@ -1059,9 +1059,7 @@ def list_docker_containers():
 
 @app.post("/api/docker-containers/{container_id}/stop")
 def stop_docker_container(
-    container_id: Annotated[
-        str, PathParam(pattern=CONTAINER_ID_PATTERN)
-    ],
+    container_id: Annotated[str, PathParam(pattern=CONTAINER_ID_PATTERN)],
 ):
     try:
         logger.info("Stopping Docker container id=%s", container_id)
@@ -1071,7 +1069,7 @@ def stop_docker_container(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Container not found or already stopped",
             )
-        return {"stopped": True}
+        return {"success": True, "message": "Container stopped"}
     except HTTPException:
         raise
     except Exception as exc:

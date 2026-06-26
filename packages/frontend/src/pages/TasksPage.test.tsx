@@ -329,7 +329,7 @@ describe("TasksPage", () => {
         ],
       })
       .mockResolvedValueOnce({ containers: [] });
-    vi.mocked(api.stopDockerContainer).mockResolvedValue(undefined);
+    vi.mocked(api.stopDockerContainer).mockResolvedValue({ success: true });
 
     render(
       <MemoryRouter>

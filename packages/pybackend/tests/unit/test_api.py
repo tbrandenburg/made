@@ -207,7 +207,7 @@ class TestDockerContainersEndpoint:
         response = client.post("/api/docker-containers/abc/stop")
 
         assert response.status_code == 200
-        assert response.json()["stopped"] is True
+        assert response.json()["success"] is True
         mock_stop.assert_called_once_with("abc")
 
     @patch("app.stop_container")
