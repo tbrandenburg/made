@@ -183,88 +183,74 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
       [markdownOptions],
     );
 
-    // Keep a ref so the stable Footer closure always reads fresh prop values
-    // without causing the `components` object reference to change.
-    const footerPropsRef = React.useRef({
-      refreshing,
-      sessionLoading,
-      agentProcessing,
-      sessionId,
-      isSessionSaved,
-      onClearSession,
-      onSaveSession,
-    });
-    footerPropsRef.current = {
-      refreshing,
-      sessionLoading,
-      agentProcessing,
-      sessionId,
-      isSessionSaved,
-      onClearSession,
-      onSaveSession,
+    type ChatWindowContext = {
+      refreshing?: boolean;
+      sessionLoading?: boolean;
+      agentProcessing: boolean;
+      sessionId?: string | null;
+      isSessionSaved?: boolean;
+      onClearSession?: () => void;
+      onSaveSession?: () => void;
     };
 
     const stableComponents = React.useMemo(
       () => ({
         Item: SpacedItem,
-        Footer: () => {
-          const p = footerPropsRef.current;
-          return (
-            <>
-              {p.refreshing && (
-                <div className="loading-indicator">
-                  <div className="loading-spinner"></div>
-                  <span>Refreshing...</span>
-                </div>
-              )}
-              {!p.refreshing && p.sessionLoading && (
-                <div className="loading-indicator">
-                  <div className="loading-spinner"></div>
-                  <span>Loading session...</span>
-                </div>
-              )}
-              {!p.refreshing && !p.sessionLoading && p.agentProcessing && (
-                <div className="loading-indicator">
-                  <div className="loading-spinner"></div>
-                  <span>Agent is thinking...</span>
-                </div>
-              )}
-              {p.sessionId && (
-                <div className="chat-session-id" aria-label="Session ID">
-                  <span>Session ID: {p.sessionId}</span>
-                  <button
-                    type="button"
-                    className="icon-button-small"
-                    aria-label={
-                      p.isSessionSaved ? "Session saved" : "Save session"
-                    }
-                    title={
-                      p.isSessionSaved
-                        ? "Session already saved"
-                        : "Save session"
-                    }
-                    onClick={p.onSaveSession}
-                    disabled={!p.onSaveSession || p.isSessionSaved}
-                  >
-                    <SaveIcon />
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button-small"
-                    aria-label="Clear session"
-                    title="Clear session"
-                    onClick={p.onClearSession}
-                    disabled={!p.onClearSession}
-                  >
-                    <TrashIcon />
-                  </button>
-                </div>
-              )}
-            </>
-          );
-        },
+        Footer: ({ context: ctx }: { context?: ChatWindowContext }) => (
+          <>
+            {ctx?.refreshing && (
+              <div className="loading-indicator">
+                <div className="loading-spinner"></div>
+                <span>Refreshing...</span>
+              </div>
+            )}
+            {!ctx?.refreshing && ctx?.sessionLoading && (
+              <div className="loading-indicator">
+                <div className="loading-spinner"></div>
+                <span>Loading session...</span>
+              </div>
+            )}
+            {!ctx?.refreshing && !ctx?.sessionLoading && ctx?.agentProcessing && (
+              <div className="loading-indicator">
+                <div className="loading-spinner"></div>
+                <span>Agent is thinking...</span>
+              </div>
+            )}
+            {ctx?.sessionId && (
+              <div className="chat-session-id" aria-label="Session ID">
+                <span>Session ID: {ctx.sessionId}</span>
+                <button
+                  type="button"
+                  className="icon-button-small"
+                  aria-label={
+                    ctx.isSessionSaved ? "Session saved" : "Save session"
+                  }
+                  title={
+                    ctx.isSessionSaved
+                      ? "Session already saved"
+                      : "Save session"
+                  }
+                  onClick={ctx.onSaveSession}
+                  disabled={!ctx.onSaveSession || ctx.isSessionSaved}
+                >
+                  <SaveIcon />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button-small"
+                  aria-label="Clear session"
+                  title="Clear session"
+                  onClick={ctx.onClearSession}
+                  disabled={!ctx.onClearSession}
+                >
+                  <TrashIcon />
+                </button>
+              </div>
+            )}
+          </>
+        ),
       }),
-      [], // Created once; Footer reads latest values via footerPropsRef
+      [], // Created once; Footer receives latest values reactively via Virtuoso context prop
     );
 
     return (
@@ -277,7 +263,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
             itemContent={itemContent}
             components={stableComponents}
             computeItemKey={(_index, message) => message.id}
-            followOutput={(atBottom) => (atBottom ? "auto" : false)}
+            context={{
+              refreshing,
+              sessionLoading,
+              agentProcessing,
+              sessionId,
+              isSessionSaved,
+              onClearSession,
+              onSaveSession,
+            }}
+            followOutput={(atBottom) => (atBottom ? "smooth" : false)}
             increaseViewportBy={{ top: 300, bottom: 300 }}
             style={{ height: "100%" }}
           />
