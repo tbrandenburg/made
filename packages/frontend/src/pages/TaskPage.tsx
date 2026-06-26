@@ -22,7 +22,6 @@ const CommandsTab = React.lazy(() => import("../components/CommandsTab"));
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import { usePersistentStringList } from "../hooks/usePersistentStringList";
-import { useAgentCli } from "../hooks/useAgentCli";
 import { api, ChatSession } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
@@ -60,22 +59,17 @@ export const TaskPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("content");
   const [frontmatter, setFrontmatter] = useState<Record<string, unknown>>({});
   const [content, setContent] = useState("");
-  const agentCli = useAgentCli();
   const chatStorageKey = useMemo(
     () => (name ? `task-chat-${name}` : "task-chat"),
     [name],
   );
   const sessionStorageKey = useMemo(
-    () =>
-      name ? `task-session-${name}-${agentCli}` : `task-session-${agentCli}`,
-    [agentCli, name],
+    () => (name ? `task-session-${name}` : "task-session"),
+    [name],
   );
   const savedSessionStorageKey = useMemo(
-    () =>
-      name
-        ? `task-saved-sessions-${name}-${agentCli}`
-        : `task-saved-sessions-${agentCli}`,
-    [agentCli, name],
+    () => (name ? `task-saved-sessions-${name}` : "task-saved-sessions"),
+    [name],
   );
   const harnessHistoryStorageKey = useMemo(
     () => (name ? `task-harness-history-${name}` : "task-harness-history"),

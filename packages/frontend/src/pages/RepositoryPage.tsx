@@ -34,7 +34,6 @@ import {
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import { usePersistentStringList } from "../hooks/usePersistentStringList";
-import { useAgentCli } from "../hooks/useAgentCli";
 import {
   api,
   CommandDefinition,
@@ -410,24 +409,20 @@ export const RepositoryPage: React.FC = () => {
   const [fileTreeLoading, setFileTreeLoading] = useState(true);
   const [fileActionError, setFileActionError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(["."]));
-  const agentCli = useAgentCli();
   const chatStorageKey = useMemo(
     () => (name ? `repository-chat-${name}` : "repository-chat"),
     [name],
   );
   const sessionStorageKey = useMemo(
-    () =>
-      name
-        ? `repository-session-${name}-${agentCli}`
-        : `repository-session-${agentCli}`,
-    [agentCli, name],
+    () => (name ? `repository-session-${name}` : "repository-session"),
+    [name],
   );
   const savedSessionStorageKey = useMemo(
     () =>
       name
-        ? `repository-saved-sessions-${name}-${agentCli}`
-        : `repository-saved-sessions-${agentCli}`,
-    [agentCli, name],
+        ? `repository-saved-sessions-${name}`
+        : "repository-saved-sessions",
+    [name],
   );
   const modelStorageKey = useMemo(
     () => (name ? `repository-model-${name}` : "repository-model"),

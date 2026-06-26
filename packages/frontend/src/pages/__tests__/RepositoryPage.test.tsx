@@ -3184,7 +3184,7 @@ describe("RepositoryPage session loading indicator (AC1-AC10)", () => {
 // ── AC1-AC7: bootstrap path loading indicator (Issue #522) ─────────────
 
 describe("RepositoryPage bootstrap path loading indicator (AC1-AC7)", () => {
-  const sessionStorageKey = "repository-session-test-repo-opencode";
+  const sessionStorageKey = "repository-session-test-repo";
   const historyWithMessages: ChatHistoryResponse = {
     sessionId: "session-b",
     messages: [
@@ -4058,8 +4058,8 @@ describe("RepositoryPage syncChatHistory full-fetch on session load (#481)", () 
       text: "Cached message",
       timestamp: "2026-01-01T00:00:00.000Z",
     };
-    // sessionStorageKey = "repository-session-test-repo-opencode" (agentCli defaults to "opencode")
-    localStorage.setItem("repository-session-test-repo-opencode", "session-a");
+    // sessionStorageKey = "repository-session-test-repo" (no agentCli suffix)
+    localStorage.setItem("repository-session-test-repo", "session-a");
     localStorage.setItem(
       "repository-chat-test-repo",
       JSON.stringify([cachedMessage]),
@@ -4099,7 +4099,7 @@ describe("RepositoryPage syncChatHistory full-fetch on session load (#481)", () 
       text: "Corrupted cached message",
       timestamp: "2099-01-01T00:00:00.000Z",
     };
-    localStorage.setItem("repository-session-test-repo-opencode", "session-a");
+    localStorage.setItem("repository-session-test-repo", "session-a");
     localStorage.setItem(
       "repository-chat-test-repo",
       JSON.stringify([futureMessage]),
@@ -4161,7 +4161,7 @@ describe("RepositoryPage AC590 — stale localStorage chat cleared on page refre
       text: "Stale message from before",
       timestamp: "2026-01-01T00:00:00.000Z",
     };
-    localStorage.setItem("repository-session-test-repo-opencode", "session-a");
+    localStorage.setItem("repository-session-test-repo", "session-a");
     localStorage.setItem(
       "repository-chat-test-repo",
       JSON.stringify([staleMsg]),
@@ -4200,7 +4200,7 @@ describe("RepositoryPage AC590 — stale localStorage chat cleared on page refre
       text: "Stale message must not persist on error",
       timestamp: "2026-01-01T00:00:00.000Z",
     };
-    localStorage.setItem("repository-session-test-repo-opencode", "session-a");
+    localStorage.setItem("repository-session-test-repo", "session-a");
     localStorage.setItem(
       "repository-chat-test-repo",
       JSON.stringify([staleMsg]),
