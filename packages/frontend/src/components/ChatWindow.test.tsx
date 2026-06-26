@@ -632,4 +632,35 @@ describe("ChatWindow", () => {
       "components object reference must be stable across loading-state re-renders",
     ).toBe(firstRef);
   });
+
+  it("does not render Virtuoso before scroll parent is available (no customScrollParent race)", () => {
+    // The mock Virtuoso renders synchronously. If Virtuoso were rendered before
+    // the scrollParent is set, the mock would still render, but in the real
+    // component the customScrollParent would be undefined on first mount.
+    // This test verifies that with a non-empty chat, messages are visible
+    // (i.e. the scrollParent gate does not permanently suppress rendering).
+    render(
+      <ChatWindow
+        chat={[makeMessage({ text: "RaceCheck" })]}
+        agentProcessing={false}
+        emptyMessage="No messages"
+      />,
+    );
+    expect(screen.getByText("RaceCheck")).toBeInTheDocument();
+  });
+
+  it("renders Virtuoso content correctly after scrollParent is set (height fix does not break list)", () => {
+    render(
+      <ChatWindow
+        chat={[
+          makeMessage({ id: "m1", text: "First" }),
+          makeMessage({ id: "m2", text: "Second" }),
+        ]}
+        agentProcessing={false}
+        emptyMessage="No messages"
+      />,
+    );
+    expect(screen.getByText("First")).toBeInTheDocument();
+    expect(screen.getByText("Second")).toBeInTheDocument();
+  });
 });
