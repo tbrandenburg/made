@@ -585,3 +585,78 @@
 .nested-folder-panel {
   margin-left: 1rem;
 }
+
+/* ── Skeleton loading placeholders ─────────────────────────── */
+@keyframes skeleton-pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+.skeleton {
+  background: var(--border);
+  border-radius: 0.5rem;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  display: block;
+}
+
+/* Repository metadata badge row */
+.repository-meta-skeleton {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  min-height: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+.repository-meta-skeleton .skeleton-badge {
+  width: 5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+}
+
+/* File tree skeleton rows */
+.file-tree-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+}
+.file-tree-skeleton .skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+}
+.file-tree-skeleton .skeleton-icon {
+  width: 1rem;
+  height: 1rem;
+  min-width: 1rem;
+  border-radius: 0.25rem;
+}
+.file-tree-skeleton .skeleton-name {
+  height: 1rem;
+  border-radius: 0.25rem;
+}
+
+/* Card grid skeleton (commands, harnesses, git) */
+.loading-grid-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+.loading-grid-skeleton .skeleton-card {
+  height: 3.5rem;
+  border-radius: 0.9rem;
+}
