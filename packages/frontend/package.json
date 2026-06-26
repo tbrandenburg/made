@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:analyze": "tsc && vite build --mode analyze",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write .",
@@ -42,6 +43,7 @@
     "jsdom": "^27.4.0",
     "picomatch": "^4.0.4",
     "prettier": "^3.3.2",
+    "rollup-plugin-visualizer": "^5.12.0",
     "sass": "^1.77.5",
     "typescript": "^5.4.5",
     "typescript-eslint": "^8.5.0",
