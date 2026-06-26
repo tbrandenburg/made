@@ -6,7 +6,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_CONTAINER_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.\-]{0,127}$")
+_CONTAINER_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")
+CONTAINER_ID_PATTERN = r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$"
 
 
 def list_running_containers() -> list[dict[str, Any]]:
