@@ -19,12 +19,15 @@ from urllib.parse import quote
 
 from uvicorn.config import LOGGING_CONFIG
 
+from typing import Annotated
+
 from fastapi import (
     Body,
     FastAPI,
     File,
     Form,
     HTTPException,
+    Path as PathParam,
     Query,
     Request,
     UploadFile,
@@ -1056,7 +1059,11 @@ def list_docker_containers():
 
 
 @app.post("/api/docker-containers/{container_id}/stop")
-def stop_docker_container(container_id: str):
+def stop_docker_container(
+    container_id: Annotated[
+        str, PathParam(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_.\-]{0,127}$")
+    ],
+):
     try:
         logger.info("Stopping Docker container id=%s", container_id)
         success = stop_container(container_id)

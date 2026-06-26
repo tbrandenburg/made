@@ -218,6 +218,33 @@ class TestDockerContainersEndpoint:
 
         assert response.status_code == 404
 
+    @patch("app.stop_container")
+    def test_stop_docker_container_invalid_id_flag_injection(self, mock_stop):
+        """A container_id like --time=0 should be rejected with 422."""
+        response = client.post("/api/docker-containers/--time=0/stop")
+
+        assert response.status_code == 422
+        mock_stop.assert_not_called()
+
+    @patch("app.stop_container")
+    def test_stop_docker_container_invalid_id_special_chars(self, mock_stop):
+        """A container_id containing semicolons/spaces is rejected with 422."""
+        response = client.post("/api/docker-containers/abc;rm%20-rf/stop")
+
+        assert response.status_code == 422
+        mock_stop.assert_not_called()
+
+    @patch("app.stop_container")
+    def test_stop_docker_container_valid_full_id_accepted(self, mock_stop):
+        """A 64-char hex container_id passes validation and reaches the handler."""
+        mock_stop.return_value = True
+        full_id = "a" * 64
+
+        response = client.post(f"/api/docker-containers/{full_id}/stop")
+
+        assert response.status_code == 200
+        mock_stop.assert_called_once_with(full_id)
+
 
 class TestChatHistoryEndpoint:
     @patch("app.export_chat_history")

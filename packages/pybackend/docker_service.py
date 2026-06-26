@@ -1,9 +1,12 @@
 import json
 import logging
+import re
 import subprocess
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+_CONTAINER_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.\-]{0,127}$")
 
 
 def list_running_containers() -> list[dict[str, Any]]:
@@ -44,6 +47,9 @@ def list_running_containers() -> list[dict[str, Any]]:
 
 def stop_container(container_id: str) -> bool:
     """Stop a running container; returns True on success."""
+    if not _CONTAINER_ID_RE.fullmatch(container_id):
+        logger.warning("Rejecting invalid container_id: %r", container_id)
+        return False
     try:
         result = subprocess.run(
             ["docker", "stop", container_id],
