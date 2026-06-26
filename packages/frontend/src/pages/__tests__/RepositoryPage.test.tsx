@@ -4938,6 +4938,62 @@ describe("RepositoryPage Send button disabled during status-unknown state (AC559
   });
 });
 
+// ── AC587: idle-with-sessionId render gap shows loading indicator ─────────
+describe("RepositoryPage loading indicator shown during idle-with-sessionId gap (AC587)", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [],
+    });
+    vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
+    localStorage.clear();
+  });
+
+  it("AC587-1: sessionLoading is true immediately on render when sessionId is present (before useEffect fires)", () => {
+    // Hold the history and status calls so the page never leaves 'loading'
+    vi.mocked(api.getRepositoryAgentHistory).mockReturnValue(
+      new Promise(() => {}),
+    );
+    vi.mocked(api.getRepositoryAgentStatus).mockReturnValue(
+      new Promise(() => {}) as unknown as ReturnType<
+        typeof api.getRepositoryAgentStatus
+      >,
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    // The loading indicator must appear immediately (covers the idle→loading gap)
+    expect(
+      screen.getByText(/loading session/i),
+      "FAIL (AC587-1a): Loading session indicator must appear immediately when sessionId is present",
+    ).toBeInTheDocument();
+
+    // Send button must be disabled during the gap
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "test" } });
+    expect(
+      screen.getByRole("button", { name: /send/i }),
+      "FAIL (AC587-1b): Send button must be disabled during idle-with-sessionId gap",
+    ).toBeDisabled();
+
+    // AgentSelector must be disabled during the gap
+    expect(
+      screen.getByLabelText("Agent"),
+      "FAIL (AC587-1c): AgentSelector must be disabled during idle-with-sessionId gap",
+    ).toBeDisabled();
+
+    // Model select must be disabled during the gap
+    expect(
+      screen.getByLabelText("Model"),
+      "FAIL (AC587-1d): Model select must be disabled during idle-with-sessionId gap",
+    ).toBeDisabled();
+  });
+});
+
 // ── Issue #562: optimistic Cancel ──────────────────────────────────────────
 describe("issue #562: handleCancelAgent optimistic update", () => {
   beforeEach(() => {
