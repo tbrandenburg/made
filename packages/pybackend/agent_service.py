@@ -1,10 +1,11 @@
+import json
 import logging
 import os
 import re
 import signal
 import subprocess
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Event, Lock
 
@@ -28,6 +29,57 @@ _cancelled_channels: set[str] = set()
 _active_processes: dict[str, subprocess.Popen[str]] = {}
 _cancel_events: dict[str, Event] = {}
 _conversation_sessions: dict[str, str] = {}
+
+_PERSISTENT_STATE_PATH: Path | None = None
+
+
+def _get_agent_state_path() -> Path:
+    global _PERSISTENT_STATE_PATH
+    if _PERSISTENT_STATE_PATH is None:
+        _PERSISTENT_STATE_PATH = get_made_directory() / "agent_processing.json"
+    return _PERSISTENT_STATE_PATH
+
+
+def _dump_processing_state() -> None:
+    path = _get_agent_state_path()
+    try:
+        with _processing_lock:
+            snapshot = {k: v.isoformat() for k, v in _processing_channels.items()}
+        path.write_text(json.dumps(snapshot))
+    except Exception:
+        logger.warning("Failed to persist agent processing state", exc_info=True)
+
+
+# Persisted entries older than this are considered stale (e.g. after a backend restart
+# with no live process) and are silently discarded on load.
+_MAX_PROCESSING_AGE = timedelta(hours=1)
+
+
+def _load_processing_state() -> dict[str, datetime]:
+    path = _get_agent_state_path()
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text())
+        now = datetime.now(UTC)
+        return {
+            k: dt
+            for k, v in data.items()
+            if (dt := datetime.fromisoformat(v)) and now - dt < _MAX_PROCESSING_AGE
+        }
+    except Exception:
+        logger.warning("Failed to load persisted agent processing state", exc_info=True)
+        return {}
+
+
+def _get_related_processing_keys(lock_key: str) -> set[str]:
+    related = {lock_key}
+    for k, v in list(_conversation_sessions.items()):
+        if k == lock_key or v == lock_key:
+            related.add(k)
+            related.add(v)
+    return related
+
 
 _AGENTS_CACHE: dict[str, dict] = {}
 _CACHE_TTL_SECONDS = 60
@@ -183,15 +235,18 @@ def _mark_channel_processing(channel: str) -> bool:
             _active_processes.pop(channel, None)
             _cancel_events.pop(channel, None)
         _processing_channels[channel] = datetime.now(UTC)
-        return True
+    _dump_processing_state()
+    return True
 
 
 def _clear_channel_processing(channel: str) -> None:
     with _processing_lock:
-        _processing_channels.pop(channel, None)
-        _cancelled_channels.discard(channel)
-        _active_processes.pop(channel, None)
-        _cancel_events.pop(channel, None)
+        for key in _get_related_processing_keys(channel):
+            _processing_channels.pop(key, None)
+            _cancelled_channels.discard(key)
+            _active_processes.pop(key, None)
+            _cancel_events.pop(key, None)
+    _dump_processing_state()
 
 
 def _mark_channel_cancelled(channel: str) -> None:
@@ -221,10 +276,20 @@ def cancel_agent_message(lock_key: str) -> bool:
     with _processing_lock:
         if lock_key not in _processing_channels:
             return False
-        _cancelled_channels.add(lock_key)
-        cancel_event = _cancel_events.get(lock_key)
-        process = _active_processes.get(lock_key)
-        _processing_channels.pop(lock_key, None)
+
+        related = _get_related_processing_keys(lock_key)
+        cancel_event = None
+        process = None
+        for key in related:
+            _cancelled_channels.add(key)
+            if cancel_event is None:
+                cancel_event = _cancel_events.get(key)
+            if process is None:
+                process = _active_processes.get(key)
+            _processing_channels.pop(key, None)
+            _cancel_events.pop(key, None)
+            _active_processes.pop(key, None)
+    _dump_processing_state()
 
     if cancel_event:
         cancel_event.set()
@@ -238,17 +303,59 @@ def cancel_agent_message(lock_key: str) -> bool:
 
 
 def get_channel_status(lock_key: str) -> dict[str, object]:
+    needs_dump = False
+
     with _processing_lock:
         started_at = _processing_channels.get(lock_key)
+
+        # Fallback 1: reverse lookup via _conversation_sessions mapping.
+        # Handles the case where lock_key is a session_id but processing was
+        # stored under the channel name (first-message key mismatch).
+        if started_at is None:
+            for ch, sid in list(_conversation_sessions.items()):
+                if sid == lock_key:
+                    started_at = _processing_channels.get(ch)
+                    if started_at is not None:
+                        # Propagate so future lookups are direct
+                        _processing_channels[lock_key] = started_at
+                    break
+
+        # Snapshot the session map so we can do disk I/O outside the lock below.
+        needs_disk_fallback = started_at is None
+        session_snapshot = (
+            list(_conversation_sessions.items()) if needs_disk_fallback else []
+        )
+
         if started_at is not None:
             process = _active_processes.get(lock_key)
             # Only clean up if we can confirm the process has exited
             if process is not None and process.poll() is not None:
-                _processing_channels.pop(lock_key, None)
-                _cancelled_channels.discard(lock_key)
-                _active_processes.pop(lock_key, None)
-                _cancel_events.pop(lock_key, None)
+                for key in _get_related_processing_keys(lock_key):
+                    _processing_channels.pop(key, None)
+                    _cancelled_channels.discard(key)
+                    _active_processes.pop(key, None)
+                    _cancel_events.pop(key, None)
+                needs_dump = True
                 started_at = None
+
+    # Fallback 2: persisted state (survives backend restart) — outside the lock
+    # to avoid blocking all threads on file I/O.
+    if needs_disk_fallback and started_at is None:
+        persisted = _load_processing_state()
+        persisted_started = persisted.get(lock_key)
+        if persisted_started is None:
+            # Also try reverse lookup in persisted state via session map snapshot
+            for ch, sid in session_snapshot:
+                if sid == lock_key:
+                    persisted_started = persisted.get(ch)
+                    break
+        if persisted_started is not None:
+            with _processing_lock:
+                _processing_channels[lock_key] = persisted_started
+            started_at = persisted_started
+
+    if needs_dump:
+        _dump_processing_state()
 
     return {
         "processing": started_at is not None,
@@ -642,6 +749,22 @@ def send_agent_message(
                 # Update session if we got a new one
                 if result.session_id:
                     _conversation_sessions[lock_key] = result.session_id
+                    # Propagate processing state from channel key → session_id key
+                    # so status-polling with session_id finds the active process.
+                    if result.session_id != lock_key:
+                        with _processing_lock:
+                            started_at = _processing_channels.get(lock_key)
+                            if started_at:
+                                _processing_channels[result.session_id] = started_at
+                                proc = _active_processes.get(lock_key)
+                                if proc:
+                                    _active_processes[result.session_id] = proc
+                                ev = _cancel_events.get(lock_key)
+                                if ev:
+                                    _cancel_events[result.session_id] = ev
+                                if lock_key in _cancelled_channels:
+                                    _cancelled_channels.add(result.session_id)
+                        _dump_processing_state()
 
                 logger.info(
                     "Agent message processed (channel: %s, session: %s)",

@@ -210,12 +210,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
                 <span>Loading session...</span>
               </div>
             )}
-            {!ctx?.refreshing && !ctx?.sessionLoading && ctx?.agentProcessing && (
-              <div className="loading-indicator">
-                <div className="loading-spinner"></div>
-                <span>Agent is thinking...</span>
-              </div>
-            )}
+            {!ctx?.refreshing &&
+              !ctx?.sessionLoading &&
+              ctx?.agentProcessing && (
+                <div className="loading-indicator">
+                  <div className="loading-spinner"></div>
+                  <span>Agent is thinking...</span>
+                </div>
+              )}
             {ctx?.sessionId && (
               <div className="chat-session-id" aria-label="Session ID">
                 <span>Session ID: {ctx.sessionId}</span>
