@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1
 FROM python:3.12-slim
 
+ARG COMMIT_SHA=unknown
+ARG BUILD_DATE=unknown
+
 WORKDIR /app
 
 # Install UV package manager
@@ -21,6 +24,8 @@ EXPOSE 3000
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV PORT=3000
+ENV COMMIT_SHA=${COMMIT_SHA}
+ENV BUILD_DATE=${BUILD_DATE}
 
 # Run the application
 CMD [".venv/bin/uvicorn", "app:app", "--host", "0.0.0.0", "--port", "3000"]
