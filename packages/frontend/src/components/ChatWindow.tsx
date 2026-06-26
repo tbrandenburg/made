@@ -159,6 +159,23 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
     React.useImperativeHandle(chatWindowRef, () => ({ scrollToBottom }), [
       scrollToBottom,
     ]);
+
+    // Scroll to the last message when a session load or refresh completes.
+    // Replaces initialTopMostItemIndex, which was unreliable because Virtuoso
+    // can mount with partial data (chat transitions 0→N incrementally during load),
+    // and initialTopMostItemIndex is an initial-only prop that does not re-fire.
+    // scrollParent is included so the effect re-runs after Virtuoso mounts
+    // (the ref is only populated once scrollParent is set).
+    React.useEffect(() => {
+      if (!sessionLoading && !refreshing && chat.length > 0) {
+        virtuosoRef.current?.scrollToIndex({
+          index: chat.length - 1,
+          align: "end",
+          behavior: "auto",
+        });
+      }
+    }, [sessionLoading, refreshing, scrollParent]);
+
     const itemContent = React.useCallback(
       (_index: number, message: ChatMessage) => (
         <ChatMessageItem message={message} markdownOptions={markdownOptions} />
@@ -255,11 +272,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
         {scrollParent && chat.length > 0 && (
           <Virtuoso
             ref={virtuosoRef}
-            initialTopMostItemIndex={
-              chat.length > 0
-                ? { index: chat.length - 1, align: "end", behavior: "auto" }
-                : 0
-            }
             customScrollParent={scrollParent ?? undefined}
             data={chat}
             itemContent={itemContent}

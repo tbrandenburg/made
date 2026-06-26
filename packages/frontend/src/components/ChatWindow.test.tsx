@@ -5,7 +5,6 @@ import { ChatWindow, type ChatWindowHandle } from "./ChatWindow";
 import { ChatMessage } from "../types/chat";
 
 const scrollToIndexMock = vi.hoisted(() => vi.fn());
-const initialTopMostItemIndexMock = vi.hoisted(() => vi.fn());
 // Captures the `followOutput` callback reference for direct invocation in tests
 const followOutputCapture = vi.hoisted(
   (): { current: ((atBottom: boolean) => "auto" | false) | undefined } => ({
@@ -35,9 +34,6 @@ interface MockVirtuosoProps {
     Footer?: ComponentType;
   };
   computeItemKey?: (index: number, message: ChatMessage) => string;
-  initialTopMostItemIndex?:
-    | number
-    | { index: number; align?: string; behavior?: string };
   followOutput?: (atBottom: boolean) => "auto" | false;
 }
 
@@ -47,14 +43,7 @@ vi.mock("react-virtuoso", async () => {
   return {
     Virtuoso: ReactModule.forwardRef<MockVirtuosoHandle, MockVirtuosoProps>(
       function MockVirtuoso(
-        {
-          data,
-          itemContent,
-          components,
-          computeItemKey,
-          initialTopMostItemIndex,
-          followOutput,
-        },
+        { data, itemContent, components, computeItemKey, followOutput },
         ref,
       ) {
         ReactModule.useImperativeHandle(ref, () => ({
@@ -63,7 +52,6 @@ vi.mock("react-virtuoso", async () => {
         const Item = components?.Item;
         const Footer = components?.Footer;
 
-        initialTopMostItemIndexMock(initialTopMostItemIndex);
         followOutputCapture.current = followOutput;
         componentsCapture.current = components;
 
@@ -96,7 +84,6 @@ const makeMessage = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
 describe("ChatWindow", () => {
   beforeEach(() => {
     scrollToIndexMock.mockClear();
-    initialTopMostItemIndexMock.mockClear();
     followOutputCapture.current = undefined;
     componentsCapture.current = undefined;
   });
@@ -276,48 +263,48 @@ describe("ChatWindow", () => {
     expect(onClearSession).toHaveBeenCalledTimes(1);
   });
 
-  it("sets initialTopMostItemIndex to the last index when chat is non-empty on mount", () => {
+  it("scrolls to bottom on initial mount when no loading is active and chat is non-empty", () => {
     render(
       <ChatWindow
         chat={[makeMessage(), makeMessage(), makeMessage()]}
         agentProcessing={false}
+        sessionLoading={false}
+        refreshing={false}
         emptyMessage="empty"
       />,
     );
 
-    expect(initialTopMostItemIndexMock).toHaveBeenCalledWith(
+    expect(scrollToIndexMock).toHaveBeenCalledWith(
       expect.objectContaining({ index: 2, align: "end", behavior: "auto" }),
     );
   });
 
-  it("passes updated initialTopMostItemIndex on rerender (Virtuoso ignores after mount, followOutput handles growth)", () => {
+  it("does not scroll to bottom during streaming growth (followOutput handles it)", () => {
     const { rerender } = render(
       <ChatWindow
         chat={[makeMessage()]}
-        agentProcessing={false}
+        agentProcessing
+        sessionLoading={false}
+        refreshing={false}
         emptyMessage="empty"
       />,
     );
 
-    expect(initialTopMostItemIndexMock).toHaveBeenCalledWith(
-      expect.objectContaining({ index: 0, align: "end", behavior: "auto" }),
-    );
+    scrollToIndexMock.mockClear();
 
-    initialTopMostItemIndexMock.mockClear();
-
-    // Simulate streaming growth — followOutput (unchanged) handles this,
-    // but the prop is still correctly updated.
+    // Simulate streaming: chat grows while loading flags remain unchanged
     rerender(
       <ChatWindow
         chat={[makeMessage(), makeMessage()]}
-        agentProcessing={false}
+        agentProcessing
+        sessionLoading={false}
+        refreshing={false}
         emptyMessage="empty"
       />,
     );
 
-    expect(initialTopMostItemIndexMock).toHaveBeenCalledWith(
-      expect.objectContaining({ index: 1, align: "end", behavior: "auto" }),
-    );
+    // chat.length is not in the effect dependency array — no scroll triggered
+    expect(scrollToIndexMock).not.toHaveBeenCalled();
   });
 
   it("toggles loading indicator when agentProcessing changes at runtime (empty chat)", () => {
@@ -401,37 +388,80 @@ describe("ChatWindow", () => {
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
   });
 
-  it("passes updated initialTopMostItemIndex on sessionId change (Virtuoso remount on chat change)", () => {
+  it("scrolls to bottom when sessionLoading transitions from true to false", () => {
     const { rerender } = render(
       <ChatWindow
-        chat={[makeMessage()]}
-        sessionId="session-1"
+        chat={[]}
+        sessionLoading
         agentProcessing={false}
         emptyMessage="empty"
       />,
     );
 
-    expect(initialTopMostItemIndexMock).toHaveBeenCalledWith(
-      expect.objectContaining({ index: 0, align: "end", behavior: "auto" }),
-    );
+    expect(scrollToIndexMock).not.toHaveBeenCalled();
 
-    initialTopMostItemIndexMock.mockClear();
-
-    // Simulate session switch: parent clears chat (sets to []) then loads new history.
-    // In real flow, Virtuoso would unmount during chat=[] and remount with new data.
-    // The test verifies the prop is correctly computed on the new render.
     rerender(
       <ChatWindow
         chat={[makeMessage(), makeMessage()]}
-        sessionId="session-2"
+        sessionLoading={false}
         agentProcessing={false}
         emptyMessage="empty"
       />,
     );
 
-    expect(initialTopMostItemIndexMock).toHaveBeenCalledWith(
+    expect(scrollToIndexMock).toHaveBeenCalledWith(
       expect.objectContaining({ index: 1, align: "end", behavior: "auto" }),
     );
+  });
+
+  it("scrolls to bottom when refreshing transitions from true to false", () => {
+    const { rerender } = render(
+      <ChatWindow
+        chat={[makeMessage()]}
+        refreshing
+        agentProcessing={false}
+        emptyMessage="empty"
+      />,
+    );
+
+    scrollToIndexMock.mockClear();
+
+    rerender(
+      <ChatWindow
+        chat={[makeMessage(), makeMessage()]}
+        refreshing={false}
+        agentProcessing={false}
+        emptyMessage="empty"
+      />,
+    );
+
+    expect(scrollToIndexMock).toHaveBeenCalledWith(
+      expect.objectContaining({ index: 1, align: "end", behavior: "auto" }),
+    );
+  });
+
+  it("does not scroll when sessionLoading completes but chat is empty", () => {
+    const { rerender } = render(
+      <ChatWindow
+        chat={[]}
+        sessionLoading
+        agentProcessing={false}
+        emptyMessage="empty"
+      />,
+    );
+
+    scrollToIndexMock.mockClear();
+
+    rerender(
+      <ChatWindow
+        chat={[]}
+        sessionLoading={false}
+        agentProcessing={false}
+        emptyMessage="empty"
+      />,
+    );
+
+    expect(scrollToIndexMock).not.toHaveBeenCalled();
   });
 
   it(`shows "Refreshing..." in Footer when refreshing=true, chat non-empty`, () => {
