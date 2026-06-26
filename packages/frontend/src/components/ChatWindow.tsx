@@ -252,7 +252,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
 
     return (
       <div className="chat-window" ref={setChatWindowElement}>
-        {chat.length > 0 && (
+        {scrollParent && chat.length > 0 && (
           <Virtuoso
             ref={virtuosoRef}
             initialTopMostItemIndex={
@@ -266,7 +266,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
             components={stableComponents}
             followOutput={(atBottom) => (atBottom ? "auto" : false)}
             increaseViewportBy={{ top: 300, bottom: 300 }}
-            style={{ height: "auto" }}
+            style={{ height: "100%" }}
           />
         )}
         {chat.length === 0 && refreshing && (
