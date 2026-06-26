@@ -29,8 +29,10 @@ import {
   formatChatMessageLabel,
   formatChatMessageTimestamp,
   mapHistoryToMessages,
+  mergeChatMessages,
 } from "../utils/chat";
 import { useSessionLoader } from "../hooks/useSessionLoader";
+import { useAgentPolling } from "../hooks/useAgentPolling";
 import { appendRestrictedAccessPolicy } from "../utils/agentPrompt";
 import { ClearSessionModal } from "../components/ClearSessionModal";
 const SessionPickerModal = React.lazy(
@@ -126,6 +128,16 @@ export const TaskPage: React.FC = () => {
   useEffect(() => {
     chatRef.current = chat;
   }, [chat]);
+
+  const lastKnownTimestamp = useMemo(() => {
+    if (!chat.length) return undefined;
+    const parsed = Date.parse(chat[chat.length - 1].timestamp);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, [chat]);
+  const lastKnownTimestampRef = useRef<number | undefined>(lastKnownTimestamp);
+  useEffect(() => {
+    lastKnownTimestampRef.current = lastKnownTimestamp;
+  }, [lastKnownTimestamp]);
 
   const getTaskHistory = useCallback(
     (n: string, sid: string, signal?: AbortSignal) =>
@@ -232,6 +244,34 @@ export const TaskPage: React.FC = () => {
       });
   }, [name, navigate]);
 
+  const syncChatHistory = useCallback(
+    async (signal: AbortSignal): Promise<void> => {
+      if (!name || !sessionId) return;
+      const startTimestamp = lastKnownTimestampRef.current
+        ? lastKnownTimestampRef.current + 1
+        : undefined;
+      try {
+        const history = await api.getTaskAgentHistory(
+          name,
+          sessionId,
+          startTimestamp,
+          signal,
+        );
+        if (signal.aborted) return;
+        if (!history.messages?.length) return;
+        setChat((previousChat) => {
+          const mapped = mapHistoryToMessages(history.messages);
+          return mergeChatMessages(previousChat, mapped);
+        });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        console.error("Failed to sync chat history", error);
+      }
+    },
+    [name, sessionId, setChat],
+  );
+
   const refreshAgentStatus = useCallback(async () => {
     if (!name) return false;
     if (!sessionId) {
@@ -257,6 +297,12 @@ export const TaskPage: React.FC = () => {
   useEffect(() => {
     refreshAgentStatus();
   }, [refreshAgentStatus]);
+
+  useAgentPolling({
+    isProcessing: chatAgentProcessing,
+    syncHistory: syncChatHistory,
+    checkStatus: refreshAgentStatus,
+  });
 
   const openSessionModal = useCallback(async () => {
     if (!name) return;
@@ -330,7 +376,7 @@ export const TaskPage: React.FC = () => {
         setActiveTab("agent");
         setAgentStatus(null);
 
-        // Keep chatAgentProcessing=true if processing (triggers existing polling)
+        // Keep chatAgentProcessing=true if still processing; polling loop handles the rest
         if (!reply.processing) setChatAgentProcessing(false);
       } catch (error) {
         console.error("Failed to contact agent", error);
@@ -384,6 +430,7 @@ export const TaskPage: React.FC = () => {
 
   const handleClearSessionOnly = () => {
     sendRequestIdRef.current += 1;
+    lastKnownTimestampRef.current = undefined;
     setSessionId(null);
     setChatAgentProcessing(false);
     setAgentStatus(null);
@@ -393,6 +440,7 @@ export const TaskPage: React.FC = () => {
 
   const handleClearSessionAndHistory = () => {
     sendRequestIdRef.current += 1;
+    lastKnownTimestampRef.current = undefined;
     setSessionId(null);
     setChatAgentProcessing(false);
     setAgentStatus(null);
