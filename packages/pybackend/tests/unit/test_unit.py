@@ -440,7 +440,7 @@ class TestAgentService:
 
     def test_same_session_blocked_while_processing(self):
         """A single session sending a second message before first completes must raise ChannelBusyError."""
-        from agent_service import _mark_channel_processing, _clear_channel_processing, ChannelBusyError, send_agent_message
+        from agent_service import _mark_channel_processing, _clear_channel_processing, ChannelBusyError
 
         # Given: lock for session X is already held
         assert _mark_channel_processing("ses_X") is True
