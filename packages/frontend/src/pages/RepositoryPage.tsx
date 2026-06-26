@@ -388,15 +388,6 @@ const MagnifyingGlassIcon: React.FC = () => (
   </svg>
 );
 
-/** Explicit session-load and agent-streaming state machine for RepositoryPage.
- *  - 'idle'      : no session loaded yet (initial state or after session clear)
- *  - 'loading'   : history fetch in progress (session select / URL bootstrap / init mount)
- *  - 'hydrated'  : session fully loaded; agent not processing
- *  - 'streaming' : agent actively processing; polling loop is running
- *  - 'error'     : reserved for future error-state UI (currently unused; errors surface via chatError)
- */
-type Lifecycle = "idle" | "loading" | "hydrated" | "streaming" | "error";
-
 export const RepositoryPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
@@ -419,9 +410,7 @@ export const RepositoryPage: React.FC = () => {
   );
   const savedSessionStorageKey = useMemo(
     () =>
-      name
-        ? `repository-saved-sessions-${name}`
-        : "repository-saved-sessions",
+      name ? `repository-saved-sessions-${name}` : "repository-saved-sessions",
     [name],
   );
   const modelStorageKey = useMemo(
@@ -449,10 +438,8 @@ export const RepositoryPage: React.FC = () => {
   const normalizedSelectedModel = selectedModel ?? "default";
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [chatError, setChatError] = useState<string | null>(null);
-  const [lifecycle, setLifecycle] = useState<Lifecycle>("idle");
-  const chatAgentProcessing = lifecycle === "streaming";
-  const sessionLoading =
-    lifecycle === "loading" || (lifecycle === "idle" && !!sessionId);
+  const [isAgentBusy, setIsAgentBusy] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
   const savedSessionTitles = useMemo(
@@ -617,7 +604,7 @@ export const RepositoryPage: React.FC = () => {
         return;
       }
       setChatError(null);
-      setLifecycle("loading");
+      setIsLoadingHistory(true);
       setSessionId(incomingSessionId);
       setChat([]);
       sendRequestIdRef.current += 1;
@@ -744,14 +731,6 @@ export const RepositoryPage: React.FC = () => {
   const webPreviewUrl = name
     ? `/api/repositories/${encodeURIComponent(name)}/web`
     : "";
-
-  // Trigger session load when a session is available and lifecycle has not been set yet
-  useEffect(() => {
-    if (lifecycle === "idle" && name && sessionId) {
-      setChat([]);
-      setLifecycle("loading");
-    }
-  }, [lifecycle, name, sessionId, setChat]);
 
   useEffect(() => {
     const search = splitMentionSearch(mentionQuery);
@@ -1177,7 +1156,7 @@ export const RepositoryPage: React.FC = () => {
   const refreshAgentStatus = useCallback(async () => {
     if (!name) return false;
     if (!sessionId) {
-      setLifecycle("idle");
+      setIsAgentBusy(false);
       return false;
     }
     try {
@@ -1186,9 +1165,7 @@ export const RepositoryPage: React.FC = () => {
         sessionId || undefined,
       );
       if (sessionIdRef.current !== sessionId) return false;
-      setLifecycle(status.processing ? "streaming" : "hydrated");
-      // No error — agent running is a normal state, not a user-facing error.
-      // chatError is set exclusively by handleSendMessage's catch block (HTTP 409 conflict).
+      setIsAgentBusy(status.processing);
       return status.processing;
     } catch (error) {
       console.error("Failed to load agent status", error);
@@ -1243,32 +1220,32 @@ export const RepositoryPage: React.FC = () => {
     [name, sessionId, setChat, setChatError],
   );
 
+  // On mount (or sessionId change): always fetch history + check status
   useEffect(() => {
-    if (lifecycle !== "loading" || !name || !sessionId) return;
+    if (!name || !sessionId) return;
+    setIsLoadingHistory(true);
+    setChat([]);
     const controller = new AbortController();
     const run = async () => {
       const ok = await syncChatHistory(controller.signal, true);
       if (controller.signal.aborted) return;
       if (!ok) {
         // Fetch failed (not aborted); clear loading so the error message is visible
-        setLifecycle("hydrated");
+        setIsLoadingHistory(false);
         return;
       }
+      setIsLoadingHistory(false);
       await refreshAgentStatus();
-      // refreshAgentStatus sets lifecycle to 'streaming' or 'hydrated' on success.
-      // Guard: if lifecycle is still 'loading' (e.g., status network error), clear it.
-      if (!controller.signal.aborted) {
-        setLifecycle((prev) => (prev === "loading" ? "hydrated" : prev));
-      }
     };
     run();
     return () => {
-      controller.abort(); // No argument — preserves DOMException('AbortError') shape
+      controller.abort();
     };
-  }, [lifecycle, name, sessionId, syncChatHistory, refreshAgentStatus]);
+  }, [name, sessionId, syncChatHistory, refreshAgentStatus, setChat]);
 
+  // When agent is busy: poll status every 5s + sync history
   useEffect(() => {
-    if (lifecycle !== "streaming" || !name || !sessionId) return;
+    if (!isAgentBusy || !name || !sessionId) return;
 
     const controller = new AbortController();
     let timeoutId: number | undefined;
@@ -1293,7 +1270,7 @@ export const RepositoryPage: React.FC = () => {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [lifecycle, name, sessionId, syncChatHistory, refreshAgentStatus]);
+  }, [isAgentBusy, name, sessionId, syncChatHistory, refreshAgentStatus]);
 
   const reloadCurrentSession = useCallback(async () => {
     if (!name || !sessionId || isRefreshingRef.current) return;
@@ -1346,7 +1323,7 @@ export const RepositoryPage: React.FC = () => {
     lastSentPromptRef.current = pendingPrompt;
     setChat((prev) => [...prev, userMessage]);
     setPendingPrompt("");
-    setLifecycle("streaming");
+    setIsAgentBusy(true);
     try {
       const model =
         normalizedSelectedModel === "default"
@@ -1373,8 +1350,8 @@ export const RepositoryPage: React.FC = () => {
       setChatError(null);
       setActiveTab("agent");
 
-      // Keep lifecycle streaming if processing (triggers polling); transition to hydrated when done
-      if (!reply.processing) setLifecycle("hydrated");
+      // Keep polling if still processing; stop when done
+      if (!reply.processing) setIsAgentBusy(false);
     } catch (error) {
       if (sendRequestIdRef.current !== sendRequestId) return;
       const messageText = error instanceof Error ? error.message : "";
@@ -1391,8 +1368,8 @@ export const RepositoryPage: React.FC = () => {
 
   const handleCancelAgent = () => {
     if (!name) return;
-    // Optimistic update: flip to hydrated immediately so Send button renders on the next frame
-    setLifecycle("hydrated");
+    // Optimistic update: flip to false immediately so Send button renders on the next frame
+    setIsAgentBusy(false);
     api
       .cancelRepositoryAgent(name, sessionId || undefined)
       .catch((error) => {
@@ -1411,7 +1388,8 @@ export const RepositoryPage: React.FC = () => {
   const handleClearSessionOnly = () => {
     sendRequestIdRef.current += 1;
     setSessionId(null);
-    setLifecycle("idle");
+    setIsAgentBusy(false);
+    setIsLoadingHistory(false);
     setChatError(null);
     setPendingPrompt(lastSentPromptRef.current);
     lastSentPromptRef.current = "";
@@ -1422,7 +1400,8 @@ export const RepositoryPage: React.FC = () => {
   const handleClearSessionAndHistory = () => {
     sendRequestIdRef.current += 1;
     setSessionId(null);
-    setLifecycle("idle");
+    setIsAgentBusy(false);
+    setIsLoadingHistory(false);
     setChatError(null);
     setPendingPrompt(lastSentPromptRef.current);
     lastSentPromptRef.current = "";
@@ -1446,7 +1425,8 @@ export const RepositoryPage: React.FC = () => {
     setSessionModalOpen(false);
     setChatError(null);
     setChat([]);
-    setLifecycle("loading");
+    setIsLoadingHistory(true);
+    setIsAgentBusy(false);
     setSessionId(session.id);
   };
 
@@ -2008,9 +1988,7 @@ export const RepositoryPage: React.FC = () => {
                   onClick={reloadCurrentSession}
                   aria-label="Refresh current session"
                   title="Refresh current session"
-                  disabled={
-                    chatAgentProcessing || sessionLoading || isRefreshing
-                  }
+                  disabled={isAgentBusy || isLoadingHistory || isRefreshing}
                 >
                   <RefreshIcon />
                 </button>
@@ -2046,9 +2024,9 @@ export const RepositoryPage: React.FC = () => {
           <ChatWindow
             chat={chat}
             chatWindowRef={chatWindowRef}
-            agentProcessing={chatAgentProcessing}
+            agentProcessing={isAgentBusy}
             refreshing={isRefreshing}
-            sessionLoading={sessionLoading}
+            sessionLoading={isLoadingHistory}
             emptyMessage="No conversation yet."
             sessionId={sessionId}
             onClearSession={() => setClearSessionModalOpen(true)}
@@ -2074,7 +2052,7 @@ export const RepositoryPage: React.FC = () => {
                 selectId="agent-select"
                 selectedAgent={normalizedSelectedAgent}
                 onChange={setSelectedAgent}
-                disabled={chatAgentProcessing || sessionLoading}
+                disabled={isAgentBusy || isLoadingHistory}
                 repositoryName={name || undefined}
               />
               <label className="model-select" htmlFor="agent-model-select">
@@ -2082,7 +2060,7 @@ export const RepositoryPage: React.FC = () => {
                   id="agent-model-select"
                   value={normalizedSelectedModel}
                   onChange={(event) => setSelectedModel(event.target.value)}
-                  disabled={chatAgentProcessing || sessionLoading}
+                  disabled={isAgentBusy || isLoadingHistory}
                   aria-label="Model"
                 >
                   {MODEL_OPTIONS.map((option) => (
@@ -2098,7 +2076,7 @@ export const RepositoryPage: React.FC = () => {
               </label>
             </div>
             <div className="chat-controls__right">
-              {chatAgentProcessing ? (
+              {isAgentBusy ? (
                 <button className="danger" onClick={handleCancelAgent}>
                   Cancel
                 </button>
@@ -2107,9 +2085,7 @@ export const RepositoryPage: React.FC = () => {
                   className="primary"
                   onClick={() => handleSendMessage()}
                   disabled={
-                    !pendingPrompt.trim() ||
-                    sessionLoading ||
-                    chatAgentProcessing
+                    !pendingPrompt.trim() || isLoadingHistory || isAgentBusy
                   }
                 >
                   Send
