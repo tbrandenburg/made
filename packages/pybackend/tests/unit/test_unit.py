@@ -407,10 +407,8 @@ class TestAgentService:
         mock_cli.run_agent.return_value = mock_result
 
         result = send_agent_message("test-repo", "This will fail")
-        assert result["response"] == "Processing..."  # Status message only
-        assert result["processing"] is True  # Indicates polling needed
-        # Entry stays in _processing_channels; clear before next call on same channel
-        _clear_channel_processing("test-repo")
+        assert "Command failed" in result["response"]  # Immediate error return
+        assert result["processing"] is False  # CLI failure clears immediately
         # Error will be available through export API, not immediate response
 
         # Test FileNotFoundError

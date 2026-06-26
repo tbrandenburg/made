@@ -606,7 +606,16 @@ def send_agent_message(
     try:
         # Check if cancelled before running
         if _was_channel_cancelled(lock_key):
-            response = "Agent request cancelled."
+            _clear_channel_processing(lock_key)
+            sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+            return {
+                "messageId": str(int(time.time() * 1000)),
+                "sent": sent_at,
+                "prompt": message,
+                "response": "Agent request cancelled.",
+                "sessionId": _conversation_sessions.get(lock_key),
+                "processing": False,
+            }
         else:
             # Use typed interface
             agent_cli = get_agent_cli(working_dir)
@@ -648,6 +657,16 @@ def send_agent_message(
                     _conversation_sessions.get(lock_key),
                     response,
                 )
+                _clear_channel_processing(lock_key)
+                sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+                return {
+                    "messageId": str(int(time.time() * 1000)),
+                    "sent": sent_at,
+                    "prompt": message,
+                    "response": response,
+                    "sessionId": _conversation_sessions.get(lock_key),
+                    "processing": False,
+                }
 
     except FileNotFoundError:
         response = get_agent_cli(working_dir).missing_command_error()
