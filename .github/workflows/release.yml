@@ -46,6 +46,12 @@ jobs:
       - name: Build backend package
         run: cd packages/pybackend && uv build
 
+      - name: Build Docker images with version info
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          BUILD_DATE: ${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
+        run: make docker-build
+
       - name: Extract version from tag
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT

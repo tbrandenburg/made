@@ -1655,3 +1655,28 @@ class TestVersionEndpoint:
         assert "commit_sha" in data
         assert "build_date" in data
         assert "environment" in data
+        # Fields must be strings (may be "unknown" in test/local env)
+        assert isinstance(data["commit_sha"], str)
+        assert isinstance(data["build_date"], str)
+
+    def test_version_reflects_commit_sha_env_var(self, monkeypatch):
+        """Version endpoint returns injected COMMIT_SHA when set."""
+        monkeypatch.setenv("COMMIT_SHA", "abc1234def5678")
+        monkeypatch.setenv("BUILD_DATE", "2026-06-26T15:00:00Z")
+
+        response = client.get("/api/version")
+
+        data = response.json()
+        assert data["commit_sha"] == "abc1234def5678"
+        assert data["build_date"] == "2026-06-26T15:00:00Z"
+
+    def test_version_defaults_to_unknown_when_env_vars_absent(self, monkeypatch):
+        """Version endpoint gracefully returns 'unknown' when env vars are not set."""
+        monkeypatch.delenv("COMMIT_SHA", raising=False)
+        monkeypatch.delenv("BUILD_DATE", raising=False)
+
+        response = client.get("/api/version")
+
+        data = response.json()
+        assert data["commit_sha"] == "unknown"
+        assert data["build_date"] == "unknown"

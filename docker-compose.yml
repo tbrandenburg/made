@@ -6,6 +6,9 @@ services:
     build:
       context: .
       dockerfile: docker/pybackend.Dockerfile
+      args:
+        - COMMIT_SHA=${COMMIT_SHA:-unknown}
+        - BUILD_DATE=${BUILD_DATE:-unknown}
     environment:
       MADE_BACKEND_PORT: 3000
     volumes:

@@ -19,6 +19,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
       
       - name: Build Docker images
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          BUILD_DATE: ${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
         run: make docker-build
       
       - name: Start services
