@@ -1059,9 +1059,7 @@ def list_docker_containers():
 
 @app.post("/api/docker-containers/{container_id}/stop")
 def stop_docker_container(
-    container_id: Annotated[
-        str, PathParam(pattern=CONTAINER_ID_PATTERN)
-    ],
+    container_id: Annotated[str, PathParam(pattern=CONTAINER_ID_PATTERN)],
 ):
     try:
         logger.info("Stopping Docker container id=%s", container_id)
