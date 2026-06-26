@@ -46,7 +46,9 @@ describe("vite.config.ts optimizeDeps.include", () => {
 
 function parseManualChunksChecks(content: string): string[] {
   // Extract the body of the manualChunks function
-  const fnMatch = content.match(/manualChunks\s*\(\s*id\s*\)\s*\{([\s\S]*?)\n\s{8}\}/);
+  const fnMatch = content.match(
+    /manualChunks\s*\(\s*id\s*\)\s*\{([\s\S]*?)\n\s{8}\}/,
+  );
   if (!fnMatch) return [];
   const body = fnMatch[1];
   const checks: string[] = [];

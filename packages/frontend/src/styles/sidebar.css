@@ -79,9 +79,15 @@
 /* skeleton-pulse defined here for isolated rendering (e.g. tests/Storybook);
    the canonical definition lives in page.css */
 @keyframes skeleton-pulse {
-  0%   { opacity: 1; }
-  50%  { opacity: 0.4; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 .sidebar-version-skeleton {
   height: 0.9rem;
@@ -92,5 +98,7 @@
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .sidebar-version-skeleton { animation: none; }
+  .sidebar-version-skeleton {
+    animation: none;
+  }
 }
