@@ -43,3 +43,38 @@ describe("vite.config.ts optimizeDeps.include", () => {
     });
   }
 });
+
+function parseManualChunksChecks(content: string): string[] {
+  // Extract the body of the manualChunks function
+  const fnMatch = content.match(/manualChunks\s*\(\s*id\s*\)\s*\{([\s\S]*?)\n\s{8}\}/);
+  if (!fnMatch) return [];
+  const body = fnMatch[1];
+  const checks: string[] = [];
+  // Match id.includes("...") patterns in order
+  const re = /id\.includes\("([^"]+)"\)/g;
+  let m;
+  while ((m = re.exec(body)) !== null) {
+    checks.push(m[1]);
+  }
+  return checks;
+}
+
+describe("vite.config.ts manualChunks ordering", () => {
+  const checks = parseManualChunksChecks(configContent);
+
+  it("@heroicons check appears before /react/ check", () => {
+    const heroIndex = checks.indexOf("@heroicons");
+    const reactIndex = checks.indexOf("/react/");
+    expect(heroIndex).toBeGreaterThanOrEqual(0);
+    expect(reactIndex).toBeGreaterThanOrEqual(0);
+    expect(heroIndex).toBeLessThan(reactIndex);
+  });
+
+  it("@xterm check appears first", () => {
+    expect(checks[0]).toBe("@xterm");
+  });
+
+  it("node_modules check appears last", () => {
+    expect(checks[checks.length - 1]).toBe("node_modules");
+  });
+});
