@@ -405,7 +405,9 @@ export const RepositoryPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("agent");
   const [searchParams, setSearchParams] = useSearchParams();
   const [repository, setRepository] = useState<RepositorySummary | null>(null);
+  const [repositoryLoading, setRepositoryLoading] = useState(true);
   const [fileTree, setFileTree] = useState<FileNode | null>(null);
+  const [fileTreeLoading, setFileTreeLoading] = useState(true);
   const [fileActionError, setFileActionError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(["."]));
   const agentCli = useAgentCli();
@@ -843,16 +845,20 @@ export const RepositoryPage: React.FC = () => {
       navigate("/repositories");
       return;
     }
+    setRepositoryLoading(true);
+    setFileTreeLoading(true);
     api
       .getRepository(name)
       .then(setRepository)
       .catch((error) => {
         console.error("Failed to load repository", error);
-      });
+      })
+      .finally(() => setRepositoryLoading(false));
     api
       .getRepositoryFiles(name, ".")
       .then((tree) => setFileTree(tree))
-      .catch((error) => console.error("Failed to load file tree", error));
+      .catch((error) => console.error("Failed to load file tree", error))
+      .finally(() => setFileTreeLoading(false));
   }, [name, navigate]);
 
   const loadCommands = useCallback(() => {
@@ -2119,29 +2125,33 @@ export const RepositoryPage: React.FC = () => {
         </Panel>
       ),
     },
-    ...(repository?.hasGit
-      ? [
-          {
-            id: "git",
-            label: "Git",
-            content: (
-              <Suspense fallback={<div className="loading-spinner" />}>
-                <GitTab
-                  status={gitStatus}
-                  loading={gitStatusLoading}
-                  error={gitStatusError}
-                  pulling={pullingRepository}
-                  creatingWorktree={creatingWorktree}
-                  onRefresh={loadGitStatus}
-                  onPull={handleGitPull}
-                  onCreateWorktree={handleCreateWorktree}
-                  onOpenFile={openFile}
-                />
-              </Suspense>
-            ),
-          },
-        ]
-      : []),
+    {
+      id: "git",
+      label: "Git",
+      content: repositoryLoading ? (
+        <div className="loading-grid-skeleton">
+          <div className="skeleton skeleton-card" />
+          <div className="skeleton skeleton-card" />
+          <div className="skeleton skeleton-card" />
+        </div>
+      ) : repository?.hasGit ? (
+        <Suspense fallback={<div className="loading-spinner" />}>
+          <GitTab
+            status={gitStatus}
+            loading={gitStatusLoading}
+            error={gitStatusError}
+            pulling={pullingRepository}
+            creatingWorktree={creatingWorktree}
+            onRefresh={loadGitStatus}
+            onPull={handleGitPull}
+            onCreateWorktree={handleCreateWorktree}
+            onOpenFile={openFile}
+          />
+        </Suspense>
+      ) : (
+        <div className="empty">No Git repository found.</div>
+      ),
+    },
     {
       id: "harnesses",
       label: "Harnesses",
@@ -2178,7 +2188,11 @@ export const RepositoryPage: React.FC = () => {
               }
             >
               {harnessLoading && (
-                <div className="alert">Loading harnesses...</div>
+                <div className="loading-grid-skeleton">
+                  {[1, 2, 3].map((i) => (
+                    <div className="skeleton skeleton-card" key={i} />
+                  ))}
+                </div>
               )}
               {harnessError && (
                 <div className="alert error">{harnessError}</div>
@@ -2287,7 +2301,19 @@ export const RepositoryPage: React.FC = () => {
         >
           {todoError && <div className="alert error">{todoError}</div>}
           {todoLoading ? (
-            <div className="alert">Loading todos...</div>
+            <div className="file-browser">
+              <div className="file-tree-skeleton">
+                {[1, 2, 3].map((i) => (
+                  <div className="skeleton-row" key={i}>
+                    <div className="skeleton skeleton-icon" />
+                    <div
+                      className="skeleton skeleton-name"
+                      style={{ width: `${45 + i * 15}%` }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
             <div className="file-browser">
               {todos.length === 0 ? (
@@ -2373,7 +2399,19 @@ export const RepositoryPage: React.FC = () => {
               {fileActionError && (
                 <div className="alert error">{fileActionError}</div>
               )}
-              {fileTree ? (
+              {fileTreeLoading ? (
+                <div className="file-tree-skeleton">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div className="skeleton-row" key={i}>
+                      <div className="skeleton skeleton-icon" />
+                      <div
+                        className="skeleton skeleton-name"
+                        style={{ width: `${50 + i * 9}%` }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : fileTree ? (
                 renderNode(fileTree)
               ) : (
                 <div className="empty">No files found.</div>
@@ -2640,7 +2678,11 @@ export const RepositoryPage: React.FC = () => {
             }
           >
             {commandsLoading && (
-              <div className="alert">Loading commands...</div>
+              <div className="loading-grid-skeleton">
+                {[1, 2, 3].map((i) => (
+                  <div className="skeleton skeleton-card" key={i} />
+                ))}
+              </div>
             )}
             {commandsError && (
               <div className="alert error">{commandsError}</div>
@@ -2725,7 +2767,13 @@ export const RepositoryPage: React.FC = () => {
   return (
     <div className="page">
       <h1>Repository: {name}</h1>
-      {repository && (
+      {repositoryLoading ? (
+        <div className="repository-meta-skeleton">
+          <div className="skeleton skeleton-badge" />
+          <div className="skeleton skeleton-badge" />
+          <div className="skeleton skeleton-badge" />
+        </div>
+      ) : repository ? (
         <div className="repository-meta">
           <span className="badge">{repository.technology}</span>
           <span className="badge">{repository.license}</span>
@@ -2738,7 +2786,7 @@ export const RepositoryPage: React.FC = () => {
             <span className="badge">{repository.branch}</span>
           )}
         </div>
-      )}
+      ) : null}
       <TabView
         tabs={tabs}
         activeTab={activeTab}

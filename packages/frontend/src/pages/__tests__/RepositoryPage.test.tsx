@@ -5029,3 +5029,52 @@ describe("RepositoryPage refreshAgentStatus does not set chatError (AC560)", () 
     ).toBe(0);
   });
 });
+
+describe("RepositoryPage skeleton states", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue({
+      sessionId: "",
+      messages: [],
+    });
+    localStorage.clear();
+  });
+
+  it("shows repository-meta skeleton while repository loads", () => {
+    // api.getRepository returns a never-resolving promise so loading stays true
+    vi.mocked(api.getRepository).mockReturnValue(new Promise(() => {}));
+    renderPage();
+    expect(
+      document.querySelector(".repository-meta-skeleton"),
+      "FAIL: .repository-meta-skeleton not found during load",
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector(".repository-meta"),
+      "FAIL: .repository-meta should not be present during load",
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows file-tree skeleton while fileTree loads", () => {
+    vi.mocked(api.getRepositoryFiles).mockReturnValue(new Promise(() => {}));
+    renderPage(["/repositories/test-repo?tab=files"]);
+    expect(
+      document.querySelector(".file-tree-skeleton"),
+      "FAIL: .file-tree-skeleton not found during load",
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("No files found."),
+      "FAIL: 'No files found.' must not appear during load",
+    ).not.toBeInTheDocument();
+  });
+
+  it("Git tab is always present in the tab bar before repository loads", () => {
+    vi.mocked(api.getRepository).mockReturnValue(new Promise(() => {}));
+    renderPage();
+    expect(
+      screen.getByRole("button", { name: /git/i }),
+      "FAIL: Git tab button not rendered before repository loads",
+    ).toBeInTheDocument();
+  });
+});

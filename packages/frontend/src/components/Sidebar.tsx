@@ -32,12 +32,18 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ open, onNavigate }) => {
   const [version, setVersion] = useState<string>("");
+  const [versionLoaded, setVersionLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/version")
       .then((res) => res.json())
-      .then((data: { version: string }) => setVersion(data.version))
-      .catch(() => setVersion(""));
+      .then((data: { version: string }) => {
+        setVersion(data.version);
+        setVersionLoaded(true);
+      })
+      .catch(() => {
+        setVersionLoaded(true);
+      });
   }, []);
 
   return (
@@ -62,7 +68,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onNavigate }) => {
           );
         })}
       </ul>
-      {version && <div className="sidebar-version">v{version}</div>}
+      <div className="sidebar-version-placeholder">
+        {!versionLoaded ? (
+          <div className="sidebar-version-skeleton" />
+        ) : version ? (
+          <div className="sidebar-version">v{version}</div>
+        ) : null}
+      </div>
     </nav>
   );
 };
