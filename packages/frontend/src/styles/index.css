@@ -575,6 +575,18 @@ textarea {
   margin-top: 0.75rem;
 }
 
+.chat-message .markdown h1:first-child,
+.chat-message .markdown h2:first-child,
+.chat-message .markdown h3:first-child {
+  margin-top: 0;
+}
+
+.chat-message .markdown h1:last-child,
+.chat-message .markdown h2:last-child,
+.chat-message .markdown h3:last-child {
+  margin-bottom: 0;
+}
+
 .markdown a {
   text-decoration-line: underline;
   text-decoration-style: dashed;

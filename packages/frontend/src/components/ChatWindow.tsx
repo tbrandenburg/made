@@ -264,6 +264,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
             data={chat}
             itemContent={itemContent}
             components={stableComponents}
+            computeItemKey={(_index, message) => message.id}
             followOutput={(atBottom) => (atBottom ? "auto" : false)}
             increaseViewportBy={{ top: 300, bottom: 300 }}
             style={{ height: "100%" }}

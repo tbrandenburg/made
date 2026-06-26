@@ -34,6 +34,7 @@ interface MockVirtuosoProps {
     Item?: ComponentType<React.HTMLAttributes<HTMLDivElement>>;
     Footer?: ComponentType;
   };
+  computeItemKey?: (index: number, message: ChatMessage) => string;
   initialTopMostItemIndex?:
     | number
     | { index: number; align?: string; behavior?: string };
@@ -50,6 +51,7 @@ vi.mock("react-virtuoso", async () => {
           data,
           itemContent,
           components,
+          computeItemKey,
           initialTopMostItemIndex,
           followOutput,
         },
@@ -68,8 +70,11 @@ vi.mock("react-virtuoso", async () => {
         return (
           <div>
             {data.map((message, index) => {
+              const key = computeItemKey
+                ? computeItemKey(index, message)
+                : message.id;
               const content = itemContent(index, message);
-              return Item ? <Item key={message.id}>{content}</Item> : content;
+              return Item ? <Item key={key}>{content}</Item> : content;
             })}
             {Footer ? <Footer /> : null}
           </div>
@@ -79,8 +84,9 @@ vi.mock("react-virtuoso", async () => {
   };
 });
 
+let _messageCounter = 0;
 const makeMessage = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
-  id: "message-1",
+  id: `message-${++_messageCounter}`,
   role: "user",
   text: "Hello",
   timestamp: "2026-04-07T00:00:00.000Z",
