@@ -77,7 +77,7 @@ describe("usePersistentString", () => {
     );
 
     expect(getByTestId("value").textContent).toBe("boot");
-    expect(localStorage.getItem("repo-a-bootstrap")).toBeNull();
+    expect(localStorage.getItem("repo-a-bootstrap")).toBe("boot");
   });
 
   it("persists user updates to localStorage", () => {

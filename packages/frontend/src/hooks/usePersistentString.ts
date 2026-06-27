@@ -8,16 +8,20 @@ export const usePersistentString = (
   const lastScopeKeyRef = useRef(scopeKey);
   const skipPersistRef = useRef(false);
 
-  const readValue = useCallback(() => {
-    if (!storageKey) return initialValue;
+  const readStoredValue = useCallback(() => {
+    if (!storageKey) return null;
     try {
-      const stored = localStorage.getItem(storageKey);
-      return stored ?? initialValue;
+      return localStorage.getItem(storageKey);
     } catch (error) {
       console.warn("Failed to read value from localStorage", error);
-      return initialValue;
+      return null;
     }
-  }, [initialValue, storageKey]);
+  }, [storageKey]);
+
+  const readValue = useCallback(() => {
+    const stored = readStoredValue();
+    return stored ?? initialValue;
+  }, [initialValue, readStoredValue]);
 
   const [value, setValue] = useState<string | null>(readValue);
 
@@ -27,7 +31,7 @@ export const usePersistentString = (
       return;
     }
 
-    const stored = readValue();
+    const stored = readStoredValue();
     const scopeChanged = lastScopeKeyRef.current !== scopeKey;
     lastScopeKeyRef.current = scopeKey;
 
