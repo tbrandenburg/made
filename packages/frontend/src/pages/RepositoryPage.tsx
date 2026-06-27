@@ -34,6 +34,7 @@ import {
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import { usePersistentStringList } from "../hooks/usePersistentStringList";
+import { useAgentCli } from "../hooks/useAgentCli";
 import {
   api,
   CommandDefinition,
@@ -400,18 +401,24 @@ export const RepositoryPage: React.FC = () => {
   const [fileTreeLoading, setFileTreeLoading] = useState(true);
   const [fileActionError, setFileActionError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(["."]));
+  const agentCli = useAgentCli();
   const chatStorageKey = useMemo(
     () => (name ? `repository-chat-${name}` : "repository-chat"),
     [name],
   );
   const sessionStorageKey = useMemo(
-    () => (name ? `repository-session-${name}` : "repository-session"),
-    [name],
+    () =>
+      name
+        ? `repository-session-${name}-${agentCli}`
+        : `repository-session-${agentCli}`,
+    [agentCli, name],
   );
   const savedSessionStorageKey = useMemo(
     () =>
-      name ? `repository-saved-sessions-${name}` : "repository-saved-sessions",
-    [name],
+      name
+        ? `repository-saved-sessions-${name}-${agentCli}`
+        : `repository-saved-sessions-${agentCli}`,
+    [agentCli, name],
   );
   const modelStorageKey = useMemo(
     () => (name ? `repository-model-${name}` : "repository-model"),
@@ -426,6 +433,39 @@ export const RepositoryPage: React.FC = () => {
   const [savedSessionIds, setSavedSessionIds] = usePersistentStringList(
     savedSessionStorageKey,
   );
+  // One-time migration: move old un-namespaced keys to new agentCli-namespaced keys.
+  const oldSessionKey = useMemo(
+    () => (name ? `repository-session-${name}` : "repository-session"),
+    [name],
+  );
+  const oldSavedSessionKey = useMemo(
+    () =>
+      name ? `repository-saved-sessions-${name}` : "repository-saved-sessions",
+    [name],
+  );
+  useEffect(() => {
+    if (!agentCli || !sessionStorageKey || !savedSessionStorageKey) return;
+    try {
+      const oldSession = localStorage.getItem(oldSessionKey);
+      if (oldSession && !localStorage.getItem(sessionStorageKey)) {
+        localStorage.setItem(sessionStorageKey, oldSession);
+        localStorage.removeItem(oldSessionKey);
+      }
+      const oldSaved = localStorage.getItem(oldSavedSessionKey);
+      if (oldSaved && !localStorage.getItem(savedSessionStorageKey)) {
+        localStorage.setItem(savedSessionStorageKey, oldSaved);
+        localStorage.removeItem(oldSavedSessionKey);
+      }
+    } catch {
+      // localStorage unavailable
+    }
+  }, [
+    agentCli,
+    sessionStorageKey,
+    savedSessionStorageKey,
+    oldSessionKey,
+    oldSavedSessionKey,
+  ]);
   const [pendingPrompt, setPendingPrompt] = useState("");
   const [selectedModel, setSelectedModel] = usePersistentString(
     modelStorageKey,

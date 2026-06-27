@@ -16,17 +16,18 @@ const readStringList = (storageKey: string): string[] => {
 };
 
 export const usePersistentStringList = (
-  storageKey: string,
+  storageKey: string | undefined,
 ): [string[], Dispatch<SetStateAction<string[]>>] => {
   const [value, setValue] = useState<string[]>(() =>
-    readStringList(storageKey),
+    storageKey ? readStringList(storageKey) : [],
   );
 
   useEffect(() => {
-    setValue(readStringList(storageKey));
+    setValue(storageKey ? readStringList(storageKey) : []);
   }, [storageKey]);
 
   useEffect(() => {
+    if (!storageKey) return;
     try {
       if (value.length) {
         localStorage.setItem(storageKey, JSON.stringify(value));

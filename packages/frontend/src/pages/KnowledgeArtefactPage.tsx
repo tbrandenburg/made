@@ -22,6 +22,7 @@ const CommandsTab = React.lazy(() => import("../components/CommandsTab"));
 import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import { usePersistentStringList } from "../hooks/usePersistentStringList";
+import { useAgentCli } from "../hooks/useAgentCli";
 import { api, ChatSession } from "../hooks/useApi";
 import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
@@ -72,14 +73,20 @@ export const KnowledgeArtefactPage: React.FC = () => {
     () => (name ? `knowledge-chat-${name}` : "knowledge-chat"),
     [name],
   );
+  const agentCli = useAgentCli();
   const sessionStorageKey = useMemo(
-    () => (name ? `knowledge-session-${name}` : "knowledge-session"),
-    [name],
+    () =>
+      name
+        ? `knowledge-session-${name}-${agentCli}`
+        : `knowledge-session-${agentCli}`,
+    [agentCli, name],
   );
   const savedSessionStorageKey = useMemo(
     () =>
-      name ? `knowledge-saved-sessions-${name}` : "knowledge-saved-sessions",
-    [name],
+      name
+        ? `knowledge-saved-sessions-${name}-${agentCli}`
+        : `knowledge-saved-sessions-${agentCli}`,
+    [agentCli, name],
   );
   const harnessHistoryStorageKey = useMemo(
     () =>
@@ -95,6 +102,39 @@ export const KnowledgeArtefactPage: React.FC = () => {
   const [savedSessionIds, setSavedSessionIds] = usePersistentStringList(
     savedSessionStorageKey,
   );
+  // One-time migration: move old un-namespaced keys to new agentCli-namespaced keys.
+  const oldSessionKey = useMemo(
+    () => (name ? `knowledge-session-${name}` : "knowledge-session"),
+    [name],
+  );
+  const oldSavedSessionKey = useMemo(
+    () =>
+      name ? `knowledge-saved-sessions-${name}` : "knowledge-saved-sessions",
+    [name],
+  );
+  useEffect(() => {
+    if (!agentCli || !sessionStorageKey || !savedSessionStorageKey) return;
+    try {
+      const oldSession = localStorage.getItem(oldSessionKey);
+      if (oldSession && !localStorage.getItem(sessionStorageKey)) {
+        localStorage.setItem(sessionStorageKey, oldSession);
+        localStorage.removeItem(oldSessionKey);
+      }
+      const oldSaved = localStorage.getItem(oldSavedSessionKey);
+      if (oldSaved && !localStorage.getItem(savedSessionStorageKey)) {
+        localStorage.setItem(savedSessionStorageKey, oldSaved);
+        localStorage.removeItem(oldSavedSessionKey);
+      }
+    } catch {
+      // localStorage unavailable
+    }
+  }, [
+    agentCli,
+    sessionStorageKey,
+    savedSessionStorageKey,
+    oldSessionKey,
+    oldSavedSessionKey,
+  ]);
   const [selectedAgent, setSelectedAgent] = usePersistentString(
     agentStorageKey,
     DEFAULT_AGENT_VALUE,

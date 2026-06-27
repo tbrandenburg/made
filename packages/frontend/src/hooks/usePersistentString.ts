@@ -19,10 +19,19 @@ export const usePersistentString = (
 
   useEffect(() => {
     if (!storageKey) {
-      setValue(initialValue);
+      // Key is unknown (e.g. agentCli not yet loaded). Keep the current
+      // in-memory value — don't reset. The persist effect is also a no-op
+      // while storageKey is undefined, so no spurious localStorage writes occur.
       return;
     }
-    setValue(readValue());
+    const stored = readValue();
+    // Prefer the stored localStorage entry when it exists.
+    // If storage is empty, keep the current in-memory value (e.g. set from a
+    // URL bootstrap param while the key was still resolving) rather than
+    // resetting to initialValue — the persist effect will write it on next tick.
+    if (stored !== null) {
+      setValue(stored);
+    }
   }, [initialValue, readValue, storageKey]);
 
   useEffect(() => {
