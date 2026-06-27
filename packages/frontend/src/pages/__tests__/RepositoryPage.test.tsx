@@ -5527,5 +5527,19 @@ describe("useAgentCli session key namespacing (Issue #611)", () => {
     );
     // Old key is removed.
     expect(localStorage.getItem("repository-session-test-repo")).toBeNull();
+
+    // After migration, the React state should be synced so the
+    // repository agent history API is called with the migrated sessionId.
+    await waitFor(
+      () => {
+        expect(api.getRepositoryAgentHistory).toHaveBeenCalledWith(
+          "test-repo",
+          "session-legacy",
+          undefined,
+          expect.anything(),
+        );
+      },
+      { timeout: 2000 },
+    );
   });
 });
