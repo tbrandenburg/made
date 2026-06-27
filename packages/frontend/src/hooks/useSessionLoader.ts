@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../types/chat";
 import type { ChatHistoryResponse } from "./useApi";
 import { mapHistoryToMessages } from "../utils/chat";
@@ -15,6 +15,7 @@ interface UseSessionLoaderParams {
   sessionId: string | null | undefined;
   setChat: Dispatch<SetStateAction<ChatMessage[]>>;
   getHistory: GetHistoryFn;
+  onHistoryLoaded?: (history: ChatHistoryResponse) => void;
 }
 
 interface UseSessionLoaderResult {
@@ -38,9 +39,15 @@ export function useSessionLoader({
   sessionId,
   setChat,
   getHistory,
+  onHistoryLoaded,
 }: UseSessionLoaderParams): UseSessionLoaderResult {
   const [sessionLoading, setSessionLoading] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const onHistoryLoadedRef = useRef(onHistoryLoaded);
+
+  useEffect(() => {
+    onHistoryLoadedRef.current = onHistoryLoaded;
+  }, [onHistoryLoaded]);
 
   // Reset error state when the session is cleared (name or sessionId goes falsy).
   useEffect(() => {
@@ -64,6 +71,7 @@ export function useSessionLoader({
         setSessionLoading(false);
         const mapped = mapHistoryToMessages(history.messages || []);
         setChat(mapped);
+        onHistoryLoadedRef.current?.(history);
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError")

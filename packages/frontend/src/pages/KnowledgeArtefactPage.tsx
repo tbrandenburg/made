@@ -204,6 +204,12 @@ export const KnowledgeArtefactPage: React.FC = () => {
     sessionId,
     setChat,
     getHistory: getKnowledgeHistory,
+    onHistoryLoaded: (history) => {
+      if (history.processing !== undefined) {
+        setChatAgentProcessing(history.processing);
+      }
+      setAgentStatus(null);
+    },
   });
 
   const scrollToBottom = useCallback(() => {
@@ -370,10 +376,6 @@ export const KnowledgeArtefactPage: React.FC = () => {
       return null; // network error — caller should not stop polling
     }
   }, [isExternal, name, sessionId]);
-
-  useEffect(() => {
-    refreshAgentStatus();
-  }, [refreshAgentStatus]);
 
   useAgentPolling({
     isProcessing: chatAgentProcessing,
@@ -581,7 +583,9 @@ export const KnowledgeArtefactPage: React.FC = () => {
       const mapped = mapHistoryToMessages(history.messages || []);
       setChat(mapped);
       setAgentStatus(null);
-      await refreshAgentStatus();
+      if (history.processing !== undefined) {
+        setChatAgentProcessing(history.processing);
+      }
     } catch (error) {
       setChat(chatBeforeRefresh);
       console.error("Failed to load session history", error);
@@ -600,7 +604,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
     isExternal,
     setChat,
     setAgentStatus,
-    refreshAgentStatus,
+    setChatAgentProcessing,
   ]);
 
   const handleSaveSession = useCallback(() => {

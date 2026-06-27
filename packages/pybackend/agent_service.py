@@ -526,7 +526,13 @@ def export_chat_history(
                 channel or "<unspecified>",
                 session_id,
             )
-            return {"sessionId": session_id, "messages": []}
+            response: dict[str, object] = {"sessionId": session_id, "messages": []}
+            if channel:
+                lock_key = session_id if session_id else channel
+                status = get_channel_status(lock_key)
+                response["processing"] = status["processing"]
+                response["startedAt"] = status.get("startedAt")
+            return response
 
         logger.error(
             "Exporting chat history failed (channel: %s, session: %s): %s",
@@ -546,10 +552,16 @@ def export_chat_history(
                 continue
         filtered_messages.append(message.to_frontend_format())
 
-    return {
+    response: dict[str, object] = {
         "sessionId": session_id,
         "messages": filtered_messages,
     }
+    if channel:
+        lock_key = session_id if session_id else channel
+        status = get_channel_status(lock_key)
+        response["processing"] = status["processing"]
+        response["startedAt"] = status.get("startedAt")
+    return response
 
 
 def list_chat_sessions(

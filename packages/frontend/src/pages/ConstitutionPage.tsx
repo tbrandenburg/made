@@ -208,6 +208,12 @@ export const ConstitutionPage: React.FC = () => {
     sessionId,
     setChat,
     getHistory: getConstitutionHistory,
+    onHistoryLoaded: (history) => {
+      if (history.processing !== undefined) {
+        setChatAgentProcessing(history.processing);
+      }
+      setAgentStatus(null);
+    },
   });
 
   const scrollToBottom = useCallback(() => {
@@ -374,10 +380,6 @@ export const ConstitutionPage: React.FC = () => {
       return null; // network error — caller should not stop polling
     }
   }, [isExternal, name, sessionId]);
-
-  useEffect(() => {
-    refreshAgentStatus();
-  }, [refreshAgentStatus]);
 
   useAgentPolling({
     isProcessing: chatAgentProcessing,
@@ -588,7 +590,9 @@ export const ConstitutionPage: React.FC = () => {
       const mapped = mapHistoryToMessages(history.messages || []);
       setChat(mapped);
       setAgentStatus(null);
-      await refreshAgentStatus();
+      if (history.processing !== undefined) {
+        setChatAgentProcessing(history.processing);
+      }
     } catch (error) {
       setChat(chatBeforeRefresh);
       console.error("Failed to load session history", error);
@@ -607,7 +611,7 @@ export const ConstitutionPage: React.FC = () => {
     isExternal,
     setChat,
     setAgentStatus,
-    refreshAgentStatus,
+    setChatAgentProcessing,
   ]);
 
   const handleSaveSession = useCallback(() => {

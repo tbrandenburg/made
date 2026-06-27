@@ -192,6 +192,8 @@ export type ChatHistoryMessage = {
 export type ChatHistoryResponse = {
   sessionId: string;
   messages: ChatHistoryMessage[];
+  processing?: boolean;
+  startedAt?: string | null;
 };
 
 export type ChatSession = {
