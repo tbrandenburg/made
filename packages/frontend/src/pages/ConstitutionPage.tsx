@@ -100,7 +100,11 @@ export const ConstitutionPage: React.FC = () => {
     [name],
   );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
-  const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);
+  const [sessionId, setSessionId] = usePersistentString(
+    sessionStorageKey,
+    null,
+    name,
+  );
   const [savedSessionIds, setSavedSessionIds] = usePersistentStringList(
     savedSessionStorageKey,
   );
@@ -142,6 +146,7 @@ export const ConstitutionPage: React.FC = () => {
   const [selectedAgent, setSelectedAgent] = usePersistentString(
     agentStorageKey,
     DEFAULT_AGENT_VALUE,
+    name,
   );
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [prompt, setPrompt] = useState("");

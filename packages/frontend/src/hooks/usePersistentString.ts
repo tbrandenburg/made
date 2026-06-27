@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export const usePersistentString = (
   storageKey: string | undefined,
   initialValue: string | null = null,
+  scopeKey?: string,
 ) => {
+  const lastScopeKeyRef = useRef(scopeKey);
+  const skipPersistRef = useRef(false);
+
   const readValue = useCallback(() => {
     if (!storageKey) return initialValue;
     try {
@@ -19,23 +23,32 @@ export const usePersistentString = (
 
   useEffect(() => {
     if (!storageKey) {
-      // Key is unknown (e.g. agentCli not yet loaded). Keep the current
-      // in-memory value — don't reset. The persist effect is also a no-op
-      // while storageKey is undefined, so no spurious localStorage writes occur.
+      lastScopeKeyRef.current = scopeKey;
       return;
     }
+
     const stored = readValue();
-    // Prefer the stored localStorage entry when it exists.
-    // If storage is empty, keep the current in-memory value (e.g. set from a
-    // URL bootstrap param while the key was still resolving) rather than
-    // resetting to initialValue — the persist effect will write it on next tick.
+    const scopeChanged = lastScopeKeyRef.current !== scopeKey;
+    lastScopeKeyRef.current = scopeKey;
+
     if (stored !== null) {
       setValue(stored);
+      skipPersistRef.current = true;
+      return;
     }
-  }, [initialValue, readValue, storageKey]);
+
+    if (scopeChanged) {
+      skipPersistRef.current = true;
+      setValue(initialValue);
+    }
+  }, [initialValue, readValue, scopeKey, storageKey]);
 
   useEffect(() => {
     if (!storageKey) return;
+    if (skipPersistRef.current) {
+      skipPersistRef.current = false;
+      return;
+    }
     try {
       if (value) {
         localStorage.setItem(storageKey, value);

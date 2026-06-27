@@ -429,7 +429,11 @@ export const RepositoryPage: React.FC = () => {
     [name],
   );
   const [chat, setChat] = usePersistentChat(chatStorageKey);
-  const [sessionId, setSessionId] = usePersistentString(sessionStorageKey);
+  const [sessionId, setSessionId] = usePersistentString(
+    sessionStorageKey,
+    null,
+    name,
+  );
   const [savedSessionIds, setSavedSessionIds] = usePersistentStringList(
     savedSessionStorageKey,
   );
@@ -470,10 +474,12 @@ export const RepositoryPage: React.FC = () => {
   const [selectedModel, setSelectedModel] = usePersistentString(
     modelStorageKey,
     "default",
+    name,
   );
   const [selectedAgent, setSelectedAgent] = usePersistentString(
     agentStorageKey,
     DEFAULT_AGENT_VALUE,
+    name,
   );
   const normalizedSelectedModel = selectedModel ?? "default";
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
