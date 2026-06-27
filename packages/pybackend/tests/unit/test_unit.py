@@ -640,6 +640,8 @@ class TestAgentService:
         assert export_chat_history("1", None, "test-repo") == {
             "sessionId": "1",
             "messages": [],
+            "processing": False,
+            "startedAt": None,
         }
 
     @patch("agent_service.get_agent_cli")
@@ -662,6 +664,8 @@ class TestAgentService:
         assert export_chat_history("1", None, "test-repo") == {
             "sessionId": "1",
             "messages": [],
+            "processing": False,
+            "startedAt": None,
         }
 
     def test_parse_agent_list_includes_details(self):

@@ -187,6 +187,12 @@ export const TaskPage: React.FC = () => {
     sessionId,
     setChat,
     getHistory: getTaskHistory,
+    onHistoryLoaded: (history) => {
+      if (history.processing !== undefined) {
+        setChatAgentProcessing(history.processing);
+      }
+      setAgentStatus(null);
+    },
   });
 
   const scrollToBottom = useCallback(() => {
@@ -331,10 +337,6 @@ export const TaskPage: React.FC = () => {
       return null; // network error — caller should not stop polling
     }
   }, [name, sessionId]);
-
-  useEffect(() => {
-    refreshAgentStatus();
-  }, [refreshAgentStatus]);
 
   useAgentPolling({
     isProcessing: chatAgentProcessing,
@@ -518,7 +520,9 @@ export const TaskPage: React.FC = () => {
       const mapped = mapHistoryToMessages(history.messages || []);
       setChat(mapped);
       setAgentStatus(null);
-      await refreshAgentStatus();
+      if (history.processing !== undefined) {
+        setChatAgentProcessing(history.processing);
+      }
     } catch (error) {
       setChat(chatBeforeRefresh);
       console.error("Failed to load session history", error);
@@ -531,7 +535,7 @@ export const TaskPage: React.FC = () => {
       setIsRefreshing(false);
       isRefreshingRef.current = false;
     }
-  }, [name, sessionId, setChat, setAgentStatus, refreshAgentStatus]);
+  }, [name, sessionId, setChat, setAgentStatus, setChatAgentProcessing]);
 
   const handleSaveSession = useCallback(() => {
     if (!sessionId) return;

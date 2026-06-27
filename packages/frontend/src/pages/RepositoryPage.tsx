@@ -1237,6 +1237,10 @@ export const RepositoryPage: React.FC = () => {
 
         if (signal?.aborted) return false;
 
+        if (fullFetch && history.processing !== undefined) {
+          setIsAgentBusy(history.processing);
+        }
+
         if (!history.messages?.length) {
           console.info("[ChatHistory] Request completed with no new messages");
           return true;
@@ -1261,7 +1265,7 @@ export const RepositoryPage: React.FC = () => {
         return false;
       }
     },
-    [name, sessionId, setChat, setChatError],
+    [name, sessionId, setChat, setChatError, setIsAgentBusy],
   );
 
   // On mount (or sessionId change): always fetch history + check status
@@ -1278,14 +1282,16 @@ export const RepositoryPage: React.FC = () => {
         setIsLoadingHistory(false);
         return;
       }
+      if (isAgentBusy === false && sessionId) {
+        await refreshAgentStatus();
+      }
       setIsLoadingHistory(false);
-      await refreshAgentStatus();
     };
     run();
     return () => {
       controller.abort();
     };
-  }, [name, sessionId, syncChatHistory, refreshAgentStatus, setChat]);
+  }, [name, sessionId, syncChatHistory, setChat]);
 
   // When agent is busy: poll status every 5s + sync history
   useEffect(() => {
@@ -1336,7 +1342,11 @@ export const RepositoryPage: React.FC = () => {
         setChat(mapped);
       }
       setChatError(null);
-      await refreshAgentStatus();
+      if (history.processing !== undefined) {
+        setIsAgentBusy(history.processing);
+      } else {
+        await refreshAgentStatus();
+      }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setChat(chatBeforeRefresh);
@@ -1350,7 +1360,7 @@ export const RepositoryPage: React.FC = () => {
       setIsRefreshing(false);
       isRefreshingRef.current = false;
     }
-  }, [name, sessionId, setChat, setChatError, refreshAgentStatus]);
+  }, [name, sessionId, setChat, setChatError, setIsAgentBusy]);
 
   const handleSendMessage = async (prompt?: string) => {
     if (!name) return;

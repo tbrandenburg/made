@@ -1335,27 +1335,33 @@ describe("RepositoryPage reload current session (AC1-AC7)", () => {
     resolveFetch!(emptyHistory);
   });
 
-  it("AC585: reloadCurrentSession calls refreshAgentStatus (getRepositoryAgentStatus) after successful history fetch", async () => {
-    // Arrange: getRepositoryAgentStatus mock auto-resolves via Proxy (processing: false by default)
+  it("AC585: reloadCurrentSession hydrates processing state from history", async () => {
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValueOnce({
+      sessionId: "session-a",
+      messages: [],
+      processing: false,
+      startedAt: null,
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValueOnce({
+      sessionId: "session-a",
+      messages: [],
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
 
-    // Wait for initial load to complete (refreshAgentStatus fires on mount)
+    // Wait for initial load to complete
     await waitFor(() => {
-      expect(api.getRepositoryAgentStatus).toHaveBeenCalled();
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalled();
     });
-
-    vi.mocked(api.getRepositoryAgentStatus).mockClear();
 
     // Act: click Refresh button
     const refreshBtn = await screen.findByLabelText("Refresh current session");
     fireEvent.click(refreshBtn);
 
-    // Assert: getRepositoryAgentStatus is called once after the history fetch
+    // Assert: busy state is hydrated from history
     await waitFor(() => {
-      expect(
-        api.getRepositoryAgentStatus,
-        "FAIL (AC585): getRepositoryAgentStatus not called after manual refresh — refreshAgentStatus missing from reloadCurrentSession",
-      ).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
     });
   });
 });
@@ -5289,6 +5295,12 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
   });
 
   it("AC588-2: fetches history + checks status on mount when sessionId is present", async () => {
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue({
+      sessionId: "session-a",
+      messages: [],
+      processing: true,
+      startedAt: new Date().toISOString(),
+    });
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
     await waitFor(() => {
       expect(
@@ -5300,10 +5312,7 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
         undefined,
         expect.anything(),
       );
-      expect(
-        api.getRepositoryAgentStatus,
-        "FAIL (AC588-2): status not checked on mount",
-      ).toHaveBeenCalledWith("test-repo", "session-a");
+      expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
     });
   });
 
