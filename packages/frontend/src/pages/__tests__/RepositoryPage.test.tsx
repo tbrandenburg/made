@@ -41,9 +41,12 @@ vi.mock("react-virtuoso", async () => {
       {
         data: unknown[];
         itemContent: (index: number, item: unknown) => ReactNode;
-        components?: { Footer?: ReactModule.ComponentType };
+        components?: {
+          Footer?: ReactModule.ComponentType<{ context?: unknown }>;
+        };
+        context?: unknown;
       }
-    >(function MockVirtuoso({ data, itemContent, components }, ref) {
+    >(function MockVirtuoso({ data, itemContent, components, context }, ref) {
       ReactModule.useImperativeHandle(ref, () => ({ scrollToIndex: vi.fn() }));
       const Footer = components?.Footer;
       return ReactModule.createElement(
@@ -56,7 +59,7 @@ vi.mock("react-virtuoso", async () => {
             itemContent(index, item),
           ),
         ),
-        Footer ? ReactModule.createElement(Footer) : null,
+        Footer ? ReactModule.createElement(Footer, { context }) : null,
       );
     }),
   };
