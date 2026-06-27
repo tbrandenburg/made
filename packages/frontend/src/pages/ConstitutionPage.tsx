@@ -127,11 +127,22 @@ export const ConstitutionPage: React.FC = () => {
       if (oldSession && !localStorage.getItem(sessionStorageKey)) {
         localStorage.setItem(sessionStorageKey, oldSession);
         localStorage.removeItem(oldSessionKey);
+        setSessionId(oldSession);
       }
       const oldSaved = localStorage.getItem(oldSavedSessionKey);
       if (oldSaved && !localStorage.getItem(savedSessionStorageKey)) {
         localStorage.setItem(savedSessionStorageKey, oldSaved);
         localStorage.removeItem(oldSavedSessionKey);
+        try {
+          const parsed = JSON.parse(oldSaved);
+          if (Array.isArray(parsed)) {
+            setSavedSessionIds(
+              parsed.filter((entry): entry is string => typeof entry === "string"),
+            );
+          }
+        } catch {
+          // ignore parse error — localStorage data already written for next load
+        }
       }
     } catch {
       // localStorage unavailable
