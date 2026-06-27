@@ -470,6 +470,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
       startedAt: null,
     });
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   /** Render page with a sessionId so "Clear session" button appears in ChatWindow */
@@ -848,6 +849,7 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
       startedAt: null,
     });
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   async function renderAndWaitForClearButton() {
@@ -1783,6 +1785,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       startedAt: null,
     });
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   // ── U1: AC495-1 bootstrap stale success reply ───────────────────────
@@ -3184,7 +3187,7 @@ describe("RepositoryPage session loading indicator (AC1-AC10)", () => {
 // ── AC1-AC7: bootstrap path loading indicator (Issue #522) ─────────────
 
 describe("RepositoryPage bootstrap path loading indicator (AC1-AC7)", () => {
-  const sessionStorageKey = "repository-session-test-repo";
+  const sessionStorageKey = "repository-session-test-repo-opencode";
   const historyWithMessages: ChatHistoryResponse = {
     sessionId: "session-b",
     messages: [
@@ -4058,8 +4061,8 @@ describe("RepositoryPage syncChatHistory full-fetch on session load (#481)", () 
       text: "Cached message",
       timestamp: "2026-01-01T00:00:00.000Z",
     };
-    // sessionStorageKey = "repository-session-test-repo" (no agentCli suffix)
-    localStorage.setItem("repository-session-test-repo", "session-a");
+    // sessionStorageKey = "repository-session-test-repo-opencode" (agentCli suffix after settings load)
+    localStorage.setItem("repository-session-test-repo-opencode", "session-a");
     localStorage.setItem(
       "repository-chat-test-repo",
       JSON.stringify([cachedMessage]),
@@ -4099,7 +4102,7 @@ describe("RepositoryPage syncChatHistory full-fetch on session load (#481)", () 
       text: "Corrupted cached message",
       timestamp: "2099-01-01T00:00:00.000Z",
     };
-    localStorage.setItem("repository-session-test-repo", "session-a");
+    localStorage.setItem("repository-session-test-repo-opencode", "session-a");
     localStorage.setItem(
       "repository-chat-test-repo",
       JSON.stringify([futureMessage]),
@@ -4161,7 +4164,7 @@ describe("RepositoryPage AC590 — stale localStorage chat cleared on page refre
       text: "Stale message from before",
       timestamp: "2026-01-01T00:00:00.000Z",
     };
-    localStorage.setItem("repository-session-test-repo", "session-a");
+    localStorage.setItem("repository-session-test-repo-opencode", "session-a");
     localStorage.setItem(
       "repository-chat-test-repo",
       JSON.stringify([staleMsg]),
@@ -4200,7 +4203,7 @@ describe("RepositoryPage AC590 — stale localStorage chat cleared on page refre
       text: "Stale message must not persist on error",
       timestamp: "2026-01-01T00:00:00.000Z",
     };
-    localStorage.setItem("repository-session-test-repo", "session-a");
+    localStorage.setItem("repository-session-test-repo-opencode", "session-a");
     localStorage.setItem(
       "repository-chat-test-repo",
       JSON.stringify([staleMsg]),
@@ -5453,5 +5456,64 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
         "FAIL (AC588-7): 'Agent is thinking...' not shown when isAgentBusy=true",
       ).toBeInTheDocument();
     });
+  });
+});
+
+describe("useAgentCli session key namespacing (Issue #611)", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue({
+      sessionId: "",
+      messages: [],
+    });
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [],
+    });
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+    });
+  });
+
+  it("reads sessionId from agentCli-namespaced key on mount", async () => {
+    // Uses the DEFAULT_AGENT_CLI ("opencode") suffix immediately — no async delay.
+    localStorage.setItem("repository-session-test-repo-opencode", "session-x");
+
+    renderPage(["/repositories/test-repo?tab=agent"]);
+
+    // History should be fetched with the namespaced session right away.
+    await waitFor(
+      () => {
+        expect(api.getRepositoryAgentHistory).toHaveBeenCalledWith(
+          "test-repo",
+          "session-x",
+          undefined,
+          expect.anything(),
+        );
+      },
+      { timeout: 2000 },
+    );
+  });
+
+  it("migrates old un-namespaced session key to namespaced key on mount", async () => {
+    // Simulate a user who has data under the old (pre-#611) un-namespaced key.
+    localStorage.setItem("repository-session-test-repo", "session-legacy");
+
+    renderPage(["/repositories/test-repo?tab=agent"]);
+
+    // After mount the migration effect runs and moves the value to the new key.
+    await waitFor(
+      () => {
+        expect(
+          localStorage.getItem("repository-session-test-repo-opencode"),
+        ).toBe("session-legacy");
+      },
+      { timeout: 2000 },
+    );
+    // Old key is removed.
+    expect(localStorage.getItem("repository-session-test-repo")).toBeNull();
   });
 });
