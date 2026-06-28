@@ -348,13 +348,15 @@ export function useChatSession({
     if (!name || isExternal || isCancelingAgent) return;
 
     setIsCancelingAgent(true);
+    let preserveStatus = false;
     try {
       await api.cancelAgent(name, sessionId || undefined);
     } catch (error) {
       console.error("Failed to cancel agent request", error);
       setAgentStatus("Unable to cancel the agent request.");
+      preserveStatus = true;
     } finally {
-      await refreshAgentStatus(undefined, true);
+      await refreshAgentStatus(undefined, preserveStatus);
       setIsCancelingAgent(false);
     }
   }, [api, isCancelingAgent, isExternal, name, refreshAgentStatus, sessionId]);

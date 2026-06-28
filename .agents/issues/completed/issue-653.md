@@ -16,6 +16,7 @@ The same pattern exists in `handleCancel()`: the catch block sets an error messa
 3. Pass `refreshAgentStatus(undefined, true)` from the send-failure path.
 4. Pass `refreshAgentStatus(undefined, true)` from the cancel-failure path.
 5. Add regression tests for send-failure and cancel-failure banner persistence in `packages/frontend/src/hooks/useChatSession.test.tsx`.
+6. Keep cancel-success behavior intact by only preserving status on the cancel error path.
 
 ## Validation
 

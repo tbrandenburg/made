@@ -272,4 +272,37 @@ describe("useChatSession", () => {
       "Unable to cancel the agent request.",
     );
   });
+
+  it("clears stale status after a successful cancel", async () => {
+    const cancelAgent = vi.fn().mockResolvedValue(undefined);
+    const getStatus = vi.fn().mockResolvedValue({ running: false });
+    const api = {
+      sendMessage: vi.fn(),
+      getStatus,
+      cancelAgent,
+      getHistory: vi.fn(),
+      getSessions: vi.fn(),
+    };
+
+    const { result } = renderHook(() =>
+      useChatSession({
+        name: "repo",
+        sessionId: null,
+        setSessionId: vi.fn(),
+        chat: makeChat(),
+        setChat: vi.fn(),
+        setPrompt: vi.fn(),
+        setSelectedAgent: vi.fn(),
+        normalizedSelectedAgent: "default",
+        defaultAgentValue: "default",
+        api,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.handleCancel();
+    });
+
+    expect(result.current.agentStatus).toBeNull();
+  });
 });
