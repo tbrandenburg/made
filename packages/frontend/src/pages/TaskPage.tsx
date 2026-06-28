@@ -122,7 +122,9 @@ export const TaskPage: React.FC = () => {
           const parsed = JSON.parse(oldSaved);
           if (Array.isArray(parsed)) {
             setSavedSessionIds(
-              parsed.filter((entry): entry is string => typeof entry === "string"),
+              parsed.filter(
+                (entry): entry is string => typeof entry === "string",
+              ),
             );
           }
         } catch {

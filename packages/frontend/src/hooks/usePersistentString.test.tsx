@@ -67,13 +67,21 @@ describe("usePersistentString", () => {
 
   it("preserves the current value when only the bootstrap key changes", async () => {
     const { getByTestId, rerender } = render(
-      <TestComponent storageKey={undefined} scopeKey="repo-a" initialValue="boot" />,
+      <TestComponent
+        storageKey={undefined}
+        scopeKey="repo-a"
+        initialValue="boot"
+      />,
     );
 
     expect(getByTestId("value").textContent).toBe("boot");
 
     rerender(
-      <TestComponent storageKey="repo-a-bootstrap" scopeKey="repo-a" initialValue="boot" />,
+      <TestComponent
+        storageKey="repo-a-bootstrap"
+        scopeKey="repo-a"
+        initialValue="boot"
+      />,
     );
 
     expect(getByTestId("value").textContent).toBe("boot");
@@ -86,7 +94,11 @@ describe("usePersistentString", () => {
     );
 
     rerender(
-      <TestComponent storageKey="test-key" scopeKey="repo-a" setNextValue="user-value" />,
+      <TestComponent
+        storageKey="test-key"
+        scopeKey="repo-a"
+        setNextValue="user-value"
+      />,
     );
 
     expect(localStorage.getItem("test-key")).toBe("user-value");
