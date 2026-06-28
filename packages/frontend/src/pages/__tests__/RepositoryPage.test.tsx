@@ -1361,7 +1361,9 @@ describe("RepositoryPage reload current session (AC1-AC7)", () => {
 
     // Assert: busy state is hydrated from history
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+      ).toBeInTheDocument();
     });
   });
 });
@@ -5312,7 +5314,9 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
         undefined,
         expect.anything(),
       );
-      expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+      ).toBeInTheDocument();
     });
   });
 
