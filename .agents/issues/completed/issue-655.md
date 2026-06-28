@@ -1,0 +1,1 @@
+Issue #655 investigation handled via GitHub issue comment artifact; final code preserves split U10/U13 coverage, consolidates deferred send setup, and hardens ADV-1 by re-querying the textarea after navigation.
