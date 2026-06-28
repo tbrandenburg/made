@@ -381,13 +381,13 @@ export const KnowledgeArtefactPage: React.FC = () => {
       try {
         const status = await api.getKnowledgeAgentStatus(name, targetSessionId);
         if (sessionIdRef.current !== targetSessionId) return false;
-        setChatAgentProcessing(status.processing);
+        setChatAgentProcessing(status.running);
         setAgentStatus(
-          status.processing
+          status.running
             ? "Agent is still processing the previous message."
             : null,
         );
-        return status.processing;
+        return status.running;
       } catch (error) {
         console.error("Failed to load agent status", error);
         return null; // network error — caller should not stop polling

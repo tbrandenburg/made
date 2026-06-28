@@ -581,7 +581,7 @@ class TestAgentService:
 
         status = get_channel_status(channel)
 
-        assert status["processing"] is False
+        assert status["running"] is False
         assert channel not in _processing_channels
 
     def test_get_channel_status_returns_false_when_no_os_process(self):
@@ -603,8 +603,7 @@ class TestAgentService:
                 with patch("agent_service._dump_processing_state"):
                     status = get_channel_status(lock_key)
 
-            assert status["processing"] is False
-            assert status["startedAt"] is None
+            assert status["running"] is False
             with _processing_lock:
                 assert lock_key not in _processing_channels
         finally:
@@ -639,11 +638,36 @@ class TestAgentService:
                 with patch("agent_service._dump_processing_state"):
                     status = get_channel_status(lock_key)
 
-            assert status["processing"] is True
-            assert status["startedAt"] is not None
+            assert status["running"] is True
         finally:
             with _processing_lock:
                 _processing_channels.pop(lock_key, None)
+
+    def test_get_channel_status_returns_true_without_stored_state_when_process_alive(self):
+        """get_channel_status must detect a live process even when there is no stored processing entry."""
+        from unittest.mock import patch
+        from agent_service import get_channel_status, _processing_channels, _processing_lock
+
+        lock_key = "restart-without-state-123"
+        with _processing_lock:
+            _processing_channels.pop(lock_key, None)
+
+        with patch(
+            "agent_service._read_running_agent_processes",
+            return_value=[
+                {
+                    "pid": 99,
+                    "command": f"agent --session {lock_key}",
+                    "workingDirectory": None,
+                }
+            ],
+        ):
+            with patch("agent_service._dump_processing_state"):
+                status = get_channel_status(lock_key)
+
+        assert status["running"] is True
+        with _processing_lock:
+            assert lock_key in _processing_channels
 
     def test_get_channel_status_uses_working_directory_on_restart(self):
         """get_channel_status must keep processing=True for a restarted session that still has a matching command line."""
@@ -674,7 +698,7 @@ class TestAgentService:
                     with patch("agent_service._dump_processing_state"):
                         status = get_channel_status(channel)
 
-            assert status["processing"] is True
+            assert status["running"] is True
         finally:
             with _processing_lock:
                 _processing_channels.pop(channel, None)
@@ -711,7 +735,7 @@ class TestAgentService:
                 with patch("agent_service._dump_processing_state"):
                     status = get_channel_status(channel)
 
-            assert status["processing"] is True
+            assert status["running"] is True
         finally:
             with _processing_lock:
                 _conversation_sessions.pop(channel, None)
@@ -862,7 +886,7 @@ class TestAgentService:
             with patch("agent_service._is_process_running_for_session", return_value=True):
                 status = get_channel_status(session_id)
 
-            assert status["processing"] is True
+            assert status["running"] is True
             # session_id key should now be populated (propagated by get_channel_status)
             with _processing_lock:
                 assert session_id in _processing_channels
@@ -903,8 +927,7 @@ class TestAgentService:
                 with patch("agent_service._dump_processing_state"):
                     status = get_channel_status(lock_key)
 
-        assert status["processing"] is True
-        assert status["startedAt"] is not None
+        assert status["running"] is True
 
     def test_cancel_agent_message_by_session_id_reverse_lookup(self):
         """cancel_agent_message must find processing entry by reverse lookup when lock_key is a session_id."""
@@ -1201,4 +1224,4 @@ class TestAgentService:
             mock_load.return_value = {}  # stale entry already filtered by _load
             status = get_channel_status("ghost-session-after-restart")
 
-        assert status["processing"] is False
+        assert status["running"] is False

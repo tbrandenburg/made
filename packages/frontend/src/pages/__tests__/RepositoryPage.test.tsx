@@ -154,8 +154,7 @@ describe("RepositoryPage session selection", () => {
       processing: false,
     });
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
@@ -499,8 +498,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
     });
     vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     localStorage.clear();
     sessionStorage.clear();
@@ -866,20 +864,16 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
     });
     vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     vi.mocked(api.getTaskAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     vi.mocked(api.getKnowledgeAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     vi.mocked(api.getConstitutionAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     localStorage.clear();
     sessionStorage.clear();
@@ -918,8 +912,7 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
 
     vi.mocked(api.getRepositoryAgentStatus).mockClear();
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: new Date().toISOString(),
+      running: true,
     });
 
     openClearModal();
@@ -968,8 +961,7 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
 
     vi.mocked(api.getRepositoryAgentStatus).mockClear();
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: new Date().toISOString(),
+      running: true,
     });
 
     openClearModal();
@@ -1005,8 +997,7 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
 
   it("U4 (AC1 regression): with valid sessionId + processing:true, Cancel appears", async () => {
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: new Date().toISOString(),
+      running: true,
     });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
@@ -1026,8 +1017,7 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
       processing: true,
     });
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
@@ -1086,14 +1076,14 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
       ).not.toBeInTheDocument();
     });
 
-    // Now resolve the stale in-flight promise with processing: true.
+    // Now resolve the stale in-flight promise with running: true.
     // Without the stale-closure guard, setChatAgentProcessing(true) would fire
     // and Cancel would re-appear. With the guard, sessionIdRef.current
     // (null after clear) !== sessionId at closure time (session-a) → guard
     // returns false and chatAgentProcessing stays false.
     resolveStatus!({
       processing: true,
-      startedAt: new Date().toISOString(),
+      running: true,
     });
 
     await new Promise<void>((resolve) => setTimeout(resolve, 200));
@@ -1397,13 +1387,11 @@ describe("RepositoryPage reload current session (AC1-AC7)", () => {
       sessionId: "session-a",
       messages: [],
       processing: false,
-      startedAt: null,
     });
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValueOnce({
       sessionId: "session-a",
       messages: [],
       processing: true,
-      startedAt: new Date().toISOString(),
     });
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
 
@@ -1522,8 +1510,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
       sessions: [sessionA, sessionB],
     });
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     localStorage.clear();
     sessionStorage.clear();
@@ -1620,8 +1607,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
       processing: true,
     });
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: null,
+      running: true,
     });
 
     const textarea = screen.getByPlaceholderText(
@@ -1724,8 +1710,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
 
   it("I2 (AC6): error during refresh shows error and re-enables refresh button", async () => {
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
@@ -1784,8 +1769,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
     });
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(history);
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
 
     renderPage();
@@ -1801,8 +1785,7 @@ describe("RepositoryPage adversarial — stale-closure data integrity", () => {
       processing: true,
     });
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: null,
+      running: true,
     });
 
     const textarea = screen.getByPlaceholderText(
@@ -1849,8 +1832,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     });
     vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     localStorage.clear();
     sessionStorage.clear();
@@ -2119,8 +2101,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     await screen.findByLabelText("Clear session");
 
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
 
     const textarea = screen.getByPlaceholderText(
@@ -2664,8 +2645,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(deferred);
 
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: new Date().toISOString(),
+      running: true,
     });
     vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
 
@@ -3906,8 +3886,7 @@ describe("RepositoryPage polling tick — agent status check (AC545)", () => {
     });
     vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     localStorage.clear();
   });
@@ -3917,10 +3896,9 @@ describe("RepositoryPage polling tick — agent status check (AC545)", () => {
     // subsequent calls (polling tick) return false → spinner must disappear.
     vi.mocked(api.getRepositoryAgentStatus)
       .mockResolvedValueOnce({
-        processing: true,
-        startedAt: new Date().toISOString(),
+        running: true,
       })
-      .mockResolvedValue({ processing: false });
+      .mockResolvedValue({ running: false });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
 
@@ -3948,8 +3926,7 @@ describe("RepositoryPage polling tick — agent status check (AC545)", () => {
     // Arrange: status always returns true — refreshAgentStatus should be called
     // on mount AND again from each polling tick.
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: new Date().toISOString(),
+      running: true,
     });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
@@ -3985,11 +3962,10 @@ describe("RepositoryPage polling tick — agent status check (AC545)", () => {
       // second tick returns false (done) — spinner must eventually clear.
       vi.mocked(api.getRepositoryAgentStatus)
         .mockResolvedValueOnce({
-          processing: true,
-          startedAt: new Date().toISOString(),
+          running: true,
         }) // mount call → processing=true, spinner shows
         .mockRejectedValueOnce(new Error("Network error")) // first tick error → must keep polling
-        .mockResolvedValue({ processing: false }); // subsequent calls → done
+        .mockResolvedValue({ running: false }); // subsequent calls → done
 
       renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
 
@@ -4027,8 +4003,7 @@ describe("RepositoryPage loading state clears on mid-flight abort (AC546)", () =
     });
     // Default: agent not processing, history empty
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
     localStorage.clear();
@@ -4036,14 +4011,8 @@ describe("RepositoryPage loading state clears on mid-flight abort (AC546)", () =
 
   it("AC546-1 (post-478): status check runs after history resolves, not concurrently", async () => {
     // Arrange: history resolves normally; status check is controlled
-    let resolveStatus!: (value: {
-      processing: boolean;
-      startedAt?: string | null;
-    }) => void;
-    const statusPromise = new Promise<{
-      processing: boolean;
-      startedAt?: string | null;
-    }>((resolve) => {
+    let resolveStatus!: (value: { running: boolean }) => void;
+    const statusPromise = new Promise<{ running: boolean }>((resolve) => {
       resolveStatus = resolve;
     });
     vi.mocked(api.getRepositoryAgentStatus).mockReturnValueOnce(statusPromise);
@@ -4066,7 +4035,7 @@ describe("RepositoryPage loading state clears on mid-flight abort (AC546)", () =
     });
 
     // Resolve status as processing=false — no Cancel button expected.
-    resolveStatus({ processing: false, startedAt: null });
+    resolveStatus({ running: false });
 
     await waitFor(() => {
       expect(
@@ -4670,8 +4639,7 @@ describe("RepositoryPage status check sequencing after session load (AC478)", ()
       sessions: [],
     });
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue({
       sessionId: "session-b",
@@ -4714,8 +4682,7 @@ describe("RepositoryPage status check sequencing after session load (AC478)", ()
 
   it("AC478-2: when status returns processing=true after history loads, Cancel button appears without history being re-fetched", async () => {
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: new Date().toISOString(),
+      running: true,
     });
     // Effect C fetches history once (completes). Effect D's first polling tick
     // immediately starts a second fetch; keep it pending to isolate the two calls.
@@ -4754,8 +4721,7 @@ describe("RepositoryPage status check sequencing after session load (AC478)", ()
     // If status were called with processing=false it would invoke setChatError(null),
     // wiping out the history error. Verify that never happens.
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
@@ -4793,10 +4759,9 @@ describe("RepositoryPage lifecycle guard semantics (issue #475)", () => {
     // Setup: agent returns processing:true on first status check, then false
     vi.mocked(api.getRepositoryAgentStatus)
       .mockResolvedValueOnce({
-        processing: true,
-        startedAt: new Date().toISOString(),
+        running: true,
       })
-      .mockResolvedValue({ processing: false, startedAt: null });
+      .mockResolvedValue({ running: false });
 
     // All history fetches resolve immediately so the polling tick can complete
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
@@ -4839,8 +4804,7 @@ describe("RepositoryPage lifecycle guard semantics (issue #475)", () => {
       historyPromise,
     );
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: new Date().toISOString(),
+      running: true,
     });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
@@ -4861,8 +4825,7 @@ describe("RepositoryPage lifecycle guard semantics (issue #475)", () => {
 
   it("L3: send message transitions lifecycle to streaming then hydrated on completion", async () => {
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     vi.mocked(api.sendAgentMessage).mockResolvedValue({
       messageId: "m1",
@@ -4933,8 +4896,7 @@ describe("RepositoryPage Send button disabled during status-unknown state (AC559
 
   it("AC559-1: Send disabled during initial load when agent is processing", async () => {
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: new Date().toISOString(),
+      running: true,
     });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
@@ -4962,8 +4924,7 @@ describe("RepositoryPage Send button disabled during status-unknown state (AC559
 
   it("AC559-2: Send disabled during initial load when agent is not processing, then enabled", async () => {
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
@@ -5006,8 +4967,7 @@ describe("RepositoryPage Send button disabled during status-unknown state (AC559
 
   it("AC559-4: AgentSelector and Model select disabled during unknown state, enabled after idle resolves", async () => {
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
@@ -5106,8 +5066,7 @@ describe("issue #562: handleCancelAgent optimistic update", () => {
     vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
     // Default: status resolves to idle so page can hydrate
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     localStorage.clear();
   });
@@ -5238,8 +5197,7 @@ describe("RepositoryPage refreshAgentStatus does not set chatError (AC560)", () 
     });
     vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     localStorage.clear();
   });
@@ -5247,8 +5205,7 @@ describe("RepositoryPage refreshAgentStatus does not set chatError (AC560)", () 
   it("AC560-1: no error banner on page load when agent is processing", async () => {
     // Arrange: status returns processing:true on mount (agent already running)
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: new Date().toISOString(),
+      running: true,
     });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
@@ -5271,8 +5228,7 @@ describe("RepositoryPage refreshAgentStatus does not set chatError (AC560)", () 
   it("AC560-2: no error banner after cancel when agent is still processing", async () => {
     // Arrange: status always returns processing:true (simulate agent still running after cancel)
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: new Date().toISOString(),
+      running: true,
     });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
@@ -5355,8 +5311,7 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
     vi.clearAllMocks();
     vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
       sessions: [],
@@ -5386,7 +5341,6 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
       sessionId: "session-a",
       messages: [],
       processing: true,
-      startedAt: new Date().toISOString(),
     });
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
     await waitFor(() => {
@@ -5409,12 +5363,10 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
     // First status returns processing:true, subsequent return false after first tick
     vi.mocked(api.getRepositoryAgentStatus)
       .mockResolvedValueOnce({
-        processing: true,
-        startedAt: new Date().toISOString(),
+        running: true,
       })
       .mockResolvedValue({
-        processing: true,
-        startedAt: new Date().toISOString(),
+        running: true,
       });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
@@ -5442,10 +5394,9 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
   it("AC588-4: stops polling when isAgentBusy transitions to false", async () => {
     vi.mocked(api.getRepositoryAgentStatus)
       .mockResolvedValueOnce({
-        processing: true,
-        startedAt: new Date().toISOString(),
+        running: true,
       })
-      .mockResolvedValueOnce({ processing: false, startedAt: null });
+      .mockResolvedValueOnce({ running: false });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
 
@@ -5471,8 +5422,7 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
 
   it("AC588-5: shows Cancel when isAgentBusy=true, Send when false", async () => {
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: false,
-      startedAt: null,
+      running: false,
     });
     vi.mocked(api.sendAgentMessage).mockResolvedValue({
       messageId: "m1",
@@ -5545,8 +5495,7 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
 
   it("AC588-7: shows 'Agent is thinking...' when isAgentBusy=true", async () => {
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: new Date().toISOString(),
+      running: true,
     });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);

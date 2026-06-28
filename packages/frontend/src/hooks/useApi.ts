@@ -175,8 +175,7 @@ export type AgentReply = {
 };
 
 type AgentStatus = {
-  processing: boolean;
-  startedAt?: string | null;
+  running: boolean;
 };
 
 export type ChatHistoryMessage = {

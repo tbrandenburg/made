@@ -1225,8 +1225,8 @@ export const RepositoryPage: React.FC = () => {
           targetSessionId,
         );
         if (sessionIdRef.current !== targetSessionId) return false;
-        setIsAgentBusy(status.processing);
-        return status.processing;
+        setIsAgentBusy(status.running);
+        return status.running;
       } catch (error) {
         console.error("Failed to load agent status", error);
         return null; // network error — caller should not stop polling

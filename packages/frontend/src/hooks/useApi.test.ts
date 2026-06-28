@@ -197,7 +197,7 @@ describe("sessionId forwarding for status and cancel endpoints", () => {
 
   it("should include session_id query param in getRepositoryAgentStatus when provided", async () => {
     window.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ processing: false }), {
+      new Response(JSON.stringify({ running: false }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
@@ -213,7 +213,7 @@ describe("sessionId forwarding for status and cancel endpoints", () => {
 
   it("should omit session_id query param in getRepositoryAgentStatus when not provided", async () => {
     window.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ processing: false }), {
+      new Response(JSON.stringify({ running: false }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
@@ -257,7 +257,7 @@ describe("sessionId forwarding for status and cancel endpoints", () => {
 
   it("should include session_id query param in getKnowledgeAgentStatus when provided", async () => {
     window.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ processing: false }), {
+      new Response(JSON.stringify({ running: false }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
@@ -287,7 +287,7 @@ describe("sessionId forwarding for status and cancel endpoints", () => {
 
   it("should include session_id query param in getConstitutionAgentStatus when provided", async () => {
     window.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ processing: false }), {
+      new Response(JSON.stringify({ running: false }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
@@ -317,7 +317,7 @@ describe("sessionId forwarding for status and cancel endpoints", () => {
 
   it("should include session_id query param in getTaskAgentStatus when provided", async () => {
     window.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ processing: false }), {
+      new Response(JSON.stringify({ running: false }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),

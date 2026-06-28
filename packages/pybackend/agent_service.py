@@ -406,29 +406,31 @@ def get_channel_status(lock_key: str) -> dict[str, object]:
                 _processing_channels[lock_key] = persisted_started
             started_at = persisted_started
 
-    if started_at is not None:
-        try:
-            processes = _read_running_agent_processes()
-        except (OSError, subprocess.SubprocessError) as exc:
-            logger.warning("Failed to inspect process table for status: %s", exc)
-        else:
-            if not _is_process_running_for_session(session_id, processes=processes):
+    try:
+        processes = _read_running_agent_processes()
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("Failed to inspect process table for status: %s", exc)
+    else:
+        is_running = _is_process_running_for_session(session_id, processes=processes)
+        if is_running:
+            if started_at is None:
+                started_at = datetime.now(UTC)
                 with _processing_lock:
-                    for key in _get_related_processing_keys(lock_key):
-                        _processing_channels.pop(key, None)
-                        _cancelled_channels.discard(key)
-                        _active_processes.pop(key, None)
-                        _cancel_events.pop(key, None)
-                needs_dump = True
-                started_at = None
+                    _processing_channels[lock_key] = started_at
+        elif started_at is not None:
+            with _processing_lock:
+                for key in _get_related_processing_keys(lock_key):
+                    _processing_channels.pop(key, None)
+                    _cancelled_channels.discard(key)
+                    _active_processes.pop(key, None)
+                    _cancel_events.pop(key, None)
+            needs_dump = True
+            started_at = None
 
     if needs_dump:
         _dump_processing_state()
 
-    return {
-        "processing": started_at is not None,
-        "startedAt": started_at.isoformat() if started_at else None,
-    }
+    return {"running": started_at is not None}
 
 
 def _get_registered_agent_executables() -> set[str]:
@@ -618,8 +620,8 @@ def export_chat_history(
             if channel:
                 lock_key = session_id if session_id else channel
                 status = get_channel_status(lock_key)
-                response["processing"] = status["processing"]
-                response["startedAt"] = status.get("startedAt")
+                response["processing"] = status["running"]
+                response["startedAt"] = None
             return response
 
         logger.error(
@@ -647,8 +649,8 @@ def export_chat_history(
     if channel:
         lock_key = session_id if session_id else channel
         status = get_channel_status(lock_key)
-        response["processing"] = status["processing"]
-        response["startedAt"] = status.get("startedAt")
+        response["processing"] = status["running"]
+        response["startedAt"] = None
     return response
 
 
