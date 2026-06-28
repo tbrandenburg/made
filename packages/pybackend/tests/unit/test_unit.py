@@ -645,24 +645,30 @@ class TestAgentService:
 
     def test_get_channel_status_returns_true_without_stored_state_when_process_alive(self):
         """get_channel_status must detect a live process even when there is no stored processing entry."""
+        import os
+        from datetime import UTC, datetime
         from unittest.mock import patch
-        from agent_service import get_channel_status, _processing_channels, _processing_lock
+        from agent_service import (
+            get_channel_status,
+            _process_registry,
+            _processing_channels,
+            _processing_lock,
+        )
 
         lock_key = "restart-without-state-123"
         with _processing_lock:
             _processing_channels.pop(lock_key, None)
 
-        with patch(
-            "agent_service._read_running_agent_processes",
-            return_value=[
-                {
-                    "pid": 99,
-                    "command": f"agent --session {lock_key}",
-                    "workingDirectory": None,
-                }
-            ],
-        ):
-            with patch("agent_service._dump_processing_state"):
+        with _processing_lock:
+            _process_registry[lock_key] = {
+                "pid": os.getpid(),
+                "startedAt": datetime.now(UTC).isoformat(),
+                "channel": lock_key,
+                "sessionId": None,
+            }
+
+        with patch("agent_service._save_process_registry"):
+            with patch("agent_service._read_running_agent_processes", return_value=[]):
                 status = get_channel_status(lock_key)
 
         assert status["running"] is True
@@ -896,247 +902,98 @@ class TestAgentService:
                 _processing_channels.pop(channel, None)
                 _processing_channels.pop(session_id, None)
 
-    def test_get_channel_status_falls_back_to_persisted_state(self):
-        """get_channel_status must restore processing=True from disk when in-memory is empty."""
+    def test_get_channel_status_falls_back_to_registry_state(self):
+        """get_channel_status must restore processing=True from the registry when in-memory is empty."""
+        import os
         from datetime import UTC, datetime
         from unittest.mock import patch
         from agent_service import (
             get_channel_status,
+            _process_registry,
             _processing_channels,
-            _active_processes,
             _processing_lock,
         )
 
         lock_key = "persisted-session-456"
-        with _processing_lock:
-            _processing_channels.pop(lock_key, None)
-            _active_processes.pop(lock_key, None)
-
-        with patch("agent_service._load_processing_state") as mock_load:
-            mock_load.return_value = {lock_key: datetime.now(UTC)}
-            with patch(
-                "agent_service._read_running_agent_processes",
-                return_value=[
-                    {
-                        "pid": 3,
-                        "command": f"agent --session {lock_key}",
-                        "workingDirectory": None,
-                    }
-                ],
-            ):
-                with patch("agent_service._dump_processing_state"):
-                    status = get_channel_status(lock_key)
-
-        assert status["running"] is True
-
-    def test_cancel_agent_message_by_session_id_reverse_lookup(self):
-        """cancel_agent_message must find processing entry by reverse lookup when lock_key is a session_id."""
-        from datetime import UTC, datetime
-        from unittest.mock import MagicMock
-        from agent_service import (
-            cancel_agent_message,
-            _conversation_sessions,
-            _processing_channels,
-            _active_processes,
-            _cancel_events,
-            _processing_lock,
-        )
-
-        channel = "cancel-reverse-lookup-repo"
-        session_id = "cancel-reverse-session-123"
-        mock_proc = MagicMock()
-        mock_proc.poll.return_value = None
         try:
             with _processing_lock:
-                _conversation_sessions[channel] = session_id
-                _processing_channels[channel] = datetime.now(UTC)
-                _active_processes[channel] = mock_proc
-                _cancel_events[channel] = MagicMock()
+                _processing_channels.pop(lock_key, None)
+                _process_registry[lock_key] = {
+                    "pid": os.getpid(),
+                    "startedAt": datetime.now(UTC).isoformat(),
+                    "channel": lock_key,
+                    "sessionId": None,
+                }
 
-            assert cancel_agent_message(session_id) is True
-            mock_proc.terminate.assert_called_once()
+            with patch("agent_service._read_running_agent_processes", return_value=[]):
+                with patch("agent_service._save_process_registry"):
+                    status = get_channel_status(lock_key)
+
+            assert status["running"] is True
         finally:
             with _processing_lock:
-                _conversation_sessions.pop(channel, None)
-                _processing_channels.pop(channel, None)
-                _processing_channels.pop(session_id, None)
-                _active_processes.pop(channel, None)
-                _cancel_events.pop(channel, None)
+                _process_registry.pop(lock_key, None)
 
-    def test_cancel_agent_message_falls_back_to_persisted_state(self):
-        """cancel_agent_message must restore state from disk, but still return not found when no live process exists."""
+    def test_cancel_agent_message_uses_registry_pid_when_process_missing(self):
+        """cancel_agent_message must terminate by registry pid when the live process object is missing."""
         from datetime import UTC, datetime
+        import signal
         from unittest.mock import patch
         from agent_service import (
             cancel_agent_message,
+            _process_registry,
             _processing_channels,
-            _active_processes,
             _processing_lock,
         )
 
         lock_key = "cancel-persisted-session-456"
-        with _processing_lock:
-            _processing_channels.pop(lock_key, None)
-            _active_processes.pop(lock_key, None)
-
-        with patch("agent_service._load_processing_state") as mock_load:
-            mock_load.return_value = {lock_key: datetime.now(UTC)}
-            with patch("agent_service._dump_processing_state"):
-                assert cancel_agent_message(lock_key) is False
-
-        with _processing_lock:
-            assert lock_key not in _processing_channels
-
-    def test_cancel_agent_message_finds_process_under_cleanup_key(self):
-        """cancel_agent_message must find a live process stored under cleanup_key."""
-        from datetime import UTC, datetime
-        from unittest.mock import MagicMock, patch
-        from agent_service import (
-            cancel_agent_message,
-            _processing_channels,
-            _active_processes,
-            _cancel_events,
-            _processing_lock,
-        )
-
-        lock_key = "cancel-cleanup-lock-001"
-        cleanup_key = "cancel-cleanup-persisted-001"
-        mock_proc = MagicMock()
-        mock_proc.poll.return_value = None
-
         try:
             with _processing_lock:
-                _active_processes[cleanup_key] = mock_proc
-                _cancel_events[cleanup_key] = MagicMock()
+                _processing_channels[lock_key] = datetime.now(UTC)
+                _process_registry[lock_key] = {
+                    "pid": 4321,
+                    "startedAt": datetime.now(UTC).isoformat(),
+                    "channel": lock_key,
+                    "sessionId": None,
+                }
 
-            with patch("agent_service._load_processing_state") as mock_load:
-                mock_load.return_value = {cleanup_key: datetime.now(UTC)}
-                with patch("agent_service._dump_processing_state"):
-                    assert cancel_agent_message(lock_key) is True
-
-            mock_proc.terminate.assert_called_once()
-            with _processing_lock:
-                assert lock_key not in _processing_channels
-                assert cleanup_key not in _processing_channels
-                assert cleanup_key not in _active_processes
-                assert cleanup_key not in _cancel_events
-        finally:
-            with _processing_lock:
-                _active_processes.pop(cleanup_key, None)
-                _cancel_events.pop(cleanup_key, None)
-                _processing_channels.pop(lock_key, None)
-                _processing_channels.pop(cleanup_key, None)
-
-    def test_cancel_agent_message_clears_both_aliases_on_stale_process(self):
-        """cancel_agent_message must clear both lock_key and cleanup_key when the process is gone."""
-        from datetime import UTC, datetime
-        from unittest.mock import patch
-        from agent_service import (
-            cancel_agent_message,
-            _processing_channels,
-            _processing_lock,
-        )
-
-        lock_key = "cancel-stale-lock-001"
-        cleanup_key = "cancel-stale-persisted-001"
-
-        try:
-            with patch("agent_service._load_processing_state") as mock_load:
-                mock_load.return_value = {cleanup_key: datetime.now(UTC)}
-                with patch("agent_service._dump_processing_state"):
-                    assert cancel_agent_message(lock_key) is False
-
-            with _processing_lock:
-                assert lock_key not in _processing_channels
-                assert cleanup_key not in _processing_channels
+            with patch("agent_service._save_process_registry"), patch(
+                "agent_service.os.kill"
+            ) as mock_kill:
+                assert cancel_agent_message(lock_key) is True
+                mock_kill.assert_called_once_with(4321, signal.SIGTERM)
         finally:
             with _processing_lock:
                 _processing_channels.pop(lock_key, None)
-                _processing_channels.pop(cleanup_key, None)
+                _process_registry.pop(lock_key, None)
 
-    def test_cancel_agent_message_not_found_when_no_process(self):
-        """cancel_agent_message must return False when no live process can be resolved."""
-        from unittest.mock import patch
-        from agent_service import (
-            cancel_agent_message,
-            _processing_channels,
-            _processing_lock,
-        )
-
-        lock_key = "cancel-nonexistent-session-789"
-        with _processing_lock:
-            _processing_channels.pop(lock_key, None)
-
-        with patch("agent_service._load_processing_state") as mock_load:
-            mock_load.return_value = {}
-            with patch("agent_service._dump_processing_state"):
-                assert cancel_agent_message(lock_key) is False
-
-    def test_cancel_agent_message_clears_single_persisted_entry_when_session_unknown(self):
-        """cancel_agent_message must clear a uniquely identifiable stale persisted entry even if the session map is empty."""
+    def test_record_process_writes_alias_and_remove_process_clears_it(self):
+        """_record_process and _remove_process must keep the registry and alias keys in sync."""
         from datetime import UTC, datetime
-        from unittest.mock import patch
-        from agent_service import (
-            cancel_agent_message,
-            _processing_channels,
-            _processing_lock,
-        )
+        from agent_service import _process_registry, _record_process, _remove_process
 
-        lock_key = "cancel-persisted-orphan-999"
-        with _processing_lock:
-            _processing_channels.pop(lock_key, None)
-
-        with patch("agent_service._load_processing_state") as mock_load:
-            mock_load.return_value = {lock_key: datetime.now(UTC)}
-            with patch("agent_service._dump_processing_state"):
-                assert cancel_agent_message(lock_key) is False
-
-        with _processing_lock:
-            assert lock_key not in _processing_channels
-
-    def test_cancel_agent_message_does_not_orphan_live_process_for_stale_lock_key(self):
-        """A stale lock_key must still resolve a live process when a stale cleanup alias exists."""
-        from datetime import UTC, datetime
-        from unittest.mock import MagicMock, patch
-        from agent_service import (
-            cancel_agent_message,
-            _active_processes,
-            _conversation_sessions,
-            _processing_channels,
-            _processing_lock,
-        )
-
-        cleanup_key = "cancel-stale-cleanup-001"
-        live_key = "cancel-live-persisted-001"
-        stale_lock = "cancel-stale-lock-001"
-        dead_proc = MagicMock()
-        dead_proc.poll.return_value = 1
-        live_proc = MagicMock()
-        live_proc.poll.return_value = None
-
+        channel = "registry-channel"
+        session_id = "registry-session"
         try:
-            with _processing_lock:
-                _conversation_sessions[live_key] = stale_lock
-                _active_processes[cleanup_key] = dead_proc
-                _active_processes[live_key] = live_proc
+            _record_process(
+                channel,
+                4321,
+                datetime.now(UTC),
+                channel=channel,
+                session_id=session_id,
+                agent="test-agent",
+                working_directory="/tmp/repo",
+            )
 
-            with patch("agent_service._load_processing_state") as mock_load:
-                mock_load.return_value = {cleanup_key: datetime.now(UTC)}
-                with patch("agent_service._dump_processing_state"):
-                    assert cancel_agent_message(stale_lock) is True
+            assert channel in _process_registry
+            assert session_id in _process_registry
+            assert _process_registry[channel]["pid"] == 4321
 
-            live_proc.terminate.assert_called_once()
-            dead_proc.terminate.assert_not_called()
-
-            with _processing_lock:
-                assert live_key not in _active_processes
-                assert stale_lock not in _processing_channels
+            _remove_process(channel)
+            assert channel not in _process_registry
+            assert session_id not in _process_registry
         finally:
-            with _processing_lock:
-                _conversation_sessions.pop(live_key, None)
-                _active_processes.pop(cleanup_key, None)
-                _active_processes.pop(live_key, None)
-                _processing_channels.pop(stale_lock, None)
+            _remove_process(channel)
 
     def test_cancel_agent_message_by_channel_key_direct(self):
         """cancel_agent_message must still work with the direct channel key."""
@@ -1202,19 +1059,94 @@ class TestAgentService:
                 _processing_channels.pop(channel, None)
                 _processing_channels.pop(session_id, None)
 
-    def test_mark_channel_processing_persists_state(self):
-        """_mark_channel_processing must call _dump_processing_state."""
+    def test_load_process_registry_discards_stale_entries(self):
+        """_load_process_registry must discard entries older than _MAX_PROCESSING_AGE."""
+        from datetime import UTC, datetime, timedelta
         from unittest.mock import patch
-        from agent_service import _mark_channel_processing, _clear_channel_processing
+        from agent_service import _load_process_registry, _MAX_PROCESSING_AGE, _process_registry
+
+        recent_time = datetime.now(UTC) - timedelta(minutes=10)
+        stale_time = datetime.now(UTC) - _MAX_PROCESSING_AGE - timedelta(minutes=1)
+
+        fake_data = {
+            "recent-session": {
+                "pid": 1,
+                "startedAt": recent_time.isoformat(),
+                "channel": "recent-session",
+                "sessionId": None,
+            },
+            "stale-session": {
+                "pid": 2,
+                "startedAt": stale_time.isoformat(),
+                "channel": "stale-session",
+                "sessionId": None,
+            },
+        }
+
+        with patch("agent_service._get_registry_path") as mock_path:
+            mock_file = mock_path.return_value
+            mock_file.exists.return_value = True
+            mock_file.read_text.return_value = __import__("json").dumps(fake_data)
+            _process_registry.clear()
+            _load_process_registry()
+
+        assert "recent-session" in _process_registry
+        assert "stale-session" not in _process_registry
+
+    def test_get_channel_status_ignores_dead_registry_entry(self):
+        """get_channel_status must ignore registry entries whose pid is dead."""
+        from datetime import UTC, datetime
+        from unittest.mock import patch
+        from agent_service import get_channel_status, _process_registry, _processing_lock
+
+        lock_key = "registry-dead-test"
+        try:
+            with _processing_lock:
+                _process_registry[lock_key] = {
+                    "pid": 999999999,
+                    "startedAt": datetime.now(UTC).isoformat(),
+                    "channel": lock_key,
+                    "sessionId": None,
+                }
+
+            with patch("agent_service._read_running_agent_processes", return_value=[]):
+                with patch("agent_service._save_process_registry"):
+                    status = get_channel_status(lock_key)
+
+            assert status["running"] is False
+        finally:
+            with _processing_lock:
+                _process_registry.pop(lock_key, None)
+
+    def test_mark_channel_processing_rejects_running_registry_entry(self):
+        """_mark_channel_processing must reject a stale in-memory entry when the registry pid is alive."""
+        import os
+        from datetime import UTC, datetime
+        from unittest.mock import patch
+        from agent_service import (
+            _mark_channel_processing,
+            _clear_channel_processing,
+            _process_registry,
+            _processing_channels,
+            _processing_lock,
+        )
 
         channel = "persist-mark-channel"
         try:
-            with patch("agent_service._dump_processing_state") as mock_dump:
+            with _processing_lock:
+                _processing_channels[channel] = datetime.now(UTC)
+                _process_registry[channel] = {
+                    "pid": os.getpid(),
+                    "startedAt": datetime.now(UTC).isoformat(),
+                    "channel": channel,
+                    "sessionId": None,
+                }
+
+            with patch("agent_service._save_process_registry"):
                 result = _mark_channel_processing(channel)
-                assert result is True
-                mock_dump.assert_called_once()
+                assert result is False
         finally:
-            with patch("agent_service._dump_processing_state"):
+            with patch("agent_service._save_process_registry"):
                 _clear_channel_processing(channel)
 
     def test_clear_channel_processing_persists_state(self):
@@ -1236,36 +1168,36 @@ class TestAgentService:
             mock_dump.assert_called_once()
 
     def test_load_processing_state_discards_stale_entries(self):
-        """_load_processing_state must discard entries older than _MAX_PROCESSING_AGE."""
+        """_load_processing_state must discard stale registry entries."""
         from datetime import UTC, datetime, timedelta
         from unittest.mock import patch
-        from agent_service import _load_processing_state, _MAX_PROCESSING_AGE
+        from agent_service import _load_processing_state, _MAX_PROCESSING_AGE, _process_registry
 
         recent_time = datetime.now(UTC) - timedelta(minutes=10)
         stale_time = datetime.now(UTC) - _MAX_PROCESSING_AGE - timedelta(minutes=1)
 
         fake_data = {
-            "recent-session": recent_time.isoformat(),
-            "stale-session": stale_time.isoformat(),
+            "recent-session": {
+                "pid": 1,
+                "startedAt": recent_time.isoformat(),
+                "channel": "recent-session",
+                "sessionId": None,
+            },
+            "stale-session": {
+                "pid": 2,
+                "startedAt": stale_time.isoformat(),
+                "channel": "stale-session",
+                "sessionId": None,
+            },
         }
 
-        with patch("agent_service._get_agent_state_path") as mock_path:
+        with patch("agent_service._get_registry_path") as mock_path:
             mock_file = mock_path.return_value
             mock_file.exists.return_value = True
             mock_file.read_text.return_value = __import__("json").dumps(fake_data)
 
+            _process_registry.clear()
             result = _load_processing_state()
 
         assert "recent-session" in result
         assert "stale-session" not in result
-
-    def test_get_channel_status_ignores_stale_persisted_entry(self):
-        """get_channel_status must not report processing for entries beyond the TTL."""
-        from unittest.mock import patch
-        from agent_service import get_channel_status
-
-        with patch("agent_service._load_processing_state") as mock_load:
-            mock_load.return_value = {}  # stale entry already filtered by _load
-            status = get_channel_status("ghost-session-after-restart")
-
-        assert status["running"] is False

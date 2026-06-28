@@ -23,6 +23,8 @@ from settings_service import read_settings
 
 logger = logging.getLogger(__name__)
 
+_REGISTRY_PATH: Path | None = None
+_process_registry: dict[str, dict[str, object]] = {}
 _processing_lock = Lock()
 _processing_channels: dict[str, datetime] = {}
 _cancelled_channels: set[str] = set()
@@ -30,46 +32,214 @@ _active_processes: dict[str, subprocess.Popen[str]] = {}
 _cancel_events: dict[str, Event] = {}
 _conversation_sessions: dict[str, str] = {}
 
-_PERSISTENT_STATE_PATH: Path | None = None
+_MAX_PROCESSING_AGE = timedelta(hours=2)
+
+
+def _get_registry_path() -> Path:
+    global _REGISTRY_PATH
+    if _REGISTRY_PATH is None:
+        _REGISTRY_PATH = get_made_directory() / "agent_processing.json"
+    return _REGISTRY_PATH
 
 
 def _get_agent_state_path() -> Path:
-    global _PERSISTENT_STATE_PATH
-    if _PERSISTENT_STATE_PATH is None:
-        _PERSISTENT_STATE_PATH = get_made_directory() / "agent_processing.json"
-    return _PERSISTENT_STATE_PATH
+    return _get_registry_path()
+
+
+def _load_process_registry() -> None:
+    path = _get_registry_path()
+    if not path.exists():
+        return
+
+    try:
+        data = json.loads(path.read_text())
+        if not isinstance(data, dict):
+            raise ValueError("Invalid registry payload")
+
+        now = datetime.now(UTC)
+        fresh: dict[str, dict[str, object]] = {}
+        for key, value in data.items():
+            if not isinstance(key, str):
+                continue
+
+            entry: dict[str, object] | None = None
+            if isinstance(value, str):
+                entry = {
+                    "pid": None,
+                    "startedAt": value,
+                    "channel": key,
+                    "sessionId": None,
+                    "agent": None,
+                    "workingDirectory": None,
+                    "cancelled": False,
+                }
+            elif isinstance(value, dict):
+                started_at = value.get("startedAt")
+                if not isinstance(started_at, str):
+                    continue
+
+                pid = value.get("pid")
+                if isinstance(pid, str) and pid.isdigit():
+                    pid = int(pid)
+                elif not isinstance(pid, int):
+                    pid = None
+
+                channel = value.get("channel")
+                session_id = value.get("sessionId")
+                agent = value.get("agent")
+                working_directory = value.get("workingDirectory")
+                entry = {
+                    "pid": pid,
+                    "startedAt": started_at,
+                    "channel": channel if isinstance(channel, str) else key,
+                    "sessionId": session_id if isinstance(session_id, str) else None,
+                    "agent": agent if isinstance(agent, str) else None,
+                    "workingDirectory": (
+                        working_directory
+                        if isinstance(working_directory, str)
+                        else None
+                    ),
+                    "cancelled": bool(value.get("cancelled", False)),
+                }
+
+            if entry is None:
+                continue
+
+            try:
+                started_at_dt = datetime.fromisoformat(str(entry["startedAt"]))
+            except (TypeError, ValueError):
+                continue
+
+            if now - started_at_dt <= _MAX_PROCESSING_AGE:
+                fresh[key] = entry
+
+        with _processing_lock:
+            _process_registry.clear()
+            _process_registry.update(fresh)
+    except Exception:
+        logger.warning("Failed to load agent process registry", exc_info=True)
+        with _processing_lock:
+            _process_registry.clear()
+
+
+def _save_process_registry() -> None:
+    path = _get_registry_path()
+    try:
+        with _processing_lock:
+            snapshot = dict(_process_registry)
+        path.write_text(json.dumps(snapshot, indent=2))
+    except Exception:
+        logger.warning("Failed to persist agent process registry", exc_info=True)
+
+
+def _find_process_registry_entry_locked(
+    lock_key: str,
+) -> tuple[str, dict[str, object]] | None:
+    entry = _process_registry.get(lock_key)
+    if entry is not None:
+        return lock_key, dict(entry)
+
+    for key, value in _process_registry.items():
+        if value.get("sessionId") == lock_key or value.get("channel") == lock_key:
+            return key, dict(value)
+    return None
+
+
+def _find_process_registry_entry(
+    lock_key: str,
+) -> tuple[str, dict[str, object]] | None:
+    with _processing_lock:
+        return _find_process_registry_entry_locked(lock_key)
+
+
+def _is_pid_alive(pid: object) -> bool:
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _record_process(
+    registry_key: str,
+    pid: int,
+    started_at: datetime,
+    *,
+    channel: str,
+    session_id: str | None = None,
+    agent: str | None = None,
+    working_directory: str | None = None,
+) -> None:
+    entry = {
+        "pid": pid,
+        "startedAt": started_at.isoformat(),
+        "channel": channel,
+        "sessionId": session_id,
+        "agent": agent,
+        "workingDirectory": working_directory,
+        "cancelled": False,
+    }
+    with _processing_lock:
+        _process_registry[registry_key] = entry
+        if session_id and session_id != registry_key:
+            _process_registry[session_id] = dict(entry)
+    _save_process_registry()
+
+
+def _remove_process_locked(lock_key: str) -> None:
+    keys_to_remove = {lock_key}
+    for key, value in _process_registry.items():
+        if value.get("sessionId") == lock_key or value.get("channel") == lock_key:
+            keys_to_remove.add(key)
+            session_id = value.get("sessionId")
+            if isinstance(session_id, str):
+                keys_to_remove.add(session_id)
+            channel = value.get("channel")
+            if isinstance(channel, str):
+                keys_to_remove.add(channel)
+
+    for key in keys_to_remove:
+        _process_registry.pop(key, None)
+
+
+def _remove_process(lock_key: str) -> None:
+    with _processing_lock:
+        _remove_process_locked(lock_key)
+    _save_process_registry()
 
 
 def _dump_processing_state() -> None:
-    path = _get_agent_state_path()
-    try:
-        with _processing_lock:
-            snapshot = {k: v.isoformat() for k, v in _processing_channels.items()}
-        path.write_text(json.dumps(snapshot))
-    except Exception:
-        logger.warning("Failed to persist agent processing state", exc_info=True)
-
-
-# Persisted entries older than this are considered stale (e.g. after a backend restart
-# with no live process) and are silently discarded on load.
-_MAX_PROCESSING_AGE = timedelta(hours=1)
+    _save_process_registry()
 
 
 def _load_processing_state() -> dict[str, datetime]:
-    path = _get_agent_state_path()
-    if not path.exists():
-        return {}
-    try:
-        data = json.loads(path.read_text())
-        now = datetime.now(UTC)
-        return {
-            k: dt
-            for k, v in data.items()
-            if (dt := datetime.fromisoformat(v)) and now - dt < _MAX_PROCESSING_AGE
-        }
-    except Exception:
-        logger.warning("Failed to load persisted agent processing state", exc_info=True)
-        return {}
+    _load_process_registry()
+    with _processing_lock:
+        snapshot = dict(_process_registry)
+
+    now = datetime.now(UTC)
+    state: dict[str, datetime] = {}
+    for key, entry in snapshot.items():
+        started_at = entry.get("startedAt")
+        if not isinstance(started_at, str):
+            continue
+
+        try:
+            started_at_dt = datetime.fromisoformat(started_at)
+        except (TypeError, ValueError):
+            continue
+
+        if now - started_at_dt < _MAX_PROCESSING_AGE:
+            state[key] = started_at_dt
+    return state
+
+
+_load_process_registry()
 
 
 def _get_related_processing_keys(lock_key: str) -> set[str]:
@@ -228,7 +398,11 @@ def _mark_channel_processing(channel: str) -> bool:
             process = _active_processes.get(channel)
             # Only replace if we can confirm the process has exited (stale entry)
             if process is None or process.poll() is None:
-                return False  # Truly busy or in-flight; reject
+                registry_entry = _find_process_registry_entry_locked(channel)
+                if registry_entry is None or _is_pid_alive(
+                    registry_entry[1].get("pid")
+                ):
+                    return False  # Truly busy or in-flight; reject
             # Process confirmed exited: clean up stale entry and re-mark
             _processing_channels.pop(channel, None)
             _cancelled_channels.discard(channel)
@@ -246,6 +420,7 @@ def _clear_channel_processing(channel: str) -> None:
             _cancelled_channels.discard(key)
             _active_processes.pop(key, None)
             _cancel_events.pop(key, None)
+    _remove_process(channel)
     _dump_processing_state()
 
 
@@ -273,11 +448,12 @@ def _was_channel_cancelled(channel: str) -> bool:
 
 def cancel_agent_message(lock_key: str) -> bool:
     """Cancel an active agent message for the given lock key."""
-    session_snapshot: list[tuple[str, str]] = []
     cancel_event = None
     process = None
-    cleanup_key = lock_key
     started_at = None
+    registry_entry: tuple[str, dict[str, object]] | None = _find_process_registry_entry(
+        lock_key
+    )
 
     with _processing_lock:
         started_at = _processing_channels.get(lock_key)
@@ -290,76 +466,78 @@ def cancel_agent_message(lock_key: str) -> bool:
                         _processing_channels[lock_key] = started_at
                     break
 
-        if started_at is None:
-            session_snapshot = list(_conversation_sessions.items())
-
-    # Fallback 2: persisted state (survives backend restart) — outside the lock
-    # to avoid blocking all threads on file I/O.
     if started_at is None:
-        persisted = _load_processing_state()
-        persisted_started = persisted.get(lock_key)
-        if persisted_started is None:
-            for ch, sid in session_snapshot:
-                if sid == lock_key:
-                    persisted_started = persisted.get(ch)
-                    cleanup_key = ch
-                    break
-            if persisted_started is None and len(persisted) == 1:
-                candidate = next(iter(persisted))
-                cleanup_key = candidate
-                persisted_started = persisted[cleanup_key]
-        else:
-            cleanup_key = lock_key
-        if persisted_started is None:
+        if registry_entry is None:
             return False
+
+        started_at_str = registry_entry[1].get("startedAt")
+        if isinstance(started_at_str, str):
+            try:
+                started_at = datetime.fromisoformat(started_at_str)
+            except (TypeError, ValueError):
+                started_at = datetime.now(UTC)
+        else:
+            started_at = datetime.now(UTC)
         with _processing_lock:
-            _processing_channels[lock_key] = persisted_started
-        started_at = persisted_started
+            _processing_channels[lock_key] = started_at
 
     with _processing_lock:
-        related = [cleanup_key, *_get_related_processing_keys(lock_key)]
+        related = _get_related_processing_keys(lock_key)
         for key in dict.fromkeys(related):
             candidate_cancel_event = _cancel_events.get(key)
             candidate_process = _active_processes.get(key)
             if candidate_process is not None and candidate_process.poll() is None:
                 cancel_event = candidate_cancel_event
                 process = candidate_process
-                cleanup_key = key
                 break
             if cancel_event is None:
                 cancel_event = candidate_cancel_event
             if process is None:
                 process = candidate_process
 
-    if process is None or process.poll() is not None:
-        _clear_channel_processing(cleanup_key)
-        if cleanup_key != lock_key:
+    if process is None:
+        pid = registry_entry[1].get("pid") if registry_entry is not None else None
+        if not isinstance(pid, int):
             _clear_channel_processing(lock_key)
+            return False
+        pid_to_kill: int | None = pid
+    elif process.poll() is not None:
+        _clear_channel_processing(lock_key)
         return False
+    else:
+        pid_to_kill = None
 
     with _processing_lock:
-        related = [cleanup_key, *_get_related_processing_keys(lock_key)]
+        related = _get_related_processing_keys(lock_key)
         for key in dict.fromkeys(related):
             _cancelled_channels.add(key)
             _processing_channels.pop(key, None)
             _cancel_events.pop(key, None)
             _active_processes.pop(key, None)
 
+    _remove_process(lock_key)
     _dump_processing_state()
 
     if cancel_event:
         cancel_event.set()
-    process.terminate()
-    try:
-        process.wait(timeout=1)
-    except subprocess.TimeoutExpired:
-        process.kill()
+    if process is not None:
+        process.terminate()
+        try:
+            process.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            process.kill()
+    elif pid_to_kill is not None:
+        try:
+            os.kill(pid_to_kill, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
     return True
 
 
 def get_channel_status(lock_key: str) -> dict[str, object]:
     needs_dump = False
     session_id = lock_key
+    registry_confirmed = False
 
     with _processing_lock:
         started_at = _processing_channels.get(lock_key)
@@ -379,11 +557,7 @@ def get_channel_status(lock_key: str) -> dict[str, object]:
         if lock_key in _conversation_sessions:
             session_id = _conversation_sessions[lock_key]
 
-        # Snapshot the session map so we can do disk I/O outside the lock below.
         needs_disk_fallback = started_at is None
-        session_snapshot = (
-            list(_conversation_sessions.items()) if needs_disk_fallback else []
-        )
 
         if started_at is not None:
             process = _active_processes.get(lock_key)
@@ -396,23 +570,61 @@ def get_channel_status(lock_key: str) -> dict[str, object]:
                     _cancel_events.pop(key, None)
                 needs_dump = True
                 started_at = None
+            elif process is None:
+                registry_entry = _find_process_registry_entry_locked(lock_key)
+                if registry_entry is not None and not _is_pid_alive(
+                    registry_entry[1].get("pid")
+                ):
+                    _remove_process_locked(lock_key)
+                    for key in _get_related_processing_keys(lock_key):
+                        _processing_channels.pop(key, None)
+                        _cancelled_channels.discard(key)
+                        _active_processes.pop(key, None)
+                        _cancel_events.pop(key, None)
+                    needs_dump = True
+                    started_at = None
+                elif registry_entry is not None:
+                    started_str = registry_entry[1].get("startedAt")
+                    if isinstance(started_str, str):
+                        try:
+                            started_at = datetime.fromisoformat(started_str)
+                        except (TypeError, ValueError):
+                            started_at = datetime.now(UTC)
+                    else:
+                        started_at = datetime.now(UTC)
+                    with _processing_lock:
+                        _processing_channels[lock_key] = started_at
+                    session_value = registry_entry[1].get("sessionId")
+                    if isinstance(session_value, str):
+                        session_id = session_value
+                    registry_confirmed = True
 
     # Fallback 2: persisted state (survives backend restart) — outside the lock
     # to avoid blocking all threads on file I/O.
     if needs_disk_fallback and started_at is None:
-        persisted = _load_processing_state()
-        persisted_started = persisted.get(lock_key)
-        if persisted_started is None:
-            # Also try reverse lookup in persisted state via session map snapshot
-            for ch, sid in session_snapshot:
-                if sid == lock_key:
-                    persisted_started = persisted.get(ch)
-                    session_id = sid
-                    break
-        if persisted_started is not None:
+        registry_entry = _find_process_registry_entry(lock_key)
+        if registry_entry is not None and _is_pid_alive(registry_entry[1].get("pid")):
+            started_str = registry_entry[1].get("startedAt")
+            if isinstance(started_str, str):
+                try:
+                    started_at = datetime.fromisoformat(started_str)
+                except (TypeError, ValueError):
+                    started_at = datetime.now(UTC)
+            else:
+                started_at = datetime.now(UTC)
             with _processing_lock:
-                _processing_channels[lock_key] = persisted_started
-            started_at = persisted_started
+                _processing_channels[lock_key] = started_at
+            session_id = (
+                registry_entry[1].get("sessionId")
+                if isinstance(registry_entry[1].get("sessionId"), str)
+                else session_id
+            )
+            registry_confirmed = True
+        elif registry_entry is not None:
+            _remove_process(lock_key)
+
+    if registry_confirmed:
+        return {"running": True}
 
     try:
         processes = _read_running_agent_processes()
@@ -838,6 +1050,19 @@ def send_agent_message(
             agent_cli = get_agent_cli(working_dir)
             start_time = time.monotonic()
             resolved_model = model if model and model != "default" else None
+
+            def on_process(process: subprocess.Popen[str]) -> None:
+                _register_active_process(lock_key, process)
+                _record_process(
+                    lock_key,
+                    process.pid,
+                    datetime.now(UTC),
+                    channel=channel,
+                    session_id=active_session,
+                    agent=agent,
+                    working_directory=str(working_dir),
+                )
+
             result = agent_cli.run_agent(
                 message,
                 active_session,
@@ -845,7 +1070,7 @@ def send_agent_message(
                 resolved_model,
                 working_dir,
                 cancel_event=cancel_event,
-                on_process=lambda process: _register_active_process(lock_key, process),
+                on_process=on_process,
             )
             duration_seconds = time.monotonic() - start_time
             logger.info(
@@ -874,7 +1099,10 @@ def send_agent_message(
                                     _cancel_events[result.session_id] = ev
                                 if lock_key in _cancelled_channels:
                                     _cancelled_channels.add(result.session_id)
-                        _dump_processing_state()
+                                entry = _process_registry.get(lock_key)
+                                if entry is not None:
+                                    _process_registry[result.session_id] = dict(entry)
+                        _save_process_registry()
 
                 logger.info(
                     "Agent message processed (channel: %s, session: %s)",
