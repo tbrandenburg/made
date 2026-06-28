@@ -967,7 +967,14 @@ export const RepositoryPage: React.FC = () => {
   }, [name]);
 
   const loadGitStatus = useCallback(() => {
-    if (!name || !repository?.hasGit) return;
+    if (!name || !repository?.hasGit) {
+      setGitStatus(null);
+      setGitStatusError(null);
+      return;
+    }
+
+    setGitStatus(null);
+    setGitStatusError(null);
     setGitStatusLoading(true);
     api
       .getRepositoryGitStatus(name)
@@ -2561,6 +2568,13 @@ export const RepositoryPage: React.FC = () => {
           </span>
           {repository.hasGit && repository.branch && (
             <span className="badge">{repository.branch}</span>
+          )}
+          {repository.hasGit && gitStatus && (
+            <span
+              className={`badge ${gitStatus.diff.length === 0 ? "success" : "danger"}`}
+            >
+              {gitStatus.diff.length === 0 ? "Clean" : "Dirty"}
+            </span>
           )}
         </div>
       ) : null}

@@ -18,6 +18,7 @@ import {
   ChatHistoryMessage,
   ChatHistoryResponse,
   ChatSession,
+  type RepositorySummary,
 } from "../../hooks/useApi";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { TaskPage } from "../TaskPage";
@@ -94,6 +95,20 @@ const sessionB: ChatSession = {
 };
 
 const emptyHistory = { sessionId: "", messages: [] };
+
+const mockRepository = (
+  overrides: Partial<RepositorySummary> = {},
+): RepositorySummary => ({
+  name: "test-repo",
+  path: "/tmp/test-repo",
+  hasGit: true,
+  isWorktreeChild: false,
+  lastCommit: "abc123",
+  branch: "main",
+  technology: "TypeScript",
+  license: "MIT",
+  ...overrides,
+});
 
 function renderPage(initialEntries = ["/repositories/test-repo?tab=agent"]) {
   return render(
@@ -5169,6 +5184,88 @@ describe("RepositoryPage skeleton states", () => {
       screen.getByRole("button", { name: /git/i }),
       "FAIL: Git tab button not rendered before repository loads",
     ).toBeInTheDocument();
+  });
+});
+
+describe("RepositoryPage working tree badge", () => {
+  beforeEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [],
+    });
+    localStorage.clear();
+  });
+
+  it("shows Clean badge when git status diff is empty", async () => {
+    vi.mocked(api.getRepository).mockResolvedValue(mockRepository());
+    vi.mocked(api.getRepositoryGitStatus).mockResolvedValue({
+      branch: "main",
+      aheadBehind: { ahead: 0, behind: 0 },
+      lineStats: { green: 0, red: 0 },
+      lastCommit: { id: "abc123", date: "2026-01-01T00:00:00Z" },
+      counts: {
+        issues: 0,
+        pullRequests: 0,
+        branches: 1,
+        worktrees: 0,
+      },
+      links: {
+        repo: null,
+        issues: null,
+        pulls: null,
+        branches: null,
+        commit: null,
+      },
+      diff: [],
+    });
+
+    renderPage(["/repositories/test-repo"]);
+
+    expect(await screen.findByText("Clean")).toHaveClass("success");
+  });
+
+  it("shows Dirty badge when git status diff has entries", async () => {
+    vi.mocked(api.getRepository).mockResolvedValue(mockRepository());
+    vi.mocked(api.getRepositoryGitStatus).mockResolvedValue({
+      branch: "main",
+      aheadBehind: { ahead: 0, behind: 0 },
+      lineStats: { green: 2, red: 1 },
+      lastCommit: { id: "abc123", date: "2026-01-01T00:00:00Z" },
+      counts: {
+        issues: 0,
+        pullRequests: 0,
+        branches: 1,
+        worktrees: 0,
+      },
+      links: {
+        repo: null,
+        issues: null,
+        pulls: null,
+        branches: null,
+        commit: null,
+      },
+      diff: [{ path: "src/index.ts", green: 2, red: 1 }],
+    });
+
+    renderPage(["/repositories/test-repo"]);
+
+    expect(await screen.findByText("Dirty")).toHaveClass("danger");
+  });
+
+  it("does not render the badge when the repository has no Git", async () => {
+    vi.mocked(api.getRepository).mockResolvedValue(
+      mockRepository({ hasGit: false, branch: null }),
+    );
+
+    renderPage(["/repositories/test-repo"]);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Clean")).not.toBeInTheDocument();
+      expect(screen.queryByText("Dirty")).not.toBeInTheDocument();
+    });
   });
 });
 
