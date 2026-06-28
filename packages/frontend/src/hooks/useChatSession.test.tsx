@@ -237,9 +237,7 @@ describe("useChatSession", () => {
   });
 
   it("preserves the cancel failure status after refresh", async () => {
-    const cancelAgent = vi
-      .fn()
-      .mockRejectedValue(new Error("cancel failed"));
+    const cancelAgent = vi.fn().mockRejectedValue(new Error("cancel failed"));
     const getStatus = vi.fn().mockResolvedValue({ running: false });
     const api = {
       sendMessage: vi.fn(),
