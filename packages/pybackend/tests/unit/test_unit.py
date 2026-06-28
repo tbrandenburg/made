@@ -1094,6 +1094,50 @@ class TestAgentService:
         with _processing_lock:
             assert lock_key not in _processing_channels
 
+    def test_cancel_agent_message_does_not_orphan_live_process_for_stale_lock_key(self):
+        """A stale lock_key must still resolve a live process when a stale cleanup alias exists."""
+        from datetime import UTC, datetime
+        from unittest.mock import MagicMock, patch
+        from agent_service import (
+            cancel_agent_message,
+            _active_processes,
+            _conversation_sessions,
+            _processing_channels,
+            _processing_lock,
+        )
+
+        cleanup_key = "cancel-stale-cleanup-001"
+        live_key = "cancel-live-persisted-001"
+        stale_lock = "cancel-stale-lock-001"
+        dead_proc = MagicMock()
+        dead_proc.poll.return_value = 1
+        live_proc = MagicMock()
+        live_proc.poll.return_value = None
+
+        try:
+            with _processing_lock:
+                _conversation_sessions[live_key] = stale_lock
+                _active_processes[cleanup_key] = dead_proc
+                _active_processes[live_key] = live_proc
+
+            with patch("agent_service._load_processing_state") as mock_load:
+                mock_load.return_value = {cleanup_key: datetime.now(UTC)}
+                with patch("agent_service._dump_processing_state"):
+                    assert cancel_agent_message(stale_lock) is True
+
+            live_proc.terminate.assert_called_once()
+            dead_proc.terminate.assert_not_called()
+
+            with _processing_lock:
+                assert live_key not in _active_processes
+                assert stale_lock not in _processing_channels
+        finally:
+            with _processing_lock:
+                _conversation_sessions.pop(live_key, None)
+                _active_processes.pop(cleanup_key, None)
+                _active_processes.pop(live_key, None)
+                _processing_channels.pop(stale_lock, None)
+
     def test_cancel_agent_message_by_channel_key_direct(self):
         """cancel_agent_message must still work with the direct channel key."""
         from datetime import UTC, datetime
