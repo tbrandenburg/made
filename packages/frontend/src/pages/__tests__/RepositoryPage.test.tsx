@@ -989,6 +989,33 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
     });
   });
 
+  it("U4b (AC1 regression): history.processing=true still reconciles against backend status", async () => {
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue({
+      sessionId: "session-a",
+      messages: [],
+      processing: true,
+    });
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentStatus).toHaveBeenCalled();
+    });
+
+    expect(
+      screen.getByRole("button", { name: /send/i }),
+      "FAIL (U4b regression): Send should appear when backend status=false even if history.processing=true",
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /cancel/i }),
+      "FAIL (U4b regression): Cancel should not remain visible after backend reconciliation",
+    ).not.toBeInTheDocument();
+  });
+
   // ── D1: AC6 stale-closure guard ──────────────────────────────────────
 
   it("D1 (AC6): stale in-flight refreshAgentStatus promise does not re-stick chatAgentProcessing after clear", async () => {
@@ -1361,7 +1388,9 @@ describe("RepositoryPage reload current session (AC1-AC7)", () => {
 
     // Assert: busy state is hydrated from history
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+      ).toBeInTheDocument();
     });
   });
 });
@@ -2035,7 +2064,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
 
   // ── U6: AC495-3 reply.processing=true ───────────────────────────────
 
-  it("U6 (AC495-3): reply.processing=true keeps chatAgentProcessing true", async () => {
+  it("U6 (AC495-3): backend status=false clears busy state even when reply.processing=true", async () => {
     vi.mocked(api.sendAgentMessage).mockResolvedValue({
       messageId: "m1",
       sent: new Date().toISOString(),
@@ -2047,11 +2076,9 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
     await screen.findByLabelText("Clear session");
 
-    // After initial mount, mock status to processing:true so refreshAgentStatus
-    // effect doesn't wrongly clear chatAgentProcessing after the send resolves
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: new Date().toISOString(),
+      processing: false,
+      startedAt: null,
     });
 
     const textarea = screen.getByPlaceholderText(
@@ -2062,11 +2089,10 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
 
     await new Promise<void>((r) => setTimeout(r, 200));
 
-    const sendBtn = screen.queryByRole("button", { name: /send/i });
     expect(
-      sendBtn,
-      "F-AC495-3c: Send button re-enabled when reply.processing=true — setChatAgentProcessing(false) was incorrectly called",
-    ).toBeNull();
+      screen.getByRole("button", { name: /send/i }),
+      "F-AC495-3c: Send button not re-enabled when backend status=false — reply.processing incorrectly won over backend truth",
+    ).toBeInTheDocument();
   });
 
   // ── U7: AC495-4 handleSessionSelect path ────────────────────────────
@@ -5312,7 +5338,9 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
         undefined,
         expect.anything(),
       );
-      expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+      ).toBeInTheDocument();
     });
   });
 

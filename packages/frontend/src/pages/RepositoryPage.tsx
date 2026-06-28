@@ -464,7 +464,9 @@ export const RepositoryPage: React.FC = () => {
           const parsed = JSON.parse(oldSaved);
           if (Array.isArray(parsed)) {
             setSavedSessionIds(
-              parsed.filter((entry): entry is string => typeof entry === "string"),
+              parsed.filter(
+                (entry): entry is string => typeof entry === "string",
+              ),
             );
           }
         } catch {
@@ -1299,9 +1301,7 @@ export const RepositoryPage: React.FC = () => {
         setIsLoadingHistory(false);
         return;
       }
-      if (isAgentBusy === false && sessionId) {
-        await refreshAgentStatus();
-      }
+      await refreshAgentStatus();
       setIsLoadingHistory(false);
     };
     run();
@@ -1421,8 +1421,7 @@ export const RepositoryPage: React.FC = () => {
       setChatError(null);
       setActiveTab("agent");
 
-      // Keep polling if still processing; stop when done
-      if (!reply.processing) setIsAgentBusy(false);
+      await refreshAgentStatus();
     } catch (error) {
       if (sendRequestIdRef.current !== sendRequestId) return;
       const messageText = error instanceof Error ? error.message : "";

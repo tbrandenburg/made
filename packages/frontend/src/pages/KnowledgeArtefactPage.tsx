@@ -133,7 +133,9 @@ export const KnowledgeArtefactPage: React.FC = () => {
           const parsed = JSON.parse(oldSaved);
           if (Array.isArray(parsed)) {
             setSavedSessionIds(
-              parsed.filter((entry): entry is string => typeof entry === "string"),
+              parsed.filter(
+                (entry): entry is string => typeof entry === "string",
+              ),
             );
           }
         } catch {
@@ -225,6 +227,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
         setChatAgentProcessing(history.processing);
       }
       setAgentStatus(null);
+      void refreshAgentStatus();
     },
   });
 
@@ -495,8 +498,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
         setActiveTab("agent");
         setAgentStatus(null);
 
-        // Keep chatAgentProcessing=true if still processing; polling loop handles the rest
-        if (!reply.processing) setChatAgentProcessing(false);
+        await refreshAgentStatus();
       } catch (error) {
         console.error("Failed to contact agent", error);
         const errorMessage = error instanceof Error ? error.message : "";
