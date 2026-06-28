@@ -11,7 +11,7 @@ MADE_WORKSPACE_HOME ?= $(abspath $(CURDIR)/workspace/)
 export MADE_HOME
 export MADE_WORKSPACE_HOME
 
-.PHONY: help lint format test unit-test system-test qa qa-quick build run stop restart clean install install-node install-pybackend install-hooks test-coverage security-audit docker-build docker-up docker-down docker-dev docker-clean release tag-release
+.PHONY: help lint format test unit-test system-test qa qa-quick qa-quick-frontend qa-quick-backend qa-quick-changed test-frontend test-backend build run stop restart clean install install-node install-pybackend install-hooks test-coverage security-audit docker-build docker-up docker-down docker-dev docker-clean release tag-release
 
 # Default target
 help:
@@ -23,9 +23,14 @@ help:
 	@echo "  lint          Run frontend and backend linters"
 	@echo "  test          Run all tests (frontend + backend with coverage)"
 	@echo "  unit-test     Run unit tests only (frontend + backend)"
+	@echo "  test-frontend Run one frontend test file/pattern in serial mode"
+	@echo "  test-backend   Run one backend test file/pattern"
 	@echo "  system-test   Run system tests only (frontend + backend)"
 	@echo "  qa            Run all quality assurance tasks (lint + format + test)"
 	@echo "  qa-quick      Run all quick quality assurance tasks (lint + format + unit-test)"
+	@echo "  qa-quick-frontend Run frontend-only quick QA"
+	@echo "  qa-quick-backend  Run backend-only quick QA"
+	@echo "  qa-quick-changed  Run the smallest QA gate based on changed paths"
 	@echo "  test-coverage Run full test suite with coverage reporting (70% minimum)"
 	@echo "  security-audit Run security audit for Python (pip-audit) and npm dependencies"
 	@echo ""
@@ -84,6 +89,27 @@ unit-test:
 	@echo "🔬 Running backend unit tests with coverage..."
 	cd $(PYBACKEND_DIR) && uv sync && uv run pytest -c pytest.cov.ini tests/unit/
 
+test-frontend:
+	@test -n "$(FILE)" || (echo "Usage: make test-frontend FILE=path [NAME=pattern]" && exit 1)
+	@echo "🔬 Running frontend test: $(FILE)"
+	@cd packages/frontend && \
+	if [ -n "$(NAME)" ]; then \
+		npm run test:serial -- "$(FILE)" -t "$(NAME)"; \
+	else \
+		npm run test:serial -- "$(FILE)"; \
+	fi
+
+test-backend:
+	@test -n "$(FILE)" || (echo "Usage: make test-backend FILE=path [NAME=pattern]" && exit 1)
+	@echo "🔬 Running backend test: $(FILE)"
+	@cd $(PYBACKEND_DIR) && \
+	uv sync && \
+	if [ -n "$(NAME)" ]; then \
+		uv run pytest -c pytest.cov.ini "$(FILE)" -k "$(NAME)"; \
+	else \
+		uv run pytest -c pytest.cov.ini "$(FILE)"; \
+	fi
+
 system-test:
 	@echo "🏗️ Running system tests with service management..."
 	@echo "🚀 Starting services for system tests..."
@@ -121,6 +147,31 @@ qa: format lint test
 
 qa-quick: format lint unit-test
 	@echo "✅ All quick quality assurance tasks completed successfully!"
+
+qa-quick-frontend:
+	@echo "🔬 Running frontend-only quick QA..."
+	npm run lint
+	cd packages/frontend && npm run test:serial
+	@echo "✅ Frontend quick QA completed successfully!"
+
+qa-quick-backend:
+	@echo "🔬 Running backend-only quick QA..."
+	cd $(PYBACKEND_DIR) && uv sync && uv run ruff check *.py
+	cd $(PYBACKEND_DIR) && uv sync && uv run pytest -c pytest.cov.ini tests/unit/
+	@echo "✅ Backend quick QA completed successfully!"
+
+qa-quick-changed:
+	@changed="$$(git diff --name-only --diff-filter=ACMRTUXB HEAD; git ls-files --others --exclude-standard)"; \
+	if printf '%s\n' "$$changed" | grep -q '^packages/frontend/'; then \
+		echo "🔬 Detected frontend changes; running frontend quick QA..."; \
+		$(MAKE) qa-quick-frontend; \
+	elif printf '%s\n' "$$changed" | grep -q '^packages/pybackend/'; then \
+		echo "🔬 Detected backend changes; running backend quick QA..."; \
+		$(MAKE) qa-quick-backend; \
+	else \
+		echo "🔬 No package changes detected; running full qa-quick..."; \
+		$(MAKE) qa-quick; \
+	fi
 
 # Coverage Tasks
 test-coverage: 

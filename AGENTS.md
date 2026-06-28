@@ -33,6 +33,12 @@ This guide outlines the minimal test levels absolutely required for **Python Fas
 Follow this mandatory guideline even if not instructed.
 Focus on lightweight, fast feedback — only essential tests are included.
 - Before pushing changes, run `make qa-quick` from repository root and address any failures.
+- For faster feedback during development, use scoped targets:
+  - `make test-frontend FILE=src/path/to/file.test.tsx [NAME=pattern]` — run a single frontend test file
+  - `make test-backend FILE=tests/unit/test_foo.py [NAME=pattern]` — run a single backend test file
+  - `make qa-quick-frontend` — lint + frontend tests only
+  - `make qa-quick-backend` — ruff + backend unit tests only
+  - `make qa-quick-changed` — auto-detects changed package and runs only that package's QA
 
 ### Pre-push quality gate (mandatory)
 
