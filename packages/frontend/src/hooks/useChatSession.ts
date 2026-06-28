@@ -66,6 +66,7 @@ export interface UseChatSessionResult {
     options?: { clearPrompt?: boolean },
   ) => Promise<void>;
   handleSessionSelect: (session: ChatSession) => void;
+  invalidatePendingRequests: () => void;
   isCancelingAgent: boolean;
   isRefreshing: boolean;
   openClearSessionModal: () => void;
@@ -384,6 +385,10 @@ export function useChatSession({
     setSessionModalOpen(false);
   }, []);
 
+  const invalidatePendingRequests = useCallback(() => {
+    sendRequestIdRef.current += 1;
+  }, []);
+
   const handleSessionSelect = useCallback(
     (session: ChatSession) => {
       if (!name || isExternal) return;
@@ -455,6 +460,7 @@ export function useChatSession({
     handleClearSessionOnly,
     handleSendMessage,
     handleSessionSelect,
+    invalidatePendingRequests,
     isCancelingAgent,
     isRefreshing,
     openClearSessionModal,

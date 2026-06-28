@@ -1947,7 +1947,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     });
 
     // Bootstrap switch to session B — triggers useLayoutEffect which
-    // increments sendRequestIdRef so stale reply will be discarded
+    // invalidates pending requests so stale reply will be discarded
     await router.navigate(
       "/repositories/test-repo?tab=agent&sessionId=session-b",
     );
