@@ -2102,8 +2102,12 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     await waitFor(() => {
       const statusMock = vi.mocked(api.getRepositoryAgentStatus).mock;
       const historyMock = vi.mocked(api.getRepositoryAgentHistory).mock;
-      const statusIndex = statusMock.calls.findIndex((call) => call[1] === "session-b");
-      const historyIndex = historyMock.calls.findIndex((call) => call[1] === "session-b");
+      const statusIndex = statusMock.calls.findIndex(
+        (call) => call[1] === "session-b",
+      );
+      const historyIndex = historyMock.calls.findIndex(
+        (call) => call[1] === "session-b",
+      );
       expect(statusIndex).toBeGreaterThanOrEqual(0);
       expect(historyIndex).toBeGreaterThanOrEqual(0);
       expect(statusMock.invocationCallOrder[statusIndex]).toBeLessThan(

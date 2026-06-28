@@ -316,8 +316,8 @@ def cancel_agent_message(lock_key: str) -> bool:
         started_at = persisted_started
 
     with _processing_lock:
-        related = _get_related_processing_keys(lock_key)
-        for key in related:
+        related = [cleanup_key, *_get_related_processing_keys(lock_key)]
+        for key in dict.fromkeys(related):
             if cancel_event is None:
                 cancel_event = _cancel_events.get(key)
             if process is None:
@@ -325,11 +325,13 @@ def cancel_agent_message(lock_key: str) -> bool:
 
     if process is None or process.poll() is not None:
         _clear_channel_processing(cleanup_key)
+        if cleanup_key != lock_key:
+            _clear_channel_processing(lock_key)
         return False
 
     with _processing_lock:
-        related = _get_related_processing_keys(lock_key)
-        for key in related:
+        related = [cleanup_key, *_get_related_processing_keys(lock_key)]
+        for key in dict.fromkeys(related):
             _cancelled_channels.add(key)
             _processing_channels.pop(key, None)
             _cancel_events.pop(key, None)
