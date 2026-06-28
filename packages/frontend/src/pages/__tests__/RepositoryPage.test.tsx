@@ -989,6 +989,33 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
     });
   });
 
+  it("U4b (AC1 regression): history.processing=true still reconciles against backend status", async () => {
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue({
+      sessionId: "session-a",
+      messages: [],
+      processing: true,
+    });
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentStatus).toHaveBeenCalled();
+    });
+
+    expect(
+      screen.getByRole("button", { name: /send/i }),
+      "FAIL (U4b regression): Send should appear when backend status=false even if history.processing=true",
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /cancel/i }),
+      "FAIL (U4b regression): Cancel should not remain visible after backend reconciliation",
+    ).not.toBeInTheDocument();
+  });
+
   // ── D1: AC6 stale-closure guard ──────────────────────────────────────
 
   it("D1 (AC6): stale in-flight refreshAgentStatus promise does not re-stick chatAgentProcessing after clear", async () => {
@@ -2037,23 +2064,33 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
 
   // ── U6: AC495-3 reply.processing=true ───────────────────────────────
 
-  it("U6 (AC495-3): reply.processing=true keeps chatAgentProcessing true", async () => {
+  it("U6 (AC495-3): send success reconciles against the new session id", async () => {
+    let sessionBHistoryDeferred!: (value: ChatHistoryResponse) => void;
+    const sessionBHistory = new Promise<ChatHistoryResponse>((resolve) => {
+      sessionBHistoryDeferred = resolve;
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockImplementation(
+      async (_name, sessionId) => {
+        if (sessionId === "session-b") {
+          return sessionBHistory;
+        }
+        return { sessionId: "session-a", messages: [] };
+      },
+    );
     vi.mocked(api.sendAgentMessage).mockResolvedValue({
       messageId: "m1",
       sent: new Date().toISOString(),
       response: "processing",
-      sessionId: "session-a",
+      sessionId: "session-b",
       processing: true,
     });
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
     await screen.findByLabelText("Clear session");
 
-    // After initial mount, mock status to processing:true so refreshAgentStatus
-    // effect doesn't wrongly clear chatAgentProcessing after the send resolves
     vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      processing: true,
-      startedAt: new Date().toISOString(),
+      processing: false,
+      startedAt: null,
     });
 
     const textarea = screen.getByPlaceholderText(
@@ -2062,13 +2099,27 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     fireEvent.change(textarea, { target: { value: "test message" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
-    await new Promise<void>((r) => setTimeout(r, 200));
+    await waitFor(() => {
+      const statusMock = vi.mocked(api.getRepositoryAgentStatus).mock;
+      const historyMock = vi.mocked(api.getRepositoryAgentHistory).mock;
+      const statusIndex = statusMock.calls.findIndex((call) => call[1] === "session-b");
+      const historyIndex = historyMock.calls.findIndex((call) => call[1] === "session-b");
+      expect(statusIndex).toBeGreaterThanOrEqual(0);
+      expect(historyIndex).toBeGreaterThanOrEqual(0);
+      expect(statusMock.invocationCallOrder[statusIndex]).toBeLessThan(
+        historyMock.invocationCallOrder[historyIndex],
+      );
+    });
 
-    const sendBtn = screen.queryByRole("button", { name: /send/i });
+    sessionBHistoryDeferred({
+      sessionId: "session-b",
+      messages: [],
+    });
+
     expect(
-      sendBtn,
-      "F-AC495-3c: Send button re-enabled when reply.processing=true — setChatAgentProcessing(false) was incorrectly called",
-    ).toBeNull();
+      screen.getByRole("button", { name: /send/i }),
+      "F-AC495-3c: Send button not re-enabled after backend reconciliation",
+    ).toBeInTheDocument();
   });
 
   // ── U7: AC495-4 handleSessionSelect path ────────────────────────────

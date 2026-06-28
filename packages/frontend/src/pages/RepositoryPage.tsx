@@ -1216,25 +1216,28 @@ export const RepositoryPage: React.FC = () => {
     }
   };
 
-  const refreshAgentStatus = useCallback(async () => {
-    if (!name) return false;
-    if (!sessionId) {
-      setIsAgentBusy(false);
-      return false;
-    }
-    try {
-      const status = await api.getRepositoryAgentStatus(
-        name,
-        sessionId || undefined,
-      );
-      if (sessionIdRef.current !== sessionId) return false;
-      setIsAgentBusy(status.processing);
-      return status.processing;
-    } catch (error) {
-      console.error("Failed to load agent status", error);
-      return null; // network error — caller should not stop polling
-    }
-  }, [name, sessionId]);
+  const refreshAgentStatus = useCallback(
+    async (targetSessionId = sessionId) => {
+      if (!name) return false;
+      if (!targetSessionId) {
+        setIsAgentBusy(false);
+        return false;
+      }
+      try {
+        const status = await api.getRepositoryAgentStatus(
+          name,
+          targetSessionId,
+        );
+        if (sessionIdRef.current !== targetSessionId) return false;
+        setIsAgentBusy(status.processing);
+        return status.processing;
+      } catch (error) {
+        console.error("Failed to load agent status", error);
+        return null; // network error — caller should not stop polling
+      }
+    },
+    [name, sessionId],
+  );
 
   const syncChatHistory = useCallback(
     async (signal?: AbortSignal, fullFetch?: boolean): Promise<boolean> => {
@@ -1301,9 +1304,7 @@ export const RepositoryPage: React.FC = () => {
         setIsLoadingHistory(false);
         return;
       }
-      if (isAgentBusy === false && sessionId) {
-        await refreshAgentStatus();
-      }
+      await refreshAgentStatus();
       setIsLoadingHistory(false);
     };
     run();
@@ -1423,8 +1424,7 @@ export const RepositoryPage: React.FC = () => {
       setChatError(null);
       setActiveTab("agent");
 
-      // Keep polling if still processing; stop when done
-      if (!reply.processing) setIsAgentBusy(false);
+      await refreshAgentStatus(reply.sessionId ?? sessionId);
     } catch (error) {
       if (sendRequestIdRef.current !== sendRequestId) return;
       const messageText = error instanceof Error ? error.message : "";

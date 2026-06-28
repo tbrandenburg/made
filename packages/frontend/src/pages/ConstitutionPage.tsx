@@ -231,6 +231,7 @@ export const ConstitutionPage: React.FC = () => {
         setChatAgentProcessing(history.processing);
       }
       setAgentStatus(null);
+      void refreshAgentStatus();
     },
   });
 
@@ -374,30 +375,33 @@ export const ConstitutionPage: React.FC = () => {
     [isExternal, name, sessionId, setChat],
   );
 
-  const refreshAgentStatus = useCallback(async () => {
-    if (!name || isExternal) return false;
-    if (!sessionId) {
-      setChatAgentProcessing(false);
-      return false;
-    }
-    try {
-      const status = await api.getConstitutionAgentStatus(
-        name,
-        sessionId || undefined,
-      );
-      if (sessionIdRef.current !== sessionId) return false;
-      setChatAgentProcessing(status.processing);
-      setAgentStatus(
-        status.processing
-          ? "Agent is still processing the previous message."
-          : null,
-      );
-      return status.processing;
-    } catch (error) {
-      console.error("Failed to load agent status", error);
-      return null; // network error — caller should not stop polling
-    }
-  }, [isExternal, name, sessionId]);
+  const refreshAgentStatus = useCallback(
+    async (targetSessionId = sessionId) => {
+      if (!name || isExternal) return false;
+      if (!targetSessionId) {
+        setChatAgentProcessing(false);
+        return false;
+      }
+      try {
+        const status = await api.getConstitutionAgentStatus(
+          name,
+          targetSessionId,
+        );
+        if (sessionIdRef.current !== targetSessionId) return false;
+        setChatAgentProcessing(status.processing);
+        setAgentStatus(
+          status.processing
+            ? "Agent is still processing the previous message."
+            : null,
+        );
+        return status.processing;
+      } catch (error) {
+        console.error("Failed to load agent status", error);
+        return null; // network error — caller should not stop polling
+      }
+    },
+    [isExternal, name, sessionId],
+  );
 
   useAgentPolling({
     isProcessing: chatAgentProcessing,
@@ -501,8 +505,7 @@ export const ConstitutionPage: React.FC = () => {
         setActiveTab("agent");
         setAgentStatus(null);
 
-        // Keep chatAgentProcessing=true if still processing; polling loop handles the rest
-        if (!reply.processing) setChatAgentProcessing(false);
+        await refreshAgentStatus(reply.sessionId ?? sessionId);
       } catch (error) {
         console.error("Failed to contact agent", error);
         const errorMessage = error instanceof Error ? error.message : "";
@@ -513,7 +516,7 @@ export const ConstitutionPage: React.FC = () => {
             : "Agent unavailable",
         );
         const processing = await refreshAgentStatus();
-        if (!processing) {
+        if (processing === false) {
           setChatAgentProcessing(false);
         }
       }
