@@ -603,7 +603,6 @@ export const RepositoryPage: React.FC = () => {
     args: "",
   });
   const chatWindowRef = useRef<ChatWindowHandle>(null);
-  const sendRequestIdRef = useRef(0);
   const lastSentPromptRef = useRef("");
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
@@ -646,6 +645,7 @@ export const RepositoryPage: React.FC = () => {
     handleClearSessionOnly,
     handleSendMessage: sendChatMessage,
     handleSessionSelect,
+    invalidatePendingRequests,
     isCancelingAgent,
     isRefreshing,
     openClearSessionModal,
@@ -718,7 +718,7 @@ export const RepositoryPage: React.FC = () => {
       }
       setSessionId(incomingSessionId);
       setChat([]);
-      sendRequestIdRef.current += 1;
+      invalidatePendingRequests();
       try {
         localStorage.setItem(sessionStorageKey, incomingSessionId);
       } catch {
@@ -753,7 +753,14 @@ export const RepositoryPage: React.FC = () => {
       textarea?.focus();
       textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
     });
-  }, [location.pathname, name, searchParams, sessionId, setSessionId]);
+  }, [
+    invalidatePendingRequests,
+    location.pathname,
+    name,
+    searchParams,
+    sessionId,
+    setSessionId,
+  ]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
