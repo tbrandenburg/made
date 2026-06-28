@@ -273,32 +273,77 @@ def _was_channel_cancelled(channel: str) -> bool:
 
 def cancel_agent_message(lock_key: str) -> bool:
     """Cancel an active agent message for the given lock key."""
-    with _processing_lock:
-        if lock_key not in _processing_channels:
-            return False
+    session_snapshot: list[tuple[str, str]] = []
+    cancel_event = None
+    process = None
+    cleanup_key = lock_key
+    started_at = None
 
+    with _processing_lock:
+        started_at = _processing_channels.get(lock_key)
+        if started_at is None:
+            # Fallback 1: reverse lookup via _conversation_sessions mapping.
+            for ch, sid in list(_conversation_sessions.items()):
+                if sid == lock_key:
+                    started_at = _processing_channels.get(ch)
+                    if started_at is not None:
+                        _processing_channels[lock_key] = started_at
+                    break
+
+        if started_at is None:
+            session_snapshot = list(_conversation_sessions.items())
+
+    # Fallback 2: persisted state (survives backend restart) — outside the lock
+    # to avoid blocking all threads on file I/O.
+    if started_at is None:
+        persisted = _load_processing_state()
+        persisted_started = persisted.get(lock_key)
+        if persisted_started is None:
+            for ch, sid in session_snapshot:
+                if sid == lock_key:
+                    persisted_started = persisted.get(ch)
+                    cleanup_key = ch
+                    break
+            if persisted_started is None and len(persisted) == 1:
+                cleanup_key = next(iter(persisted))
+                persisted_started = persisted[cleanup_key]
+        else:
+            cleanup_key = lock_key
+        if persisted_started is None:
+            return False
+        with _processing_lock:
+            _processing_channels[lock_key] = persisted_started
+        started_at = persisted_started
+
+    with _processing_lock:
         related = _get_related_processing_keys(lock_key)
-        cancel_event = None
-        process = None
         for key in related:
-            _cancelled_channels.add(key)
             if cancel_event is None:
                 cancel_event = _cancel_events.get(key)
             if process is None:
                 process = _active_processes.get(key)
+
+    if process is None or process.poll() is not None:
+        _clear_channel_processing(cleanup_key)
+        return False
+
+    with _processing_lock:
+        related = _get_related_processing_keys(lock_key)
+        for key in related:
+            _cancelled_channels.add(key)
             _processing_channels.pop(key, None)
             _cancel_events.pop(key, None)
             _active_processes.pop(key, None)
+
     _dump_processing_state()
 
     if cancel_event:
         cancel_event.set()
-    if process and process.poll() is None:
-        process.terminate()
-        try:
-            process.wait(timeout=1)
-        except subprocess.TimeoutExpired:
-            process.kill()
+    process.terminate()
+    try:
+        process.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        process.kill()
     return True
 
 
