@@ -425,10 +425,7 @@ def get_channel_status(lock_key: str) -> dict[str, object]:
     if needs_dump:
         _dump_processing_state()
 
-    return {
-        "processing": started_at is not None,
-        "startedAt": started_at.isoformat() if started_at else None,
-    }
+    return {"running": started_at is not None}
 
 
 def _get_registered_agent_executables() -> set[str]:
@@ -618,8 +615,8 @@ def export_chat_history(
             if channel:
                 lock_key = session_id if session_id else channel
                 status = get_channel_status(lock_key)
-                response["processing"] = status["processing"]
-                response["startedAt"] = status.get("startedAt")
+                response["processing"] = status["running"]
+                response["startedAt"] = None
             return response
 
         logger.error(
@@ -647,8 +644,8 @@ def export_chat_history(
     if channel:
         lock_key = session_id if session_id else channel
         status = get_channel_status(lock_key)
-        response["processing"] = status["processing"]
-        response["startedAt"] = status.get("startedAt")
+        response["processing"] = status["running"]
+        response["startedAt"] = None
     return response
 
 

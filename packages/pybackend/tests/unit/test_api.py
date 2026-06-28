@@ -609,7 +609,7 @@ class TestRepositoryEndpoints:
 
     @patch("app.get_channel_status")
     def test_repository_agent_status(self, mock_status):
-        payload = {"processing": True, "startedAt": "2024-01-01T00:00:00Z"}
+        payload = {"running": True}
         mock_status.return_value = payload
 
         response = client.get("/api/repositories/sample/agent/status")
@@ -621,7 +621,7 @@ class TestRepositoryEndpoints:
     @patch("app.get_channel_status")
     def test_repository_agent_status_with_session_id(self, mock_status):
         """When session_id is provided as query param, lock_key must be session_id."""
-        payload = {"processing": True, "startedAt": "2024-01-01T00:00:00Z"}
+        payload = {"running": True}
         mock_status.return_value = payload
 
         response = client.get("/api/repositories/sample/agent/status?session_id=ses_test")
@@ -1311,12 +1311,12 @@ class TestTaskEndpoints:
 
     @patch("app.get_channel_status")
     def test_task_agent_status(self, mock_status):
-        mock_status.return_value = {"processing": False}
+        mock_status.return_value = {"running": False}
 
         response = client.get("/api/tasks/test-task/agent/status")
 
         assert response.status_code == 200
-        assert response.json() == {"processing": False}
+        assert response.json() == {"running": False}
 
     @patch("app.cancel_agent_message")
     def test_task_agent_cancel_success(self, mock_cancel):
