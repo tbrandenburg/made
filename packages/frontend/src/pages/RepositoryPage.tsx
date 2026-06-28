@@ -500,6 +500,7 @@ export const RepositoryPage: React.FC = () => {
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [chatError, setChatError] = useState<string | null>(null);
   const [isAgentBusy, setIsAgentBusy] = useState(false);
+  const [isCancelingAgent, setIsCancelingAgent] = useState(false);
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
   const savedSessionTitles = useMemo(
@@ -1417,19 +1418,19 @@ export const RepositoryPage: React.FC = () => {
     }
   };
 
-  const handleCancelAgent = () => {
+  const handleCancelAgent = async () => {
     if (!name) return;
-    // Optimistic update: flip to false immediately so Send button renders on the next frame
-    setIsAgentBusy(false);
-    api
-      .cancelRepositoryAgent(name, sessionId || undefined)
-      .catch((error) => {
-        console.error("Failed to cancel agent request", error);
-        setChatError("Unable to cancel the agent request.");
-      })
-      .finally(() => {
-        refreshAgentStatus();
-      });
+    if (isCancelingAgent) return;
+    setIsCancelingAgent(true);
+    try {
+      await api.cancelRepositoryAgent(name, sessionId || undefined);
+    } catch (error) {
+      console.error("Failed to cancel agent request", error);
+      setChatError("Unable to cancel the agent request.");
+    } finally {
+      await refreshAgentStatus();
+      setIsCancelingAgent(false);
+    }
   };
 
   const handleCancelClearSession = () => {
@@ -2127,7 +2128,11 @@ export const RepositoryPage: React.FC = () => {
             </div>
             <div className="chat-controls__right">
               {isAgentBusy ? (
-                <button className="danger" onClick={handleCancelAgent}>
+                <button
+                  className="danger"
+                  onClick={handleCancelAgent}
+                  disabled={isCancelingAgent}
+                >
                   Cancel
                 </button>
               ) : (
