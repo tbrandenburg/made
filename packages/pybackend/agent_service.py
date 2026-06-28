@@ -502,8 +502,12 @@ def cancel_agent_message(lock_key: str) -> bool:
             return False
         pid_to_kill: int | None = pid
     elif process.poll() is not None:
-        _clear_channel_processing(lock_key)
-        return False
+        pid = registry_entry[1].get("pid") if registry_entry is not None else None
+        if not isinstance(pid, int):
+            _clear_channel_processing(lock_key)
+            return False
+        pid_to_kill = pid
+        process = None
     else:
         pid_to_kill = None
 
@@ -592,8 +596,7 @@ def get_channel_status(lock_key: str) -> dict[str, object]:
                             started_at = datetime.now(UTC)
                     else:
                         started_at = datetime.now(UTC)
-                    with _processing_lock:
-                        _processing_channels[lock_key] = started_at
+                    _processing_channels[lock_key] = started_at
                     session_value = registry_entry[1].get("sessionId")
                     if isinstance(session_value, str):
                         session_id = session_value
@@ -612,8 +615,7 @@ def get_channel_status(lock_key: str) -> dict[str, object]:
                     started_at = datetime.now(UTC)
             else:
                 started_at = datetime.now(UTC)
-            with _processing_lock:
-                _processing_channels[lock_key] = started_at
+            _processing_channels[lock_key] = started_at
             session_id = (
                 registry_entry[1].get("sessionId")
                 if isinstance(registry_entry[1].get("sessionId"), str)
