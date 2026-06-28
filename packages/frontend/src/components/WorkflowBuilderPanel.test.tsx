@@ -3,7 +3,10 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { WorkflowBuilderPanel, type WorkflowDefinition } from "./WorkflowBuilderPanel";
+import {
+  WorkflowBuilderPanel,
+  type WorkflowDefinition,
+} from "./WorkflowBuilderPanel";
 
 const workflows: WorkflowDefinition[] = [
   {
@@ -14,7 +17,12 @@ const workflows: WorkflowDefinition[] = [
     steps: [
       { type: "agent", agent: "planner", prompt: "First step" },
       { type: "bash", run: "echo second" },
-      { type: "vars", varName: "API_KEY", run: "secret", values: { API_KEY: "secret" } },
+      {
+        type: "vars",
+        varName: "API_KEY",
+        run: "secret",
+        values: { API_KEY: "secret" },
+      },
     ],
   },
 ];
@@ -31,9 +39,15 @@ describe("WorkflowBuilderPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Remove step 1" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Remove step 2" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Remove step 3" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Remove step 1" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Remove step 2" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Remove step 3" }),
+      ).toBeInTheDocument();
     });
   });
 
@@ -50,11 +64,15 @@ describe("WorkflowBuilderPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Remove step 2" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Remove step 2" }),
+      ).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: "First step" }));
-    expect(screen.getByRole("heading", { name: "Edit Step" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Edit Step" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Remove step 1" }));
 
@@ -70,9 +88,15 @@ describe("WorkflowBuilderPanel", () => {
         },
       ],
     });
-    expect(screen.queryByRole("heading", { name: "Edit Step" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Remove step 1" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Remove step 3" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Edit Step" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Remove step 1" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Remove step 3" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the editor aligned when deleting a step before the active one", async () => {
@@ -88,14 +112,18 @@ describe("WorkflowBuilderPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Remove step 2" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Remove step 2" }),
+      ).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: "echo second" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove step 1" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Edit Step" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: "Edit Step" }),
+      ).toBeInTheDocument();
     });
 
     fireEvent.change(screen.getByLabelText("Command or Prompt"), {
