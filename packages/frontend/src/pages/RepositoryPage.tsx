@@ -35,12 +35,9 @@ import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import { usePersistentStringList } from "../hooks/usePersistentStringList";
 import { useAgentCli } from "../hooks/useAgentCli";
-import { useSessionLoader } from "../hooks/useSessionLoader";
-import { useAgentPolling } from "../hooks/useAgentPolling";
 import {
   api,
   CommandDefinition,
-  ChatSession,
   FileNode,
   HarnessDefinition,
   RepositoryTodo,
@@ -48,13 +45,10 @@ import {
   RepositorySummary,
   RepositoryGitStatus,
 } from "../hooks/useApi";
-import { ChatMessage } from "../types/chat";
 import "../styles/page.css";
 import {
   formatChatMessageLabel,
   formatChatMessageTimestamp,
-  mapHistoryToMessages,
-  mergeChatMessages,
 } from "../utils/chat";
 import { ClearSessionModal } from "../components/ClearSessionModal";
 import { ArrowDownIcon } from "../components/icons/ArrowDownIcon";
@@ -77,6 +71,8 @@ import {
   markChatBootstrapConsumed,
   stripChatBootstrapParams,
 } from "../utils/chatQueryParams";
+import { useChatSession } from "../hooks/useChatSession";
+import { appendRestrictedAccessPolicy } from "../utils/agentPrompt";
 
 const stripCommandFrontmatter = (content: string) => {
   const delimiterPattern =
@@ -498,21 +494,6 @@ export const RepositoryPage: React.FC = () => {
   );
   const normalizedSelectedModel = selectedModel ?? "default";
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
-  const [chatError, setChatError] = useState<string | null>(null);
-  const [isAgentBusy, setIsAgentBusy] = useState(false);
-  const [isCancelingAgent, setIsCancelingAgent] = useState(false);
-  const [sessionModalOpen, setSessionModalOpen] = useState(false);
-  const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
-  const savedSessionTitles = useMemo(
-    () =>
-      sessionOptions.reduce<Record<string, string>>((titles, session) => {
-        titles[session.id] = session.title;
-        return titles;
-      }, {}),
-    [sessionOptions],
-  );
-  const [sessionListError, setSessionListError] = useState<string | null>(null);
-  const [sessionListLoading, setSessionListLoading] = useState(false);
   const [availableCommands, setAvailableCommands] = useState<
     CommandDefinition[]
   >([]);
@@ -623,7 +604,6 @@ export const RepositoryPage: React.FC = () => {
   });
   const chatWindowRef = useRef<ChatWindowHandle>(null);
   const sendRequestIdRef = useRef(0);
-  const sessionIdRef = useRef(sessionId);
   const lastSentPromptRef = useRef("");
   const copyAllMessages = useCallback(() => {
     if (!navigator.clipboard || !chat.length) return;
@@ -655,6 +635,78 @@ export const RepositoryPage: React.FC = () => {
     chatWindowRef.current?.scrollToBottom();
   }, []);
 
+  const {
+    agentStatus,
+    chatAgentProcessing,
+    clearSessionModalOpen,
+    closeClearSessionModal,
+    closeSessionModal,
+    handleCancel,
+    handleClearSessionAndHistory,
+    handleClearSessionOnly,
+    handleSendMessage: sendChatMessage,
+    handleSessionSelect,
+    isCancelingAgent,
+    isRefreshing,
+    openClearSessionModal,
+    openSessionModal,
+    reloadCurrentSession,
+    sessionError,
+    sessionListError,
+    sessionListLoading,
+    sessionLoading,
+    sessionModalOpen,
+    sessionOptions,
+  } = useChatSession({
+    name,
+    sessionId,
+    setSessionId,
+    chat,
+    setChat,
+    setPrompt: setPendingPrompt,
+    setSelectedAgent,
+    normalizedSelectedAgent,
+    defaultAgentValue: DEFAULT_AGENT_VALUE,
+    normalizedSelectedModel,
+    defaultModelValue: "default",
+    appendPolicy: appendRestrictedAccessPolicy,
+    api: {
+      sendMessage: api.sendAgentMessage,
+      getStatus: api.getRepositoryAgentStatus,
+      cancelAgent: api.cancelRepositoryAgent,
+      getHistory: api.getRepositoryAgentHistory,
+      getSessions: api.getRepositoryAgentSessions,
+    },
+    onActivateAgentTab: () => setActiveTab("agent"),
+    onClearSessionOnly: () => {
+      setPendingPrompt(lastSentPromptRef.current);
+      lastSentPromptRef.current = "";
+    },
+    onClearSessionAndHistory: () => {
+      setPendingPrompt(lastSentPromptRef.current);
+      lastSentPromptRef.current = "";
+    },
+  });
+
+  const handleSendMessage = useCallback(
+    (prompt?: string) => {
+      const message = (prompt ?? pendingPrompt).trim();
+      if (!message) return;
+      lastSentPromptRef.current = pendingPrompt;
+      void sendChatMessage(message, { clearPrompt: true });
+    },
+    [pendingPrompt, sendChatMessage],
+  );
+
+  const savedSessionTitles = useMemo(
+    () =>
+      sessionOptions.reduce<Record<string, string>>((titles, session) => {
+        titles[session.id] = session.title;
+        return titles;
+      }, {}),
+    [sessionOptions],
+  );
+
   useLayoutEffect(() => {
     const { sessionId: incomingSessionId, message: incomingMessage } =
       getChatBootstrapParams(searchParams);
@@ -664,7 +716,6 @@ export const RepositoryPage: React.FC = () => {
       if (!name || !incomingSessionId || incomingSessionId === sessionId) {
         return;
       }
-      setChatError(null);
       setSessionId(incomingSessionId);
       setChat([]);
       sendRequestIdRef.current += 1;
@@ -702,14 +753,7 @@ export const RepositoryPage: React.FC = () => {
       textarea?.focus();
       textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
     });
-  }, [
-    location.pathname,
-    name,
-    searchParams,
-    sessionId,
-    setSessionId,
-    setChatError,
-  ]);
+  }, [location.pathname, name, searchParams, sessionId, setSessionId]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -722,20 +766,6 @@ export const RepositoryPage: React.FC = () => {
     }
   }, [searchParams, setSearchParams]);
 
-  const lastKnownTimestamp = useMemo(() => {
-    if (!chat.length) return undefined;
-    const parsed = Date.parse(chat[chat.length - 1].timestamp);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }, [chat]);
-  const lastKnownTimestampRef = useRef<number | undefined>(lastKnownTimestamp);
-  useEffect(() => {
-    lastKnownTimestampRef.current = lastKnownTimestamp;
-  }, [lastKnownTimestamp]);
-  sessionIdRef.current = sessionId;
-  const chatRef = useRef(chat);
-  useEffect(() => {
-    chatRef.current = chat;
-  }, [chat]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const chatMarkdownOptions = useMemo(
     () => ({
@@ -784,9 +814,6 @@ export const RepositoryPage: React.FC = () => {
   const [renamePath, setRenamePath] = useState("");
   const [movePath, setMovePath] = useState("");
   const [loadingFile, setLoadingFile] = useState(false);
-  const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const isRefreshingRef = useRef(false);
   const chatInputId = "repository-agent-prompt";
   const webPreviewUrl = name
     ? `/api/repositories/${encodeURIComponent(name)}/web`
@@ -1053,24 +1080,6 @@ export const RepositoryPage: React.FC = () => {
     };
   }, [harnessHistory, refreshHarnessStatuses]);
 
-  const openSessionModal = useCallback(async () => {
-    if (!name) return;
-    setSessionModalOpen(true);
-    setSessionListLoading(true);
-    try {
-      const response = await api.getRepositoryAgentSessions(name, 10);
-      setSessionOptions(response.sessions || []);
-      setSessionListError(null);
-    } catch (error) {
-      console.error("Failed to load sessions", error);
-      const message =
-        error instanceof Error ? error.message : "Unable to load sessions";
-      setSessionListError(message);
-    } finally {
-      setSessionListLoading(false);
-    }
-  }, [name]);
-
   const findNodeByPath = (
     node: FileNode,
     targetPath: string,
@@ -1213,270 +1222,8 @@ export const RepositoryPage: React.FC = () => {
     }
   };
 
-  const refreshAgentStatus = useCallback(
-    async (targetSessionId = sessionId) => {
-      if (!name) return false;
-      if (!targetSessionId) {
-        setIsAgentBusy(false);
-        return false;
-      }
-      try {
-        const status = await api.getRepositoryAgentStatus(
-          name,
-          targetSessionId,
-        );
-        if (sessionIdRef.current !== targetSessionId) return false;
-        setIsAgentBusy(status.running);
-        return status.running;
-      } catch (error) {
-        console.error("Failed to load agent status", error);
-        return null; // network error — caller should not stop polling
-      }
-    },
-    [name, sessionId],
-  );
-
-  const getRepositoryHistory = useCallback(
-    (
-      repositoryName: string,
-      repositorySessionId: string,
-      signal?: AbortSignal,
-    ) =>
-      api.getRepositoryAgentHistory(
-        repositoryName,
-        repositorySessionId,
-        undefined,
-        signal,
-      ),
-    [],
-  );
-
-  const { sessionLoading, sessionError, clearSessionError } = useSessionLoader({
-    name,
-    sessionId,
-    setChat,
-    getHistory: getRepositoryHistory,
-    onHistoryLoaded: (history) => {
-      if (history.processing !== undefined) {
-        setIsAgentBusy(history.processing);
-      }
-      void refreshAgentStatus();
-    },
-  });
-
-  const syncChatHistory = useCallback(
-    async (signal: AbortSignal): Promise<void> => {
-      if (!name || !sessionId) return;
-      console.info("[ChatHistory] Request started");
-      try {
-        setChatError(null);
-        const startTimestamp = lastKnownTimestampRef.current
-          ? lastKnownTimestampRef.current + 1
-          : undefined;
-        const history = await api.getRepositoryAgentHistory(
-          name,
-          sessionId,
-          startTimestamp,
-          signal,
-        );
-
-        if (signal.aborted) return;
-
-        if (!history.messages?.length) {
-          console.info("[ChatHistory] Request completed with no new messages");
-          return;
-        }
-
-        setChat((previousChat) => {
-          const mapped = mapHistoryToMessages(history.messages);
-          console.info("[ChatHistory] Request completed; merge finished");
-          return mergeChatMessages(previousChat, mapped);
-        });
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          return;
-        }
-        console.error("Failed to load chat history", error);
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Failed to load chat history";
-        setChatError(message);
-      }
-    },
-    [name, sessionId, setChat, setChatError],
-  );
-
-  useAgentPolling({
-    isProcessing: isAgentBusy,
-    syncHistory: syncChatHistory,
-    checkStatus: refreshAgentStatus,
-  });
-
-  const reloadCurrentSession = useCallback(async () => {
-    if (!name || !sessionId || isRefreshingRef.current) return;
-    const sessionIdAtCall = sessionId;
-    isRefreshingRef.current = true;
-    setIsRefreshing(true);
-    clearSessionError();
-    lastKnownTimestampRef.current = undefined;
-    const chatBeforeRefresh = chatRef.current;
-    setChat([]);
-    try {
-      const history = await api.getRepositoryAgentHistory(
-        name,
-        sessionIdAtCall,
-        undefined,
-      );
-      if (sessionIdRef.current !== sessionIdAtCall) return;
-      if (history.messages?.length) {
-        const mapped = mapHistoryToMessages(history.messages);
-        setChat(mapped);
-      }
-      setChatError(null);
-      if (history.processing !== undefined) {
-        setIsAgentBusy(history.processing);
-      } else {
-        await refreshAgentStatus();
-      }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      setChat(chatBeforeRefresh);
-      console.error("Failed to reload session history", error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to reload session history";
-      setChatError(message);
-    } finally {
-      setIsRefreshing(false);
-      isRefreshingRef.current = false;
-    }
-  }, [
-    name,
-    sessionId,
-    setChat,
-    setChatError,
-    setIsAgentBusy,
-    clearSessionError,
-  ]);
-
-  const handleSendMessage = async (prompt?: string) => {
-    if (!name) return;
-    const message = (prompt ?? pendingPrompt).trim();
-    if (!message) return;
-    const sendRequestId = ++sendRequestIdRef.current;
-    const timestamp = new Date().toISOString();
-    const userMessage: ChatMessage = {
-      id: `${timestamp}-user`,
-      role: "user",
-      text: message,
-      timestamp,
-    };
-    lastSentPromptRef.current = pendingPrompt;
-    setChat((prev) => [...prev, userMessage]);
-    setPendingPrompt("");
-    setIsAgentBusy(true);
-    try {
-      const model =
-        normalizedSelectedModel === "default"
-          ? undefined
-          : normalizedSelectedModel.trim();
-      const agent =
-        normalizedSelectedAgent === DEFAULT_AGENT_VALUE
-          ? undefined
-          : normalizedSelectedAgent.trim();
-      const reply = await api.sendAgentMessage(
-        name,
-        message,
-        sessionId || undefined,
-        model,
-        agent,
-      );
-
-      // No immediate message processing - polling handles everything
-      if (sendRequestIdRef.current !== sendRequestId) return;
-      if (reply.sessionId) {
-        setSessionId(reply.sessionId);
-      }
-
-      setChatError(null);
-      setActiveTab("agent");
-
-      await refreshAgentStatus(reply.sessionId ?? sessionId);
-    } catch (error) {
-      if (sendRequestIdRef.current !== sendRequestId) return;
-      const messageText = error instanceof Error ? error.message : "";
-      const agentBusy = messageText.toLowerCase().includes("processing");
-      setChatError(
-        agentBusy
-          ? "Agent is still processing the previous message."
-          : "Failed to reach agent",
-      );
-      console.error("Failed to send agent message", error);
-      await refreshAgentStatus();
-    }
-  };
-
-  const handleCancelAgent = async () => {
-    if (!name) return;
-    if (isCancelingAgent) return;
-    setIsCancelingAgent(true);
-    try {
-      await api.cancelRepositoryAgent(name, sessionId || undefined);
-    } catch (error) {
-      console.error("Failed to cancel agent request", error);
-      setChatError("Unable to cancel the agent request.");
-    } finally {
-      await refreshAgentStatus();
-      setIsCancelingAgent(false);
-    }
-  };
-
   const handleCancelClearSession = () => {
-    setClearSessionModalOpen(false);
-  };
-
-  const handleClearSessionOnly = () => {
-    sendRequestIdRef.current += 1;
-    setSessionId(null);
-    setIsAgentBusy(false);
-    setChatError(null);
-    setPendingPrompt(lastSentPromptRef.current);
-    lastSentPromptRef.current = "";
-    setSelectedAgent(DEFAULT_AGENT_VALUE);
-    setClearSessionModalOpen(false);
-  };
-
-  const handleClearSessionAndHistory = () => {
-    sendRequestIdRef.current += 1;
-    setSessionId(null);
-    setIsAgentBusy(false);
-    setChatError(null);
-    setPendingPrompt(lastSentPromptRef.current);
-    lastSentPromptRef.current = "";
-    setSelectedAgent(DEFAULT_AGENT_VALUE);
-    setChat([]);
-    setClearSessionModalOpen(false);
-  };
-
-  const handleSessionSelect = (session: ChatSession) => {
-    if (!name) return;
-    if (!session.id) {
-      setSessionModalOpen(false);
-      return;
-    }
-    if (session.id === sessionId) {
-      setSessionModalOpen(false);
-      reloadCurrentSession();
-      return;
-    }
-    sendRequestIdRef.current += 1;
-    setSessionModalOpen(false);
-    setChatError(null);
-    setChat([]);
-    setIsAgentBusy(false);
-    setSessionId(session.id);
+    closeClearSessionModal();
   };
 
   const handleSaveSession = useCallback(() => {
@@ -2037,7 +1784,9 @@ export const RepositoryPage: React.FC = () => {
                   onClick={reloadCurrentSession}
                   aria-label="Refresh current session"
                   title="Refresh current session"
-                  disabled={isAgentBusy || sessionLoading || isRefreshing}
+                  disabled={
+                    chatAgentProcessing || sessionLoading || isRefreshing
+                  }
                 >
                   <RefreshIcon />
                 </button>
@@ -2073,20 +1822,20 @@ export const RepositoryPage: React.FC = () => {
           <ChatWindow
             chat={chat}
             chatWindowRef={chatWindowRef}
-            agentProcessing={isAgentBusy}
+            agentProcessing={chatAgentProcessing}
             refreshing={isRefreshing}
             sessionLoading={sessionLoading}
             emptyMessage="No conversation yet."
             sessionId={sessionId}
-            onClearSession={() => setClearSessionModalOpen(true)}
+            onClearSession={openClearSessionModal}
             onSaveSession={handleSaveSession}
             isSessionSaved={Boolean(
               sessionId && savedSessionIds.includes(sessionId),
             )}
             markdownOptions={chatMarkdownOptions}
           />
-          {(chatError || sessionError) && (
-            <div className="alert">{chatError ?? sessionError}</div>
+          {(agentStatus || sessionError) && (
+            <div className="alert">{agentStatus ?? sessionError}</div>
           )}
           <MentionPathTextarea
             id={chatInputId}
@@ -2103,7 +1852,7 @@ export const RepositoryPage: React.FC = () => {
                 selectId="agent-select"
                 selectedAgent={normalizedSelectedAgent}
                 onChange={setSelectedAgent}
-                disabled={isAgentBusy || sessionLoading}
+                disabled={chatAgentProcessing || sessionLoading}
                 repositoryName={name || undefined}
               />
               <label className="model-select" htmlFor="agent-model-select">
@@ -2111,7 +1860,7 @@ export const RepositoryPage: React.FC = () => {
                   id="agent-model-select"
                   value={normalizedSelectedModel}
                   onChange={(event) => setSelectedModel(event.target.value)}
-                  disabled={isAgentBusy || sessionLoading}
+                  disabled={chatAgentProcessing || sessionLoading}
                   aria-label="Model"
                 >
                   {MODEL_OPTIONS.map((option) => (
@@ -2127,10 +1876,10 @@ export const RepositoryPage: React.FC = () => {
               </label>
             </div>
             <div className="chat-controls__right">
-              {isAgentBusy ? (
+              {chatAgentProcessing ? (
                 <button
                   className="danger"
-                  onClick={handleCancelAgent}
+                  onClick={handleCancel}
                   disabled={isCancelingAgent}
                 >
                   Cancel
@@ -2140,7 +1889,9 @@ export const RepositoryPage: React.FC = () => {
                   className="primary"
                   onClick={() => handleSendMessage()}
                   disabled={
-                    !pendingPrompt.trim() || sessionLoading || isAgentBusy
+                    !pendingPrompt.trim() ||
+                    sessionLoading ||
+                    chatAgentProcessing
                   }
                 >
                   Send
@@ -2827,7 +2578,7 @@ export const RepositoryPage: React.FC = () => {
           sessions={sessionOptions}
           savedSessionIds={savedSessionIds}
           savedSessionTitles={savedSessionTitles}
-          onClose={() => setSessionModalOpen(false)}
+          onClose={closeSessionModal}
           onSelect={handleSessionSelect}
           onRemoveSavedSession={handleRemoveSavedSession}
         />
