@@ -964,6 +964,73 @@ class TestAgentService:
         with _processing_lock:
             assert lock_key not in _processing_channels
 
+    def test_cancel_agent_message_finds_process_under_cleanup_key(self):
+        """cancel_agent_message must find a live process stored under cleanup_key."""
+        from datetime import UTC, datetime
+        from unittest.mock import MagicMock, patch
+        from agent_service import (
+            cancel_agent_message,
+            _processing_channels,
+            _active_processes,
+            _cancel_events,
+            _processing_lock,
+        )
+
+        lock_key = "cancel-cleanup-lock-001"
+        cleanup_key = "cancel-cleanup-persisted-001"
+        mock_proc = MagicMock()
+        mock_proc.poll.return_value = None
+
+        try:
+            with _processing_lock:
+                _active_processes[cleanup_key] = mock_proc
+                _cancel_events[cleanup_key] = MagicMock()
+
+            with patch("agent_service._load_processing_state") as mock_load:
+                mock_load.return_value = {cleanup_key: datetime.now(UTC)}
+                with patch("agent_service._dump_processing_state"):
+                    assert cancel_agent_message(lock_key) is True
+
+            mock_proc.terminate.assert_called_once()
+            with _processing_lock:
+                assert lock_key not in _processing_channels
+                assert cleanup_key not in _processing_channels
+                assert cleanup_key not in _active_processes
+                assert cleanup_key not in _cancel_events
+        finally:
+            with _processing_lock:
+                _active_processes.pop(cleanup_key, None)
+                _cancel_events.pop(cleanup_key, None)
+                _processing_channels.pop(lock_key, None)
+                _processing_channels.pop(cleanup_key, None)
+
+    def test_cancel_agent_message_clears_both_aliases_on_stale_process(self):
+        """cancel_agent_message must clear both lock_key and cleanup_key when the process is gone."""
+        from datetime import UTC, datetime
+        from unittest.mock import patch
+        from agent_service import (
+            cancel_agent_message,
+            _processing_channels,
+            _processing_lock,
+        )
+
+        lock_key = "cancel-stale-lock-001"
+        cleanup_key = "cancel-stale-persisted-001"
+
+        try:
+            with patch("agent_service._load_processing_state") as mock_load:
+                mock_load.return_value = {cleanup_key: datetime.now(UTC)}
+                with patch("agent_service._dump_processing_state"):
+                    assert cancel_agent_message(lock_key) is False
+
+            with _processing_lock:
+                assert lock_key not in _processing_channels
+                assert cleanup_key not in _processing_channels
+        finally:
+            with _processing_lock:
+                _processing_channels.pop(lock_key, None)
+                _processing_channels.pop(cleanup_key, None)
+
     def test_cancel_agent_message_not_found_when_no_process(self):
         """cancel_agent_message must return False when no live process can be resolved."""
         from unittest.mock import patch
@@ -1127,11 +1194,8 @@ class TestAgentService:
 
     def test_get_channel_status_ignores_stale_persisted_entry(self):
         """get_channel_status must not report processing for entries beyond the TTL."""
-        from datetime import UTC, datetime, timedelta
         from unittest.mock import patch
-        from agent_service import get_channel_status, _MAX_PROCESSING_AGE
-
-        stale_time = datetime.now(UTC) - _MAX_PROCESSING_AGE - timedelta(minutes=1)
+        from agent_service import get_channel_status
 
         with patch("agent_service._load_processing_state") as mock_load:
             mock_load.return_value = {}  # stale entry already filtered by _load
