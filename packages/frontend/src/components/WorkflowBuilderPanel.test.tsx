@@ -74,4 +74,54 @@ describe("WorkflowBuilderPanel", () => {
     expect(screen.queryByRole("button", { name: "Remove step 1" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Remove step 3" })).not.toBeInTheDocument();
   });
+
+  it("keeps the editor aligned when deleting a step before the active one", async () => {
+    const saveWorkflows = vi.fn(async () => undefined);
+
+    render(
+      <WorkflowBuilderPanel
+        loadWorkflows={async () => ({ workflows })}
+        saveWorkflows={saveWorkflows}
+        listAgents={async () => ({ agents: [{ name: "planner" }] })}
+        onRunWorkflow={vi.fn(async () => undefined)}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Remove step 2" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "echo second" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove step 1" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Edit Step" })).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText("Command or Prompt"), {
+      target: { value: "echo updated" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save step" }));
+
+    await waitFor(() => {
+      expect(saveWorkflows).toHaveBeenCalledTimes(2);
+    });
+
+    expect(saveWorkflows.mock.calls[1]?.[0]).toEqual({
+      workflows: [
+        {
+          ...workflows[0],
+          steps: [
+            {
+              ...workflows[0].steps[1],
+              run: "echo updated",
+            },
+            {
+              ...workflows[0].steps[2],
+            },
+          ],
+        },
+      ],
+    });
+  });
 });

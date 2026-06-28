@@ -588,12 +588,16 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                             title="Remove step"
                             aria-label={`Remove step ${stepIndex + 1}`}
                             onClick={() => {
-                              if (
-                                editStep?.workflowId === workflow.id &&
-                                editStep.stepIndex === stepIndex
-                              ) {
-                                setEditStep(null);
-                                setEditStepValue("");
+                              if (editStep?.workflowId === workflow.id) {
+                                if (editStep.stepIndex === stepIndex) {
+                                  setEditStep(null);
+                                  setEditStepValue("");
+                                } else if (editStep.stepIndex > stepIndex) {
+                                  setEditStep({
+                                    workflowId: editStep.workflowId,
+                                    stepIndex: editStep.stepIndex - 1,
+                                  });
+                                }
                               }
                               const next = workflows.map((item) =>
                                 item.id === workflow.id
