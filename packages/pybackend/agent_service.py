@@ -305,7 +305,8 @@ def cancel_agent_message(lock_key: str) -> bool:
                     cleanup_key = ch
                     break
             if persisted_started is None and len(persisted) == 1:
-                cleanup_key = next(iter(persisted))
+                candidate = next(iter(persisted))
+                cleanup_key = candidate
                 persisted_started = persisted[cleanup_key]
         else:
             cleanup_key = lock_key
@@ -318,10 +319,17 @@ def cancel_agent_message(lock_key: str) -> bool:
     with _processing_lock:
         related = [cleanup_key, *_get_related_processing_keys(lock_key)]
         for key in dict.fromkeys(related):
+            candidate_cancel_event = _cancel_events.get(key)
+            candidate_process = _active_processes.get(key)
+            if candidate_process is not None and candidate_process.poll() is None:
+                cancel_event = candidate_cancel_event
+                process = candidate_process
+                cleanup_key = key
+                break
             if cancel_event is None:
-                cancel_event = _cancel_events.get(key)
+                cancel_event = candidate_cancel_event
             if process is None:
-                process = _active_processes.get(key)
+                process = candidate_process
 
     if process is None or process.poll() is not None:
         _clear_channel_processing(cleanup_key)
