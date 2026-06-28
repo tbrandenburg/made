@@ -127,11 +127,13 @@ export function useChatSession({
   }, [lastKnownTimestamp]);
 
   const refreshAgentStatus = useCallback(
-    async (targetSessionId = sessionId) => {
+    async (targetSessionId = sessionId, preserveStatus = false) => {
       if (!name || isExternal) return false;
       if (!targetSessionId) {
         setChatAgentProcessing(false);
-        setAgentStatus(null);
+        if (!preserveStatus) {
+          setAgentStatus(null);
+        }
         return false;
       }
 
@@ -139,11 +141,13 @@ export function useChatSession({
         const status = await api.getStatus(name, targetSessionId);
         if (sessionIdRef.current !== targetSessionId) return false;
         setChatAgentProcessing(status.running);
-        setAgentStatus(
-          status.running
-            ? "Agent is still processing the previous message."
-            : null,
-        );
+        if (!preserveStatus) {
+          setAgentStatus(
+            status.running
+              ? "Agent is still processing the previous message."
+              : null,
+          );
+        }
         return status.running;
       } catch (error) {
         console.error("Failed to load agent status", error);
@@ -316,7 +320,7 @@ export function useChatSession({
             ? "Agent is still processing the previous message."
             : "Agent unavailable",
         );
-        const processing = await refreshAgentStatus();
+        const processing = await refreshAgentStatus(undefined, true);
         if (processing === false) {
           setChatAgentProcessing(false);
         }
@@ -350,7 +354,7 @@ export function useChatSession({
       console.error("Failed to cancel agent request", error);
       setAgentStatus("Unable to cancel the agent request.");
     } finally {
-      await refreshAgentStatus();
+      await refreshAgentStatus(undefined, true);
       setIsCancelingAgent(false);
     }
   }, [api, isCancelingAgent, isExternal, name, refreshAgentStatus, sessionId]);

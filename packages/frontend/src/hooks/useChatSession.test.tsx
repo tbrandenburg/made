@@ -202,4 +202,74 @@ describe("useChatSession", () => {
     expect(api.getHistory).toHaveBeenCalledWith("repo", "session-1");
     expect(setChat).toHaveBeenCalled();
   });
+
+  it("preserves the send failure status after refresh", async () => {
+    const sendMessage = vi.fn().mockRejectedValue(new Error("Network error"));
+    const getStatus = vi.fn().mockResolvedValue({ running: false });
+    const api = {
+      sendMessage,
+      getStatus,
+      cancelAgent: vi.fn(),
+      getHistory: vi.fn(),
+      getSessions: vi.fn(),
+    };
+
+    const { result } = renderHook(() =>
+      useChatSession({
+        name: "repo",
+        sessionId: null,
+        setSessionId: vi.fn(),
+        chat: makeChat(),
+        setChat: vi.fn(),
+        setPrompt: vi.fn(),
+        setSelectedAgent: vi.fn(),
+        normalizedSelectedAgent: "default",
+        defaultAgentValue: "default",
+        api,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.handleSendMessage("hello");
+    });
+
+    expect(result.current.agentStatus).toBe("Agent unavailable");
+  });
+
+  it("preserves the cancel failure status after refresh", async () => {
+    const cancelAgent = vi
+      .fn()
+      .mockRejectedValue(new Error("cancel failed"));
+    const getStatus = vi.fn().mockResolvedValue({ running: false });
+    const api = {
+      sendMessage: vi.fn(),
+      getStatus,
+      cancelAgent,
+      getHistory: vi.fn(),
+      getSessions: vi.fn(),
+    };
+
+    const { result } = renderHook(() =>
+      useChatSession({
+        name: "repo",
+        sessionId: null,
+        setSessionId: vi.fn(),
+        chat: makeChat(),
+        setChat: vi.fn(),
+        setPrompt: vi.fn(),
+        setSelectedAgent: vi.fn(),
+        normalizedSelectedAgent: "default",
+        defaultAgentValue: "default",
+        api,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.handleCancel();
+    });
+
+    expect(result.current.agentStatus).toBe(
+      "Unable to cancel the agent request.",
+    );
+  });
 });
