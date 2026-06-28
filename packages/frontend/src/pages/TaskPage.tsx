@@ -23,17 +23,13 @@ import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import { usePersistentStringList } from "../hooks/usePersistentStringList";
 import { useAgentCli } from "../hooks/useAgentCli";
-import { api, ChatSession } from "../hooks/useApi";
-import { ChatMessage } from "../types/chat";
+import { api } from "../hooks/useApi";
 import "../styles/page.css";
 import {
   formatChatMessageLabel,
   formatChatMessageTimestamp,
-  mapHistoryToMessages,
-  mergeChatMessages,
 } from "../utils/chat";
-import { useSessionLoader } from "../hooks/useSessionLoader";
-import { useAgentPolling } from "../hooks/useAgentPolling";
+import { useChatSession } from "../hooks/useChatSession";
 import { appendRestrictedAccessPolicy } from "../utils/agentPrompt";
 import { ClearSessionModal } from "../components/ClearSessionModal";
 const SessionPickerModal = React.lazy(
@@ -149,28 +145,8 @@ export const TaskPage: React.FC = () => {
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [prompt, setPrompt] = useState("");
   const [status, setStatus] = useState<string | null>(null);
-  const [agentStatus, setAgentStatus] = useState<string | null>(null);
-  const [chatAgentProcessing, setChatAgentProcessing] = useState(false);
-  const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
-  const [sessionModalOpen, setSessionModalOpen] = useState(false);
-  const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
-  const savedSessionTitles = useMemo(
-    () =>
-      sessionOptions.reduce<Record<string, string>>((titles, session) => {
-        titles[session.id] = session.title;
-        return titles;
-      }, {}),
-    [sessionOptions],
-  );
-  const [sessionListError, setSessionListError] = useState<string | null>(null);
-  const [sessionListLoading, setSessionListLoading] = useState(false);
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const isRefreshingRef = useRef(false);
   const chatWindowRef = useRef<ChatWindowHandle>(null);
-  const sendRequestIdRef = useRef(0);
-  const sessionIdRef = useRef(sessionId);
-  const chatRef = useRef(chat);
   const chatInputId = "task-agent-prompt";
   const chatMarkdownOptions = useMemo(
     () => ({
@@ -180,40 +156,47 @@ export const TaskPage: React.FC = () => {
     [name],
   );
 
-  sessionIdRef.current = sessionId;
-  useEffect(() => {
-    chatRef.current = chat;
-  }, [chat]);
-
-  const lastKnownTimestamp = useMemo(() => {
-    if (!chat.length) return undefined;
-    const parsed = Date.parse(chat[chat.length - 1].timestamp);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }, [chat]);
-  const lastKnownTimestampRef = useRef<number | undefined>(lastKnownTimestamp);
-  useEffect(() => {
-    lastKnownTimestampRef.current = lastKnownTimestamp;
-  }, [lastKnownTimestamp]);
-
-  const getTaskHistory = useCallback(
-    (n: string, sid: string, signal?: AbortSignal) =>
-      api.getTaskAgentHistory(n, sid, undefined, signal),
-    [],
-  );
-  const { sessionLoading, sessionError } = useSessionLoader({
+  const {
+    agentStatus,
+    chatAgentProcessing,
+    clearSessionModalOpen,
+    closeClearSessionModal,
+    closeSessionModal,
+    handleCancel,
+    handleClearSessionAndHistory,
+    handleClearSessionOnly,
+    handleSendMessage,
+    handleSessionSelect,
+    isRefreshing,
+    openClearSessionModal,
+    openSessionModal,
+    reloadCurrentSession,
+    sessionError,
+    sessionLoading,
+    sessionListError,
+    sessionListLoading,
+    sessionModalOpen,
+    sessionOptions,
+  } = useChatSession({
     name,
     sessionId,
+    setSessionId,
+    chat,
     setChat,
-    getHistory: getTaskHistory,
-    onHistoryLoaded: (history) => {
-      if (history.processing !== undefined) {
-        setChatAgentProcessing(history.processing);
-      }
-      setAgentStatus(null);
-      void refreshAgentStatus();
+    setPrompt,
+    setSelectedAgent,
+    normalizedSelectedAgent,
+    defaultAgentValue: DEFAULT_AGENT_VALUE,
+    appendPolicy: appendRestrictedAccessPolicy,
+    api: {
+      sendMessage: api.sendTaskAgent,
+      getStatus: api.getTaskAgentStatus,
+      cancelAgent: api.cancelTaskAgent,
+      getHistory: api.getTaskAgentHistory,
+      getSessions: api.getTaskAgentSessions,
     },
+    onActivateAgentTab: () => setActiveTab("agent"),
   });
-
   const scrollToBottom = useCallback(() => {
     chatWindowRef.current?.scrollToBottom();
   }, []);
@@ -307,83 +290,6 @@ export const TaskPage: React.FC = () => {
       });
   }, [name, navigate]);
 
-  const syncChatHistory = useCallback(
-    async (signal: AbortSignal): Promise<void> => {
-      if (!name || !sessionId) return;
-      const startTimestamp = lastKnownTimestampRef.current
-        ? lastKnownTimestampRef.current + 1
-        : undefined;
-      try {
-        const history = await api.getTaskAgentHistory(
-          name,
-          sessionId,
-          startTimestamp,
-          signal,
-        );
-        if (signal.aborted) return;
-        if (!history.messages?.length) return;
-        setChat((previousChat) => {
-          const mapped = mapHistoryToMessages(history.messages);
-          return mergeChatMessages(previousChat, mapped);
-        });
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-        console.error("Failed to sync chat history", error);
-      }
-    },
-    [name, sessionId, setChat],
-  );
-
-  const refreshAgentStatus = useCallback(
-    async (targetSessionId = sessionId) => {
-      if (!name) return false;
-      if (!targetSessionId) {
-        setChatAgentProcessing(false);
-        return false;
-      }
-      try {
-        const status = await api.getTaskAgentStatus(name, targetSessionId);
-        if (sessionIdRef.current !== targetSessionId) return false;
-        setChatAgentProcessing(status.running);
-        setAgentStatus(
-          status.running
-            ? "Agent is still processing the previous message."
-            : null,
-        );
-        return status.running;
-      } catch (error) {
-        console.error("Failed to load agent status", error);
-        return null; // network error — caller should not stop polling
-      }
-    },
-    [name, sessionId],
-  );
-
-  useAgentPolling({
-    isProcessing: chatAgentProcessing,
-    syncHistory: syncChatHistory,
-    checkStatus: refreshAgentStatus,
-  });
-
-  const openSessionModal = useCallback(async () => {
-    if (!name) return;
-    setSessionModalOpen(true);
-    setSessionListLoading(true);
-    try {
-      const response = await api.getTaskAgentSessions(name, 10);
-      setSessionOptions(response.sessions || []);
-      setSessionListError(null);
-    } catch (error) {
-      console.error("Failed to load sessions", error);
-      const message =
-        error instanceof Error ? error.message : "Unable to load sessions";
-      setSessionListError(message);
-    } finally {
-      setSessionListLoading(false);
-    }
-  }, [name]);
-
   const handleSave = async () => {
     if (!name) return;
     try {
@@ -395,168 +301,20 @@ export const TaskPage: React.FC = () => {
     }
   };
 
-  const handleSendMessage = useCallback(
-    async (message: string, options?: { clearPrompt?: boolean }) => {
-      if (!name) return;
-      const trimmed = message.trim();
-      if (!trimmed) return;
-      const sendRequestId = ++sendRequestIdRef.current;
-      const timestamp = new Date().toISOString();
-      const userMessage: ChatMessage = {
-        id: `${timestamp}-user`,
-        role: "user",
-        text: trimmed,
-        timestamp,
-      };
-      setChat((prev) => [...prev, userMessage]);
-      if (options?.clearPrompt) {
-        setPrompt("");
-      }
-      setChatAgentProcessing(true);
-      try {
-        const promptWithPolicy = appendRestrictedAccessPolicy(
-          userMessage.text,
-          name,
-        );
-        const agent =
-          normalizedSelectedAgent === DEFAULT_AGENT_VALUE
-            ? undefined
-            : normalizedSelectedAgent.trim();
-        const reply = await api.sendTaskAgent(
-          name,
-          promptWithPolicy,
-          sessionId || undefined,
-          undefined,
-          agent,
-        );
-
-        // No immediate message processing - polling handles everything
-        if (sendRequestIdRef.current !== sendRequestId) return;
-        if (reply.sessionId) {
-          setSessionId(reply.sessionId);
-        }
-        setActiveTab("agent");
-        setAgentStatus(null);
-
-        await refreshAgentStatus(reply.sessionId ?? sessionId);
-      } catch (error) {
-        console.error("Failed to contact agent", error);
-        const errorMessage = error instanceof Error ? error.message : "";
-        const busy = errorMessage.toLowerCase().includes("processing");
-        setAgentStatus(
-          busy
-            ? "Agent is still processing the previous message."
-            : "Agent unavailable",
-        );
-        const processing = await refreshAgentStatus();
-        if (processing === false) {
-          setChatAgentProcessing(false);
-        }
-      }
-    },
-    [
-      name,
-      refreshAgentStatus,
-      normalizedSelectedAgent,
-      sessionId,
-      setActiveTab,
-      setAgentStatus,
-      setChat,
-      setChatAgentProcessing,
-      setPrompt,
-      setSessionId,
-    ],
-  );
-
   const handleSend = async () => {
     if (!prompt.trim()) return;
     await handleSendMessage(prompt, { clearPrompt: true });
   };
+  const handleCancelClearSession = closeClearSessionModal;
 
-  const handleCancel = async () => {
-    if (!name) return;
-    try {
-      await api.cancelTaskAgent(name, sessionId || undefined);
-    } catch (error) {
-      console.error("Failed to cancel agent request", error);
-      setAgentStatus("Unable to cancel the agent request.");
-    } finally {
-      await refreshAgentStatus();
-    }
-  };
-
-  const handleCancelClearSession = () => {
-    setClearSessionModalOpen(false);
-  };
-
-  const handleClearSessionOnly = () => {
-    sendRequestIdRef.current += 1;
-    lastKnownTimestampRef.current = undefined;
-    setSessionId(null);
-    setChatAgentProcessing(false);
-    setAgentStatus(null);
-    setSelectedAgent(DEFAULT_AGENT_VALUE);
-    setClearSessionModalOpen(false);
-  };
-
-  const handleClearSessionAndHistory = () => {
-    sendRequestIdRef.current += 1;
-    lastKnownTimestampRef.current = undefined;
-    setSessionId(null);
-    setChatAgentProcessing(false);
-    setAgentStatus(null);
-    setSelectedAgent(DEFAULT_AGENT_VALUE);
-    setChat([]);
-    setClearSessionModalOpen(false);
-  };
-
-  const handleSessionSelect = (session: ChatSession) => {
-    if (!name) return;
-    if (!session.id) {
-      setSessionModalOpen(false);
-      return;
-    }
-    if (session.id === sessionId) {
-      setSessionModalOpen(false);
-      reloadCurrentSession();
-      return;
-    }
-    sendRequestIdRef.current += 1;
-    setSessionModalOpen(false);
-    setChatAgentProcessing(false);
-    setAgentStatus(null);
-    setSessionId(session.id);
-  };
-
-  const reloadCurrentSession = useCallback(async () => {
-    if (!name || !sessionId || isRefreshingRef.current) return;
-    const sessionIdAtCall = sessionId;
-    isRefreshingRef.current = true;
-    setIsRefreshing(true);
-    const chatBeforeRefresh = chatRef.current;
-    setChat([]);
-    try {
-      const history = await api.getTaskAgentHistory(name, sessionIdAtCall);
-      if (sessionIdRef.current !== sessionIdAtCall) return;
-      const mapped = mapHistoryToMessages(history.messages || []);
-      setChat(mapped);
-      setAgentStatus(null);
-      if (history.processing !== undefined) {
-        setChatAgentProcessing(history.processing);
-      }
-    } catch (error) {
-      setChat(chatBeforeRefresh);
-      console.error("Failed to load session history", error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to load session history";
-      setAgentStatus(message);
-    } finally {
-      setIsRefreshing(false);
-      isRefreshingRef.current = false;
-    }
-  }, [name, sessionId, setChat, setAgentStatus, setChatAgentProcessing]);
+  const savedSessionTitles = useMemo(
+    () =>
+      sessionOptions.reduce<Record<string, string>>((titles, session) => {
+        titles[session.id] = session.title;
+        return titles;
+      }, {}),
+    [sessionOptions],
+  );
 
   const handleSaveSession = useCallback(() => {
     if (!sessionId) return;
@@ -761,7 +519,7 @@ export const TaskPage: React.FC = () => {
                   refreshing={isRefreshing}
                   emptyMessage="Start a conversation to discuss this task."
                   sessionId={sessionId}
-                  onClearSession={() => setClearSessionModalOpen(true)}
+                  onClearSession={openClearSessionModal}
                   onSaveSession={handleSaveSession}
                   isSessionSaved={Boolean(
                     sessionId && savedSessionIds.includes(sessionId),
@@ -856,7 +614,7 @@ export const TaskPage: React.FC = () => {
           sessions={sessionOptions}
           savedSessionIds={savedSessionIds}
           savedSessionTitles={savedSessionTitles}
-          onClose={() => setSessionModalOpen(false)}
+          onClose={closeSessionModal}
           onSelect={handleSessionSelect}
           onRemoveSavedSession={handleRemoveSavedSession}
         />
