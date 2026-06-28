@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../types/chat";
 import type { ChatHistoryResponse } from "./useApi";
 import { mapHistoryToMessages } from "../utils/chat";
@@ -21,6 +21,7 @@ interface UseSessionLoaderParams {
 interface UseSessionLoaderResult {
   sessionLoading: boolean;
   sessionError: string | null;
+  clearSessionError: () => void;
 }
 
 /**
@@ -41,9 +42,14 @@ export function useSessionLoader({
   getHistory,
   onHistoryLoaded,
 }: UseSessionLoaderParams): UseSessionLoaderResult {
-  const [sessionLoading, setSessionLoading] = useState(false);
+  const [sessionLoading, setSessionLoading] = useState(() =>
+    Boolean(name && sessionId),
+  );
   const [sessionError, setSessionError] = useState<string | null>(null);
   const onHistoryLoadedRef = useRef(onHistoryLoaded);
+  const clearSessionError = useCallback(() => {
+    setSessionError(null);
+  }, []);
 
   useEffect(() => {
     onHistoryLoadedRef.current = onHistoryLoaded;
@@ -90,5 +96,5 @@ export function useSessionLoader({
     };
   }, [name, sessionId, getHistory, setChat]);
 
-  return { sessionLoading, sessionError };
+  return { sessionLoading, sessionError, clearSessionError };
 }

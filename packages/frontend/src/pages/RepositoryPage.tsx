@@ -35,6 +35,8 @@ import { usePersistentChat } from "../hooks/usePersistentChat";
 import { usePersistentString } from "../hooks/usePersistentString";
 import { usePersistentStringList } from "../hooks/usePersistentStringList";
 import { useAgentCli } from "../hooks/useAgentCli";
+import { useSessionLoader } from "../hooks/useSessionLoader";
+import { useAgentPolling } from "../hooks/useAgentPolling";
 import {
   api,
   CommandDefinition,
@@ -498,11 +500,6 @@ export const RepositoryPage: React.FC = () => {
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [chatError, setChatError] = useState<string | null>(null);
   const [isAgentBusy, setIsAgentBusy] = useState(false);
-  // Initialize from sessionId so history loading state is correct on first render
-  // for persisted sessions (avoids brief flash of stale localStorage content).
-  const [isLoadingHistory, setIsLoadingHistory] = useState(() =>
-    Boolean(sessionId),
-  );
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
   const savedSessionTitles = useMemo(
@@ -667,7 +664,6 @@ export const RepositoryPage: React.FC = () => {
         return;
       }
       setChatError(null);
-      setIsLoadingHistory(true);
       setSessionId(incomingSessionId);
       setChat([]);
       sendRequestIdRef.current += 1;
@@ -1239,17 +1235,43 @@ export const RepositoryPage: React.FC = () => {
     [name, sessionId],
   );
 
+  const getRepositoryHistory = useCallback(
+    (
+      repositoryName: string,
+      repositorySessionId: string,
+      signal?: AbortSignal,
+    ) =>
+      api.getRepositoryAgentHistory(
+        repositoryName,
+        repositorySessionId,
+        undefined,
+        signal,
+      ),
+    [],
+  );
+
+  const { sessionLoading, sessionError, clearSessionError } = useSessionLoader({
+    name,
+    sessionId,
+    setChat,
+    getHistory: getRepositoryHistory,
+    onHistoryLoaded: (history) => {
+      if (history.processing !== undefined) {
+        setIsAgentBusy(history.processing);
+      }
+      void refreshAgentStatus();
+    },
+  });
+
   const syncChatHistory = useCallback(
-    async (signal?: AbortSignal, fullFetch?: boolean): Promise<boolean> => {
-      if (!name || !sessionId) return false;
+    async (signal: AbortSignal): Promise<void> => {
+      if (!name || !sessionId) return;
       console.info("[ChatHistory] Request started");
       try {
         setChatError(null);
-        const startTimestamp = fullFetch
-          ? undefined
-          : lastKnownTimestampRef.current
-            ? lastKnownTimestampRef.current + 1
-            : undefined;
+        const startTimestamp = lastKnownTimestampRef.current
+          ? lastKnownTimestampRef.current + 1
+          : undefined;
         const history = await api.getRepositoryAgentHistory(
           name,
           sessionId,
@@ -1257,15 +1279,11 @@ export const RepositoryPage: React.FC = () => {
           signal,
         );
 
-        if (signal?.aborted) return false;
-
-        if (fullFetch && history.processing !== undefined) {
-          setIsAgentBusy(history.processing);
-        }
+        if (signal.aborted) return;
 
         if (!history.messages?.length) {
           console.info("[ChatHistory] Request completed with no new messages");
-          return true;
+          return;
         }
 
         setChat((previousChat) => {
@@ -1273,10 +1291,9 @@ export const RepositoryPage: React.FC = () => {
           console.info("[ChatHistory] Request completed; merge finished");
           return mergeChatMessages(previousChat, mapped);
         });
-        return true;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
-          return false;
+          return;
         }
         console.error("Failed to load chat history", error);
         const message =
@@ -1284,69 +1301,23 @@ export const RepositoryPage: React.FC = () => {
             ? error.message
             : "Failed to load chat history";
         setChatError(message);
-        return false;
       }
     },
-    [name, sessionId, setChat, setChatError, setIsAgentBusy],
+    [name, sessionId, setChat, setChatError],
   );
 
-  // On mount (or sessionId change): always fetch history + check status
-  useEffect(() => {
-    if (!name || !sessionId) return;
-    setIsLoadingHistory(true);
-    setChat([]);
-    const controller = new AbortController();
-    const run = async () => {
-      const ok = await syncChatHistory(controller.signal, true);
-      if (controller.signal.aborted) return;
-      if (!ok) {
-        // Fetch failed (not aborted); clear loading so the error message is visible
-        setIsLoadingHistory(false);
-        return;
-      }
-      await refreshAgentStatus();
-      setIsLoadingHistory(false);
-    };
-    run();
-    return () => {
-      controller.abort();
-    };
-  }, [name, sessionId, syncChatHistory, setChat]);
-
-  // When agent is busy: poll status every 5s + sync history
-  useEffect(() => {
-    if (!isAgentBusy || !name || !sessionId) return;
-
-    const controller = new AbortController();
-    let timeoutId: number | undefined;
-
-    const tick = async () => {
-      // boolean return from syncChatHistory is intentionally ignored here:
-      // polling must still check agent status regardless of history fetch result
-      await syncChatHistory(controller.signal);
-      if (controller.signal.aborted) return;
-      const stillProcessing = await refreshAgentStatus();
-      if (controller.signal.aborted) return;
-      // null = network error; keep polling. false = agent done; stop.
-      if (stillProcessing === false) return;
-      timeoutId = window.setTimeout(tick, 5000);
-    };
-
-    tick();
-
-    return () => {
-      controller.abort(); // No argument — preserves DOMException('AbortError') shape
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [isAgentBusy, name, sessionId, syncChatHistory, refreshAgentStatus]);
+  useAgentPolling({
+    isProcessing: isAgentBusy,
+    syncHistory: syncChatHistory,
+    checkStatus: refreshAgentStatus,
+  });
 
   const reloadCurrentSession = useCallback(async () => {
     if (!name || !sessionId || isRefreshingRef.current) return;
     const sessionIdAtCall = sessionId;
     isRefreshingRef.current = true;
     setIsRefreshing(true);
+    clearSessionError();
     lastKnownTimestampRef.current = undefined;
     const chatBeforeRefresh = chatRef.current;
     setChat([]);
@@ -1380,7 +1351,14 @@ export const RepositoryPage: React.FC = () => {
       setIsRefreshing(false);
       isRefreshingRef.current = false;
     }
-  }, [name, sessionId, setChat, setChatError, setIsAgentBusy]);
+  }, [
+    name,
+    sessionId,
+    setChat,
+    setChatError,
+    setIsAgentBusy,
+    clearSessionError,
+  ]);
 
   const handleSendMessage = async (prompt?: string) => {
     if (!name) return;
@@ -1462,7 +1440,6 @@ export const RepositoryPage: React.FC = () => {
     sendRequestIdRef.current += 1;
     setSessionId(null);
     setIsAgentBusy(false);
-    setIsLoadingHistory(false);
     setChatError(null);
     setPendingPrompt(lastSentPromptRef.current);
     lastSentPromptRef.current = "";
@@ -1474,7 +1451,6 @@ export const RepositoryPage: React.FC = () => {
     sendRequestIdRef.current += 1;
     setSessionId(null);
     setIsAgentBusy(false);
-    setIsLoadingHistory(false);
     setChatError(null);
     setPendingPrompt(lastSentPromptRef.current);
     lastSentPromptRef.current = "";
@@ -1498,7 +1474,6 @@ export const RepositoryPage: React.FC = () => {
     setSessionModalOpen(false);
     setChatError(null);
     setChat([]);
-    setIsLoadingHistory(true);
     setIsAgentBusy(false);
     setSessionId(session.id);
   };
@@ -2061,7 +2036,7 @@ export const RepositoryPage: React.FC = () => {
                   onClick={reloadCurrentSession}
                   aria-label="Refresh current session"
                   title="Refresh current session"
-                  disabled={isAgentBusy || isLoadingHistory || isRefreshing}
+                  disabled={isAgentBusy || sessionLoading || isRefreshing}
                 >
                   <RefreshIcon />
                 </button>
@@ -2099,7 +2074,7 @@ export const RepositoryPage: React.FC = () => {
             chatWindowRef={chatWindowRef}
             agentProcessing={isAgentBusy}
             refreshing={isRefreshing}
-            sessionLoading={isLoadingHistory}
+            sessionLoading={sessionLoading}
             emptyMessage="No conversation yet."
             sessionId={sessionId}
             onClearSession={() => setClearSessionModalOpen(true)}
@@ -2109,7 +2084,9 @@ export const RepositoryPage: React.FC = () => {
             )}
             markdownOptions={chatMarkdownOptions}
           />
-          {chatError && <div className="alert">{chatError}</div>}
+          {(chatError || sessionError) && (
+            <div className="alert">{chatError ?? sessionError}</div>
+          )}
           <MentionPathTextarea
             id={chatInputId}
             value={pendingPrompt}
@@ -2125,7 +2102,7 @@ export const RepositoryPage: React.FC = () => {
                 selectId="agent-select"
                 selectedAgent={normalizedSelectedAgent}
                 onChange={setSelectedAgent}
-                disabled={isAgentBusy || isLoadingHistory}
+                disabled={isAgentBusy || sessionLoading}
                 repositoryName={name || undefined}
               />
               <label className="model-select" htmlFor="agent-model-select">
@@ -2133,7 +2110,7 @@ export const RepositoryPage: React.FC = () => {
                   id="agent-model-select"
                   value={normalizedSelectedModel}
                   onChange={(event) => setSelectedModel(event.target.value)}
-                  disabled={isAgentBusy || isLoadingHistory}
+                  disabled={isAgentBusy || sessionLoading}
                   aria-label="Model"
                 >
                   {MODEL_OPTIONS.map((option) => (
@@ -2158,7 +2135,7 @@ export const RepositoryPage: React.FC = () => {
                   className="primary"
                   onClick={() => handleSendMessage()}
                   disabled={
-                    !pendingPrompt.trim() || isLoadingHistory || isAgentBusy
+                    !pendingPrompt.trim() || sessionLoading || isAgentBusy
                   }
                 >
                   Send
