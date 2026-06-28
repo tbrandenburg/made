@@ -1418,20 +1418,19 @@ export const RepositoryPage: React.FC = () => {
     }
   };
 
-  const handleCancelAgent = () => {
+  const handleCancelAgent = async () => {
     if (!name) return;
     if (isCancelingAgent) return;
     setIsCancelingAgent(true);
-    api
-      .cancelRepositoryAgent(name, sessionId || undefined)
-      .catch((error) => {
-        console.error("Failed to cancel agent request", error);
-        setChatError("Unable to cancel the agent request.");
-      })
-      .finally(() => {
-        setIsCancelingAgent(false);
-        refreshAgentStatus();
-      });
+    try {
+      await api.cancelRepositoryAgent(name, sessionId || undefined);
+    } catch (error) {
+      console.error("Failed to cancel agent request", error);
+      setChatError("Unable to cancel the agent request.");
+    } finally {
+      await refreshAgentStatus();
+      setIsCancelingAgent(false);
+    }
   };
 
   const handleCancelClearSession = () => {

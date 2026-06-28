@@ -5330,9 +5330,16 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
   });
 
   it("AC588-5b: disables Cancel while cancel request is in flight", async () => {
-    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      running: true,
-    });
+    let resolveRefresh!: () => void;
+    vi.mocked(api.getRepositoryAgentStatus)
+      .mockResolvedValueOnce({
+        running: true,
+      })
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveRefresh = () => resolve({ running: false });
+        }),
+      );
 
     let resolveCancel!: () => void;
     vi.mocked(api.cancelRepositoryAgent).mockReturnValue(
@@ -5360,6 +5367,14 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
     expect(api.cancelRepositoryAgent).toHaveBeenCalledTimes(1);
 
     resolveCancel();
+
+    expect(cancelBtn).toBeDisabled();
+
+    resolveRefresh();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /send/i })).toBeInTheDocument();
+    });
   });
 
   it("AC588-6: disables Send during sessionLoading=true", async () => {
