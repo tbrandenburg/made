@@ -5053,137 +5053,6 @@ describe("RepositoryPage loading indicator shown during idle-with-sessionId gap 
   });
 });
 
-// ── Issue #562: optimistic Cancel ──────────────────────────────────────────
-describe("issue #562: handleCancelAgent optimistic update", () => {
-  beforeEach(() => {
-    cleanup();
-    document.body.innerHTML = "";
-    vi.clearAllMocks();
-    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
-    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
-      sessions: [],
-    });
-    vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
-    // Default: status resolves to idle so page can hydrate
-    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
-      running: false,
-    });
-    localStorage.clear();
-  });
-
-  it("562-1: Send button appears immediately on Cancel click before cancel API resolves", async () => {
-    // cancelRepositoryAgent never resolves — the critical test condition
-    let resolveCancel!: () => void;
-    vi.mocked(api.cancelRepositoryAgent).mockReturnValue(
-      new Promise<void>((resolve) => {
-        resolveCancel = resolve;
-      }),
-    );
-
-    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
-
-    // Wait for initial hydration so chatAgentProcessing = false and Send is enabled
-    await waitFor(() => {
-      expect(api.getRepositoryAgentStatus).toHaveBeenCalled();
-    });
-
-    // Now override mocks for streaming scenario: sendAgentMessage + status polling never resolve
-    vi.mocked(api.sendAgentMessage).mockReturnValue(
-      new Promise<AgentReply>(() => {}),
-    );
-    vi.mocked(api.getRepositoryAgentStatus).mockReturnValue(
-      new Promise(() => {}),
-    );
-
-    // Enter streaming state by sending a message
-    const textarea = screen.getByPlaceholderText(
-      "Describe the change or ask the agent...",
-    );
-    fireEvent.change(textarea, { target: { value: "hello" } });
-    fireEvent.click(screen.getByRole("button", { name: /send/i }));
-
-    // Cancel button should appear (lifecycle = streaming)
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: /cancel/i }),
-        "Cancel button should appear when lifecycle=streaming",
-      ).toBeInTheDocument();
-    });
-
-    // Act: click Cancel while cancel API is still pending (never resolves)
-    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
-
-    // Assert: Send appears immediately (optimistic update, before cancel API resolves)
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: /send/i }),
-        "Send button must appear immediately via optimistic update",
-      ).toBeInTheDocument();
-    });
-
-    // Cancel button must be gone
-    expect(
-      screen.queryByRole("button", { name: /cancel/i }),
-      "Cancel button must disappear after optimistic update",
-    ).not.toBeInTheDocument();
-
-    // API must have been called
-    expect(api.cancelRepositoryAgent).toHaveBeenCalled();
-
-    // Cleanup — resolve so no lingering unhandled promise
-    resolveCancel();
-  });
-
-  it("562-2: cancel API failure still shows Send button (optimistic update fired before rejection)", async () => {
-    // cancelRepositoryAgent rejects — simulates network failure
-    vi.mocked(api.cancelRepositoryAgent).mockRejectedValue(
-      new Error("network failure"),
-    );
-
-    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
-
-    // Wait for initial hydration so chatAgentProcessing = false and Send is enabled
-    await waitFor(() => {
-      expect(api.getRepositoryAgentStatus).toHaveBeenCalled();
-    });
-
-    // Now override mocks for streaming scenario
-    vi.mocked(api.sendAgentMessage).mockReturnValue(
-      new Promise<AgentReply>(() => {}),
-    );
-    vi.mocked(api.getRepositoryAgentStatus).mockReturnValue(
-      new Promise(() => {}),
-    );
-
-    const textarea = screen.getByPlaceholderText(
-      "Describe the change or ask the agent...",
-    );
-    fireEvent.change(textarea, { target: { value: "hello" } });
-    fireEvent.click(screen.getByRole("button", { name: /send/i }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: /cancel/i }),
-      ).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
-
-    // Send still appears (optimistic setLifecycle("hydrated") fired before the rejection)
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /send/i })).toBeInTheDocument();
-    });
-
-    // Error message must appear — the .catch() path in handleCancelAgent fires setChatError
-    await waitFor(() => {
-      expect(
-        screen.getByText("Unable to cancel the agent request."),
-        "Error message must appear after cancel API failure (.catch() path)",
-      ).toBeInTheDocument();
-    });
-  });
-});
-
 // ── AC560: refreshAgentStatus must NOT set chatError ──────────────────────────
 
 describe("RepositoryPage refreshAgentStatus does not set chatError (AC560)", () => {
@@ -5458,6 +5327,39 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
         "FAIL (AC588-5): Cancel button not shown after send",
       ).toBeInTheDocument();
     });
+  });
+
+  it("AC588-5b: disables Cancel while cancel request is in flight", async () => {
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      running: true,
+    });
+
+    let resolveCancel!: () => void;
+    vi.mocked(api.cancelRepositoryAgent).mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveCancel = resolve;
+      }),
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+      ).toBeInTheDocument();
+    });
+
+    const cancelBtn = screen.getByRole("button", { name: /cancel/i });
+    fireEvent.click(cancelBtn);
+
+    await waitFor(() => {
+      expect(cancelBtn).toBeDisabled();
+    });
+
+    fireEvent.click(cancelBtn);
+    expect(api.cancelRepositoryAgent).toHaveBeenCalledTimes(1);
+
+    resolveCancel();
   });
 
   it("AC588-6: disables Send during sessionLoading=true", async () => {

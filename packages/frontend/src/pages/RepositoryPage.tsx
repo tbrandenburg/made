@@ -500,6 +500,7 @@ export const RepositoryPage: React.FC = () => {
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [chatError, setChatError] = useState<string | null>(null);
   const [isAgentBusy, setIsAgentBusy] = useState(false);
+  const [isCancelingAgent, setIsCancelingAgent] = useState(false);
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
   const savedSessionTitles = useMemo(
@@ -1419,8 +1420,8 @@ export const RepositoryPage: React.FC = () => {
 
   const handleCancelAgent = () => {
     if (!name) return;
-    // Optimistic update: flip to false immediately so Send button renders on the next frame
-    setIsAgentBusy(false);
+    if (isCancelingAgent) return;
+    setIsCancelingAgent(true);
     api
       .cancelRepositoryAgent(name, sessionId || undefined)
       .catch((error) => {
@@ -1428,6 +1429,7 @@ export const RepositoryPage: React.FC = () => {
         setChatError("Unable to cancel the agent request.");
       })
       .finally(() => {
+        setIsCancelingAgent(false);
         refreshAgentStatus();
       });
   };
@@ -2127,7 +2129,11 @@ export const RepositoryPage: React.FC = () => {
             </div>
             <div className="chat-controls__right">
               {isAgentBusy ? (
-                <button className="danger" onClick={handleCancelAgent}>
+                <button
+                  className="danger"
+                  onClick={handleCancelAgent}
+                  disabled={isCancelingAgent}
+                >
                   Cancel
                 </button>
               ) : (
