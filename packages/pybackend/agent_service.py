@@ -349,6 +349,7 @@ def cancel_agent_message(lock_key: str) -> bool:
 
 def get_channel_status(lock_key: str) -> dict[str, object]:
     needs_dump = False
+    session_id = lock_key
 
     with _processing_lock:
         started_at = _processing_channels.get(lock_key)
@@ -364,6 +365,9 @@ def get_channel_status(lock_key: str) -> dict[str, object]:
                         # Propagate so future lookups are direct
                         _processing_channels[lock_key] = started_at
                     break
+
+        if lock_key in _conversation_sessions:
+            session_id = _conversation_sessions[lock_key]
 
         # Snapshot the session map so we can do disk I/O outside the lock below.
         needs_disk_fallback = started_at is None
@@ -393,11 +397,28 @@ def get_channel_status(lock_key: str) -> dict[str, object]:
             for ch, sid in session_snapshot:
                 if sid == lock_key:
                     persisted_started = persisted.get(ch)
+                    session_id = sid
                     break
         if persisted_started is not None:
             with _processing_lock:
                 _processing_channels[lock_key] = persisted_started
             started_at = persisted_started
+
+    if started_at is not None:
+        try:
+            processes = _read_running_agent_processes()
+        except (OSError, subprocess.SubprocessError) as exc:
+            logger.warning("Failed to inspect process table for status: %s", exc)
+        else:
+            if not _is_process_running_for_session(session_id, processes=processes):
+                with _processing_lock:
+                    for key in _get_related_processing_keys(lock_key):
+                        _processing_channels.pop(key, None)
+                        _cancelled_channels.discard(key)
+                        _active_processes.pop(key, None)
+                        _cancel_events.pop(key, None)
+                needs_dump = True
+                started_at = None
 
     if needs_dump:
         _dump_processing_state()
@@ -417,20 +438,15 @@ def _get_registered_agent_executables() -> set[str]:
     return executable_names
 
 
-def list_running_agent_processes() -> list[dict[str, object]]:
-    """List currently running agent CLI processes from the OS process table."""
+def _read_running_agent_processes() -> list[dict[str, object]]:
     executable_names = _get_registered_agent_executables()
     if not executable_names:
         return []
 
-    try:
-        ps_output = subprocess.check_output(
-            ["ps", "-eo", "pid=,ppid=,comm=,args="],
-            text=True,
-        )
-    except subprocess.SubprocessError as exc:
-        logger.warning("Failed to inspect process table: %s", exc)
-        return []
+    ps_output = subprocess.check_output(
+        ["ps", "-eo", "pid=,ppid=,comm=,args="],
+        text=True,
+    )
 
     processes: list[dict[str, object]] = []
     for raw_line in ps_output.splitlines():
@@ -470,6 +486,31 @@ def list_running_agent_processes() -> list[dict[str, object]]:
         )
 
     return sorted(processes, key=lambda item: int(item["pid"]))
+
+
+def list_running_agent_processes() -> list[dict[str, object]]:
+    """List currently running agent CLI processes from the OS process table."""
+    try:
+        return _read_running_agent_processes()
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("Failed to inspect process table: %s", exc)
+        return []
+
+
+def _is_process_running_for_session(
+    session_id: str,
+    *,
+    processes: list[dict[str, object]] | None = None,
+) -> bool:
+    """Check whether an agent CLI process with the given session_id is running."""
+    running_processes = (
+        processes if processes is not None else list_running_agent_processes()
+    )
+    for proc in running_processes:
+        command = proc.get("command", "")
+        if isinstance(command, str) and session_id in command:
+            return True
+    return False
 
 
 def terminate_agent_process(pid: int) -> bool:

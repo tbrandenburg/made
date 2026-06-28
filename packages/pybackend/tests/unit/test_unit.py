@@ -584,6 +584,155 @@ class TestAgentService:
         assert status["processing"] is False
         assert channel not in _processing_channels
 
+    def test_get_channel_status_returns_false_when_no_os_process(self):
+        """get_channel_status must clear stale bookkeeping when no live process exists."""
+        from datetime import UTC, datetime
+        from unittest.mock import patch
+        from agent_service import (
+            get_channel_status,
+            _processing_channels,
+            _processing_lock,
+        )
+
+        lock_key = "ghost-session-789"
+        try:
+            with _processing_lock:
+                _processing_channels[lock_key] = datetime.now(UTC)
+
+            with patch("agent_service._read_running_agent_processes", return_value=[]):
+                with patch("agent_service._dump_processing_state"):
+                    status = get_channel_status(lock_key)
+
+            assert status["processing"] is False
+            assert status["startedAt"] is None
+            with _processing_lock:
+                assert lock_key not in _processing_channels
+        finally:
+            with _processing_lock:
+                _processing_channels.pop(lock_key, None)
+
+    def test_get_channel_status_returns_true_when_os_process_confirmed(self):
+        """get_channel_status must keep processing=True when a live process is found."""
+        from datetime import UTC, datetime
+        from unittest.mock import patch
+        from agent_service import (
+            get_channel_status,
+            _processing_channels,
+            _processing_lock,
+        )
+
+        lock_key = "live-session-789"
+        try:
+            with _processing_lock:
+                _processing_channels[lock_key] = datetime.now(UTC)
+
+            with patch(
+                "agent_service._read_running_agent_processes",
+                return_value=[
+                    {
+                        "pid": 1,
+                        "command": f"agent --session {lock_key}",
+                        "workingDirectory": None,
+                    }
+                ],
+            ):
+                with patch("agent_service._dump_processing_state"):
+                    status = get_channel_status(lock_key)
+
+            assert status["processing"] is True
+            assert status["startedAt"] is not None
+        finally:
+            with _processing_lock:
+                _processing_channels.pop(lock_key, None)
+
+    def test_get_channel_status_uses_working_directory_on_restart(self):
+        """get_channel_status must keep processing=True for a restarted session that still has a matching command line."""
+        from datetime import UTC, datetime
+        from unittest.mock import patch
+        from agent_service import (
+            get_channel_status,
+            _processing_channels,
+            _processing_lock,
+        )
+
+        channel = "restart-repo"
+        try:
+            with _processing_lock:
+                _processing_channels[channel] = datetime.now(UTC)
+
+            with patch("agent_service._load_processing_state", return_value={channel: datetime.now(UTC)}):
+                with patch(
+                    "agent_service._read_running_agent_processes",
+                    return_value=[
+                        {
+                            "pid": 1,
+                            "command": f"agent --session {channel}",
+                            "workingDirectory": None,
+                        }
+                    ],
+                ):
+                    with patch("agent_service._dump_processing_state"):
+                        status = get_channel_status(channel)
+
+            assert status["processing"] is True
+        finally:
+            with _processing_lock:
+                _processing_channels.pop(channel, None)
+
+    def test_get_channel_status_uses_session_id_for_channel_lookup(self):
+        """get_channel_status must resolve the session id before checking the OS process table."""
+        from datetime import UTC, datetime
+        from unittest.mock import patch
+        from agent_service import (
+            get_channel_status,
+            _conversation_sessions,
+            _processing_channels,
+            _processing_lock,
+        )
+
+        channel = "lookup-repo"
+        session_id = "lookup-session-123"
+        try:
+            with _processing_lock:
+                _conversation_sessions[channel] = session_id
+                _processing_channels[channel] = datetime.now(UTC)
+
+            fake_processes = [
+                {
+                    "pid": 2,
+                    "command": f"agent --session {session_id}",
+                    "workingDirectory": None,
+                }
+            ]
+            with patch(
+                "agent_service._read_running_agent_processes",
+                return_value=fake_processes,
+            ):
+                with patch("agent_service._dump_processing_state"):
+                    status = get_channel_status(channel)
+
+            assert status["processing"] is True
+        finally:
+            with _processing_lock:
+                _conversation_sessions.pop(channel, None)
+                _processing_channels.pop(channel, None)
+                _processing_channels.pop(session_id, None)
+
+    def test_is_process_running_for_session_matches_command_line(self):
+        """_is_process_running_for_session must match session_id in command lines."""
+        from unittest.mock import patch
+        from agent_service import _is_process_running_for_session
+
+        fake_processes = [
+            {"pid": 1001, "command": "opencode run -s ses_abc123 --format json"},
+            {"pid": 1002, "command": "pi --print --mode json --session pi-xyz"},
+        ]
+
+        with patch("agent_service.list_running_agent_processes", return_value=fake_processes):
+            assert _is_process_running_for_session("ses_abc123") is True
+            assert _is_process_running_for_session("pi-xyz") is True
+            assert _is_process_running_for_session("nonexistent-session") is False
+
     @patch("agent_service.get_agent_cli")
     def test_list_chat_sessions(self, mock_get_cli):
         """Test listing chat sessions with success and error scenarios."""
@@ -695,6 +844,7 @@ class TestAgentService:
     def test_get_channel_status_reverse_lookup_via_conversation_sessions(self):
         """get_channel_status must find processing entry by reverse lookup when lock_key is a session_id."""
         from datetime import UTC, datetime
+        from unittest.mock import patch
         from agent_service import (
             get_channel_status,
             _conversation_sessions,
@@ -709,7 +859,8 @@ class TestAgentService:
                 _conversation_sessions[channel] = session_id
                 _processing_channels[channel] = datetime.now(UTC)
 
-            status = get_channel_status(session_id)
+            with patch("agent_service._is_process_running_for_session", return_value=True):
+                status = get_channel_status(session_id)
 
             assert status["processing"] is True
             # session_id key should now be populated (propagated by get_channel_status)
@@ -739,8 +890,18 @@ class TestAgentService:
 
         with patch("agent_service._load_processing_state") as mock_load:
             mock_load.return_value = {lock_key: datetime.now(UTC)}
-            with patch("agent_service._dump_processing_state"):
-                status = get_channel_status(lock_key)
+            with patch(
+                "agent_service._read_running_agent_processes",
+                return_value=[
+                    {
+                        "pid": 3,
+                        "command": f"agent --session {lock_key}",
+                        "workingDirectory": None,
+                    }
+                ],
+            ):
+                with patch("agent_service._dump_processing_state"):
+                    status = get_channel_status(lock_key)
 
         assert status["processing"] is True
         assert status["startedAt"] is not None
