@@ -509,7 +509,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
             : "Agent unavailable",
         );
         const processing = await refreshAgentStatus();
-        if (!processing) {
+        if (processing === false) {
           setChatAgentProcessing(false);
         }
       }

@@ -2065,6 +2065,18 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
   // ── U6: AC495-3 reply.processing=true ───────────────────────────────
 
   it("U6 (AC495-3): send success reconciles against the new session id", async () => {
+    let sessionBHistoryDeferred!: (value: ChatHistoryResponse) => void;
+    const sessionBHistory = new Promise<ChatHistoryResponse>((resolve) => {
+      sessionBHistoryDeferred = resolve;
+    });
+    vi.mocked(api.getRepositoryAgentHistory).mockImplementation(
+      async (_name, sessionId) => {
+        if (sessionId === "session-b") {
+          return sessionBHistory;
+        }
+        return { sessionId: "session-a", messages: [] };
+      },
+    );
     vi.mocked(api.sendAgentMessage).mockResolvedValue({
       messageId: "m1",
       sent: new Date().toISOString(),
@@ -2088,12 +2100,20 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
     await waitFor(() => {
-      expect(
-        vi
-          .mocked(api.getRepositoryAgentStatus)
-          .mock.calls.some((call) => call[1] === "session-b"),
-        "F-AC495-3c: refreshAgentStatus did not query the new session id after send success",
-      ).toBe(true);
+      const statusMock = vi.mocked(api.getRepositoryAgentStatus).mock;
+      const historyMock = vi.mocked(api.getRepositoryAgentHistory).mock;
+      const statusIndex = statusMock.calls.findIndex((call) => call[1] === "session-b");
+      const historyIndex = historyMock.calls.findIndex((call) => call[1] === "session-b");
+      expect(statusIndex).toBeGreaterThanOrEqual(0);
+      expect(historyIndex).toBeGreaterThanOrEqual(0);
+      expect(statusMock.invocationCallOrder[statusIndex]).toBeLessThan(
+        historyMock.invocationCallOrder[historyIndex],
+      );
+    });
+
+    sessionBHistoryDeferred({
+      sessionId: "session-b",
+      messages: [],
     });
 
     expect(
