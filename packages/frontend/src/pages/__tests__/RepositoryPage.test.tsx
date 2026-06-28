@@ -1822,6 +1822,20 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     return { router, ...result };
   }
 
+  function setupDeferredSends(count: number) {
+    const resolvers: Array<(value: AgentReply) => void> = [];
+
+    for (let index = 0; index < count; index += 1) {
+      vi.mocked(api.sendAgentMessage).mockReturnValueOnce(
+        new Promise<AgentReply>((resolve) => {
+          resolvers[index] = resolve;
+        }),
+      );
+    }
+
+    return resolvers;
+  }
+
   beforeEach(() => {
     cleanup();
     document.body.innerHTML = "";
@@ -2299,24 +2313,11 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
   // ── U10: two concurrent handleSendMessage invocations ────────────────
 
   it("U10: two concurrent sends — first reply discarded by request-level guard", async () => {
-    let resolveFirst!: (value: AgentReply) => void;
-    let resolveSecond!: (value: AgentReply) => void;
-    vi.mocked(api.sendAgentMessage)
-      .mockReturnValueOnce(
-        new Promise<AgentReply>((resolve) => {
-          resolveFirst = resolve;
-        }),
-      )
-      .mockReturnValueOnce(
-        new Promise<AgentReply>((resolve) => {
-          resolveSecond = resolve;
-        }),
-      );
+    const resolves = setupDeferredSends(2);
 
     renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
     await screen.findByLabelText("Clear session");
 
-    // First send
     const textarea = screen.getByPlaceholderText(
       "Describe the change or ask the agent...",
     );
@@ -2329,12 +2330,13 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       ).toBeInTheDocument();
     });
 
-    // Switch session to reset chatAgentProcessing so send button is available again
+    // Switch to session B to reset chatAgentProcessing
     vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
       sessions: [sessionA, sessionB],
     });
     fireEvent.click(screen.getByLabelText("Choose a session"));
     fireEvent.click(await screen.findByTitle("Session B"));
+    await screen.findByText("No conversation yet.");
 
     await waitFor(() => {
       expect(
@@ -2342,8 +2344,12 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       ).not.toBeInTheDocument();
     });
 
-    // Second send (after session switch resets chatAgentProcessing)
-    fireEvent.change(textarea, { target: { value: "second" } });
+    const switchedTextarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+
+    // Send again after the session switch
+    fireEvent.change(switchedTextarea, { target: { value: "second" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
     await waitFor(() => {
@@ -2352,8 +2358,8 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       ).toBeInTheDocument();
     });
 
-    // Resolve second first (newer request should complete first)
-    resolveSecond!({
+    // Resolve second first (newer request completes first)
+    resolves[1]({
       messageId: "m2",
       sent: new Date().toISOString(),
       response: "second-ok",
@@ -2365,8 +2371,8 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       expect(screen.getByText("Session ID: session-b")).toBeInTheDocument();
     });
 
-    // Now resolve the stale first message (should be discarded by request-level guard)
-    resolveFirst!({
+    // U10: stale first reply discarded by request-level guard
+    resolves[0]({
       messageId: "m1",
       sent: new Date().toISOString(),
       response: "stale-first",
@@ -2381,6 +2387,44 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       screen.getByText("Session ID: session-b"),
       "F-AC495-U10: Session ID changed after stale first reply resolved — request-level guard failed",
     ).toBeInTheDocument();
+  });
+
+  // ── U13: AC496 regression guard ─────────────────────────────────
+
+  it("U13 (AC496 regression): normal send after picker switch works", async () => {
+    // The stale-reply guard fix must not break normal session management.
+    // Unlike U4 which tests bootstrap-initiated sends, this tests the
+    // session-picker path — a regression scenario from the AC496 suite.
+    vi.mocked(api.sendAgentMessage).mockResolvedValue({
+      messageId: "m1",
+      sent: new Date().toISOString(),
+      response: "ok",
+      sessionId: "session-b",
+      processing: false,
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+    await screen.findByLabelText("Clear session");
+
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA, sessionB],
+    });
+    fireEvent.click(screen.getByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle("Session B"));
+    await screen.findByText("No conversation yet.");
+
+    const textarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+    fireEvent.change(textarea, { target: { value: "hello from B" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Session ID: session-b"),
+        "F-AC495-U13: AC496 regression — send after picker switch broken",
+      ).toBeInTheDocument();
+    });
   });
 
   // ── U11: component unmount while send in-flight ──────────────────────
@@ -2441,44 +2485,6 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     await new Promise<void>((r) => setTimeout(r, 300));
 
     expect(true, "Bootstrap with empty name did not crash").toBe(true);
-  });
-
-  // ── U13: AC496 regression guard ─────────────────────────────────
-
-  it("U13 (AC496 regression): normal send after picker switch works", async () => {
-    // The stale-reply guard fix must not break normal session management.
-    // Unlike U4 which tests bootstrap-initiated sends, this tests the
-    // session-picker path — a regression scenario from the AC496 suite.
-    vi.mocked(api.sendAgentMessage).mockResolvedValue({
-      messageId: "m1",
-      sent: new Date().toISOString(),
-      response: "ok",
-      sessionId: "session-b",
-      processing: false,
-    });
-
-    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
-    await screen.findByLabelText("Clear session");
-
-    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
-      sessions: [sessionA, sessionB],
-    });
-    fireEvent.click(screen.getByLabelText("Choose a session"));
-    fireEvent.click(await screen.findByTitle("Session B"));
-    await screen.findByText("No conversation yet.");
-
-    const textarea = screen.getByPlaceholderText(
-      "Describe the change or ask the agent...",
-    );
-    fireEvent.change(textarea, { target: { value: "hello from B" } });
-    fireEvent.click(screen.getByRole("button", { name: /send/i }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText("Session ID: session-b"),
-        "F-AC495-U13: AC496 regression — send after picker switch broken",
-      ).toBeInTheDocument();
-    });
   });
 
   // ── T1–T4: signal.aborted guard (Issue #492) ───────────────────────
@@ -2684,19 +2690,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
   // ── ADV-1: stale reply then fresh send from new session ───────────────
 
   it("ADV-1: new send from new session works after stale reply is discarded", async () => {
-    let resolveStaleSend!: (value: AgentReply) => void;
-    let resolveFreshSend!: (value: AgentReply) => void;
-    vi.mocked(api.sendAgentMessage)
-      .mockReturnValueOnce(
-        new Promise<AgentReply>((resolve) => {
-          resolveStaleSend = resolve;
-        }),
-      )
-      .mockReturnValueOnce(
-        new Promise<AgentReply>((resolve) => {
-          resolveFreshSend = resolve;
-        }),
-      );
+    const resolves = setupDeferredSends(2);
 
     const { router } = renderPageWithRouter([
       "/repositories/test-repo?tab=agent&sessionId=session-b",
@@ -2731,8 +2725,12 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
       "/repositories/test-repo?tab=agent&sessionId=session-b",
     );
 
+    const freshTextarea = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+
     // Resolve the stale session A reply
-    resolveStaleSend!({
+    resolves[0]({
       messageId: "m1",
       sent: new Date().toISOString(),
       response: "stale",
@@ -2751,7 +2749,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
       sessions: [sessionA, sessionB],
     });
-    fireEvent.change(textarea, { target: { value: "fresh message" } });
+    fireEvent.change(freshTextarea, { target: { value: "fresh message" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
     await waitFor(() => {
@@ -2762,7 +2760,7 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     });
 
     // Resolve the fresh session B reply
-    resolveFreshSend!({
+    resolves[1]({
       messageId: "m2",
       sent: new Date().toISOString(),
       response: "fresh-ok",
