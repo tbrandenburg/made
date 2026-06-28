@@ -745,6 +745,133 @@ class TestAgentService:
         assert status["processing"] is True
         assert status["startedAt"] is not None
 
+    def test_cancel_agent_message_by_session_id_reverse_lookup(self):
+        """cancel_agent_message must find processing entry by reverse lookup when lock_key is a session_id."""
+        from datetime import UTC, datetime
+        from unittest.mock import MagicMock
+        from agent_service import (
+            cancel_agent_message,
+            _conversation_sessions,
+            _processing_channels,
+            _active_processes,
+            _cancel_events,
+            _processing_lock,
+        )
+
+        channel = "cancel-reverse-lookup-repo"
+        session_id = "cancel-reverse-session-123"
+        mock_proc = MagicMock()
+        mock_proc.poll.return_value = None
+        try:
+            with _processing_lock:
+                _conversation_sessions[channel] = session_id
+                _processing_channels[channel] = datetime.now(UTC)
+                _active_processes[channel] = mock_proc
+                _cancel_events[channel] = MagicMock()
+
+            assert cancel_agent_message(session_id) is True
+            mock_proc.terminate.assert_called_once()
+        finally:
+            with _processing_lock:
+                _conversation_sessions.pop(channel, None)
+                _processing_channels.pop(channel, None)
+                _processing_channels.pop(session_id, None)
+                _active_processes.pop(channel, None)
+                _cancel_events.pop(channel, None)
+
+    def test_cancel_agent_message_falls_back_to_persisted_state(self):
+        """cancel_agent_message must restore state from disk, but still return not found when no live process exists."""
+        from datetime import UTC, datetime
+        from unittest.mock import patch
+        from agent_service import (
+            cancel_agent_message,
+            _processing_channels,
+            _active_processes,
+            _processing_lock,
+        )
+
+        lock_key = "cancel-persisted-session-456"
+        with _processing_lock:
+            _processing_channels.pop(lock_key, None)
+            _active_processes.pop(lock_key, None)
+
+        with patch("agent_service._load_processing_state") as mock_load:
+            mock_load.return_value = {lock_key: datetime.now(UTC)}
+            with patch("agent_service._dump_processing_state"):
+                assert cancel_agent_message(lock_key) is False
+
+        with _processing_lock:
+            assert lock_key not in _processing_channels
+
+    def test_cancel_agent_message_not_found_when_no_process(self):
+        """cancel_agent_message must return False when no live process can be resolved."""
+        from unittest.mock import patch
+        from agent_service import (
+            cancel_agent_message,
+            _processing_channels,
+            _processing_lock,
+        )
+
+        lock_key = "cancel-nonexistent-session-789"
+        with _processing_lock:
+            _processing_channels.pop(lock_key, None)
+
+        with patch("agent_service._load_processing_state") as mock_load:
+            mock_load.return_value = {}
+            with patch("agent_service._dump_processing_state"):
+                assert cancel_agent_message(lock_key) is False
+
+    def test_cancel_agent_message_clears_single_persisted_entry_when_session_unknown(self):
+        """cancel_agent_message must clear a uniquely identifiable stale persisted entry even if the session map is empty."""
+        from datetime import UTC, datetime
+        from unittest.mock import patch
+        from agent_service import (
+            cancel_agent_message,
+            _processing_channels,
+            _processing_lock,
+        )
+
+        lock_key = "cancel-persisted-orphan-999"
+        with _processing_lock:
+            _processing_channels.pop(lock_key, None)
+
+        with patch("agent_service._load_processing_state") as mock_load:
+            mock_load.return_value = {lock_key: datetime.now(UTC)}
+            with patch("agent_service._dump_processing_state"):
+                assert cancel_agent_message(lock_key) is False
+
+        with _processing_lock:
+            assert lock_key not in _processing_channels
+
+    def test_cancel_agent_message_by_channel_key_direct(self):
+        """cancel_agent_message must still work with the direct channel key."""
+        from datetime import UTC, datetime
+        from unittest.mock import MagicMock
+        from agent_service import (
+            cancel_agent_message,
+            _processing_channels,
+            _active_processes,
+            _cancel_events,
+            _processing_lock,
+        )
+
+        channel = "cancel-direct-channel"
+        mock_proc = MagicMock()
+        mock_proc.poll.return_value = None
+        try:
+            with _processing_lock:
+                _processing_channels[channel] = datetime.now(UTC)
+                _active_processes[channel] = mock_proc
+                _cancel_events[channel] = MagicMock()
+
+            assert cancel_agent_message(channel) is True
+            mock_proc.terminate.assert_called_once()
+        finally:
+            with _processing_lock:
+                _processing_channels.pop(channel, None)
+                _active_processes.pop(channel, None)
+                _cancel_events.pop(channel, None)
+
     def test_alias_cleanup_removes_all_related_keys_on_process_exit(self):
         """get_channel_status cleanup must remove both channel and session_id keys when process exits."""
         from datetime import UTC, datetime
