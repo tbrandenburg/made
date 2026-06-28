@@ -266,6 +266,11 @@ textarea {
   color: var(--warning);
 }
 
+.badge.danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
 .badge.external {
   background: rgba(239, 68, 68, 0.16);
   color: #fca5a5;
