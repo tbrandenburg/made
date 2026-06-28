@@ -583,6 +583,37 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                               <ArrowDownIcon />
                             </span>
                           </button>
+                          <button
+                            className="copy-button workflow-icon-button workflow-icon-button--danger"
+                            title="Remove step"
+                            aria-label={`Remove step ${stepIndex + 1}`}
+                            onClick={() => {
+                              if (editStep?.workflowId === workflow.id) {
+                                if (editStep.stepIndex === stepIndex) {
+                                  setEditStep(null);
+                                  setEditStepValue("");
+                                } else if (editStep.stepIndex > stepIndex) {
+                                  setEditStep({
+                                    workflowId: editStep.workflowId,
+                                    stepIndex: editStep.stepIndex - 1,
+                                  });
+                                }
+                              }
+                              const next = workflows.map((item) =>
+                                item.id === workflow.id
+                                  ? {
+                                      ...item,
+                                      steps: item.steps.filter(
+                                        (_, index) => index !== stepIndex,
+                                      ),
+                                    }
+                                  : item,
+                              );
+                              void persist(next);
+                            }}
+                          >
+                            <TrashIcon />
+                          </button>
                         </div>
                       </div>
                     ))
