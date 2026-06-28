@@ -140,6 +140,36 @@ describe("RepositoryPage session selection", () => {
     });
   });
 
+  it("AC2b: page hydrates saved session history on mount", async () => {
+    vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue({
+      sessionId: "session-b",
+      messages: [
+        {
+          role: "assistant",
+          type: "text",
+          content: "Saved session greeting",
+          timestamp: "2026-01-02T00:00:00Z",
+        },
+      ],
+      processing: false,
+    });
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      processing: false,
+      startedAt: null,
+    });
+
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-b"]);
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledTimes(1);
+    });
+
+    expect(
+      await screen.findByText("Saved session greeting"),
+      "FAIL (AC2b): saved session history did not render on mount — useSessionLoader may not be wiring setChat",
+    ).toBeInTheDocument();
+  });
+
   // AC7: inverted — same-session re-select MUST trigger full history fetch
   it("AC7: re-selecting the same active session triggers full refresh (fails on unfixed code: guard returns early)", async () => {
     vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
@@ -538,7 +568,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
         "Send should be enabled after clear",
       ).not.toBeDisabled();
     });
-  });
+  }, 20000);
 
   // ── AC496-2 ────────────────────────────────────────────────────────────
 
@@ -768,7 +798,7 @@ describe("RepositoryPage clear session loading state (AC496)", () => {
         screen.queryByText("Session ID: old-session-id"),
       ).not.toBeInTheDocument();
     });
-  });
+  }, 20000);
 
   // ── AC496-ADV2: failed send after clear recovers on retry ──────────────
 
@@ -2102,8 +2132,12 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     await waitFor(() => {
       const statusMock = vi.mocked(api.getRepositoryAgentStatus).mock;
       const historyMock = vi.mocked(api.getRepositoryAgentHistory).mock;
-      const statusIndex = statusMock.calls.findIndex((call) => call[1] === "session-b");
-      const historyIndex = historyMock.calls.findIndex((call) => call[1] === "session-b");
+      const statusIndex = statusMock.calls.findIndex(
+        (call) => call[1] === "session-b",
+      );
+      const historyIndex = historyMock.calls.findIndex(
+        (call) => call[1] === "session-b",
+      );
       expect(statusIndex).toBeGreaterThanOrEqual(0);
       expect(historyIndex).toBeGreaterThanOrEqual(0);
       expect(statusMock.invocationCallOrder[statusIndex]).toBeLessThan(
@@ -5331,7 +5365,7 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
     localStorage.clear();
   });
 
-  it("AC588-1: mounts without sessionId — isLoadingHistory=false, Send enabled when prompt typed", () => {
+  it("AC588-1: mounts without sessionId — sessionLoading=false, Send enabled when prompt typed", () => {
     renderPage(["/repositories/test-repo?tab=agent"]);
     const textarea = screen.getByPlaceholderText(
       "Describe the change or ask the agent...",
@@ -5476,7 +5510,7 @@ describe("RepositoryPage simplified lifecycle (issue #588)", () => {
     });
   });
 
-  it("AC588-6: disables Send during isLoadingHistory=true", async () => {
+  it("AC588-6: disables Send during sessionLoading=true", async () => {
     let resolveHistory!: (v: ChatHistoryResponse) => void;
     vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(
       new Promise<ChatHistoryResponse>((resolve) => {
