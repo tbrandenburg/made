@@ -1250,7 +1250,7 @@ export const RepositoryPage: React.FC = () => {
     [],
   );
 
-  const { sessionLoading, sessionError } = useSessionLoader({
+  const { sessionLoading, sessionError, clearSessionError } = useSessionLoader({
     name,
     sessionId,
     setChat,
@@ -1317,6 +1317,7 @@ export const RepositoryPage: React.FC = () => {
     const sessionIdAtCall = sessionId;
     isRefreshingRef.current = true;
     setIsRefreshing(true);
+    clearSessionError();
     lastKnownTimestampRef.current = undefined;
     const chatBeforeRefresh = chatRef.current;
     setChat([]);
@@ -1350,7 +1351,14 @@ export const RepositoryPage: React.FC = () => {
       setIsRefreshing(false);
       isRefreshingRef.current = false;
     }
-  }, [name, sessionId, setChat, setChatError, setIsAgentBusy]);
+  }, [
+    name,
+    sessionId,
+    setChat,
+    setChatError,
+    setIsAgentBusy,
+    clearSessionError,
+  ]);
 
   const handleSendMessage = async (prompt?: string) => {
     if (!name) return;
