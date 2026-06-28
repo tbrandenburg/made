@@ -2064,12 +2064,12 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
 
   // ── U6: AC495-3 reply.processing=true ───────────────────────────────
 
-  it("U6 (AC495-3): backend status=false clears busy state even when reply.processing=true", async () => {
+  it("U6 (AC495-3): send success reconciles against the new session id", async () => {
     vi.mocked(api.sendAgentMessage).mockResolvedValue({
       messageId: "m1",
       sent: new Date().toISOString(),
       response: "processing",
-      sessionId: "session-a",
+      sessionId: "session-b",
       processing: true,
     });
 
@@ -2087,11 +2087,18 @@ describe("RepositoryPage stale-reply guard (AC495)", () => {
     fireEvent.change(textarea, { target: { value: "test message" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
-    await new Promise<void>((r) => setTimeout(r, 200));
+    await waitFor(() => {
+      expect(
+        vi
+          .mocked(api.getRepositoryAgentStatus)
+          .mock.calls.some((call) => call[1] === "session-b"),
+        "F-AC495-3c: refreshAgentStatus did not query the new session id after send success",
+      ).toBe(true);
+    });
 
     expect(
       screen.getByRole("button", { name: /send/i }),
-      "F-AC495-3c: Send button not re-enabled when backend status=false — reply.processing incorrectly won over backend truth",
+      "F-AC495-3c: Send button not re-enabled after backend reconciliation",
     ).toBeInTheDocument();
   });
 
