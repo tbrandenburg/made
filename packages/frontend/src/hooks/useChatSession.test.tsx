@@ -1,4 +1,4 @@
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useChatSession } from "./useChatSession";
 import type { ChatMessage } from "../types/chat";
@@ -302,5 +302,58 @@ describe("useChatSession", () => {
     });
 
     expect(result.current.agentStatus).toBeNull();
+  });
+
+  it("does not restart loading when the api wrapper identity changes", async () => {
+    const chat = makeChat();
+    const setChat = vi.fn();
+    const setSessionId = vi.fn();
+    const setPrompt = vi.fn();
+    const setSelectedAgent = vi.fn();
+    const sendMessage = vi.fn();
+    const getStatus = vi.fn().mockResolvedValue({ running: false });
+    const cancelAgent = vi.fn();
+    const getHistory = vi.fn().mockResolvedValue({
+      sessionId: "session-1",
+      messages: [],
+    });
+    const getSessions = vi.fn();
+
+    const makeApi = () => ({
+      sendMessage,
+      getStatus,
+      cancelAgent,
+      getHistory,
+      getSessions,
+    });
+
+    const { rerender } = renderHook(
+      ({ api }) =>
+        useChatSession({
+          name: "repo",
+          sessionId: "session-1",
+          setSessionId,
+          chat,
+          setChat,
+          setPrompt,
+          setSelectedAgent,
+          normalizedSelectedAgent: "default",
+          defaultAgentValue: "default",
+          api,
+        }),
+      { initialProps: { api: makeApi() } },
+    );
+
+    await waitFor(() => expect(getHistory).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(getStatus).toHaveBeenCalledTimes(1));
+
+    rerender({ api: makeApi() });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getHistory).toHaveBeenCalledTimes(1);
+    expect(getStatus).toHaveBeenCalledTimes(1);
   });
 });
