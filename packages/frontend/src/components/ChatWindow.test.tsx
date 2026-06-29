@@ -101,13 +101,7 @@ describe("ChatWindow", () => {
   });
 
   it("shows empty message when chat is empty", () => {
-    render(
-      <ChatWindow
-        chat={[]}
-        running={false}
-        emptyMessage="No messages"
-      />,
-    );
+    render(<ChatWindow chat={[]} running={false} emptyMessage="No messages" />);
     expect(screen.getByText("No messages")).toBeInTheDocument();
   });
 
@@ -118,11 +112,7 @@ describe("ChatWindow", () => {
 
   it("renders loading indicator in the virtualized footer for non-empty chat", () => {
     render(
-      <ChatWindow
-        chat={[makeMessage()]}
-        running
-        emptyMessage="No messages"
-      />,
+      <ChatWindow chat={[makeMessage()]} running emptyMessage="No messages" />,
     );
 
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
@@ -317,29 +307,19 @@ describe("ChatWindow", () => {
 
   it("toggles loading indicator when running changes at runtime (empty chat)", () => {
     const { rerender } = render(
-      <ChatWindow
-        chat={[]}
-        running={false}
-        emptyMessage="No messages"
-      />,
+      <ChatWindow chat={[]} running={false} emptyMessage="No messages" />,
     );
 
     expect(screen.queryByText("Agent is thinking...")).not.toBeInTheDocument();
     expect(screen.getByText("No messages")).toBeInTheDocument();
 
-    rerender(
-      <ChatWindow chat={[]} running emptyMessage="No messages" />,
-    );
+    rerender(<ChatWindow chat={[]} running emptyMessage="No messages" />);
 
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
     expect(screen.queryByText("No messages")).not.toBeInTheDocument();
 
     rerender(
-      <ChatWindow
-        chat={[]}
-        running={false}
-        emptyMessage="No messages"
-      />,
+      <ChatWindow chat={[]} running={false} emptyMessage="No messages" />,
     );
 
     expect(screen.queryByText("Agent is thinking...")).not.toBeInTheDocument();
@@ -358,11 +338,7 @@ describe("ChatWindow", () => {
     expect(screen.queryByText("Agent is thinking...")).not.toBeInTheDocument();
 
     rerender(
-      <ChatWindow
-        chat={[makeMessage()]}
-        running
-        emptyMessage="No messages"
-      />,
+      <ChatWindow chat={[makeMessage()]} running emptyMessage="No messages" />,
     );
 
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
@@ -386,11 +362,7 @@ describe("ChatWindow", () => {
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
 
     rerender(
-      <ChatWindow
-        chat={[makeMessage()]}
-        running
-        emptyMessage="No messages"
-      />,
+      <ChatWindow chat={[makeMessage()]} running emptyMessage="No messages" />,
     );
 
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
@@ -626,11 +598,7 @@ describe("ChatWindow", () => {
 
   it("followOutput returns false when user is scrolled up (no auto-scroll on streaming arrival)", () => {
     render(
-      <ChatWindow
-        chat={[makeMessage()]}
-        running
-        emptyMessage="No messages"
-      />,
+      <ChatWindow chat={[makeMessage()]} running emptyMessage="No messages" />,
     );
 
     const cb = followOutputCapture.current;
