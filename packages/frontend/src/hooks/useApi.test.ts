@@ -146,6 +146,31 @@ describe("GET request deduplication", () => {
     vi.clearAllMocks();
   });
 
+  it("should bypass dedup and issue a new fetch when AbortSignal is provided", async () => {
+    const mockResponse = () =>
+      new Response(JSON.stringify({ messages: [], nextTimestamp: null }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    window.fetch = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(mockResponse()));
+
+    const controller = new AbortController();
+    await Promise.all([
+      api.getRepositoryAgentHistory("my-repo", "ses_1"),
+      api.getRepositoryAgentHistory(
+        "my-repo",
+        "ses_1",
+        undefined,
+        controller.signal,
+      ),
+    ]);
+
+    // Two distinct fetches: one from dedup path, one bypassing it via signal
+    expect(window.fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("should issue only one fetch for concurrent identical GET requests", async () => {
     window.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ agents: [] }), {

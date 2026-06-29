@@ -185,7 +185,6 @@ export function useChatSession({
         setChatAgentProcessing(history.processing);
       }
       setAgentStatus(null);
-      void refreshAgentStatus(history.sessionId);
     },
   });
 
@@ -317,6 +316,7 @@ export function useChatSession({
         }
         setAgentStatus(null);
         onActivateAgentTab?.();
+        await syncChatHistory(new AbortController().signal);
         await refreshAgentStatus(reply.sessionId ?? sessionId);
       } catch (error) {
         if (sendRequestIdRef.current !== sendRequestId) return;
@@ -349,6 +349,7 @@ export function useChatSession({
       sessionId,
       setChat,
       setSessionId,
+      syncChatHistory,
     ],
   );
 

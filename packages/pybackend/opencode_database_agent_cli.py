@@ -9,7 +9,6 @@ import json
 import logging
 import os
 import re
-import time
 from pathlib import Path
 from typing import Any, Callable
 from threading import Event
@@ -574,10 +573,6 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                                     break
                             except json.JSONDecodeError:
                                 continue
-
-                # Generate session_id if none provided and none extracted
-                if not extracted_session_id:
-                    extracted_session_id = f"opencode-{int(time.time())}"
 
                 return RunResult(
                     success=True,
