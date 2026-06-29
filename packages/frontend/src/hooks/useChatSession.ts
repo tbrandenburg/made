@@ -147,12 +147,8 @@ export function useChatSession({
         const status = await getStatus(name, targetSessionId);
         if (sessionIdRef.current !== targetSessionId) return false;
         setChatAgentProcessing(status.running);
-        if (!preserveStatus) {
-          setAgentStatus(
-            status.running
-              ? "Agent is still processing the previous message."
-              : null,
-          );
+        if (!preserveStatus && !status.running) {
+          setAgentStatus(null);
         }
         return status.running;
       } catch (error) {
