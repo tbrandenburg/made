@@ -621,18 +621,15 @@ def cancel_agent_message(lock_key: str) -> bool:
 
 def get_channel_status(lock_key: str) -> dict[str, object]:
     needs_dump = False
-    session_id = lock_key
 
-    # --- STEP 0: Resolve session_id up-front (both forward and reverse) ---
-    # Do this before any state checks so `session_id` is correct for the entire
-    # function, including the ps-scan fallback at the bottom.
+    # --- STEP 0: Propagate lock key for reverse session_id → channel lookups ---
+    # If lock_key is a session_id that maps to a channel which holds the lock,
+    # copy that lock entry under lock_key so Steps 1/2 can find it directly.
     with _processing_lock:
-        # Forward: lock_key is a channel name → get its associated session_id.
-        if lock_key in _conversation_sessions:
-            session_id = _conversation_sessions[lock_key]
-        # Reverse: lock_key might itself be a session_id stored under a channel
-        # key in _processing_channels.  Propagate so future lookups are direct.
-        elif lock_key not in _processing_channels:
+        if (
+            lock_key not in _conversation_sessions
+            and lock_key not in _processing_channels
+        ):
             for ch, sid in list(_conversation_sessions.items()):
                 if sid == lock_key and ch in _processing_channels:
                     _processing_channels[lock_key] = _processing_channels[ch]
@@ -656,75 +653,18 @@ def get_channel_status(lock_key: str) -> dict[str, object]:
         started_at = _processing_channels.get(lock_key)
         if started_at is not None:
             registry_entry = _find_process_registry_entry_locked(lock_key)
-            if registry_entry is not None:
-                if _is_pid_alive(registry_entry[1].get("pid")):
-                    session_val = registry_entry[1].get("sessionId")
-                    if isinstance(session_val, str):
-                        session_id = session_val
-                    if needs_dump:
-                        # Registry cleanup already persisted above; flush now.
-                        pass
-                    return {"running": True}
-                # Registry pid is dead – stale entry; clean up atomically.
-                _cleanup_process_locked(lock_key)
-                needs_dump = True
-                started_at = None
-            # No registry entry: in-memory entry exists but pid unknown.
-            # Fall through to ps scan to let the OS be the tie-breaker.
-
-    # --- STEP 3: Registry-only fallback (e.g. after backend restart) ---
-    # Nothing in memory, but a persisted registry entry may exist from a prior run.
-    if started_at is None:
-        registry_entry = _find_process_registry_entry(lock_key)
-        if registry_entry is not None:
-            if _is_pid_alive(registry_entry[1].get("pid")):
-                started_str = registry_entry[1].get("startedAt")
-                if isinstance(started_str, str):
-                    try:
-                        started_at = datetime.fromisoformat(started_str)
-                    except (TypeError, ValueError):
-                        started_at = datetime.now(UTC)
-                else:
-                    started_at = datetime.now(UTC)
-                session_val = registry_entry[1].get("sessionId")
-                if isinstance(session_val, str):
-                    session_id = session_val
-                with _processing_lock:
-                    _processing_channels[lock_key] = started_at
-                if needs_dump:
-                    _dump_processing_state()
+            if registry_entry is not None and _is_pid_alive(
+                registry_entry[1].get("pid")
+            ):
                 return {"running": True}
-            # Registry pid is dead – remove stale persisted entry.
-            _remove_process(lock_key)
-
-    # --- STEP 4: ps scan (last resort) ---
-    # Neither in-memory state nor registry could confirm a live process.  Fall
-    # back to the OS process table using the fully-resolved session_id.
-    try:
-        processes = _read_running_agent_processes()
-    except (OSError, subprocess.SubprocessError) as exc:
-        logger.warning("Failed to inspect process table for status: %s", exc)
-    else:
-        is_running = _is_process_running_for_session(session_id, processes=processes)
-        if is_running:
-            if started_at is None:
-                started_at = datetime.now(UTC)
-                with _processing_lock:
-                    _processing_channels[lock_key] = started_at
-        elif started_at is not None:
-            with _processing_lock:
-                for key in _get_related_processing_keys(lock_key):
-                    _processing_channels.pop(key, None)
-                    _cancelled_channels.discard(key)
-                    _active_processes.pop(key, None)
-                    _cancel_events.pop(key, None)
+            # Registry pid is dead or absent – stale entry; clean up atomically.
+            _cleanup_process_locked(lock_key)
             needs_dump = True
-            started_at = None
 
     if needs_dump:
         _dump_processing_state()
 
-    return {"running": started_at is not None}
+    return {"running": False}
 
 
 def _get_registered_agent_executables() -> set[str]:

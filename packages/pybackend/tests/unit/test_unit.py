@@ -597,7 +597,7 @@ class TestAgentService:
         assert channel not in _processing_channels
 
     def test_get_channel_status_returns_false_when_no_os_process(self):
-        """get_channel_status must clear stale bookkeeping when no live process exists."""
+        """get_channel_status must clear stale bookkeeping when no registry pid confirms liveness."""
         from datetime import UTC, datetime
         from unittest.mock import patch
         from agent_service import (
@@ -611,9 +611,8 @@ class TestAgentService:
             with _processing_lock:
                 _processing_channels[lock_key] = datetime.now(UTC)
 
-            with patch("agent_service._read_running_agent_processes", return_value=[]):
-                with patch("agent_service._dump_processing_state"):
-                    status = get_channel_status(lock_key)
+            with patch("agent_service._dump_processing_state"):
+                status = get_channel_status(lock_key)
 
             assert status["running"] is False
             with _processing_lock:
@@ -622,8 +621,8 @@ class TestAgentService:
             with _processing_lock:
                 _processing_channels.pop(lock_key, None)
 
-    def test_get_channel_status_returns_true_when_os_process_confirmed(self):
-        """get_channel_status must keep processing=True when a live process is found."""
+    def test_get_channel_status_returns_false_lock_held_but_no_registry(self):
+        """get_channel_status must return False when lock is held but no registry pid can be confirmed."""
         from datetime import UTC, datetime
         from unittest.mock import patch
         from agent_service import (
@@ -637,26 +636,16 @@ class TestAgentService:
             with _processing_lock:
                 _processing_channels[lock_key] = datetime.now(UTC)
 
-            with patch(
-                "agent_service._read_running_agent_processes",
-                return_value=[
-                    {
-                        "pid": 1,
-                        "command": f"agent --session {lock_key}",
-                        "workingDirectory": None,
-                    }
-                ],
-            ):
-                with patch("agent_service._dump_processing_state"):
-                    status = get_channel_status(lock_key)
+            with patch("agent_service._dump_processing_state"):
+                status = get_channel_status(lock_key)
 
-            assert status["running"] is True
+            assert status["running"] is False
         finally:
             with _processing_lock:
                 _processing_channels.pop(lock_key, None)
 
-    def test_get_channel_status_returns_true_without_stored_state_when_process_alive(self):
-        """get_channel_status must detect a live process even when there is no stored processing entry."""
+    def test_get_channel_status_returns_false_without_stored_state(self):
+        """get_channel_status must return False when there is no explicit lock entry — even if registry has a live PID."""
         import os
         from datetime import UTC, datetime
         from unittest.mock import patch
@@ -680,15 +669,14 @@ class TestAgentService:
             }
 
         with patch("agent_service._save_process_registry"):
-            with patch("agent_service._read_running_agent_processes", return_value=[]):
-                status = get_channel_status(lock_key)
+            status = get_channel_status(lock_key)
 
-        assert status["running"] is True
+        assert status["running"] is False
         with _processing_lock:
-            assert lock_key in _processing_channels
+            assert lock_key not in _processing_channels
 
-    def test_get_channel_status_uses_working_directory_on_restart(self):
-        """get_channel_status must keep processing=True for a restarted session that still has a matching command line."""
+    def test_get_channel_status_returns_false_without_registry_on_restart(self):
+        """get_channel_status must return False when lock held but no registry pid — ps scan no longer used."""
         from datetime import UTC, datetime
         from unittest.mock import patch
         from agent_service import (
@@ -702,27 +690,16 @@ class TestAgentService:
             with _processing_lock:
                 _processing_channels[channel] = datetime.now(UTC)
 
-            with patch("agent_service._load_processing_state", return_value={channel: datetime.now(UTC)}):
-                with patch(
-                    "agent_service._read_running_agent_processes",
-                    return_value=[
-                        {
-                            "pid": 1,
-                            "command": f"agent --session {channel}",
-                            "workingDirectory": None,
-                        }
-                    ],
-                ):
-                    with patch("agent_service._dump_processing_state"):
-                        status = get_channel_status(channel)
+            with patch("agent_service._dump_processing_state"):
+                status = get_channel_status(channel)
 
-            assert status["running"] is True
+            assert status["running"] is False
         finally:
             with _processing_lock:
                 _processing_channels.pop(channel, None)
 
-    def test_get_channel_status_uses_session_id_for_channel_lookup(self):
-        """get_channel_status must resolve the session id before checking the OS process table."""
+    def test_get_channel_status_returns_false_without_registry_entry(self):
+        """get_channel_status must return False when lock held but no registry pid — ps scan no longer used."""
         from datetime import UTC, datetime
         from unittest.mock import patch
         from agent_service import (
@@ -739,21 +716,10 @@ class TestAgentService:
                 _conversation_sessions[channel] = session_id
                 _processing_channels[channel] = datetime.now(UTC)
 
-            fake_processes = [
-                {
-                    "pid": 2,
-                    "command": f"agent --session {session_id}",
-                    "workingDirectory": None,
-                }
-            ]
-            with patch(
-                "agent_service._read_running_agent_processes",
-                return_value=fake_processes,
-            ):
-                with patch("agent_service._dump_processing_state"):
-                    status = get_channel_status(channel)
+            with patch("agent_service._dump_processing_state"):
+                status = get_channel_status(channel)
 
-            assert status["running"] is True
+            assert status["running"] is False
         finally:
             with _processing_lock:
                 _conversation_sessions.pop(channel, None)
@@ -884,7 +850,7 @@ class TestAgentService:
         ]
 
     def test_get_channel_status_reverse_lookup_via_conversation_sessions(self):
-        """get_channel_status must find processing entry by reverse lookup when lock_key is a session_id."""
+        """get_channel_status must return False when lock_key is a session_id but no registry pid confirms liveness."""
         from datetime import UTC, datetime
         from unittest.mock import patch
         from agent_service import (
@@ -901,13 +867,10 @@ class TestAgentService:
                 _conversation_sessions[channel] = session_id
                 _processing_channels[channel] = datetime.now(UTC)
 
-            with patch("agent_service._is_process_running_for_session", return_value=True):
+            with patch("agent_service._dump_processing_state"):
                 status = get_channel_status(session_id)
 
-            assert status["running"] is True
-            # session_id key should now be populated (propagated by get_channel_status)
-            with _processing_lock:
-                assert session_id in _processing_channels
+            assert status["running"] is False
         finally:
             with _processing_lock:
                 _conversation_sessions.pop(channel, None)
@@ -915,7 +878,7 @@ class TestAgentService:
                 _processing_channels.pop(session_id, None)
 
     def test_get_channel_status_falls_back_to_registry_state(self):
-        """get_channel_status must restore processing=True from the registry when in-memory is empty."""
+        """get_channel_status must return False when only registry has state but no explicit lock is held."""
         import os
         from datetime import UTC, datetime
         from unittest.mock import patch
@@ -937,11 +900,10 @@ class TestAgentService:
                     "sessionId": None,
                 }
 
-            with patch("agent_service._read_running_agent_processes", return_value=[]):
-                with patch("agent_service._save_process_registry"):
-                    status = get_channel_status(lock_key)
+            with patch("agent_service._save_process_registry"):
+                status = get_channel_status(lock_key)
 
-            assert status["running"] is True
+            assert status["running"] is False
         finally:
             with _processing_lock:
                 _process_registry.pop(lock_key, None)
@@ -1106,9 +1068,8 @@ class TestAgentService:
         assert "stale-session" not in _process_registry
 
     def test_get_channel_status_ignores_dead_registry_entry(self):
-        """get_channel_status must ignore registry entries whose pid is dead."""
+        """get_channel_status must return False when no lock is held — dead registry entry is irrelevant."""
         from datetime import UTC, datetime
-        from unittest.mock import patch
         from agent_service import get_channel_status, _process_registry, _processing_lock
 
         lock_key = "registry-dead-test"
@@ -1121,9 +1082,7 @@ class TestAgentService:
                     "sessionId": None,
                 }
 
-            with patch("agent_service._read_running_agent_processes", return_value=[]):
-                with patch("agent_service._save_process_registry"):
-                    status = get_channel_status(lock_key)
+            status = get_channel_status(lock_key)
 
             assert status["running"] is False
         finally:
