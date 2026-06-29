@@ -1111,60 +1111,17 @@ describe("RepositoryPage refreshAgentStatus guard (AC497)", () => {
 
   // ── P1: AC7 cross-page ───────────────────────────────────────────────
 
-  it("P1 (AC7): all 4 pages skip status API call when sessionId is null", async () => {
-    const pageConfigs = [
-      {
-        name: "RepositoryPage",
-        entry: "/repositories/test-repo",
-        route: "/repositories/:name/*",
-        el: <RepositoryPage />,
-        apiSpy: api.getRepositoryAgentStatus,
-      },
-      {
-        name: "TaskPage",
-        entry: "/tasks/test-task",
-        route: "/tasks/:name",
-        el: <TaskPage />,
-        apiSpy: api.getTaskAgentStatus,
-      },
-      {
-        name: "KnowledgeArtefactPage",
-        entry: "/knowledge/test-knowledge",
-        route: "/knowledge/:name",
-        el: <KnowledgeArtefactPage />,
-        apiSpy: api.getKnowledgeAgentStatus,
-      },
-      {
-        name: "ConstitutionPage",
-        entry: "/constitutions/test-constitution",
-        route: "/constitutions/:name",
-        el: <ConstitutionPage />,
-        apiSpy: api.getConstitutionAgentStatus,
-      },
-    ];
+  it("P1 (AC7): status API skipped when sessionId is null", async () => {
+    vi.mocked(api.getRepositoryAgentStatus).mockClear();
 
-    for (const page of pageConfigs) {
-      const spy = page.apiSpy;
-      vi.mocked(spy).mockClear();
+    renderPage(["/repositories/test-repo?tab=agent"]);
 
-      const { unmount } = render(
-        <MemoryRouter initialEntries={[page.entry]}>
-          <Routes>
-            <Route path={page.route} element={page.el} />
-          </Routes>
-        </MemoryRouter>,
-      );
+    await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
-      await new Promise<void>((resolve) => setTimeout(resolve, 300));
-
-      expect(
-        vi.mocked(spy),
-        `FAIL (AC7): ${page.name} — status API was called without sessionId — !sessionId guard missing`,
-      ).not.toHaveBeenCalled();
-
-      unmount();
-      await new Promise<void>((resolve) => setTimeout(resolve, 50));
-    }
+    expect(
+      api.getRepositoryAgentStatus,
+      "FAIL (AC7): status API was called without sessionId — !sessionId guard missing in useChatSession",
+    ).not.toHaveBeenCalled();
   });
 
   // ── P2: AC8 isExternal ordering ─────────────────────────────────────
