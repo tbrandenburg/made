@@ -440,10 +440,22 @@ class TestAgentService:
 
     def test_same_session_blocked_while_processing(self):
         """A single session sending a second message before first completes must raise ChannelBusyError."""
-        from agent_service import _mark_channel_processing, _clear_channel_processing, ChannelBusyError
+        from unittest.mock import MagicMock
+        from agent_service import (
+            _mark_channel_processing,
+            _clear_channel_processing,
+            _active_processes,
+            _processing_lock,
+            ChannelBusyError,
+        )
 
-        # Given: lock for session X is already held
+        # Given: lock for session X is already held AND a live process is registered
+        # (simulating the in-flight state where the agent process is running)
         assert _mark_channel_processing("ses_X") is True
+        mock_proc = MagicMock()
+        mock_proc.poll.return_value = None  # process still running
+        with _processing_lock:
+            _active_processes["ses_X"] = mock_proc
         try:
             # When: same session tries to send another message
             with pytest.raises(ChannelBusyError):

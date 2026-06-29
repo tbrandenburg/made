@@ -132,3 +132,9 @@ It runs `make qa-quick` (lint + format + unit-test) automatically before every `
 - Codex Cloud sandboxes may time out; ensure startup completes promptly.
 - Keep build output small and dependencies clean to reduce setup time.
 - Always test locally before expecting preview success.
+
+## Lessons Learned
+
+- 2026-06-29: `_processing_channels` cleanup in `agent_service.py` is deferred to polling — any code path that skips polling can leave stale lock keys. Prevention: always verify cleanup happens on the write path (success path of `send_agent_message`), not only on the read path (`get_channel_status`). When adding new async state, ask "what cleans this up if the reader never arrives?"
+- 2026-06-29: In parallel subagent workflows, group all changes to a single high-contention file (e.g. `agent_service.py`) under one subagent. Splitting them across agents on the same branch always risks merge conflicts. Frontend and backend can safely run in parallel as they share no files.
+- 2026-06-29: When frontend error detection relies on HTTP status codes, ensure the API layer actually preserves and exposes them. A plain `throw new Error(body)` discards status; a typed `HttpError` with a `status` field is the correct pattern.

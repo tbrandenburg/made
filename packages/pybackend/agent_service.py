@@ -56,9 +56,18 @@ def _load_process_registry() -> None:
         if not isinstance(data, dict):
             raise ValueError("Invalid registry payload")
 
+        # Support new wrapper format: {"registry": {...}, "conversationSessions": {...}}
+        # Fall back to old flat format for backward compatibility.
+        if "registry" in data and isinstance(data["registry"], dict):
+            registry_data: dict = data["registry"]
+            sessions_data: dict = data.get("conversationSessions") or {}
+        else:
+            registry_data = data
+            sessions_data = {}
+
         now = datetime.now(UTC)
         fresh: dict[str, dict[str, object]] = {}
-        for key, value in data.items():
+        for key, value in registry_data.items():
             if not isinstance(key, str):
                 continue
 
@@ -116,6 +125,11 @@ def _load_process_registry() -> None:
         with _processing_lock:
             _process_registry.clear()
             _process_registry.update(fresh)
+            # Restore conversation sessions from persisted data (issue #691)
+            if isinstance(sessions_data, dict):
+                for k, v in sessions_data.items():
+                    if isinstance(k, str) and isinstance(v, str):
+                        _conversation_sessions[k] = v
     except Exception:
         logger.warning("Failed to load agent process registry", exc_info=True)
         with _processing_lock:
@@ -126,8 +140,13 @@ def _save_process_registry() -> None:
     path = _get_registry_path()
     try:
         with _processing_lock:
-            snapshot = dict(_process_registry)
-        path.write_text(json.dumps(snapshot, indent=2))
+            registry_snapshot = dict(_process_registry)
+            sessions_snapshot = dict(_conversation_sessions)
+        payload = {
+            "registry": registry_snapshot,
+            "conversationSessions": sessions_snapshot,
+        }
+        path.write_text(json.dumps(payload, indent=2))
     except Exception:
         logger.warning("Failed to persist agent process registry", exc_info=True)
 
@@ -251,10 +270,46 @@ def _load_processing_state() -> dict[str, datetime]:
 
         if now - started_at_dt < _MAX_PROCESSING_AGE:
             state[key] = started_at_dt
+
+    # Populate _processing_channels from the loaded registry so that
+    # stale-entry detection works correctly after a backend restart.
+    with _processing_lock:
+        _processing_channels.update(state)
+
     return state
 
 
-_load_process_registry()
+def _purge_dead_processing_entries() -> None:
+    """Remove stale entries from _processing_channels at startup.
+
+    An entry is considered stale when there is no positive evidence of a live
+    process: no live Popen in ``_active_processes`` AND no live PID in the
+    registry.  Should be called once after ``_load_processing_state()``.
+    """
+    with _processing_lock:
+        keys = list(_processing_channels.keys())
+    for key in keys:
+        with _processing_lock:
+            if key not in _processing_channels:
+                continue  # Already removed by a previous iteration
+            process = _active_processes.get(key)
+            if process is not None and process.poll() is None:
+                continue  # Live Popen: keep
+            registry_entry = _find_process_registry_entry_locked(key)
+            if registry_entry is not None and _is_pid_alive(
+                registry_entry[1].get("pid")
+            ):
+                continue  # Live PID in registry: keep
+            # No positive evidence of a live process: remove stale entry
+            _processing_channels.pop(key, None)
+            _cancelled_channels.discard(key)
+            _active_processes.pop(key, None)
+            _cancel_events.pop(key, None)
+
+
+# Populate _processing_channels and purge dead entries at module load.
+_load_processing_state()
+_purge_dead_processing_entries()
 
 
 def _get_related_processing_keys(lock_key: str) -> set[str]:
@@ -411,14 +466,16 @@ def _mark_channel_processing(channel: str) -> bool:
     with _processing_lock:
         if channel in _processing_channels:
             process = _active_processes.get(channel)
-            # Only replace if we can confirm the process has exited (stale entry)
-            if process is None or process.poll() is None:
-                registry_entry = _find_process_registry_entry_locked(channel)
-                if registry_entry is None or _is_pid_alive(
-                    registry_entry[1].get("pid")
-                ):
-                    return False  # Truly busy or in-flight; reject
-            # Process confirmed exited: clean up stale entry and re-mark
+            # Positive evidence check: live Popen → truly busy
+            if process is not None and process.poll() is None:
+                return False
+            # No live Popen: check registry for a live PID
+            registry_entry = _find_process_registry_entry_locked(channel)
+            if registry_entry is not None and _is_pid_alive(
+                registry_entry[1].get("pid")
+            ):
+                return False  # Live PID in registry: truly busy
+            # No positive evidence of a live process: treat entry as stale
             _processing_channels.pop(channel, None)
             _cancelled_channels.discard(channel)
             _active_processes.pop(channel, None)
