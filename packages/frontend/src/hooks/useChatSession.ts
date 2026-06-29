@@ -99,6 +99,13 @@ export function useChatSession({
   onClearSessionOnly,
   onClearSessionAndHistory,
 }: UseChatSessionParams): UseChatSessionResult {
+  const {
+    sendMessage,
+    getStatus,
+    cancelAgent,
+    getHistory: getHistoryApi,
+    getSessions,
+  } = api;
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
   const [chatAgentProcessing, setChatAgentProcessing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -139,7 +146,7 @@ export function useChatSession({
       }
 
       try {
-        const status = await api.getStatus(name, targetSessionId);
+        const status = await getStatus(name, targetSessionId);
         if (sessionIdRef.current !== targetSessionId) return false;
         setChatAgentProcessing(status.running);
         if (!preserveStatus) {
@@ -155,13 +162,13 @@ export function useChatSession({
         return null;
       }
     },
-    [api, isExternal, name, sessionId],
+    [getStatus, isExternal, name, sessionId],
   );
 
   const getHistory: GetHistoryFn = useCallback(
     (agentName: string, agentSessionId: string, signal?: AbortSignal) =>
-      api.getHistory(agentName, agentSessionId, undefined, signal),
-    [api],
+      getHistoryApi(agentName, agentSessionId, undefined, signal),
+    [getHistoryApi],
   );
 
   const {
@@ -190,7 +197,7 @@ export function useChatSession({
         : undefined;
 
       try {
-        const history = await api.getHistory(
+        const history = await getHistoryApi(
           name,
           sessionId,
           startTimestamp,
@@ -209,7 +216,7 @@ export function useChatSession({
         console.error("Failed to sync chat history", error);
       }
     },
-    [api, isExternal, name, sessionId, setChat],
+    [getHistoryApi, isExternal, name, sessionId, setChat],
   );
 
   useAgentPolling({
@@ -229,7 +236,7 @@ export function useChatSession({
     setChat([]);
 
     try {
-      const history = await api.getHistory(name, sessionIdAtCall);
+      const history = await getHistoryApi(name, sessionIdAtCall);
       if (sessionIdRef.current !== sessionIdAtCall) return;
       const mapped = mapHistoryToMessages(history.messages || []);
       setChat(mapped);
@@ -252,8 +259,8 @@ export function useChatSession({
       isRefreshingRef.current = false;
     }
   }, [
-    api,
     clearSessionHistoryError,
+    getHistoryApi,
     isExternal,
     name,
     refreshAgentStatus,
@@ -296,7 +303,7 @@ export function useChatSession({
           normalizedSelectedAgent !== defaultAgentValue
             ? normalizedSelectedAgent.trim()
             : undefined;
-        const reply = await api.sendMessage(
+        const reply = await sendMessage(
           name,
           promptWithPolicy,
           sessionId || undefined,
@@ -328,7 +335,6 @@ export function useChatSession({
       }
     },
     [
-      api,
       appendPolicy,
       defaultAgentValue,
       defaultModelValue,
@@ -338,6 +344,7 @@ export function useChatSession({
       normalizedSelectedModel,
       onActivateAgentTab,
       refreshAgentStatus,
+      sendMessage,
       setPrompt,
       sessionId,
       setChat,
@@ -351,7 +358,7 @@ export function useChatSession({
     setIsCancelingAgent(true);
     let preserveStatus = false;
     try {
-      await api.cancelAgent(name, sessionId || undefined);
+      await cancelAgent(name, sessionId || undefined);
     } catch (error) {
       console.error("Failed to cancel agent request", error);
       setAgentStatus("Unable to cancel the agent request.");
@@ -360,7 +367,14 @@ export function useChatSession({
       await refreshAgentStatus(undefined, preserveStatus);
       setIsCancelingAgent(false);
     }
-  }, [api, isCancelingAgent, isExternal, name, refreshAgentStatus, sessionId]);
+  }, [
+    cancelAgent,
+    isCancelingAgent,
+    isExternal,
+    name,
+    refreshAgentStatus,
+    sessionId,
+  ]);
 
   const openSessionModal = useCallback(async () => {
     if (!name || isExternal) return;
@@ -368,7 +382,7 @@ export function useChatSession({
     setSessionModalOpen(true);
     setSessionListLoading(true);
     try {
-      const response = await api.getSessions(name, 10);
+      const response = await getSessions(name, 10);
       setSessionOptions(response.sessions || []);
       setSessionListError(null);
     } catch (error) {
@@ -379,7 +393,7 @@ export function useChatSession({
     } finally {
       setSessionListLoading(false);
     }
-  }, [api, isExternal, name]);
+  }, [getSessions, isExternal, name]);
 
   const closeSessionModal = useCallback(() => {
     setSessionModalOpen(false);
