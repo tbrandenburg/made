@@ -67,7 +67,6 @@ export function useSessionLoader({
 
     setSessionLoading(true);
     setSessionError(null);
-    setChat([]);
 
     const controller = new AbortController();
 

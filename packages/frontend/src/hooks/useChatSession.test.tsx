@@ -345,7 +345,6 @@ describe("useChatSession", () => {
     );
 
     await waitFor(() => expect(getHistory).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(getStatus).toHaveBeenCalledTimes(1));
 
     rerender({ api: makeApi() });
 
@@ -354,6 +353,8 @@ describe("useChatSession", () => {
     });
 
     expect(getHistory).toHaveBeenCalledTimes(1);
-    expect(getStatus).toHaveBeenCalledTimes(1);
+    // getStatus is no longer called from onHistoryLoaded (fix #674); the history
+    // response's `processing` field drives polling instead.
+    expect(getStatus).not.toHaveBeenCalled();
   });
 });

@@ -10,6 +10,10 @@ async function request<T>(
   const method = (options.method ?? "GET").toUpperCase();
 
   if (method === "GET") {
+    // Requests with an AbortSignal need independent cancellation — skip dedup
+    if (options.signal) {
+      return executeRequest<T>(endpoint, options);
+    }
     const key = `GET:${endpoint}`;
     const inflight = inflightRequests.get(key) as Promise<T> | undefined;
     if (inflight) return inflight;

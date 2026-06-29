@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
 
 import type { ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+} from "vitest";
 import "@testing-library/jest-dom/vitest";
 import {
   cleanup,
