@@ -138,11 +138,8 @@ export function useChatSession({
     async (targetSessionId = sessionId, preserveStatus = false) => {
       if (!name || isExternal) return false;
       if (!targetSessionId) {
-        setChatAgentProcessing(false);
-        if (!preserveStatus) {
-          setAgentStatus(null);
-        }
-        return false;
+        // No session yet — don't kill the spinner; caller will set sessionId soon.
+        return null; // null = keep polling
       }
 
       try {
@@ -223,6 +220,27 @@ export function useChatSession({
     syncHistory: syncChatHistory,
     checkStatus: refreshAgentStatus,
   });
+
+  // Idle watchdog: probe every 10 s when not already polling.
+  // Detects externally-started CLI agents without relying on a user action.
+  useEffect(() => {
+    if (!name || isExternal || !sessionId || chatAgentProcessing) return;
+
+    let active = true;
+    let timeoutId: number | undefined;
+    const probe = async () => {
+      if (!active) return;
+      const running = await refreshAgentStatus();
+      if (active && !running) {
+        timeoutId = window.setTimeout(probe, 10_000);
+      }
+    };
+    timeoutId = window.setTimeout(probe, 10_000);
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [chatAgentProcessing, isExternal, name, refreshAgentStatus, sessionId]);
 
   const reloadCurrentSession = useCallback(async () => {
     if (!name || !sessionId || isExternal || isRefreshingRef.current) return;
@@ -317,7 +335,7 @@ export function useChatSession({
         setAgentStatus(null);
         onActivateAgentTab?.();
         await syncChatHistory(new AbortController().signal);
-        await refreshAgentStatus(reply.sessionId ?? sessionId);
+        setChatAgentProcessing(reply.processing ?? false);
       } catch (error) {
         if (sendRequestIdRef.current !== sendRequestId) return;
         console.error("Failed to contact agent", error);
