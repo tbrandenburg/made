@@ -1836,7 +1836,7 @@ export const RepositoryPage: React.FC = () => {
           <ChatWindow
             chat={chat}
             chatWindowRef={chatWindowRef}
-            agentProcessing={chatAgentProcessing}
+            running={chatAgentProcessing}
             refreshing={isRefreshing}
             sessionLoading={sessionLoading}
             emptyMessage="No conversation yet."
