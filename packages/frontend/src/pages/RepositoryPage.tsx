@@ -72,7 +72,6 @@ import {
   stripChatBootstrapParams,
 } from "../utils/chatQueryParams";
 import { useChatSession } from "../hooks/useChatSession";
-import { appendRestrictedAccessPolicy } from "../utils/agentPrompt";
 
 const stripCommandFrontmatter = (content: string) => {
   const delimiterPattern =
@@ -669,7 +668,6 @@ export const RepositoryPage: React.FC = () => {
     defaultAgentValue: DEFAULT_AGENT_VALUE,
     normalizedSelectedModel,
     defaultModelValue: "default",
-    appendPolicy: appendRestrictedAccessPolicy,
     api: {
       sendMessage: api.sendAgentMessage,
       getStatus: api.getRepositoryAgentStatus,
@@ -1798,9 +1796,7 @@ export const RepositoryPage: React.FC = () => {
                   onClick={reloadCurrentSession}
                   aria-label="Refresh current session"
                   title="Refresh current session"
-                  disabled={
-                    chatAgentProcessing || sessionLoading || isRefreshing
-                  }
+                  disabled={isRefreshing}
                 >
                   <RefreshIcon />
                 </button>

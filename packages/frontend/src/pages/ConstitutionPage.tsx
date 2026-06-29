@@ -520,7 +520,7 @@ export const ConstitutionPage: React.FC = () => {
                     onClick={reloadCurrentSession}
                     aria-label="Refresh current session"
                     title="Refresh current session"
-                    disabled={chatAgentProcessing || isRefreshing}
+                    disabled={isRefreshing}
                   >
                     <RefreshIcon />
                   </button>
