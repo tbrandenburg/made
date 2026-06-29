@@ -177,11 +177,11 @@ export function useChatSession({
     sessionId,
     setChat,
     getHistory,
-    onHistoryLoaded: (history: ChatHistoryResponse) => {
-      if (history.processing !== undefined) {
-        setChatAgentProcessing(history.processing);
-      }
+    onHistoryLoaded: () => {
       setAgentStatus(null);
+      // Always probe backend for authoritative status on initial load (#686).
+      // Do not trust history.processing alone — it may be stale.
+      void refreshAgentStatus();
     },
   });
 
@@ -258,11 +258,8 @@ export function useChatSession({
       const mapped = mapHistoryToMessages(history.messages || []);
       setChat(mapped);
       setAgentStatus(null);
-      if (history.processing !== undefined) {
-        setChatAgentProcessing(history.processing);
-      } else {
-        await refreshAgentStatus(sessionIdAtCall);
-      }
+      // Always probe backend for authoritative status on manual refresh (#686).
+      await refreshAgentStatus(sessionIdAtCall);
     } catch (error) {
       setChat(chatBeforeRefresh);
       console.error("Failed to load session history", error);
@@ -335,7 +332,15 @@ export function useChatSession({
         setAgentStatus(null);
         onActivateAgentTab?.();
         await syncChatHistory(new AbortController().signal);
-        setChatAgentProcessing(reply.processing ?? false);
+        // Fix #687: never clear the optimistic `true` from a potentially stale
+        // reply.processing value. If the reply says running, trust it; otherwise
+        // let refreshAgentStatus() confirm the real state so we don't prematurely
+        // clear the spinner before the polling loop has had a chance to confirm.
+        if (reply.processing === true) {
+          setChatAgentProcessing(true);
+        } else {
+          await refreshAgentStatus(reply.sessionId ?? sessionId ?? undefined);
+        }
       } catch (error) {
         if (sendRequestIdRef.current !== sendRequestId) return;
         console.error("Failed to contact agent", error);

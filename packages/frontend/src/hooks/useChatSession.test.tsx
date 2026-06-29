@@ -353,8 +353,8 @@ describe("useChatSession", () => {
     });
 
     expect(getHistory).toHaveBeenCalledTimes(1);
-    // getStatus is no longer called from onHistoryLoaded (fix #674); the history
-    // response's `processing` field drives polling instead.
-    expect(getStatus).not.toHaveBeenCalled();
+    // Fix #686: getStatus is now always called once from onHistoryLoaded to probe
+    // the authoritative backend state, regardless of history.processing.
+    expect(getStatus).toHaveBeenCalledTimes(1);
   });
 });
