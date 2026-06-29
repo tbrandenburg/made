@@ -286,12 +286,21 @@ def _purge_dead_processing_entries() -> None:
     process: no live Popen in ``_active_processes`` AND no live PID in the
     registry.  Should be called once after ``_load_processing_state()``.
     """
+    now = datetime.now(UTC)
     with _processing_lock:
         keys = list(_processing_channels.keys())
     for key in keys:
         with _processing_lock:
             if key not in _processing_channels:
                 continue  # Already removed by a previous iteration
+            started_at = _processing_channels.get(key)
+            if started_at is not None and now - started_at > _MAX_PROCESSING_AGE:
+                # Too old: remove regardless of PID liveness
+                _processing_channels.pop(key, None)
+                _cancelled_channels.discard(key)
+                _active_processes.pop(key, None)
+                _cancel_events.pop(key, None)
+                continue
             process = _active_processes.get(key)
             if process is not None and process.poll() is None:
                 continue  # Live Popen: keep
@@ -1174,6 +1183,7 @@ def send_agent_message(
                     channel,
                     _conversation_sessions.get(lock_key),
                 )
+                _clear_channel_processing(lock_key)
             else:
                 response = result.error_message or "Command failed with no output"
 

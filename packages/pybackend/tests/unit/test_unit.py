@@ -470,7 +470,7 @@ class TestAgentService:
 
     @patch("agent_service.get_agent_cli")
     def test_success_keeps_processing_entry_after_return(self, mock_get_cli):
-        """Success path must leave _processing_channels entry intact after return."""
+        """Success path must clear _processing_channels entry after return."""
         from agent_service import (
             send_agent_message,
             _processing_channels,
@@ -490,9 +490,9 @@ class TestAgentService:
         result = send_agent_message("test-stale-repo", "Hello")
 
         assert result["processing"] is True
-        # Entry must still be present so GET /status returns True before first poll
-        assert "test-stale-repo" in _processing_channels
-        _clear_channel_processing("test-stale-repo")  # cleanup
+        # Entry must be cleared so subsequent messages are not blocked (fix for #695)
+        assert "test-stale-repo" not in _processing_channels
+        _clear_channel_processing("test-stale-repo")  # cleanup (no-op but safe)
 
     @patch("agent_service.get_agent_cli")
     def test_file_not_found_clears_processing_entry(self, mock_get_cli):
@@ -1213,3 +1213,36 @@ class TestAgentService:
 
         assert "recent-session" in result
         assert "stale-session" not in result
+
+    def test_purge_removes_entries_older_than_max_age(self):
+        """_purge_dead_processing_entries must remove entries older than _MAX_PROCESSING_AGE
+        even when a live PID is registered (age wins over liveness)."""
+        from datetime import UTC, datetime, timedelta
+        from agent_service import (
+            _purge_dead_processing_entries,
+            _MAX_PROCESSING_AGE,
+            _processing_channels,
+            _active_processes,
+            _processing_lock,
+        )
+        import subprocess
+
+        stale_key = "purge-age-test-channel"
+        stale_time = datetime.now(UTC) - _MAX_PROCESSING_AGE - timedelta(minutes=1)
+
+        # Insert a stale entry with a mock "live" process to confirm age wins
+        mock_proc = Mock(spec=subprocess.Popen)
+        mock_proc.poll.return_value = None  # simulates live process
+
+        with _processing_lock:
+            _processing_channels[stale_key] = stale_time
+            _active_processes[stale_key] = mock_proc
+
+        try:
+            _purge_dead_processing_entries()
+            assert stale_key not in _processing_channels
+        finally:
+            # Cleanup in case assertion fails
+            with _processing_lock:
+                _processing_channels.pop(stale_key, None)
+                _active_processes.pop(stale_key, None)
