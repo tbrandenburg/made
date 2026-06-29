@@ -514,7 +514,7 @@ export const TaskPage: React.FC = () => {
                 <ChatWindow
                   chat={chat}
                   chatWindowRef={chatWindowRef}
-                  agentProcessing={chatAgentProcessing}
+                  running={chatAgentProcessing}
                   sessionLoading={sessionLoading}
                   refreshing={isRefreshing}
                   emptyMessage="Start a conversation to discuss this task."
