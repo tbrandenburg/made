@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from "react";
 import type { ChatMessage } from "../types/chat";
 import { mapHistoryToMessages, mergeChatMessages } from "../utils/chat";
 import type { AgentReply, ChatHistoryResponse, ChatSession } from "./useApi";
+import { HttpError } from "./useApi";
 import { useAgentPolling } from "./useAgentPolling";
 import { useSessionLoader, type GetHistoryFn } from "./useSessionLoader";
 
@@ -344,8 +345,7 @@ export function useChatSession({
       } catch (error) {
         if (sendRequestIdRef.current !== sendRequestId) return;
         console.error("Failed to contact agent", error);
-        const errorMessage = error instanceof Error ? error.message : "";
-        const busy = errorMessage.toLowerCase().includes("processing");
+        const busy = error instanceof HttpError && error.status === 409;
         setAgentStatus(
           busy
             ? "Agent is still processing the previous message."

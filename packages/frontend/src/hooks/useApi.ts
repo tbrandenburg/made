@@ -1,6 +1,15 @@
 const API_BASE =
   (import.meta.env?.VITE_API_BASE as string | undefined) || "/api";
 
+export class HttpError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "HttpError";
+    this.status = status;
+  }
+}
+
 const inflightRequests = new Map<string, Promise<unknown>>();
 
 async function request<T>(
@@ -64,7 +73,7 @@ async function executeRequest<T>(
           continue;
         }
 
-        throw new Error(message || "Request failed");
+        throw new HttpError(message || "Request failed", response.status);
       }
 
       if (response.status === 204) {
@@ -95,7 +104,7 @@ async function executeRequest<T>(
     }
   }
 
-  throw new Error("Maximum retry attempts exceeded");
+  throw new HttpError("Maximum retry attempts exceeded", 0);
 }
 
 async function requestForm<T>(
@@ -135,7 +144,7 @@ async function requestForm<T>(
           continue;
         }
 
-        throw new Error(message || "Request failed");
+        throw new HttpError(message || "Request failed", response.status);
       }
 
       if (response.status === 204) {
@@ -166,7 +175,7 @@ async function requestForm<T>(
     }
   }
 
-  throw new Error("Maximum retry attempts exceeded");
+  throw new HttpError("Maximum retry attempts exceeded", 0);
 }
 
 export type AgentReply = {
