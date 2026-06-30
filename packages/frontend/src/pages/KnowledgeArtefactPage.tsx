@@ -155,7 +155,11 @@ export const KnowledgeArtefactPage: React.FC = () => {
   );
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [prompt, setPrompt] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
+  type StatusState = {
+    message: string;
+    type: "success" | "error" | "info";
+  } | null;
+  const [status, setStatus] = useState<StatusState>(null);
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
   const [externalPath, setExternalPath] = useState<string | null>(null);
   const chatWindowRef = useRef<ChatWindowHandle>(null);
@@ -309,7 +313,10 @@ export const KnowledgeArtefactPage: React.FC = () => {
     }
     if (isExternal) {
       if (!linkedExternalMatter) {
-        setStatus("Linked external artefact not found");
+        setStatus({
+          message: "Linked external artefact not found",
+          type: "error",
+        });
         return;
       }
       setExternalPath(linkedExternalMatter.path);
@@ -322,7 +329,10 @@ export const KnowledgeArtefactPage: React.FC = () => {
         })
         .catch((error) => {
           console.error("Failed to load external artefact", error);
-          setStatus("Failed to load linked external artefact file");
+          setStatus({
+            message: "Failed to load linked external artefact file",
+            type: "error",
+          });
         });
       return;
     }
@@ -334,7 +344,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
       })
       .catch((error) => {
         console.error("Failed to load artefact", error);
-        setStatus("Failed to load artefact");
+        setStatus({ message: "Failed to load artefact", type: "error" });
       });
   }, [isExternal, linkedExternalMatter, name, navigate]);
 
@@ -343,7 +353,10 @@ export const KnowledgeArtefactPage: React.FC = () => {
     try {
       if (isExternal) {
         if (!externalPath) {
-          setStatus("Missing external artefact path");
+          setStatus({
+            message: "Missing external artefact path",
+            type: "error",
+          });
           return;
         }
         await api.writeExternalMatter({
@@ -352,14 +365,14 @@ export const KnowledgeArtefactPage: React.FC = () => {
           frontmatter,
         });
         saveExternalMatter("knowledge", name, content, frontmatter);
-        setStatus("Saved successfully");
+        setStatus({ message: "Saved successfully", type: "success" });
         return;
       }
       await api.saveKnowledge(name, { content, frontmatter });
-      setStatus("Saved successfully");
+      setStatus({ message: "Saved successfully", type: "success" });
     } catch (error) {
       console.error("Failed to save artefact", error);
-      setStatus("Save failed");
+      setStatus({ message: "Save failed", type: "error" });
     }
   };
 
@@ -582,9 +595,8 @@ export const KnowledgeArtefactPage: React.FC = () => {
             )}
             markdownOptions={chatMarkdownOptions}
           />
-          {(agentStatus || sessionError) && (
-            <div className="alert">{agentStatus ?? sessionError}</div>
-          )}
+          {agentStatus && <div className="alert">{agentStatus}</div>}
+          {sessionError && <div className="alert error">{sessionError}</div>}
           <MentionPathTextarea
             id={chatInputId}
             value={prompt}
@@ -662,19 +674,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
       <h1>
         Artefact: {isExternal ? (linkedExternalMatter?.name ?? name) : name}
       </h1>
-      {status && (
-        <div
-          className={`alert ${
-            status.includes("successfully")
-              ? "success"
-              : status.includes("failed") || status.includes("Failed")
-                ? "error"
-                : ""
-          }`}
-        >
-          {status}
-        </div>
-      )}
+      {status && <div className={`alert ${status.type}`}>{status.message}</div>}
       <TabView
         tabs={visibleTabs}
         activeTab={activeTab}

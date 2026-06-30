@@ -115,7 +115,10 @@ export function useChatSession({
   // Stable setters that return the previous state reference when logically unchanged,
   // preventing spurious re-renders when consumers pass new inline api object literals.
   const setIdle = useCallback(
-    () => setAgentState((prev) => (prev.status === "idle" ? prev : { status: "idle" })),
+    () =>
+      setAgentState((prev) =>
+        prev.status === "idle" ? prev : { status: "idle" },
+      ),
     [],
   );
   const setProcessing = useCallback(
@@ -136,7 +139,12 @@ export function useChatSession({
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isRefreshingRef = useRef(false);
+  const setRefreshing = useCallback((value: boolean) => {
+    isRefreshingRef.current = value;
+    setIsRefreshing(value);
+  }, []);
   const [isCancelingAgent, setIsCancelingAgent] = useState(false);
+  const isCancelingAgentRef = useRef(false);
   const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<ChatSession[]>([]);
   const [sessionListError, setSessionListError] = useState<string | null>(null);
@@ -155,13 +163,10 @@ export function useChatSession({
     return Number.isFinite(parsed) ? parsed : undefined;
   }, [chat]);
   const lastKnownTimestampRef = useRef<number | undefined>(lastKnownTimestamp);
-
-  useEffect(() => {
-    lastKnownTimestampRef.current = lastKnownTimestamp;
-  }, [lastKnownTimestamp]);
+  lastKnownTimestampRef.current = lastKnownTimestamp;
 
   const refreshAgentStatus = useCallback(
-    async (targetSessionId = sessionId): Promise<boolean | null> => {
+    async (targetSessionId = sessionIdRef.current): Promise<boolean | null> => {
       if (!name || isExternal) return false;
       if (!targetSessionId) {
         // No session yet — don't kill the spinner; caller will set sessionId soon.
@@ -171,14 +176,15 @@ export function useChatSession({
       try {
         const status = await getStatus(name, targetSessionId);
         if (sessionIdRef.current !== targetSessionId) return false;
-        if (status.running) setProcessing(); else setIdle();
+        if (status.running) setProcessing();
+        else setIdle();
         return status.running;
       } catch (error) {
         console.error("Failed to load agent status", error);
         return null;
       }
     },
-    [getStatus, isExternal, name, sessionId, setIdle, setProcessing],
+    [getStatus, isExternal, name, setIdle, setProcessing],
   );
 
   const getHistory: GetHistoryFn = useCallback(
@@ -268,10 +274,13 @@ export function useChatSession({
 
     const sessionIdAtCall = sessionId;
     isRefreshingRef.current = true;
-    setIsRefreshing(true);
+    setRefreshing(true);
     clearSessionHistoryError();
-    const chatBeforeRefresh = chatRef.current;
-    setChat([]);
+    let chatBeforeRefresh: ChatMessage[] = [];
+    setChat((prev) => {
+      chatBeforeRefresh = prev;
+      return [];
+    });
 
     try {
       const history = await getHistoryApi(name, sessionIdAtCall);
@@ -290,8 +299,7 @@ export function useChatSession({
           : "Failed to load session history";
       setError(message);
     } finally {
-      setIsRefreshing(false);
-      isRefreshingRef.current = false;
+      setRefreshing(false);
     }
   }, [
     clearSessionHistoryError,
@@ -303,6 +311,7 @@ export function useChatSession({
     setChat,
     setError,
     setIdle,
+    setRefreshing,
   ]);
 
   const handleSendMessage = useCallback(
@@ -399,8 +408,9 @@ export function useChatSession({
   );
 
   const handleCancel = useCallback(async () => {
-    if (!name || isExternal || isCancelingAgent) return;
+    if (!name || isExternal || isCancelingAgentRef.current) return;
 
+    isCancelingAgentRef.current = true;
     setIsCancelingAgent(true);
     try {
       await cancelAgent(name, sessionId || undefined);
@@ -409,17 +419,10 @@ export function useChatSession({
       setError("Unable to cancel the agent request.");
     } finally {
       await refreshAgentStatus();
+      isCancelingAgentRef.current = false;
       setIsCancelingAgent(false);
     }
-  }, [
-    cancelAgent,
-    isCancelingAgent,
-    isExternal,
-    name,
-    refreshAgentStatus,
-    sessionId,
-    setError,
-  ]);
+  }, [cancelAgent, isExternal, name, refreshAgentStatus, sessionId, setError]);
 
   const openSessionModal = useCallback(async () => {
     if (!name || isExternal) return;
@@ -486,7 +489,13 @@ export function useChatSession({
     setSelectedAgent(defaultAgentValue);
     onClearSessionOnly?.();
     setClearSessionModalOpen(false);
-  }, [defaultAgentValue, onClearSessionOnly, setIdle, setSelectedAgent, setSessionId]);
+  }, [
+    defaultAgentValue,
+    onClearSessionOnly,
+    setIdle,
+    setSelectedAgent,
+    setSessionId,
+  ]);
 
   const handleClearSessionAndHistory = useCallback(() => {
     sendRequestIdRef.current += 1;

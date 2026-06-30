@@ -233,7 +233,10 @@ describe("useChatSession", () => {
       await result.current.handleSendMessage("hello");
     });
 
-    expect(result.current.agentState).toEqual({ status: "error", message: "Agent unavailable" });
+    expect(result.current.agentState).toEqual({
+      status: "error",
+      message: "Agent unavailable",
+    });
   });
 
   it("resets to idle after cancel failure when agent not running", async () => {

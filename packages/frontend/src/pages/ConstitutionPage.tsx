@@ -159,7 +159,11 @@ export const ConstitutionPage: React.FC = () => {
   );
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [prompt, setPrompt] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
+  type StatusState = {
+    message: string;
+    type: "success" | "error" | "info";
+  } | null;
+  const [status, setStatus] = useState<StatusState>(null);
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
   const [externalPath, setExternalPath] = useState<string | null>(null);
   const chatWindowRef = useRef<ChatWindowHandle>(null);
@@ -313,7 +317,10 @@ export const ConstitutionPage: React.FC = () => {
     }
     if (isExternal) {
       if (!linkedExternalMatter) {
-        setStatus("Linked external constitution not found");
+        setStatus({
+          message: "Linked external constitution not found",
+          type: "error",
+        });
         return;
       }
       setExternalPath(linkedExternalMatter.path);
@@ -326,7 +333,10 @@ export const ConstitutionPage: React.FC = () => {
         })
         .catch((error) => {
           console.error("Failed to load external constitution", error);
-          setStatus("Failed to load linked external constitution file");
+          setStatus({
+            message: "Failed to load linked external constitution file",
+            type: "error",
+          });
         });
       return;
     }
@@ -338,7 +348,7 @@ export const ConstitutionPage: React.FC = () => {
       })
       .catch((error) => {
         console.error("Failed to load constitution", error);
-        setStatus("Failed to load constitution");
+        setStatus({ message: "Failed to load constitution", type: "error" });
       });
   }, [isExternal, linkedExternalMatter, name, navigate]);
 
@@ -347,7 +357,10 @@ export const ConstitutionPage: React.FC = () => {
     try {
       if (isExternal) {
         if (!externalPath) {
-          setStatus("Missing external constitution path");
+          setStatus({
+            message: "Missing external constitution path",
+            type: "error",
+          });
           return;
         }
         await api.writeExternalMatter({
@@ -356,14 +369,14 @@ export const ConstitutionPage: React.FC = () => {
           frontmatter,
         });
         saveExternalMatter("constitution", name, content, frontmatter);
-        setStatus("Saved successfully");
+        setStatus({ message: "Saved successfully", type: "success" });
         return;
       }
       await api.saveConstitution(name, { content, frontmatter });
-      setStatus("Saved successfully");
+      setStatus({ message: "Saved successfully", type: "success" });
     } catch (error) {
       console.error("Failed to save constitution", error);
-      setStatus("Save failed");
+      setStatus({ message: "Save failed", type: "error" });
     }
   };
 
@@ -569,9 +582,8 @@ export const ConstitutionPage: React.FC = () => {
               )}
               markdownOptions={chatMarkdownOptions}
             />
-            {(agentStatus || sessionError) && (
-              <div className="alert">{agentStatus ?? sessionError}</div>
-            )}
+            {agentStatus && <div className="alert">{agentStatus}</div>}
+            {sessionError && <div className="alert error">{sessionError}</div>}
             <MentionPathTextarea
               id={chatInputId}
               value={prompt}
@@ -647,21 +659,7 @@ export const ConstitutionPage: React.FC = () => {
       <h1>
         Constitution: {isExternal ? (linkedExternalMatter?.name ?? name) : name}
       </h1>
-      {status && (
-        <div
-          className={`alert ${
-            status.includes("successfully")
-              ? "success"
-              : status.includes("failed") ||
-                  status.includes("Failed") ||
-                  status.includes("unavailable")
-                ? "error"
-                : ""
-          }`}
-        >
-          {status}
-        </div>
-      )}
+      {status && <div className={`alert ${status.type}`}>{status.message}</div>}
       <TabView tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
       <ClearSessionModal
         open={clearSessionModalOpen}

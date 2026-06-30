@@ -781,7 +781,11 @@ export const RepositoryPage: React.FC = () => {
     [name, selectedFile],
   );
   const [editorContent, setEditorContent] = useState("");
-  const [editorStatus, setEditorStatus] = useState<string | null>(null);
+  type EditorStatusState = {
+    message: string;
+    type: "success" | "error" | "info";
+  } | null;
+  const [editorStatus, setEditorStatus] = useState<EditorStatusState>(null);
   const [fileGitDetails, setFileGitDetails] =
     useState<RepositoryFileGitDetails | null>(null);
   const [fileGitDetailsLoading, setFileGitDetailsLoading] = useState(false);
@@ -1029,7 +1033,7 @@ export const RepositoryPage: React.FC = () => {
           return { pid: entry.pid, running: response.running };
         } catch (error) {
           console.error("Failed to fetch harness status", error);
-          return { pid: entry.pid, running: false };
+          return { pid: entry.pid, running: undefined };
         }
       }),
     );
@@ -1177,7 +1181,7 @@ export const RepositoryPage: React.FC = () => {
       setActiveTab("editor");
     } catch (error) {
       console.error("Failed to open file", error);
-      setEditorStatus("Unable to open file");
+      setEditorStatus({ message: "Unable to open file", type: "error" });
     } finally {
       setLoadingFile(false);
     }
@@ -1401,14 +1405,14 @@ export const RepositoryPage: React.FC = () => {
     if (!name || !selectedFile) return;
     try {
       await api.saveRepositoryFile(name, selectedFile, editorContent);
-      setEditorStatus("Saved successfully");
+      setEditorStatus({ message: "Saved successfully", type: "success" });
       refreshFiles();
       if (repository?.hasGit) {
         void loadGitStatus();
         void loadFileGitDetails(selectedFile);
       }
     } catch (error) {
-      setEditorStatus("Failed to save file");
+      setEditorStatus({ message: "Failed to save file", type: "error" });
       console.error("Failed to save file", error);
     }
   };
@@ -1845,9 +1849,8 @@ export const RepositoryPage: React.FC = () => {
             )}
             markdownOptions={chatMarkdownOptions}
           />
-          {(agentStatus || sessionError) && (
-            <div className="alert">{agentStatus ?? sessionError}</div>
-          )}
+          {agentStatus && <div className="alert">{agentStatus}</div>}
+          {sessionError && <div className="alert error">{sessionError}</div>}
           <MentionPathTextarea
             id={chatInputId}
             value={pendingPrompt}
@@ -2385,17 +2388,8 @@ export const RepositoryPage: React.FC = () => {
             >
               {loadingFile && <div className="alert">Loading file...</div>}
               {editorStatus && (
-                <div
-                  className={`alert ${
-                    editorStatus.includes("successfully")
-                      ? "success"
-                      : editorStatus.includes("Failed") ||
-                          editorStatus.includes("failed")
-                        ? "error"
-                        : ""
-                  }`}
-                >
-                  {editorStatus}
+                <div className={`alert ${editorStatus.type}`}>
+                  {editorStatus.message}
                 </div>
               )}
               <textarea
