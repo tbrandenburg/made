@@ -144,7 +144,11 @@ export const TaskPage: React.FC = () => {
   );
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
   const [prompt, setPrompt] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
+  type StatusState = {
+    message: string;
+    type: "success" | "error" | "info";
+  } | null;
+  const [status, setStatus] = useState<StatusState>(null);
   const [mentionCommandPaths, setMentionCommandPaths] = useState<string[]>([]);
   const chatWindowRef = useRef<ChatWindowHandle>(null);
   const chatInputId = "task-agent-prompt";
@@ -288,7 +292,7 @@ export const TaskPage: React.FC = () => {
       })
       .catch((error) => {
         console.error("Failed to load task", error);
-        setStatus("Failed to load task");
+        setStatus({ message: "Failed to load task", type: "error" });
       });
   }, [name, navigate]);
 
@@ -296,10 +300,10 @@ export const TaskPage: React.FC = () => {
     if (!name) return;
     try {
       await api.saveTask(name, { content, frontmatter });
-      setStatus("Saved successfully");
+      setStatus({ message: "Saved successfully", type: "success" });
     } catch (error) {
       console.error("Failed to save task", error);
-      setStatus("Save failed");
+      setStatus({ message: "Save failed", type: "error" });
     }
   };
 
@@ -360,21 +364,7 @@ export const TaskPage: React.FC = () => {
   return (
     <div className="page">
       <h1>Task: {name}</h1>
-      {status && (
-        <div
-          className={`alert ${
-            status.includes("successfully")
-              ? "success"
-              : status.includes("failed") ||
-                  status.includes("Failed") ||
-                  status.includes("unavailable")
-                ? "error"
-                : ""
-          }`}
-        >
-          {status}
-        </div>
-      )}
+      {status && <div className={`alert ${status.type}`}>{status.message}</div>}
       <TabView
         tabs={[
           {
@@ -528,8 +518,9 @@ export const TaskPage: React.FC = () => {
                   )}
                   markdownOptions={chatMarkdownOptions}
                 />
-                {(agentStatus || sessionError) && (
-                  <div className="alert">{agentStatus ?? sessionError}</div>
+                {agentStatus && <div className="alert">{agentStatus}</div>}
+                {sessionError && (
+                  <div className="alert error">{sessionError}</div>
                 )}
                 <MentionPathTextarea
                   id={chatInputId}
