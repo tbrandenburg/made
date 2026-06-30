@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from agent_cli import OpenCodeAgentCLI
+from opencode_legacy_agent_cli import OpenCodeAgentCLI
 from agent_results import AgentListResult, SessionListResult, ExportResult, RunResult
 
 
