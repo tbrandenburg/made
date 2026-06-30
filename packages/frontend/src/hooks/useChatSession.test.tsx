@@ -35,7 +35,7 @@ describe("useChatSession", () => {
       }),
     );
 
-    expect(result.current.chatAgentProcessing).toBe(false);
+    expect(result.current.agentState).toEqual({ status: "idle" });
     expect(result.current.isRefreshing).toBe(false);
     expect(result.current.sessionModalOpen).toBe(false);
   });
@@ -233,24 +233,26 @@ describe("useChatSession", () => {
       await result.current.handleSendMessage("hello");
     });
 
-    expect(result.current.agentStatus).toBe("Agent unavailable");
+    expect(result.current.agentState).toEqual({ status: "error", message: "Agent unavailable" });
   });
 
-  it("preserves the cancel failure status after refresh", async () => {
+  it("resets to idle after cancel failure when agent not running", async () => {
     const cancelAgent = vi.fn().mockRejectedValue(new Error("cancel failed"));
     const getStatus = vi.fn().mockResolvedValue({ running: false });
     const api = {
       sendMessage: vi.fn(),
       getStatus,
       cancelAgent,
-      getHistory: vi.fn(),
+      getHistory: vi
+        .fn()
+        .mockResolvedValue({ sessionId: "session-1", messages: [] }),
       getSessions: vi.fn(),
     };
 
     const { result } = renderHook(() =>
       useChatSession({
         name: "repo",
-        sessionId: null,
+        sessionId: "session-1",
         setSessionId: vi.fn(),
         chat: makeChat(),
         setChat: vi.fn(),
@@ -262,12 +264,12 @@ describe("useChatSession", () => {
       }),
     );
 
-    await act(async () => {
-      await result.current.handleCancel();
-    });
+    await waitFor(() => expect(getStatus).toHaveBeenCalled());
 
-    expect(result.current.agentStatus).toBe(
-      "Unable to cancel the agent request.",
+    await result.current.handleCancel();
+
+    await waitFor(() =>
+      expect(result.current.agentState).toEqual({ status: "idle" }),
     );
   });
 
@@ -301,7 +303,7 @@ describe("useChatSession", () => {
       await result.current.handleCancel();
     });
 
-    expect(result.current.agentStatus).toBeNull();
+    expect(result.current.agentState).toEqual({ status: "idle" });
   });
 
   it("does not restart loading when the api wrapper identity changes", async () => {
