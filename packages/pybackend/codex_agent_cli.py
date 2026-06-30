@@ -226,7 +226,11 @@ class CodexAgentCLI(AgentCLI):
                             )
 
             if process.returncode == 0:
-                # Process management only - extract session_id but no parsing
+                # Extract session ID from JSON stdout (codex emits thread.started events).
+                # If no session ID is found in stdout, return the input session_id as-is
+                # (may be None) — fabrication is intentionally avoided so callers get an
+                # explicit None rather than a fabricated ID that would silently break
+                # history lookup.
                 extracted_session_id = session_id  # Default to input session_id
                 if stdout:
                     for line in stdout.strip().split("\n"):
@@ -238,10 +242,6 @@ class CodexAgentCLI(AgentCLI):
                                     break
                             except json.JSONDecodeError:
                                 continue
-
-                # Generate session_id if none provided and none extracted
-                if not extracted_session_id:
-                    extracted_session_id = f"codex-{int(datetime.now().timestamp())}"
 
                 return RunResult(
                     success=True,

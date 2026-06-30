@@ -213,14 +213,13 @@ class CopilotAgentCLI(AgentCLI):
                             )
 
             if process.returncode == 0:
-                # Process management only - generate session_id if needed
-                final_session_id = (
-                    session_id or f"copilot-{int(datetime.now().timestamp())}"
-                )
-
+                # copilot CLI does not emit a machine-readable session ID in stdout.
+                # Return the input session_id as-is (may be None); fabrication is
+                # intentionally avoided so callers get an explicit None rather than
+                # a fabricated ID that would silently break history lookup.
                 return RunResult(
                     success=True,
-                    session_id=final_session_id,
+                    session_id=session_id,
                     response_parts=[],  # No response parsing - export API handles content
                 )
             else:
