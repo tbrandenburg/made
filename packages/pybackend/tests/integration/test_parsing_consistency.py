@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-from agent_cli import OpenCodeAgentCLI
+from opencode_legacy_agent_cli import OpenCodeAgentCLI
 from agent_results import RunResult, SessionListResult, AgentListResult, ExportResult
 
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agent_service import get_agent_cli
-from agent_cli import OpenCodeAgentCLI
+from opencode_legacy_agent_cli import OpenCodeAgentCLI
 from opencode_database_agent_cli import OpenCodeDatabaseAgentCLI
 from copilot_agent_cli import CopilotAgentCLI
 from kiro_agent_cli import KiroAgentCLI

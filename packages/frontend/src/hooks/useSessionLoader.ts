@@ -29,7 +29,6 @@ interface UseSessionLoaderResult {
  * changes. Encapsulates the loading/error state and cleanup (AbortController)
  * so pages only need a dumb setter in handleSessionSelect.
  *
- * - Calls setChat([]) immediately when a new (name, sessionId) pair is seen.
  * - Sets sessionLoading=true for the duration of the fetch.
  * - Ignores AbortError (stale request cancelled by cleanup).
  * - Surfaces other errors in sessionError.

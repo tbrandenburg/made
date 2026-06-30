@@ -65,6 +65,72 @@ const stripFrontmatter = (content: string) => {
     : content.trim();
 };
 
+interface ChatFooterProps {
+  refreshing?: boolean;
+  sessionLoading?: boolean;
+  running: boolean;
+  sessionId?: string | null;
+  isSessionSaved?: boolean;
+  onClearSession?: () => void;
+  onSaveSession?: () => void;
+}
+
+const ChatFooter: React.FC<ChatFooterProps> = ({
+  refreshing,
+  sessionLoading,
+  running,
+  sessionId,
+  isSessionSaved,
+  onClearSession,
+  onSaveSession,
+}) => (
+  <>
+    {refreshing && (
+      <div className="loading-indicator">
+        <div className="loading-spinner"></div>
+        <span>Refreshing...</span>
+      </div>
+    )}
+    {!refreshing && sessionLoading && (
+      <div className="loading-indicator">
+        <div className="loading-spinner"></div>
+        <span>Loading session...</span>
+      </div>
+    )}
+    {!refreshing && !sessionLoading && running && (
+      <div className="loading-indicator">
+        <div className="loading-spinner"></div>
+        <span>Agent is thinking...</span>
+      </div>
+    )}
+    {sessionId && (
+      <div className="chat-session-id" aria-label="Session ID">
+        <span>Session ID: {sessionId}</span>
+        <button
+          type="button"
+          className="icon-button-small"
+          aria-label={isSessionSaved ? "Session saved" : "Save session"}
+          title={isSessionSaved ? "Session already saved" : "Save session"}
+          onClick={onSaveSession}
+          disabled={!onSaveSession || isSessionSaved}
+        >
+          <SaveIcon />
+        </button>
+        <button
+          type="button"
+          className="icon-button-small"
+          aria-label="Clear session"
+          title="Clear session"
+          onClick={onClearSession}
+          disabled={!onClearSession}
+        >
+          <TrashIcon />
+        </button>
+      </div>
+    )}
+  </>
+);
+
 const CopyIcon: React.FC = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -183,72 +249,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
       [markdownOptions],
     );
 
-    type ChatWindowContext = {
-      refreshing?: boolean;
-      sessionLoading?: boolean;
-      running: boolean;
-      sessionId?: string | null;
-      isSessionSaved?: boolean;
-      onClearSession?: () => void;
-      onSaveSession?: () => void;
-    };
+    type ChatWindowContext = ChatFooterProps;
 
     const stableComponents = React.useMemo(
       () => ({
         Item: SpacedItem,
-        Footer: ({ context: ctx }: { context?: ChatWindowContext }) => (
-          <>
-            {ctx?.refreshing && (
-              <div className="loading-indicator">
-                <div className="loading-spinner"></div>
-                <span>Refreshing...</span>
-              </div>
-            )}
-            {!ctx?.refreshing && ctx?.sessionLoading && (
-              <div className="loading-indicator">
-                <div className="loading-spinner"></div>
-                <span>Loading session...</span>
-              </div>
-            )}
-            {!ctx?.refreshing && !ctx?.sessionLoading && ctx?.running && (
-              <div className="loading-indicator">
-                <div className="loading-spinner"></div>
-                <span>Agent is thinking...</span>
-              </div>
-            )}
-            {ctx?.sessionId && (
-              <div className="chat-session-id" aria-label="Session ID">
-                <span>Session ID: {ctx.sessionId}</span>
-                <button
-                  type="button"
-                  className="icon-button-small"
-                  aria-label={
-                    ctx.isSessionSaved ? "Session saved" : "Save session"
-                  }
-                  title={
-                    ctx.isSessionSaved
-                      ? "Session already saved"
-                      : "Save session"
-                  }
-                  onClick={ctx.onSaveSession}
-                  disabled={!ctx.onSaveSession || ctx.isSessionSaved}
-                >
-                  <SaveIcon />
-                </button>
-                <button
-                  type="button"
-                  className="icon-button-small"
-                  aria-label="Clear session"
-                  title="Clear session"
-                  onClick={ctx.onClearSession}
-                  disabled={!ctx.onClearSession}
-                >
-                  <TrashIcon />
-                </button>
-              </div>
-            )}
-          </>
-        ),
+        Footer: ({ context: ctx }: { context?: ChatWindowContext }) =>
+          ctx ? <ChatFooter {...ctx} /> : null,
       }),
       [], // Created once; Footer receives latest values reactively via Virtuoso context prop
     );
@@ -277,51 +284,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
             style={{ height: "100%" }}
           />
         )}
-        {chat.length === 0 && refreshing && (
-          <div className="loading-indicator">
-            <div className="loading-spinner"></div>
-            <span>Refreshing...</span>
-          </div>
-        )}
-        {chat.length === 0 && !refreshing && sessionLoading && (
-          <div className="loading-indicator">
-            <div className="loading-spinner"></div>
-            <span>Loading session...</span>
-          </div>
-        )}
-        {chat.length === 0 && !refreshing && !sessionLoading && running && (
-          <div className="loading-indicator">
-            <div className="loading-spinner"></div>
-            <span>Agent is thinking...</span>
-          </div>
-        )}
         {chat.length === 0 && !refreshing && !sessionLoading && !running && (
           <div className="empty">{emptyMessage}</div>
         )}
-        {chat.length === 0 && sessionId && (
-          <div className="chat-session-id" aria-label="Session ID">
-            <span>Session ID: {sessionId}</span>
-            <button
-              type="button"
-              className="icon-button-small"
-              aria-label={isSessionSaved ? "Session saved" : "Save session"}
-              title={isSessionSaved ? "Session already saved" : "Save session"}
-              onClick={onSaveSession}
-              disabled={!onSaveSession || isSessionSaved}
-            >
-              <SaveIcon />
-            </button>
-            <button
-              type="button"
-              className="icon-button-small"
-              aria-label="Clear session"
-              title="Clear session"
-              onClick={onClearSession}
-              disabled={!onClearSession}
-            >
-              <TrashIcon />
-            </button>
-          </div>
+        {chat.length === 0 && (
+          <ChatFooter
+            refreshing={refreshing}
+            sessionLoading={sessionLoading}
+            running={running}
+            sessionId={sessionId}
+            isSessionSaved={isSessionSaved}
+            onClearSession={onClearSession}
+            onSaveSession={onSaveSession}
+          />
         )}
       </div>
     );

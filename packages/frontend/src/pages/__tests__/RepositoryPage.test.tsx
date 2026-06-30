@@ -209,7 +209,7 @@ describe("RepositoryPage lifecycle guards", () => {
     expect(screen.queryByText(/loading session/i)).not.toBeInTheDocument();
   });
 
-  it("Send disabled while history loading, re-enabled after resolve", async () => {
+  it("Send NOT disabled while history loading (sessionLoading no longer gates send)", async () => {
     let resolveHistory!: (v: ChatHistoryResponse) => void;
     vi.mocked(api.getRepositoryAgentHistory).mockReturnValueOnce(
       new Promise<ChatHistoryResponse>((res) => {
@@ -224,8 +224,9 @@ describe("RepositoryPage lifecycle guards", () => {
       { target: { value: "test" } },
     );
 
+    // Send must NOT be disabled during session load — only chatAgentProcessing gates it.
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: /send/i })).toBeDisabled(),
+      expect(screen.getByRole("button", { name: /send/i })).not.toBeDisabled(),
     );
 
     resolveHistory(emptyHistory);
