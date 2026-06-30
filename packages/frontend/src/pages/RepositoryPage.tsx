@@ -634,8 +634,7 @@ export const RepositoryPage: React.FC = () => {
   }, []);
 
   const {
-    agentStatus,
-    chatAgentProcessing,
+    agentState,
     clearSessionModalOpen,
     closeClearSessionModal,
     closeSessionModal,
@@ -685,6 +684,8 @@ export const RepositoryPage: React.FC = () => {
       lastSentPromptRef.current = "";
     },
   });
+  const chatAgentProcessing = agentState.status === "processing";
+  const agentStatus = agentState.status === "error" ? agentState.message : null;
 
   const handleSendMessage = useCallback(
     (prompt?: string) => {

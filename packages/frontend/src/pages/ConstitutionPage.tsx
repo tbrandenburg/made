@@ -178,8 +178,7 @@ export const ConstitutionPage: React.FC = () => {
   );
 
   const {
-    agentStatus,
-    chatAgentProcessing,
+    agentState,
     clearSessionModalOpen,
     closeClearSessionModal,
     closeSessionModal,
@@ -219,6 +218,8 @@ export const ConstitutionPage: React.FC = () => {
     },
     onActivateAgentTab: () => setActiveTab("agent"),
   });
+  const chatAgentProcessing = agentState.status === "processing";
+  const agentStatus = agentState.status === "error" ? agentState.message : null;
 
   const savedSessionTitles = useMemo(
     () =>

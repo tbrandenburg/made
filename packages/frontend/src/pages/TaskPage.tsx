@@ -157,8 +157,7 @@ export const TaskPage: React.FC = () => {
   );
 
   const {
-    agentStatus,
-    chatAgentProcessing,
+    agentState,
     clearSessionModalOpen,
     closeClearSessionModal,
     closeSessionModal,
@@ -197,6 +196,9 @@ export const TaskPage: React.FC = () => {
     },
     onActivateAgentTab: () => setActiveTab("agent"),
   });
+  const chatAgentProcessing = agentState.status === "processing";
+  const agentStatus = agentState.status === "error" ? agentState.message : null;
+
   const scrollToBottom = useCallback(() => {
     chatWindowRef.current?.scrollToBottom();
   }, []);
