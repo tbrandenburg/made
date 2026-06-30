@@ -2,7 +2,7 @@
 
 import unittest
 
-from agent_cli import OpenCodeAgentCLI
+from opencode_legacy_agent_cli import OpenCodeAgentCLI
 
 
 class TestOpenCodeAgentCLIParsing(unittest.TestCase):

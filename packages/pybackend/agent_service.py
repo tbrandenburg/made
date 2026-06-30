@@ -10,7 +10,7 @@ from pathlib import Path
 from threading import Event, Lock
 
 from agent_cli import AgentCLI
-from agent_cli import OpenCodeAgentCLI
+from opencode_legacy_agent_cli import OpenCodeAgentCLI
 from opencode_database_agent_cli import OpenCodeDatabaseAgentCLI
 from copilot_agent_cli import CopilotAgentCLI
 from kiro_agent_cli import KiroAgentCLI

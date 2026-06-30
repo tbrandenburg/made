@@ -2,7 +2,6 @@ import { useEffect } from "react";
 
 /**
  * Polls agent status every 5 seconds while chatAgentProcessing is true.
- * Mirrors the polling useEffect in RepositoryPage.tsx:1249-1275.
  * Stops when checkStatus() returns false (agent done) or component unmounts.
  * null (network error) keeps polling.
  */
