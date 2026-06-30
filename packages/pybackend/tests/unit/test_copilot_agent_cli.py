@@ -84,7 +84,8 @@ class TestCopilotAgentCLI:
         assert (
             len(result.response_parts) == 0
         )  # No response parsing - export API handles content
-        assert result.session_id is not None  # Process management generates session_id
+        # copilot CLI emits no machine-readable session ID; pass-through returns None
+        assert result.session_id is None
 
     @unittest.mock.patch("subprocess.run")
     def test_run_agent_strips_ansi_codes(self, mock_run):
@@ -104,7 +105,8 @@ class TestCopilotAgentCLI:
         assert (
             len(result.response_parts) == 0
         )  # No response parsing - export API handles content
-        assert result.session_id is not None  # Process management generates session_id
+        # copilot CLI emits no machine-readable session ID; pass-through returns None
+        assert result.session_id is None
 
         # Verify subprocess was called correctly
         mock_run.assert_called_once()

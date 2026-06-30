@@ -5,7 +5,6 @@ import os
 import re
 import sqlite3
 import subprocess
-from datetime import datetime
 from pathlib import Path
 from threading import Event
 from typing import Any, Callable
@@ -180,14 +179,13 @@ class KiroAgentCLI(AgentCLI):
                             )
 
             if process.returncode == 0:
-                # Process management only - generate session_id if needed
-                final_session_id = (
-                    session_id or f"kiro-{int(datetime.now().timestamp())}"
-                )
-
+                # kiro-cli does not emit a machine-readable session ID in stdout.
+                # Return the input session_id as-is (may be None); fabrication is
+                # intentionally avoided so callers get an explicit None rather than
+                # a fabricated ID that would silently break history lookup.
                 return RunResult(
                     success=True,
-                    session_id=final_session_id,
+                    session_id=session_id,
                     response_parts=[],  # No response parsing - export API handles content
                 )
             else:
