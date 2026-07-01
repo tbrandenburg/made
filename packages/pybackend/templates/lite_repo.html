@@ -11,8 +11,22 @@
     </div>
     <h1>{{ name }}</h1>
 
+    <form method="GET" action="/lite/repo/{{ name }}" class="session-form">
+        <label>Session:
+            <select name="session_id">
+                <option value="">-- New session --</option>
+                {% for session in sessions %}
+                    <option value="{{ session.id }}"{% if session.id == current_session_id %} selected{% endif %}>
+                        {{ session.title or session.id }}{% if session.updated %} ({{ session.updated }}){% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+        </label>
+        <button type="submit">Load</button>
+    </form>
+
     <form method="POST" action="/lite/repo/{{ name }}/chat">
-        <input type="hidden" name="session_id" value="{{ current_session_id or '' }}">
+        <input type="hidden" name="session_id" value="{{ current_session_id }}">
 
         <label>Agent:
             <select name="agent">
@@ -31,21 +45,37 @@
             </select>
         </label>
 
-        <label>Session:
-            <select name="session_id_pick">
-                <option value="new">-- New session --</option>
-                {% for session in sessions %}
-                    <option value="{{ session.id }}"{% if session.id == current_session_id %} selected{% endif %}>
-                        {{ session.title or session.id }}{% if session.updated %} ({{ session.updated }}){% endif %}
-                    </option>
-                {% endfor %}
-            </select>
-        </label>
-
         <label>Message:</label>
         <textarea name="message" rows="4" cols="60"></textarea>
         <button type="submit">Send</button>
     </form>
+
+    <div class="chat">
+    {% if messages %}
+        {% for msg in messages | reverse %}
+            {% if msg.role == "user" %}
+                <div class="msg-user">
+                    <div class="msg-label">You</div>
+                    <pre>{{ msg.content }}</pre>
+                </div>
+            {% elif msg.type in ("tool", "tool_use", "reasoning") %}
+                <div class="msg-tool">
+                    <div class="msg-label">{{ msg.type }}</div>
+                    <pre class="msg-tool">{{ msg.content }}</pre>
+                </div>
+            {% else %}
+                <div class="msg-agent">
+                    <div class="msg-label">Agent</div>
+                    <pre>{{ msg.content }}</pre>
+                </div>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <p>No messages yet.</p>
+    {% endif %}
+    </div>
+</body>
+</html>
 
     <div class="chat">
     {% if messages %}

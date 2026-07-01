@@ -45,14 +45,15 @@ async def list_repos(request: Request):
 
 
 @router.get("/repo/{name}", response_class=HTMLResponse)
-async def repo_chat(request: Request, name: str):
+async def repo_chat(request: Request, name: str, session_id: str = Query(default="")):
     try:
         get_repository_info(name)
     except FileNotFoundError:
         return HTMLResponse(content=f"Repository '{name}' not found.", status_code=404)
 
     session_cookie_name = f"lite_session_{name}"
-    current_session_id = request.cookies.get(session_cookie_name)
+    # query param takes priority over cookie (used by the Load button GET form)
+    current_session_id = session_id.strip() or request.cookies.get(session_cookie_name) or ""
 
     messages = []
     if current_session_id:
@@ -74,7 +75,7 @@ async def repo_chat(request: Request, name: str):
     except Exception:
         sessions = []
 
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request,
         "lite_repo.html",
         {
@@ -82,10 +83,14 @@ async def repo_chat(request: Request, name: str):
             "messages": messages,
             "agents": agents,
             "sessions": sessions,
-            "current_session_id": current_session_id or "",
+            "current_session_id": current_session_id,
             "model_options": MODEL_OPTIONS,
         },
     )
+    # persist the selected session into the cookie so subsequent POSTs pick it up
+    if current_session_id:
+        response.set_cookie(key=session_cookie_name, value=current_session_id, httponly=True)
+    return response
 
 
 @router.post("/repo/{name}/chat")
@@ -94,7 +99,6 @@ async def post_chat(
     name: str,
     message: str = Form(...),
     session_id: str = Form(default=""),
-    session_id_pick: str = Form(default="new"),
     agent: str = Form(default=""),
     model: str = Form(default="default"),
 ):
@@ -103,10 +107,7 @@ async def post_chat(
     except FileNotFoundError:
         return HTMLResponse(content=f"Repository '{name}' not found.", status_code=404)
 
-    # session_id_pick overrides session_id hidden field when not "new"
-    effective_session_id = session_id if session_id_pick == "new" else session_id_pick
-    effective_session_id = effective_session_id.strip() or None
-
+    effective_session_id = session_id.strip() or None
     resolved_agent = agent.strip() or None
     resolved_model = model.strip() if model and model != "default" else None
 

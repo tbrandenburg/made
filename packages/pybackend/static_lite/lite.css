@@ -90,6 +90,17 @@ form label {
     font-weight: bold;
 }
 
+.session-form {
+    margin-bottom: 0.5em;
+    padding-bottom: 0.5em;
+    border-bottom: 1px solid #ccc;
+}
+
+.session-form label {
+    display: inline;
+    font-weight: normal;
+}
+
 form select {
     margin-left: 0.3em;
 }
