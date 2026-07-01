@@ -1,4 +1,5 @@
 import Bars3Icon from "@heroicons/react/24/outline/Bars3Icon.js";
+import DevicePhoneMobileIcon from "@heroicons/react/24/outline/DevicePhoneMobileIcon.js";
 import MoonIcon from "@heroicons/react/24/outline/MoonIcon.js";
 import SunIcon from "@heroicons/react/24/outline/SunIcon.js";
 import React from "react";
@@ -58,6 +59,14 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
         <Bars3Icon />
       </button>
       <div className="breadcrumb">{formatBreadcrumb(location.pathname)}</div>
+      <a
+        href="/lite/"
+        className="icon-button"
+        aria-label="Lite mode"
+        title="Lite mode (JS-free)"
+      >
+        <DevicePhoneMobileIcon />
+      </a>
       <button
         className="icon-button"
         onClick={toggleTheme}
