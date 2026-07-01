@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>MADE Lite &mdash; Waiting...</title>
+    <meta http-equiv="refresh" content="5;url=/lite/repo/{{ name }}/wait/{{ msg_id }}?attempt={{ attempt + 1 }}&amp;session_id={{ session_id }}">
+    <link rel="stylesheet" href="/lite/static/lite.css">
+</head>
+<body>
+    <div class="breadcrumb">
+        <a href="/lite/">Repositories</a> / <a href="/lite/repo/{{ name }}">{{ name }}</a>
+    </div>
+    <h1>Waiting for agent response...</h1>
+
+    <p class="wait-info">
+        Processing your message for <strong>{{ name }}</strong>.
+    </p>
+    <p class="attempt-counter">Check {{ attempt + 1 }}/60 &mdash; refreshing in 5 seconds.</p>
+    <p>
+        <a href="/lite/repo/{{ name }}">Cancel / go back</a>
+    </p>
+</body>
+</html>

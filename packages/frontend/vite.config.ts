@@ -38,6 +38,10 @@ export default defineConfig(async ({ mode }) => ({
         changeOrigin: true,
         ws: true,
       },
+      "/lite": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
     },
   },
   build: {

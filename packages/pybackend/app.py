@@ -116,6 +116,8 @@ from config import (
     get_backend_host,
     get_backend_port,
 )
+from fastapi.staticfiles import StaticFiles
+from lite_router import router as lite_router
 
 _VERSION = importlib.metadata.version("made-pybackend")
 
@@ -154,6 +156,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.mount("/lite/static", StaticFiles(directory=Path(__file__).parent / "static_lite"), name="lite_static")
+app.include_router(lite_router)
 
 TERMINAL_BUFFER_SIZE = 4096
 DEFAULT_TERMINAL_COLUMNS = 120

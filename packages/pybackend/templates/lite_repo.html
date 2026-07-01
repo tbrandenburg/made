@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>MADE Lite &mdash; {{ name }}</title>
+    <link rel="stylesheet" href="/lite/static/lite.css">
+</head>
+<body>
+    <div class="breadcrumb">
+        <a href="/lite/">Repositories</a> / {{ name }}
+    </div>
+    <h1>{{ name }}</h1>
+
+    <div class="chat">
+    {% if messages %}
+        {% for msg in messages %}
+            {% if msg.role == "user" %}
+                <div class="msg-user">
+                    <div class="msg-label">You</div>
+                    <pre>{{ msg.content }}</pre>
+                </div>
+            {% elif msg.type in ("tool", "tool_use", "reasoning") %}
+                <div class="msg-tool">
+                    <div class="msg-label">{{ msg.type }}</div>
+                    <pre class="msg-tool">{{ msg.content }}</pre>
+                </div>
+            {% else %}
+                <div class="msg-agent">
+                    <div class="msg-label">Agent</div>
+                    <pre>{{ msg.content }}</pre>
+                </div>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <p>No messages yet. Start a conversation below.</p>
+    {% endif %}
+    </div>
+
+    <form method="POST" action="/lite/repo/{{ name }}/chat">
+        <input type="hidden" name="session_id" value="{{ current_session_id or '' }}">
+
+        <label>Agent:
+            <select name="agent">
+                <option value="">(default)</option>
+                {% for agent in agents %}
+                    <option value="{{ agent.name }}">{{ agent.name }}{% if agent.type %} ({{ agent.type }}){% endif %}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>Model:
+            <select name="model">
+                {% for value, label in model_options %}
+                    <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>Session:
+            <select name="session_id_pick">
+                <option value="new">-- New session --</option>
+                {% for session in sessions %}
+                    <option value="{{ session.id }}"{% if session.id == current_session_id %} selected{% endif %}>
+                        {{ session.title or session.id }}{% if session.updated %} ({{ session.updated }}){% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>Message:</label>
+        <textarea name="message" rows="4" cols="60"></textarea>
+        <button type="submit">Send</button>
+    </form>
+</body>
+</html>
