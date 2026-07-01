@@ -41,9 +41,7 @@ MODEL_OPTIONS = [
 @router.get("/", response_class=HTMLResponse)
 async def list_repos(request: Request):
     repos = list_repositories()
-    return templates.TemplateResponse(
-        request, "lite_repos.html", {"repos": repos}
-    )
+    return templates.TemplateResponse(request, "lite_repos.html", {"repos": repos})
 
 
 @router.get("/repo/{name}", response_class=HTMLResponse)
@@ -121,14 +119,14 @@ async def post_chat(
             model=resolved_model,
         )
     except ChannelBusyError:
-        return HTMLResponse(
-            content="Agent is busy, try again.", status_code=409
-        )
+        return HTMLResponse(content="Agent is busy, try again.", status_code=409)
 
     new_session_id = result.get("sessionId") or effective_session_id or ""
     msg_id = result.get("messageId", "")
 
-    redirect_url = f"/lite/repo/{name}/wait/{msg_id}?attempt=0&session_id={new_session_id}"
+    redirect_url = (
+        f"/lite/repo/{name}/wait/{msg_id}?attempt=0&session_id={new_session_id}"
+    )
     response = RedirectResponse(url=redirect_url, status_code=303)
 
     if new_session_id:

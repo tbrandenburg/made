@@ -156,7 +156,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.mount("/lite/static", StaticFiles(directory=Path(__file__).parent / "static_lite"), name="lite_static")
+app.mount(
+    "/lite/static",
+    StaticFiles(directory=Path(__file__).parent / "static_lite"),
+    name="lite_static",
+)
 app.include_router(lite_router)
 
 TERMINAL_BUFFER_SIZE = 4096
