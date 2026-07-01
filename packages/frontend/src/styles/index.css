@@ -125,6 +125,7 @@ textarea {
   border: 1px solid transparent;
   transition: all 0.2s ease;
   color: var(--muted);
+  text-decoration: none;
 }
 
 .icon-button:hover {

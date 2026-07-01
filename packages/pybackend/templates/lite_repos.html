@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>MADE &mdash; Lite</title>
+    <link rel="stylesheet" href="/lite/static/lite.css">
+</head>
+<body>
+    <h1>MADE &mdash; Lite</h1>
+    <h2>Repositories</h2>
+    <ul>
+    {% for repo in repos %}
+        <li>
+            <a href="/lite/repo/{{ repo.name }}">{{ repo.name }}</a>
+            {% if repo.technology %} &mdash; {{ repo.technology }}{% endif %}
+            {% if repo.branch %} [{{ repo.branch }}]{% endif %}
+            {% if repo.lastCommit %} &mdash; <small>{{ repo.lastCommit }}</small>{% endif %}
+        </li>
+    {% else %}
+        <li>No repositories found.</li>
+    {% endfor %}
+    </ul>
+</body>
+</html>
