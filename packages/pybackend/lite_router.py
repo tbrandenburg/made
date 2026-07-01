@@ -40,7 +40,7 @@ MODEL_OPTIONS = [
 
 @router.get("/", response_class=HTMLResponse)
 async def list_repos(request: Request):
-    repos = list_repositories()
+    repos = sorted(list_repositories(), key=lambda r: r["name"].lower())
     return templates.TemplateResponse(request, "lite_repos.html", {"repos": repos})
 
 
