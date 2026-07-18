@@ -50,3 +50,6 @@ exclude = [
 
 [tool.uv]
 package = true
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10

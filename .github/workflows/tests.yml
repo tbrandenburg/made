@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: make install
       
-      - name: Run QA (lint + format + unit tests)
+      - name: Run QA (lint + format + unit tests with warnings)
         run: make qa-quick
 
       - name: Run security audit

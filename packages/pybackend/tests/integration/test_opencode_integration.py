@@ -20,9 +20,8 @@ class TestOpenCodeIntegration:
                 ["opencode", "--help"], capture_output=True, text=True, timeout=10
             )
             assert result.returncode == 0
-            assert (
-                "opencode" in result.stdout.lower() or "usage" in result.stdout.lower()
-            )
+            help_output = f"{result.stdout}\n{result.stderr}".lower()
+            assert "opencode" in help_output or "usage" in help_output
         except FileNotFoundError:
             pytest.skip("opencode not available in PATH")
         except subprocess.TimeoutExpired:
