@@ -76,6 +76,18 @@ lint:
 	npm run lint
 	@echo "🔍 Running backend ruff linter..."
 	cd $(PYBACKEND_DIR) && uv run ruff check *.py
+	@echo "🔍 Checking backend function complexity (warning only)..."
+	@cd $(PYBACKEND_DIR) && \
+	if uv run ruff check --select C901 *.py; then \
+		true; \
+	else \
+		status=$$?; \
+		if [ $$status -eq 1 ]; then \
+			echo "WARNING: backend function complexity exceeds the configured threshold"; \
+		else \
+			exit $$status; \
+		fi; \
+	fi
 
 test:
 	@echo "🧪 Running frontend tests..."
@@ -85,9 +97,23 @@ test:
 
 unit-test:
 	@echo "🔬 Running frontend unit tests..."
-	npm test
+	@start=$$(date +%s); \
+	npm test; status=$$?; \
+	elapsed=$$(($$(date +%s) - start)); \
+	echo "Frontend unit tests completed in $${elapsed}s"; \
+	if [ $$elapsed -gt 60 ]; then \
+		echo "WARNING: frontend unit tests exceeded the 60s limit"; \
+	fi; \
+	exit $$status
 	@echo "🔬 Running backend unit tests with coverage..."
-	cd $(PYBACKEND_DIR) && uv sync && uv run pytest -c pytest.cov.ini tests/unit/
+	@start=$$(date +%s); \
+	cd $(PYBACKEND_DIR) && uv sync && uv run pytest -c pytest.cov.ini tests/unit/; status=$$?; \
+	elapsed=$$(($$(date +%s) - start)); \
+	echo "Backend unit tests completed in $${elapsed}s"; \
+	if [ $$elapsed -gt 30 ]; then \
+		echo "WARNING: backend unit tests exceeded the 30s limit"; \
+	fi; \
+	exit $$status
 
 test-frontend:
 	@test -n "$(FILE)" || (echo "Usage: make test-frontend FILE=path [NAME=pattern]" && exit 1)

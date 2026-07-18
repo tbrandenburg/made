@@ -26,6 +26,7 @@ export default tseslint.config(
     },
     rules: {
       "react/prop-types": "off",
+      complexity: ["warn", 10],
     },
   },
 );
