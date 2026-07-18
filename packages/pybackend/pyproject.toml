@@ -26,6 +26,7 @@ dependencies = [
   "pyopenssl>=26.0.0",
   "pyasn1>=0.6.3",
   "pygments>=2.20.0",
+  "click>=8.3.3",
 ]
 
 [project.scripts]

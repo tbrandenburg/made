@@ -95,6 +95,73 @@ test.describe('MADE journeys', () => {
     await expect(page.getByPlaceholder('Describe the change or ask the agent...')).toBeVisible();
   });
 
+  test('agent chat completes one roundtrip within the request budget', async ({ page }) => {
+    await page.unroute('**/api/repositories/demo-project/agent');
+
+    const requestCounts = { post: 0, history: 0, status: 0 };
+    const sessionId = 'session-e2e';
+    const historyResponse = {
+      sessionId,
+      messages: [
+        {
+          messageId: 'user-1',
+          role: 'user' as const,
+          type: 'text' as const,
+          content: 'Explain the demo project',
+          timestamp: '2026-03-06T19:27:00.000Z'
+        },
+        {
+          messageId: 'assistant-1',
+          role: 'assistant' as const,
+          type: 'text' as const,
+          content: 'The demo project is ready.',
+          timestamp: '2026-03-06T19:27:01.000Z'
+        }
+      ]
+    };
+
+    await page.route('**/api/repositories/demo-project/agent**', (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (route.request().method() === 'POST' && pathname.endsWith('/agent')) {
+        requestCounts.post += 1;
+        return route.fulfill({
+          json: {
+            messageId: 'assistant-1',
+            sent: '2026-03-06T19:27:01.000Z',
+            response: 'Request accepted',
+            sessionId,
+            processing: false
+          }
+        });
+      }
+
+      if (pathname.endsWith('/agent/history')) {
+        requestCounts.history += 1;
+        return route.fulfill({ json: historyResponse });
+      }
+
+      if (pathname.endsWith('/agent/status')) {
+        requestCounts.status += 1;
+        return route.fulfill({ json: { running: false } });
+      }
+
+      return route.continue();
+    });
+
+    await page.goto('/repositories');
+    await page.getByRole('link', { name: /^demo-project/ }).click();
+    await page.getByRole('button', { name: 'Agent' }).click();
+
+    await page.getByPlaceholder('Describe the change or ask the agent...').fill('Explain the demo project');
+    await page.getByRole('button', { name: 'Send' }).click();
+
+    await expect(page.getByText('The demo project is ready.')).toBeVisible();
+    expect(requestCounts.post).toBe(1);
+    expect(requestCounts.history).toBeLessThanOrEqual(2);
+    expect(requestCounts.status).toBeLessThanOrEqual(3);
+    expect(requestCounts.post + requestCounts.history + requestCounts.status).toBeLessThanOrEqual(6);
+  });
+
   test('recovers when dashboard API is temporarily unavailable', async ({ page }) => {
     await page.unroute('**/api/dashboard');
     let attempts = 0;
