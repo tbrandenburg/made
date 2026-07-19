@@ -555,9 +555,9 @@ class TestOpenCodeDatabaseAgentCLI(unittest.TestCase):
 
         self.assertTrue(result.success)
         self.assertEqual(result.session_id, "ses_123")
-        self.assertEqual(
-            len(result.response_parts), 0
-        )  # No response parsing - export API handles content
+        self.assertEqual(len(result.response_parts), 1)
+        self.assertEqual(result.response_parts[0].text, "Hello response")
+        self.assertEqual(result.response_parts[0].part_type, "final")
 
     @patch("opencode_database_agent_cli.subprocess.run")
     def test_run_agent_command_failure(self, mock_subprocess_run):

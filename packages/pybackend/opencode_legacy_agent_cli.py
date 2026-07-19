@@ -89,6 +89,16 @@ class OpenCodeAgentCLI(AgentCLI):
                         "call_id": call_id,
                     }
                 )
+            elif payload_type == "reasoning":
+                parts.append(
+                    {
+                        "kind": "reasoning",
+                        "content": self._extract_part_content(part, "reasoning"),
+                        "timestamp": payload_timestamp,
+                        "part_id": part_id,
+                        "call_id": call_id,
+                    }
+                )
             elif payload_type in {"tool_use", "tool"}:
                 tool_name = self._extract_part_content(part, payload_type)
                 if tool_name:  # Only include tools if they have content
@@ -122,6 +132,8 @@ class OpenCodeAgentCLI(AgentCLI):
                     if text_indices and index == text_indices[-1]
                     else "thinking"
                 )
+            elif kind == "reasoning":
+                part_type = "thinking"
             else:
                 part_type = "tool"
 
@@ -347,16 +359,13 @@ class OpenCodeAgentCLI(AgentCLI):
 
             if process.returncode == 0:
                 extracted_session_id = session_id
+                parsed_parts: list[ResponsePart] = []
                 if stdout:
-                    for line in stdout.strip().split("\n"):
-                        if line:
-                            try:
-                                data = json.loads(line)
-                                if isinstance(data, dict) and "session_id" in data:
-                                    extracted_session_id = str(data["session_id"])
-                                    break
-                            except json.JSONDecodeError:
-                                continue
+                    parsed_session_id, parsed_parts = self._parse_opencode_output(
+                        stdout
+                    )
+                    if parsed_session_id:
+                        extracted_session_id = parsed_session_id
 
                 if not extracted_session_id:
                     import time
@@ -366,7 +375,7 @@ class OpenCodeAgentCLI(AgentCLI):
                 return RunResult(
                     success=True,
                     session_id=extracted_session_id,
-                    response_parts=[],  # No response parsing - export API handles content
+                    response_parts=parsed_parts,
                 )
             else:
                 if cancel_event and cancel_event.is_set():

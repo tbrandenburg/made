@@ -25,6 +25,7 @@ from agent_results import (
     AgentListResult,
     AgentInfo,
     RunResult,
+    ResponsePart,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,78 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
 
     def prompt_via_stdin(self) -> bool:
         return True
+
+    def _parse_opencode_output(
+        self, stdout: str
+    ) -> tuple[str | None, list[ResponsePart]]:
+        """Parse OpenCode JSON output into structured response parts."""
+        session_id = None
+        parsed: list[tuple[str, str, Any, object, object]] = []
+
+        for line in stdout.splitlines():
+            if not line.strip():
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            payload_session_id = payload.get("sessionID")
+            if payload_session_id:
+                session_id = str(payload_session_id)
+
+            part = payload.get("part") or {}
+            payload_type = payload.get("type") or part.get("type")
+            part_id = part.get("id")
+            call_id = part.get("callID") or part.get("callId")
+            timestamp = payload.get("timestamp") or part.get("timestamp")
+
+            if payload_type == "text":
+                parsed.append(
+                    (
+                        "text",
+                        self._extract_part_content(part, "text"),
+                        timestamp,
+                        part_id,
+                        call_id,
+                    )
+                )
+            elif payload_type == "reasoning":
+                parsed.append(
+                    (
+                        "reasoning",
+                        self._extract_part_content(part, "reasoning"),
+                        timestamp,
+                        part_id,
+                        call_id,
+                    )
+                )
+            elif payload_type in {"tool_use", "tool"}:
+                tool_name = self._extract_part_content(part, payload_type)
+                if tool_name:
+                    parsed.append(("tool", tool_name, timestamp, part_id, call_id))
+
+        text_indices = [index for index, part in enumerate(parsed) if part[0] == "text"]
+        response_parts: list[ResponsePart] = []
+        for index, (kind, content, timestamp, part_id, call_id) in enumerate(parsed):
+            part_type = (
+                "final"
+                if kind == "text" and index == text_indices[-1]
+                else "thinking"
+                if kind in {"text", "reasoning"}
+                else "tool"
+            )
+            response_parts.append(
+                ResponsePart(
+                    text=content,
+                    timestamp=self._to_milliseconds(timestamp),
+                    part_type=part_type,
+                    part_id=str(part_id) if part_id else None,
+                    call_id=str(call_id) if call_id else None,
+                )
+            )
+
+        return session_id, response_parts
 
     def _get_database_path(self) -> Path | None:
         """Get the path to OpenCode's SQLite database."""
@@ -561,23 +634,19 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                             )
 
             if process.returncode == 0:
-                # Extract only session_id from output, no response parsing
                 extracted_session_id = session_id  # Default to input session_id
+                parsed_parts: list[ResponsePart] = []
                 if stdout:
-                    for line in stdout.strip().split("\n"):
-                        if line:
-                            try:
-                                data = json.loads(line)
-                                if isinstance(data, dict) and "sessionID" in data:
-                                    extracted_session_id = str(data["sessionID"])
-                                    break
-                            except json.JSONDecodeError:
-                                continue
+                    parsed_session_id, parsed_parts = self._parse_opencode_output(
+                        stdout
+                    )
+                    if parsed_session_id:
+                        extracted_session_id = parsed_session_id
 
                 return RunResult(
                     success=True,
                     session_id=extracted_session_id,
-                    response_parts=[],  # No response parsing - export API handles content
+                    response_parts=parsed_parts,
                 )
             else:
                 if cancel_event and cancel_event.is_set():
