@@ -134,12 +134,24 @@ const MODEL_OPTIONS = [
     label: "github-copilot/claude-opus-4.6",
   },
   {
+    value: "github-copilot/claude-opus-4.6-fast",
+    label: "github-copilot/claude-opus-4.6-fast",
+  },
+  {
     value: "github-copilot/claude-opus-4.7",
     label: "github-copilot/claude-opus-4.7",
   },
   {
+    value: "github-copilot/claude-opus-4.7-fast",
+    label: "github-copilot/claude-opus-4.7-fast",
+  },
+  {
     value: "github-copilot/claude-opus-4.8",
     label: "github-copilot/claude-opus-4.8",
+  },
+  {
+    value: "github-copilot/claude-opus-4.8-fast",
+    label: "github-copilot/claude-opus-4.8-fast",
   },
   {
     value: "github-copilot/claude-sonnet-4.5",
@@ -150,83 +162,84 @@ const MODEL_OPTIONS = [
     label: "github-copilot/claude-sonnet-4.6",
   },
   {
+    value: "github-copilot/claude-sonnet-5",
+    label: "github-copilot/claude-sonnet-5",
+  },
+  {
     value: "github-copilot/gemini-2.5-pro",
     label: "github-copilot/gemini-2.5-pro",
   },
   {
-    value: "github-copilot/gemini-3-flash-preview",
-    label: "github-copilot/gemini-3-flash-preview",
-  },
-  {
-    value: "github-copilot/gemini-3-pro-preview",
-    label: "github-copilot/gemini-3-pro-preview",
-  },
-  { value: "github-copilot/gpt-4.1", label: "github-copilot/gpt-4.1" },
-  { value: "github-copilot/gpt-4o", label: "github-copilot/gpt-4o" },
-  { value: "github-copilot/gpt-5", label: "github-copilot/gpt-5" },
-  {
-    value: "github-copilot/gpt-5-codex",
-    label: "github-copilot/gpt-5-codex",
+    value: "github-copilot/gemini-3.5-flash",
+    label: "github-copilot/gemini-3.5-flash",
   },
   {
     value: "github-copilot/gpt-5-mini",
     label: "github-copilot/gpt-5-mini",
   },
-  { value: "github-copilot/gpt-5.1", label: "github-copilot/gpt-5.1" },
   {
-    value: "github-copilot/gpt-5.1-codex",
-    label: "github-copilot/gpt-5.1-codex",
-  },
-  {
-    value: "github-copilot/gpt-5.1-codex-max",
-    label: "github-copilot/gpt-5.1-codex-max",
-  },
-  {
-    value: "github-copilot/gpt-5.1-codex-mini",
-    label: "github-copilot/gpt-5.1-codex-mini",
-  },
-  {
-    value: "github-copilot/gpt-5.2",
-    label: "github-copilot/gpt-5.2",
-  },
-  {
-    value: "github-copilot/gpt-5.3",
-    label: "github-copilot/gpt-5.3",
+    value: "github-copilot/gpt-5.3-codex",
+    label: "github-copilot/gpt-5.3-codex",
   },
   {
     value: "github-copilot/gpt-5.4",
     label: "github-copilot/gpt-5.4",
   },
   {
-    value: "github-copilot/gpt-5.2-codex",
-    label: "github-copilot/gpt-5.2-codex",
+    value: "github-copilot/gpt-5.4-mini",
+    label: "github-copilot/gpt-5.4-mini",
   },
   {
-    value: "github-copilot/grok-code-fast-1",
-    label: "github-copilot/grok-code-fast-1",
+    value: "github-copilot/gpt-5.5",
+    label: "github-copilot/gpt-5.5",
   },
   {
-    value: "openai/gpt-5.1-codex-max",
-    label: "openai/gpt-5.1-codex-max",
+    value: "github-copilot/gpt-5.6-luna",
+    label: "github-copilot/gpt-5.6-luna",
   },
   {
-    value: "openai/gpt-5.1-codex-mini",
-    label: "openai/gpt-5.1-codex-mini",
+    value: "github-copilot/gpt-5.6-sol",
+    label: "github-copilot/gpt-5.6-sol",
   },
-  { value: "openai/gpt-5.2", label: "openai/gpt-5.2" },
-  { value: "openai/gpt-5.3", label: "openai/gpt-5.3" },
+  {
+    value: "github-copilot/gpt-5.6-terra",
+    label: "github-copilot/gpt-5.6-terra",
+  },
+  {
+    value: "github-copilot/kimi-k2.7-code",
+    label: "github-copilot/kimi-k2.7-code",
+  },
+  {
+    value: "github-copilot/mai-code-1-flash-picker",
+    label: "github-copilot/mai-code-1-flash-picker",
+  },
+  {
+    value: "openai/gpt-5.3-codex-spark",
+    label: "openai/gpt-5.3-codex-spark",
+  },
   { value: "openai/gpt-5.4", label: "openai/gpt-5.4" },
+  { value: "openai/gpt-5.4-fast", label: "openai/gpt-5.4-fast" },
+  { value: "openai/gpt-5.4-mini", label: "openai/gpt-5.4-mini" },
   {
-    value: "openai/gpt-5.2-codex",
-    label: "openai/gpt-5.2-codex",
+    value: "openai/gpt-5.4-mini-fast",
+    label: "openai/gpt-5.4-mini-fast",
   },
+  { value: "openai/gpt-5.5", label: "openai/gpt-5.5" },
+  { value: "openai/gpt-5.5-fast", label: "openai/gpt-5.5-fast" },
+  { value: "openai/gpt-5.6-luna", label: "openai/gpt-5.6-luna" },
   {
-    value: "openai/gpt-5.3-codex",
-    label: "openai/gpt-5.3-codex",
+    value: "openai/gpt-5.6-luna-fast",
+    label: "openai/gpt-5.6-luna-fast",
   },
+  { value: "openai/gpt-5.6-sol", label: "openai/gpt-5.6-sol" },
   {
-    value: "openai/gpt-5.4-codex",
-    label: "openai/gpt-5.4-codex",
+    value: "openai/gpt-5.6-sol-fast",
+    label: "openai/gpt-5.6-sol-fast",
+  },
+  { value: "openai/gpt-5.6-terra", label: "openai/gpt-5.6-terra" },
+  {
+    value: "openai/gpt-5.6-terra-fast",
+    label: "openai/gpt-5.6-terra-fast",
   },
 ];
 
