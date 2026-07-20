@@ -29,12 +29,43 @@ MODEL_OPTIONS = [
     ("opencode/grok-code", "opencode/grok-code"),
     ("github-copilot/claude-haiku-4.5", "github-copilot/claude-haiku-4.5"),
     ("github-copilot/claude-opus-4.5", "github-copilot/claude-opus-4.5"),
+    ("github-copilot/claude-opus-4.6", "github-copilot/claude-opus-4.6"),
+    ("github-copilot/claude-opus-4.6-fast", "github-copilot/claude-opus-4.6-fast"),
+    ("github-copilot/claude-opus-4.7", "github-copilot/claude-opus-4.7"),
+    ("github-copilot/claude-opus-4.7-fast", "github-copilot/claude-opus-4.7-fast"),
+    ("github-copilot/claude-opus-4.8", "github-copilot/claude-opus-4.8"),
+    ("github-copilot/claude-opus-4.8-fast", "github-copilot/claude-opus-4.8-fast"),
     ("github-copilot/claude-sonnet-4.5", "github-copilot/claude-sonnet-4.5"),
     ("github-copilot/claude-sonnet-4.6", "github-copilot/claude-sonnet-4.6"),
+    ("github-copilot/claude-sonnet-5", "github-copilot/claude-sonnet-5"),
     ("github-copilot/gemini-2.5-pro", "github-copilot/gemini-2.5-pro"),
-    ("github-copilot/gpt-4.1", "github-copilot/gpt-4.1"),
-    ("openai/gpt-4o", "openai/gpt-4o"),
-    ("openai/o3", "openai/o3"),
+    ("github-copilot/gemini-3.5-flash", "github-copilot/gemini-3.5-flash"),
+    ("github-copilot/gpt-5-mini", "github-copilot/gpt-5-mini"),
+    ("github-copilot/gpt-5.3-codex", "github-copilot/gpt-5.3-codex"),
+    ("github-copilot/gpt-5.4", "github-copilot/gpt-5.4"),
+    ("github-copilot/gpt-5.4-mini", "github-copilot/gpt-5.4-mini"),
+    ("github-copilot/gpt-5.5", "github-copilot/gpt-5.5"),
+    ("github-copilot/gpt-5.6-luna", "github-copilot/gpt-5.6-luna"),
+    ("github-copilot/gpt-5.6-sol", "github-copilot/gpt-5.6-sol"),
+    ("github-copilot/gpt-5.6-terra", "github-copilot/gpt-5.6-terra"),
+    ("github-copilot/kimi-k2.7-code", "github-copilot/kimi-k2.7-code"),
+    (
+        "github-copilot/mai-code-1-flash-picker",
+        "github-copilot/mai-code-1-flash-picker",
+    ),
+    ("openai/gpt-5.3-codex-spark", "openai/gpt-5.3-codex-spark"),
+    ("openai/gpt-5.4", "openai/gpt-5.4"),
+    ("openai/gpt-5.4-fast", "openai/gpt-5.4-fast"),
+    ("openai/gpt-5.4-mini", "openai/gpt-5.4-mini"),
+    ("openai/gpt-5.4-mini-fast", "openai/gpt-5.4-mini-fast"),
+    ("openai/gpt-5.5", "openai/gpt-5.5"),
+    ("openai/gpt-5.5-fast", "openai/gpt-5.5-fast"),
+    ("openai/gpt-5.6-luna", "openai/gpt-5.6-luna"),
+    ("openai/gpt-5.6-luna-fast", "openai/gpt-5.6-luna-fast"),
+    ("openai/gpt-5.6-sol", "openai/gpt-5.6-sol"),
+    ("openai/gpt-5.6-sol-fast", "openai/gpt-5.6-sol-fast"),
+    ("openai/gpt-5.6-terra", "openai/gpt-5.6-terra"),
+    ("openai/gpt-5.6-terra-fast", "openai/gpt-5.6-terra-fast"),
 ]
 
 
@@ -53,7 +84,9 @@ async def repo_chat(request: Request, name: str, session_id: str = Query(default
 
     session_cookie_name = f"lite_session_{name}"
     # query param takes priority over cookie (used by the Load button GET form)
-    current_session_id = session_id.strip() or request.cookies.get(session_cookie_name) or ""
+    current_session_id = (
+        session_id.strip() or request.cookies.get(session_cookie_name) or ""
+    )
 
     messages = []
     if current_session_id:
@@ -89,7 +122,9 @@ async def repo_chat(request: Request, name: str, session_id: str = Query(default
     )
     # persist the selected session into the cookie so subsequent POSTs pick it up
     if current_session_id:
-        response.set_cookie(key=session_cookie_name, value=current_session_id, httponly=True)
+        response.set_cookie(
+            key=session_cookie_name, value=current_session_id, httponly=True
+        )
     return response
 
 
