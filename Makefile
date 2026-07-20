@@ -88,6 +88,25 @@ lint:
 			exit $$status; \
 		fi; \
 	fi
+	@echo "🔍 Checking source file sizes (warning only)..."
+	@find packages/frontend/src packages/pybackend \
+	  \( -name "*.ts" -o -name "*.tsx" -o -name "*.py" \) \
+	  ! -path "*/node_modules/*" ! -path "*/.venv/*" ! -path "*/__pycache__/*" \
+	  ! -name "*.test.*" ! -name "test_*" \
+	  | xargs wc -l 2>/dev/null \
+	  | awk '$$1 > 500 && $$2 != "total" \
+	    {print "WARNING: " $$2 " has " $$1 " lines (guideline: 500)"}' \
+	  | grep . && echo "Consider decomposing the above files." || true
+	@echo "🔍 Checking test file sizes (warning only)..."
+	@find packages/frontend/src packages/pybackend/tests \
+	  \( -name "*.test.ts" -o -name "*.test.tsx" -o -name "test_*.py" \) \
+	  ! -path "*/node_modules/*" ! -path "*/.venv/*" \
+	  | while read f; do \
+	    lines=$$(wc -l < "$$f"); \
+	    if [ "$$lines" -gt 500 ]; then \
+	      echo "WARNING: $$f has $$lines lines (guideline: 500)"; \
+	    fi; \
+	  done || true
 
 test:
 	@echo "🧪 Running frontend tests..."

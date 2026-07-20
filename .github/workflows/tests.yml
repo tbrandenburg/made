@@ -34,6 +34,59 @@ jobs:
       - name: Run QA (lint + format + unit tests with warnings)
         run: make qa-quick
 
+      - name: Check source file sizes
+        run: |
+          find packages/frontend/src packages/pybackend \
+            \( -name "*.ts" -o -name "*.tsx" -o -name "*.py" \) \
+            ! -path "*/node_modules/*" ! -path "*/.venv/*" \
+            ! -name "*.test.*" ! -name "test_*" \
+          | while read f; do
+              lines=$(wc -l < "$f")
+              if [ "$lines" -gt 500 ]; then
+                echo "::warning file=${f}::${f} has ${lines} lines (guideline: 500)"
+              fi
+            done
+
+      - name: Check test file sizes and test:source ratio
+        run: |
+          # --- Absolute size: both frontend and backend ---
+          find packages/frontend/src packages/pybackend/tests \
+            \( -name "*.test.tsx" -o -name "*.test.ts" -o -name "test_*.py" \) \
+            ! -path "*/node_modules/*" ! -path "*/.venv/*" \
+          | while read tf; do
+              lines=$(wc -l < "$tf")
+              if [ "$lines" -gt 500 ]; then
+                echo "::warning file=${tf}::${tf} has ${lines} lines (guideline: 500)"
+              fi
+            done
+
+          # --- Test:source ratio: TypeScript ---
+          find packages/frontend/src -name "*.test.tsx" -o -name "*.test.ts" \
+          | while read tf; do
+              src="${tf%.test.*}.tsx"
+              [ -f "$src" ] || src="${tf%.test.*}.ts"
+              if [ -f "$src" ]; then
+                tlines=$(wc -l < "$tf"); slines=$(wc -l < "$src")
+                ratio=$(( tlines / (slines + 1) ))
+                if [ "$ratio" -gt 2 ]; then
+                  echo "::warning file=${tf}::Test:source ratio ${ratio}:1 exceeds 2:1 (${tlines} test vs ${slines} source lines)"
+                fi
+              fi
+            done
+
+          # --- Test:source ratio: Python ---
+          find packages/pybackend/tests/unit -name "test_*.py" | while read tf; do
+              module=$(basename "$tf" | sed 's/^test_//')
+              src=$(find packages/pybackend -maxdepth 1 -name "$module" ! -path "*/tests/*")
+              if [ -f "$src" ]; then
+                tlines=$(wc -l < "$tf"); slines=$(wc -l < "$src")
+                ratio=$(( tlines / (slines + 1) ))
+                if [ "$ratio" -gt 2 ]; then
+                  echo "::warning file=${tf}::Test:source ratio ${ratio}:1 exceeds 2:1 (${tlines} test vs ${slines} source lines)"
+                fi
+              fi
+            done
+
       - name: Run security audit
         run: make security-audit
 
