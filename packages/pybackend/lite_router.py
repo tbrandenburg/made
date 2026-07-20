@@ -84,7 +84,9 @@ async def repo_chat(request: Request, name: str, session_id: str = Query(default
 
     session_cookie_name = f"lite_session_{name}"
     # query param takes priority over cookie (used by the Load button GET form)
-    current_session_id = session_id.strip() or request.cookies.get(session_cookie_name) or ""
+    current_session_id = (
+        session_id.strip() or request.cookies.get(session_cookie_name) or ""
+    )
 
     messages = []
     if current_session_id:
@@ -120,7 +122,9 @@ async def repo_chat(request: Request, name: str, session_id: str = Query(default
     )
     # persist the selected session into the cookie so subsequent POSTs pick it up
     if current_session_id:
-        response.set_cookie(key=session_cookie_name, value=current_session_id, httponly=True)
+        response.set_cookie(
+            key=session_cookie_name, value=current_session_id, httponly=True
+        )
     return response
 
 
