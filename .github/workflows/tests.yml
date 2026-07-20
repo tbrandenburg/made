@@ -91,12 +91,18 @@ jobs:
         run: make security-audit
 
   test-coverage:
-    name: Python Backend Tests with Coverage
+    name: Backend & Frontend Tests with Coverage
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-      
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -108,8 +114,44 @@ jobs:
       - name: Install dependencies
         run: make install
       
-      - name: Run backend tests with coverage
+      - name: Run backend and frontend tests with coverage
         run: make test-coverage
+
+      - name: Backend branch coverage warning
+        run: |
+          pct=$(python3 -c "import json; print(round(json.load(open('packages/pybackend/coverage.json'))['totals']['percent_branches_covered'], 2))")
+          echo "Backend branch coverage: ${pct}%"
+          if awk "BEGIN {exit !($pct < 75)}"; then
+            echo "::warning::Backend branch coverage ${pct}% is below the 75% target"
+          fi
+          baseline=$(cat .backend-coverage-baseline)
+          # Allow a small tolerance to absorb cross-run measurement noise
+          # (different runners/collection order can shift branch counts by <1%).
+          if awk "BEGIN {exit !($pct < $baseline - 1.0)}"; then
+            echo "::error::Backend branch coverage ${pct}% regressed below baseline ${baseline}% (tolerance 1.0%)"
+            exit 1
+          fi
+          if awk "BEGIN {exit !($pct > $baseline)}"; then
+            echo "$pct" > .backend-coverage-baseline
+          fi
+
+      - name: Frontend branch coverage warning
+        run: |
+          pct=$(python3 -c "import json; print(round(json.load(open('packages/frontend/coverage/coverage-summary.json'))['total']['branches']['pct'], 2))")
+          echo "Frontend branch coverage: ${pct}%"
+          if awk "BEGIN {exit !($pct < 65)}"; then
+            echo "::warning::Frontend branch coverage ${pct}% is below the 65% target"
+          fi
+          baseline=$(cat .frontend-coverage-baseline)
+          # Allow a small tolerance to absorb cross-run measurement noise
+          # (different runners/collection order can shift branch counts by <1%).
+          if awk "BEGIN {exit !($pct < $baseline - 1.0)}"; then
+            echo "::error::Frontend branch coverage ${pct}% regressed below baseline ${baseline}% (tolerance 1.0%)"
+            exit 1
+          fi
+          if awk "BEGIN {exit !($pct > $baseline)}"; then
+            echo "$pct" > .frontend-coverage-baseline
+          fi
 
   system-tests:
     name: System tests (E2E)

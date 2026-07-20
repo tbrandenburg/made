@@ -40,6 +40,12 @@ Focus on lightweight, fast feedback — only essential tests are included.
   - `make qa-quick-backend` — ruff + backend unit tests only
   - `make qa-quick-changed` — auto-detects changed package and runs only that package's QA
 
+#### Anti regression-oracle guardrails (mandatory)
+
+- Never derive an expected value by calling the function under test.
+- Every test must have ≥ 2 behavioral assertions that would fail if the logic were wrong.
+- Never mock a dependency unless mocking is the explicit subject of the test.
+
 ### Pre-push quality gate (mandatory)
 
 A git `pre-push` hook is stored in `scripts/hooks/pre-push` and installed by `make install`.

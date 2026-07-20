@@ -221,8 +221,8 @@ qa-quick-changed:
 # Coverage Tasks
 test-coverage: 
 	@echo "📊 Running full test suite with coverage..."
-	@echo "📊 Frontend tests..."
-	npm test
+	@echo "📊 Frontend tests with coverage..."
+	cd packages/frontend && npx vitest run --coverage
 	@echo "📊 Backend tests with detailed coverage..."
 	cd $(PYBACKEND_DIR) && uv sync && uv run pytest -c pytest.cov.ini --cov-branch --cov-fail-under=70
 	@echo "📊 Coverage report generated in packages/pybackend/htmlcov/"

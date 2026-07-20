@@ -1,0 +1,10 @@
+# NOTE: mutmut 3.x only reads config from pyproject.toml [tool.mutmut] or
+# setup.cfg [mutmut] — a standalone mutmut.toml file is NOT loaded by the
+# installed mutmut CLI (verified locally). The authoritative config lives in
+# packages/pybackend/pyproject.toml under [tool.mutmut]. This file is kept as
+# a human-readable reference matching the original issue spec.
+[mutmut]
+paths_to_mutate = "app.py,agent_service.py,repository_service.py,cron_service.py"
+tests_dir = "tests/unit/"
+runner = "uv run pytest -x -q"
+mutate_only_covered_lines = true

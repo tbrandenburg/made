@@ -53,3 +53,8 @@ package = true
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
+
+[tool.mutmut]
+source_paths = ["app.py", "agent_service.py", "repository_service.py", "cron_service.py"]
+pytest_add_cli_args_test_selection = ["tests/unit/"]
+

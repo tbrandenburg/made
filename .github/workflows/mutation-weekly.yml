@@ -1,0 +1,107 @@
+name: Mutation Testing (Weekly)
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+jobs:
+  mutation-backend:
+    name: Mutation Testing (Backend - mutmut)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install backend dependencies
+        working-directory: packages/pybackend
+        run: |
+          uv sync
+          uv add --dev mutmut
+
+      - name: Run mutmut
+        working-directory: packages/pybackend
+        run: uv run mutmut run || true
+
+      - name: Generate mutmut results
+        working-directory: packages/pybackend
+        run: uv run mutmut results > mutmut-results.txt || true
+
+      - name: Compute mutation score
+        id: score
+        working-directory: packages/pybackend
+        run: |
+          killed=$(grep -oc 'killed' mutmut-results.txt || echo 0)
+          survived=$(grep -oc 'survived' mutmut-results.txt || echo 0)
+          total=$((killed + survived))
+          if [ "$total" -gt 0 ]; then
+            score=$(( killed * 100 / total ))
+          else
+            score=0
+          fi
+          echo "score=${score}" >> "$GITHUB_OUTPUT"
+          echo "Mutation score: ${score}%"
+          if [ "$score" -lt 70 ]; then
+            echo "::warning::Backend mutation score ${score}% is below the 70% target"
+          fi
+
+      - name: Post score to pinned issue
+        if: vars.MUTATION_SCORE_ISSUE_NUMBER != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment "${{ vars.MUTATION_SCORE_ISSUE_NUMBER }}" \
+            --body "Backend mutation score (mutmut): ${{ steps.score.outputs.score }}% ($(date -u +%Y-%m-%d))"
+
+  mutation-frontend:
+    name: Mutation Testing (Frontend - Stryker)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Stryker
+        working-directory: packages/frontend
+        run: npx stryker run || true
+
+      - name: Compute mutation score
+        id: score
+        working-directory: packages/frontend
+        run: |
+          if [ -f reports/mutation/mutation.json ]; then
+            score=$(node -e "const r=require('./reports/mutation/mutation.json'); console.log(Math.round(r.mutationScore || 0))" 2>/dev/null || echo 0)
+          else
+            score=0
+          fi
+          echo "score=${score}" >> "$GITHUB_OUTPUT"
+          echo "Mutation score: ${score}%"
+          if [ "$score" -lt 60 ]; then
+            echo "::warning::Frontend mutation score ${score}% is below the 60% target"
+          fi
+
+      - name: Post score to pinned issue
+        if: vars.MUTATION_SCORE_ISSUE_NUMBER != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment "${{ vars.MUTATION_SCORE_ISSUE_NUMBER }}" \
+            --body "Frontend mutation score (Stryker): ${{ steps.score.outputs.score }}% ($(date -u +%Y-%m-%d))"
