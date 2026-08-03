@@ -14,6 +14,9 @@ const escapeYamlValue = (value: string) => {
 
 const stepToYaml = (step: WorkflowStep, indent: string) => {
   const lines: string[] = [`${indent}- type: ${step.type}`];
+  if (step.when) {
+    lines.push(`${indent}  when: ${escapeYamlValue(step.when)}`);
+  }
   if (step.type === "agent") {
     if (step.agent)
       lines.push(`${indent}  agent: ${escapeYamlValue(step.agent)}`);
@@ -32,6 +35,32 @@ const stepToYaml = (step: WorkflowStep, indent: string) => {
     } else {
       lines.push(`${indent}  values: {}`);
     }
+    return lines;
+  }
+  if (step.type === "for") {
+    lines.push(`${indent}  in: ${escapeYamlValue(step.in || "")}`);
+    lines.push(`${indent}  item: ${escapeYamlValue(step.item || "")}`);
+    lines.push(`${indent}  steps:`);
+    (step.steps || []).forEach((child) => {
+      lines.push(...stepToYaml(child, `${indent}    `));
+    });
+    return lines;
+  }
+  if (step.type === "while") {
+    lines.push(
+      `${indent}  condition: ${escapeYamlValue(step.condition || "")}`,
+    );
+    lines.push(`${indent}  steps:`);
+    (step.steps || []).forEach((child) => {
+      lines.push(...stepToYaml(child, `${indent}    `));
+    });
+    return lines;
+  }
+  if (step.type === "parallel") {
+    lines.push(`${indent}  steps:`);
+    (step.steps || []).forEach((child) => {
+      lines.push(...stepToYaml(child, `${indent}    `));
+    });
     return lines;
   }
   lines.push(`${indent}  run: ${escapeYamlValue(step.run || "")}`);

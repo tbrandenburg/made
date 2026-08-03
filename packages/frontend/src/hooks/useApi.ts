@@ -300,13 +300,18 @@ export type TemplateApplyResponse = {
 };
 
 export type WorkflowStep = {
-  type: "agent" | "bash" | "vars";
+  type: "agent" | "bash" | "vars" | "for" | "while" | "parallel";
   agent?: string;
   varName?: string;
   command?: string;
   prompt?: string;
   run?: string;
   values?: Record<string, string>;
+  when?: string;
+  in?: string;
+  item?: string;
+  condition?: string;
+  steps?: WorkflowStep[];
 };
 
 export type WorkspaceWorkflowSummary = {
