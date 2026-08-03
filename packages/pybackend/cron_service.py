@@ -13,7 +13,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from agent_service import get_agent_cli
-from config import get_workspace_home
+from config import get_made_home, get_workspace_home
 from task_service import get_tasks_directory, list_scheduled_tasks, read_task
 from workflow_service import read_workflows
 
@@ -99,11 +99,32 @@ _cron_issues: list[dict] = []
 
 DEFAULT_MAX_RUNTIME_MINUTES = 120  # 2 hours default
 _workflow_max_runtime: dict[str, int] = {}
-WORKFLOW_LOG_PREFIX = "made-"
-WORKFLOW_LOG_LOCATIONS: dict[str, Path] = {
-    "var": Path("/var/log"),
-    "tmp": Path("/tmp/made-harness-logs"),
-}
+WORKFLOW_LOG_PREFIX = "flowsh-"
+FLOWSH_LOGS_DIRNAME = Path(".flowsh") / "logs"
+MADE_HOME_LOG_LOCATION = "made-home"
+
+
+def _workflow_log_locations() -> dict[str, Path]:
+    """Discover ``.flowsh/logs`` directories produced by flowsh harnesses.
+
+    Global (made-home) harnesses write logs under ``get_made_home()`` while
+    per-repository harnesses write logs relative to their own repo directory
+    under ``get_workspace_home()`` (matching the ``cwd`` used to run them).
+    """
+    locations: dict[str, Path] = {
+        MADE_HOME_LOG_LOCATION: get_made_home() / FLOWSH_LOGS_DIRNAME,
+    }
+
+    workspace_home = get_workspace_home()
+    if workspace_home.is_dir():
+        for repo_path in workspace_home.iterdir():
+            if not repo_path.is_dir():
+                continue
+            if (repo_path / ".git").is_file():
+                continue
+            locations[repo_path.name] = repo_path / FLOWSH_LOGS_DIRNAME
+
+    return locations
 
 
 def _terminate_running_job_unlocked(workflow_id: str) -> None:
@@ -191,7 +212,7 @@ def _validate_log_name(log_name: str) -> bool:
 
 def list_workflow_logs() -> list[dict[str, object]]:
     log_files: list[tuple[float, dict[str, object]]] = []
-    for location, log_dir in WORKFLOW_LOG_LOCATIONS.items():
+    for location, log_dir in _workflow_log_locations().items():
         if not log_dir.exists() or not log_dir.is_dir():
             continue
         for file_path in log_dir.iterdir():
@@ -220,7 +241,7 @@ def list_workflow_logs() -> list[dict[str, object]]:
 def read_workflow_log_tail(
     location: str, log_name: str, max_lines: int = 20
 ) -> dict[str, object]:
-    log_dir = WORKFLOW_LOG_LOCATIONS.get(location)
+    log_dir = _workflow_log_locations().get(location)
     if log_dir is None:
         raise FileNotFoundError("Unknown log location")
     if not _validate_log_name(log_name):
