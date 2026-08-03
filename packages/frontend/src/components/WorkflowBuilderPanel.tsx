@@ -14,13 +14,18 @@ import { XIcon } from "./icons/XIcon";
 import { workflowShellScriptPath } from "../utils/workflowHarnessPrompt";
 
 export type WorkflowStep = {
-  type: "agent" | "bash" | "vars";
+  type: "agent" | "bash" | "vars" | "for" | "while" | "parallel";
   agent?: string;
   varName?: string;
   command?: string;
   prompt?: string;
   run?: string;
   values?: Record<string, string>;
+  when?: string;
+  in?: string;
+  item?: string;
+  condition?: string;
+  steps?: WorkflowStep[];
 };
 
 export type WorkflowDefinition = {
@@ -48,11 +53,20 @@ const previewText = (step: WorkflowStep) => {
       ? step.run || ""
       : step.type === "vars"
         ? step.run || ""
-        : step.command
-          ? `/${step.command}${step.prompt ? ` ${step.prompt}` : ""}`
-          : step.prompt || "";
+        : step.type === "while"
+          ? step.condition || ""
+          : step.command
+            ? `/${step.command}${step.prompt ? ` ${step.prompt}` : ""}`
+            : step.prompt || "";
   const [firstLine] = raw.split(/\r?\n/, 1);
-  return firstLine || (step.type === "agent" ? "Prompt" : "Command");
+  return (
+    firstLine ||
+    (step.type === "agent"
+      ? "Prompt"
+      : step.type === "while"
+        ? "Condition"
+        : "Command")
+  );
 };
 
 const toBashVariableName = (value: string) => {
@@ -81,6 +95,13 @@ const parseAgentText = (value: string) => {
 };
 
 const normalizeStep = (step: WorkflowStep): WorkflowStep => {
+  if (step.type === "for" || step.type === "while" || step.type === "parallel") {
+    return {
+      ...step,
+      steps: (step.steps || []).map(normalizeStep),
+    };
+  }
+
   if (step.type !== "vars") {
     return step;
   }
@@ -98,6 +119,64 @@ const normalizeStep = (step: WorkflowStep): WorkflowStep => {
     values: varName ? { [varName]: run } : {},
   };
 };
+
+const pathPrefix = (path: number[]) => path.slice(0, -1);
+const samePrefix = (a: number[], b: number[]) =>
+  a.length === b.length && a.every((value, index) => value === b[index]);
+
+const updateAtPath = (
+  steps: WorkflowStep[],
+  path: number[],
+  updater: (step: WorkflowStep) => WorkflowStep,
+): WorkflowStep[] => {
+  const [index, ...rest] = path;
+  return steps.map((step, i) => {
+    if (i !== index) return step;
+    if (rest.length === 0) return updater(step);
+    return { ...step, steps: updateAtPath(step.steps || [], rest, updater) };
+  });
+};
+
+const removeAtPath = (steps: WorkflowStep[], path: number[]): WorkflowStep[] => {
+  const [index, ...rest] = path;
+  if (rest.length === 0) {
+    return steps.filter((_, i) => i !== index);
+  }
+  return steps.map((step, i) =>
+    i === index
+      ? { ...step, steps: removeAtPath(step.steps || [], rest) }
+      : step,
+  );
+};
+
+const moveAtPath = (
+  steps: WorkflowStep[],
+  path: number[],
+  direction: -1 | 1,
+): WorkflowStep[] => {
+  const [index, ...rest] = path;
+  if (rest.length === 0) {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= steps.length) return steps;
+    const next = [...steps];
+    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    return next;
+  }
+  return steps.map((step, i) =>
+    i === index
+      ? { ...step, steps: moveAtPath(step.steps || [], rest, direction) }
+      : step,
+  );
+};
+
+const addChildAtPath = (
+  steps: WorkflowStep[],
+  path: number[],
+): WorkflowStep[] =>
+  updateAtPath(steps, path, (step) => ({
+    ...step,
+    steps: [...(step.steps || []), { type: "bash" as const, run: "" }],
+  }));
 
 const normalizeWorkflows = (items: WorkflowDefinition[]) =>
   items.map((workflow) => ({
@@ -131,7 +210,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
   const [conversionError, setConversionError] = useState<string | null>(null);
   const [editStep, setEditStep] = useState<{
     workflowId: string;
-    stepIndex: number;
+    path: number[];
   } | null>(null);
   const [editStepValue, setEditStepValue] = useState("");
   const [scheduleEditor, setScheduleEditor] = useState<{
@@ -211,6 +290,271 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
         : workflow,
     );
     void persist(next);
+  };
+
+  const updateWorkflowSteps = (
+    workflowId: string,
+    updater: (steps: WorkflowStep[]) => WorkflowStep[],
+  ) => {
+    const next = workflows.map((item) =>
+      item.id === workflowId ? { ...item, steps: updater(item.steps) } : item,
+    );
+    void persist(next);
+  };
+
+  const renderStepRow = (
+    workflow: WorkflowDefinition,
+    step: WorkflowStep,
+    path: number[],
+    siblingsLength: number,
+    depth: number,
+  ): React.ReactNode => {
+    const stepIndex = path[path.length - 1];
+    const isContainer =
+      step.type === "for" || step.type === "while" || step.type === "parallel";
+    const hasPreview =
+      step.type === "agent" ||
+      step.type === "bash" ||
+      step.type === "vars" ||
+      step.type === "while";
+
+    return (
+      <div className="workflow-step-row" key={path.join("-")}>
+        <div className="workflow-step-target">
+          <select
+            value={step.type}
+            onChange={(event) => {
+              const nextType = event.target.value as WorkflowStep["type"];
+              const when = step.when;
+              let nextStep: WorkflowStep;
+              switch (nextType) {
+                case "bash":
+                  nextStep = { type: "bash", run: "" };
+                  break;
+                case "vars":
+                  nextStep = { type: "vars", varName: "", run: "", values: {} };
+                  break;
+                case "for":
+                  nextStep = { type: "for", in: "", item: "", steps: [] };
+                  break;
+                case "while":
+                  nextStep = { type: "while", condition: "", steps: [] };
+                  break;
+                case "parallel":
+                  nextStep = { type: "parallel", steps: [] };
+                  break;
+                default:
+                  nextStep = {
+                    type: "agent",
+                    agent: agentNames[0] || "default",
+                    prompt: "",
+                  };
+              }
+              if (when) nextStep.when = when;
+              updateWorkflowSteps(workflow.id, (steps) =>
+                updateAtPath(steps, path, () => nextStep),
+              );
+            }}
+          >
+            <option value="agent">Agent</option>
+            <option value="bash">Bash</option>
+            <option value="vars">Vars</option>
+            {depth === 0 && <option value="for">For</option>}
+            {depth === 0 && <option value="while">While</option>}
+            {depth === 0 && <option value="parallel">Parallel</option>}
+          </select>
+          {step.type === "agent" ? (
+            <select
+              value={step.agent || "default"}
+              onChange={(event) => {
+                const agent = event.target.value;
+                updateWorkflowSteps(workflow.id, (steps) =>
+                  updateAtPath(steps, path, (item) => ({ ...item, agent })),
+                );
+              }}
+            >
+              {agentNames.length === 0 ? (
+                <option value="default">default</option>
+              ) : (
+                agentNames.map((agentName) => (
+                  <option key={agentName}>{agentName}</option>
+                ))
+              )}
+            </select>
+          ) : step.type === "vars" ? (
+            <input
+              className="workflow-step-target__input"
+              value={step.varName || ""}
+              placeholder="VARIABLE_NAME"
+              onChange={(event) => {
+                const varName = toBashVariableName(event.target.value);
+                updateWorkflowSteps(workflow.id, (steps) =>
+                  updateAtPath(steps, path, (item) => ({
+                    ...item,
+                    varName,
+                    values: varName ? { [varName]: item.run || "" } : {},
+                  })),
+                );
+              }}
+            />
+          ) : step.type === "for" ? (
+            <>
+              <input
+                className="workflow-step-target__input"
+                value={step.in || ""}
+                placeholder="IN_VARIABLE"
+                aria-label="For loop source variable"
+                onChange={(event) => {
+                  const value = event.target.value;
+                  updateWorkflowSteps(workflow.id, (steps) =>
+                    updateAtPath(steps, path, (item) => ({
+                      ...item,
+                      in: value,
+                    })),
+                  );
+                }}
+              />
+              <input
+                className="workflow-step-target__input"
+                value={step.item || ""}
+                placeholder="ITEM_VARIABLE"
+                aria-label="For loop item variable"
+                onChange={(event) => {
+                  const value = event.target.value;
+                  updateWorkflowSteps(workflow.id, (steps) =>
+                    updateAtPath(steps, path, (item) => ({
+                      ...item,
+                      item: value,
+                    })),
+                  );
+                }}
+              />
+            </>
+          ) : null}
+        </div>
+        {hasPreview && (
+          <button
+            className="workflow-step-preview"
+            onClick={() => {
+              const currentText =
+                step.type === "agent"
+                  ? step.command
+                    ? `/${step.command}${step.prompt ? ` ${step.prompt}` : ""}`
+                    : step.prompt || ""
+                  : step.type === "while"
+                    ? step.condition || ""
+                    : step.run || "";
+              setEditStep({ workflowId: workflow.id, path });
+              setEditStepValue(currentText);
+            }}
+          >
+            {previewText(step)}
+          </button>
+        )}
+        <input
+          className="workflow-step-target__input"
+          value={step.when || ""}
+          placeholder="when (optional)"
+          aria-label="Step when condition"
+          onChange={(event) => {
+            const value = event.target.value;
+            updateWorkflowSteps(workflow.id, (steps) =>
+              updateAtPath(steps, path, (item) => ({
+                ...item,
+                when: value || undefined,
+              })),
+            );
+          }}
+        />
+        <div className="workflow-step-controls">
+          <button
+            className="copy-button workflow-icon-button"
+            disabled={stepIndex === 0}
+            title="Move step up"
+            aria-label="Move step up"
+            onClick={() => {
+              updateWorkflowSteps(workflow.id, (steps) =>
+                moveAtPath(steps, path, -1),
+              );
+            }}
+          >
+            <span className="workflow-icon workflow-icon--up">
+              <ArrowDownIcon />
+            </span>
+          </button>
+          <button
+            className="copy-button workflow-icon-button"
+            disabled={stepIndex === siblingsLength - 1}
+            title="Move step down"
+            aria-label="Move step down"
+            onClick={() => {
+              updateWorkflowSteps(workflow.id, (steps) =>
+                moveAtPath(steps, path, 1),
+              );
+            }}
+          >
+            <span className="workflow-icon workflow-icon--down">
+              <ArrowDownIcon />
+            </span>
+          </button>
+          <button
+            className="copy-button workflow-icon-button workflow-icon-button--danger"
+            title="Remove step"
+            aria-label={`Remove step ${stepIndex + 1}`}
+            onClick={() => {
+              if (
+                editStep?.workflowId === workflow.id &&
+                samePrefix(pathPrefix(editStep.path), pathPrefix(path))
+              ) {
+                const editLast = editStep.path[editStep.path.length - 1];
+                if (editLast === stepIndex) {
+                  setEditStep(null);
+                  setEditStepValue("");
+                } else if (editLast > stepIndex) {
+                  const newPath = [...editStep.path];
+                  newPath[newPath.length - 1] = editLast - 1;
+                  setEditStep({ workflowId: editStep.workflowId, path: newPath });
+                }
+              }
+              updateWorkflowSteps(workflow.id, (steps) =>
+                removeAtPath(steps, path),
+              );
+            }}
+          >
+            <TrashIcon />
+          </button>
+        </div>
+        {isContainer && (
+          <div className="workflow-steps workflow-step-children">
+            {(step.steps || []).length === 0 ? (
+              <div className="empty">No child steps yet.</div>
+            ) : (
+              (step.steps || []).map((child, childIndex) =>
+                renderStepRow(
+                  workflow,
+                  child,
+                  [...path, childIndex],
+                  (step.steps || []).length,
+                  depth + 1,
+                ),
+              )
+            )}
+            <button
+              className="copy-button workflow-icon-button"
+              title="Add child step"
+              aria-label="Add child step"
+              onClick={() => {
+                updateWorkflowSteps(workflow.id, (steps) =>
+                  addChildAtPath(steps, path),
+                );
+              }}
+            >
+              <PlusIcon />
+            </button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -398,223 +742,15 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                   {workflow.steps.length === 0 ? (
                     <div className="empty">No steps yet.</div>
                   ) : (
-                    workflow.steps.map((step, stepIndex) => (
-                      <div
-                        className="workflow-step-row"
-                        key={`${workflow.id}-${stepIndex}`}
-                      >
-                        <div className="workflow-step-target">
-                          <select
-                            value={step.type}
-                            onChange={(event) => {
-                              const nextType = event.target.value as
-                                "agent" | "bash" | "vars";
-                              const nextStep: WorkflowStep =
-                                nextType === "bash"
-                                  ? { type: "bash", run: "" }
-                                  : nextType === "vars"
-                                    ? {
-                                        type: "vars",
-                                        varName: "",
-                                        run: "",
-                                        values: {},
-                                      }
-                                    : {
-                                        type: "agent",
-                                        agent: agentNames[0] || "default",
-                                        prompt: "",
-                                      };
-                              const next = workflows.map((item) =>
-                                item.id === workflow.id
-                                  ? {
-                                      ...item,
-                                      steps: item.steps.map(
-                                        (itemStep, itemIndex) =>
-                                          itemIndex === stepIndex
-                                            ? nextStep
-                                            : itemStep,
-                                      ),
-                                    }
-                                  : item,
-                              );
-                              void persist(next);
-                            }}
-                          >
-                            <option value="agent">Agent</option>
-                            <option value="bash">Bash</option>
-                            <option value="vars">Vars</option>
-                          </select>
-                          {step.type === "agent" ? (
-                            <select
-                              value={step.agent || "default"}
-                              onChange={(event) => {
-                                const next = workflows.map((item) =>
-                                  item.id === workflow.id
-                                    ? {
-                                        ...item,
-                                        steps: item.steps.map(
-                                          (itemStep, itemIndex) =>
-                                            itemIndex === stepIndex
-                                              ? {
-                                                  ...itemStep,
-                                                  agent: event.target.value,
-                                                }
-                                              : itemStep,
-                                        ),
-                                      }
-                                    : item,
-                                );
-                                void persist(next);
-                              }}
-                            >
-                              {agentNames.length === 0 ? (
-                                <option value="default">default</option>
-                              ) : (
-                                agentNames.map((agentName) => (
-                                  <option key={agentName}>{agentName}</option>
-                                ))
-                              )}
-                            </select>
-                          ) : step.type === "vars" ? (
-                            <input
-                              className="workflow-step-target__input"
-                              value={step.varName || ""}
-                              placeholder="VARIABLE_NAME"
-                              onChange={(event) => {
-                                const next = workflows.map((item) =>
-                                  item.id === workflow.id
-                                    ? {
-                                        ...item,
-                                        steps: item.steps.map(
-                                          (itemStep, itemIndex) => {
-                                            if (itemIndex !== stepIndex) {
-                                              return itemStep;
-                                            }
-                                            const varName = toBashVariableName(
-                                              event.target.value,
-                                            );
-                                            return {
-                                              ...itemStep,
-                                              varName,
-                                              values: varName
-                                                ? {
-                                                    [varName]:
-                                                      itemStep.run || "",
-                                                  }
-                                                : {},
-                                            };
-                                          },
-                                        ),
-                                      }
-                                    : item,
-                                );
-                                void persist(next);
-                              }}
-                            />
-                          ) : null}
-                        </div>
-                        <button
-                          className="workflow-step-preview"
-                          onClick={() => {
-                            const currentText =
-                              step.type === "agent"
-                                ? step.command
-                                  ? `/${step.command}${step.prompt ? ` ${step.prompt}` : ""}`
-                                  : step.prompt || ""
-                                : step.run || "";
-                            setEditStep({
-                              workflowId: workflow.id,
-                              stepIndex,
-                            });
-                            setEditStepValue(currentText);
-                          }}
-                        >
-                          {previewText(step)}
-                        </button>
-                        <div className="workflow-step-controls">
-                          <button
-                            className="copy-button workflow-icon-button"
-                            disabled={stepIndex === 0}
-                            title="Move step up"
-                            aria-label="Move step up"
-                            onClick={() => {
-                              const next = workflows.map((item) => {
-                                if (item.id !== workflow.id || stepIndex === 0)
-                                  return item;
-                                const steps = [...item.steps];
-                                [steps[stepIndex - 1], steps[stepIndex]] = [
-                                  steps[stepIndex],
-                                  steps[stepIndex - 1],
-                                ];
-                                return { ...item, steps };
-                              });
-                              void persist(next);
-                            }}
-                          >
-                            <span className="workflow-icon workflow-icon--up">
-                              <ArrowDownIcon />
-                            </span>
-                          </button>
-                          <button
-                            className="copy-button workflow-icon-button"
-                            disabled={stepIndex === workflow.steps.length - 1}
-                            title="Move step down"
-                            aria-label="Move step down"
-                            onClick={() => {
-                              const next = workflows.map((item) => {
-                                if (
-                                  item.id !== workflow.id ||
-                                  stepIndex >= item.steps.length - 1
-                                )
-                                  return item;
-                                const steps = [...item.steps];
-                                [steps[stepIndex + 1], steps[stepIndex]] = [
-                                  steps[stepIndex],
-                                  steps[stepIndex + 1],
-                                ];
-                                return { ...item, steps };
-                              });
-                              void persist(next);
-                            }}
-                          >
-                            <span className="workflow-icon workflow-icon--down">
-                              <ArrowDownIcon />
-                            </span>
-                          </button>
-                          <button
-                            className="copy-button workflow-icon-button workflow-icon-button--danger"
-                            title="Remove step"
-                            aria-label={`Remove step ${stepIndex + 1}`}
-                            onClick={() => {
-                              if (editStep?.workflowId === workflow.id) {
-                                if (editStep.stepIndex === stepIndex) {
-                                  setEditStep(null);
-                                  setEditStepValue("");
-                                } else if (editStep.stepIndex > stepIndex) {
-                                  setEditStep({
-                                    workflowId: editStep.workflowId,
-                                    stepIndex: editStep.stepIndex - 1,
-                                  });
-                                }
-                              }
-                              const next = workflows.map((item) =>
-                                item.id === workflow.id
-                                  ? {
-                                      ...item,
-                                      steps: item.steps.filter(
-                                        (_, index) => index !== stepIndex,
-                                      ),
-                                    }
-                                  : item,
-                              );
-                              void persist(next);
-                            }}
-                          >
-                            <TrashIcon />
-                          </button>
-                        </div>
-                      </div>
-                    ))
+                    workflow.steps.map((step, stepIndex) =>
+                      renderStepRow(
+                        workflow,
+                        step,
+                        [stepIndex],
+                        workflow.steps.length,
+                        0,
+                      ),
+                    )
                   )}
                 </div>
               )}
@@ -660,17 +796,19 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                 if (workflow.id !== editStep.workflowId) return workflow;
                 return {
                   ...workflow,
-                  steps: workflow.steps.map((step, index) => {
-                    if (index !== editStep.stepIndex) return step;
+                  steps: updateAtPath(workflow.steps, editStep.path, (step) => {
+                    if (step.type === "while") {
+                      return { ...step, condition: editStepValue };
+                    }
+                    if (step.type === "vars") {
+                      const varName = step.varName || "";
+                      return {
+                        ...step,
+                        run: editStepValue,
+                        values: varName ? { [varName]: editStepValue } : {},
+                      };
+                    }
                     if (step.type !== "agent") {
-                      if (step.type === "vars") {
-                        const varName = step.varName || "";
-                        return {
-                          ...step,
-                          run: editStepValue,
-                          values: varName ? { [varName]: editStepValue } : {},
-                        };
-                      }
                       return { ...step, run: editStepValue };
                     }
                     const parsed = parseAgentText(editStepValue);
