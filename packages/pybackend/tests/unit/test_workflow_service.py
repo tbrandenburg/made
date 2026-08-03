@@ -278,3 +278,106 @@ def test_write_workflows_empty_payload_writes_empty_list(tmp_path):
         write_workflows(payload)
     content = yaml.safe_load((tmp_path / "workflows.yml").read_text())
     assert content["workflows"] == []
+
+
+# ---------------------------------------------------------------------------
+# round-trip — full flowsh-cli schema surface (#727)
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_payload_round_trips_full_flowsh_schema(tmp_path):
+    """Regression test for #727: normalization must not silently drop step
+    types (for/while/parallel) or fields (when/params/model/capture/
+    expandPrompt/expandFields/dangerouslySkipPermissions/description) that
+    flowsh-cli's schema supports."""
+    payload = {
+        "workflows": [
+            {
+                "id": "wf_full",
+                "name": "Full schema workflow",
+                "description": "Exercises every supported field",
+                "params": [
+                    {"name": "TARGET_ENV", "description": "Target environment", "required": True}
+                ],
+                "enabled": True,
+                "schedule": "0 6 * * *",
+                "steps": [
+                    {
+                        "type": "agent",
+                        "name": "run-agent",
+                        "when": "$SHOULD_RUN == 1",
+                        "prompt": "Do the thing",
+                        "agent": "opencode",
+                        "model": "claude-sonnet-5",
+                        "command": "run",
+                        "capture": "AGENT_RESULT",
+                        "expandPrompt": True,
+                        "expandFields": True,
+                        "dangerouslySkipPermissions": True,
+                    },
+                    {
+                        "type": "for",
+                        "name": "loop-items",
+                        "when": "$ITEMS != ''",
+                        "in": "ITEMS",
+                        "item": "ITEM",
+                        "steps": [{"type": "bash", "run": "echo $ITEM"}],
+                    },
+                    {
+                        "type": "while",
+                        "name": "loop-while",
+                        "condition": "$COUNT -lt 5",
+                        "steps": [{"type": "bash", "run": "echo tick"}],
+                    },
+                    {
+                        "type": "parallel",
+                        "name": "run-parallel",
+                        "steps": [
+                            {"type": "bash", "run": "echo a"},
+                            {"type": "bash", "run": "echo b"},
+                        ],
+                    },
+                ],
+            }
+        ]
+    }
+
+    with patch("workflow_service._workflow_path", return_value=tmp_path / "workflows.yml"):
+        write_workflows(payload)
+        result = read_workflows()
+
+    workflow = result["workflows"][0]
+    assert workflow["description"] == "Exercises every supported field"
+    assert workflow["params"] == [
+        {"name": "TARGET_ENV", "description": "Target environment", "required": True}
+    ]
+
+    agent_step, for_step, while_step, parallel_step = workflow["steps"]
+
+    assert agent_step["type"] == "agent"
+    assert agent_step["name"] == "run-agent"
+    assert agent_step["when"] == "$SHOULD_RUN == 1"
+    assert agent_step["model"] == "claude-sonnet-5"
+    assert agent_step["capture"] == "AGENT_RESULT"
+    assert agent_step["expandPrompt"] is True
+    assert agent_step["expandFields"] is True
+    assert agent_step["dangerouslySkipPermissions"] is True
+
+    assert for_step["type"] == "for"
+    assert for_step["name"] == "loop-items"
+    assert for_step["when"] == "$ITEMS != ''"
+    assert for_step["in"] == "ITEMS"
+    assert for_step["item"] == "ITEM"
+    assert for_step["steps"] == [{"type": "bash", "run": "echo $ITEM"}]
+
+    assert while_step["type"] == "while"
+    assert while_step["name"] == "loop-while"
+    assert while_step["condition"] == "$COUNT -lt 5"
+    assert while_step["steps"] == [{"type": "bash", "run": "echo tick"}]
+
+    assert parallel_step["type"] == "parallel"
+    assert parallel_step["name"] == "run-parallel"
+    assert parallel_step["steps"] == [
+        {"type": "bash", "run": "echo a"},
+        {"type": "bash", "run": "echo b"},
+    ]

@@ -1454,6 +1454,14 @@ class TestWorkflowEndpoints:
         assert response.status_code == 200
         assert response.json() == {"workflows": []}
 
+    def test_workflows_schema_returns_flowsh_schema(self):
+        response = client.get("/api/workflows/schema")
+
+        assert response.status_code == 200
+        assert "yaml" in response.headers["content-type"]
+        assert "steps" in response.text
+        assert "WorkflowFile" in response.text or "$defs" in response.text
+
     @patch("app.refresh_cron_clock")
     @patch("app.write_workflows")
     def test_save_global_workflows_success(self, mock_write, mock_refresh):

@@ -36,24 +36,61 @@ def _as_bool(value: Any, default: bool = False) -> bool:
     return default
 
 
+def _normalize_common_step_fields(
+    step: dict[str, Any], normalized: dict[str, Any]
+) -> None:
+    name = _as_string(step.get("name"))
+    when = _as_string(step.get("when"))
+    if name:
+        normalized["name"] = name
+    if when:
+        normalized["when"] = when
+
+
+def _normalize_nested_steps(step: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_steps = step.get("steps")
+    nested: list[dict[str, Any]] = []
+    if isinstance(raw_steps, list):
+        for raw_step in raw_steps:
+            normalized_step = _normalize_step(raw_step)
+            if normalized_step:
+                nested.append(normalized_step)
+    return nested
+
+
 def _normalize_step(step: Any) -> dict[str, Any]:
     if not isinstance(step, dict):
         return {}
     step_type = _as_string(step.get("type"))
     if step_type == "bash":
         run = _as_string(step.get("run"))
-        return {"type": "bash", "run": run or ""}
+        normalized: dict[str, Any] = {"type": "bash", "run": run or ""}
+        _normalize_common_step_fields(step, normalized)
+        return normalized
     if step_type == "agent":
-        normalized: dict[str, str] = {"type": "agent"}
+        normalized = {"type": "agent"}
         agent = _as_string(step.get("agent"))
         command = _as_string(step.get("command"))
         prompt = _as_string(step.get("prompt"))
+        model = _as_string(step.get("model"))
+        capture = _as_string(step.get("capture"))
         if agent:
             normalized["agent"] = agent
         if command:
             normalized["command"] = command
         if prompt:
             normalized["prompt"] = prompt
+        if model:
+            normalized["model"] = model
+        if capture:
+            normalized["capture"] = capture
+        if _as_bool(step.get("expandPrompt")):
+            normalized["expandPrompt"] = True
+        if _as_bool(step.get("expandFields")):
+            normalized["expandFields"] = True
+        if _as_bool(step.get("dangerouslySkipPermissions")):
+            normalized["dangerouslySkipPermissions"] = True
+        _normalize_common_step_fields(step, normalized)
         return normalized
     if step_type == "vars":
         var_name = _as_string(step.get("varName"))
@@ -68,11 +105,56 @@ def _normalize_step(step: Any) -> dict[str, Any]:
                     values[normalized_key] = normalized_value
         if var_name and run is not None and var_name not in values:
             values[var_name] = run
-        normalized: dict[str, Any] = {"type": "vars"}
+        normalized = {"type": "vars"}
         if values:
             normalized["values"] = values
+        _normalize_common_step_fields(step, normalized)
+        return normalized
+    if step_type == "for":
+        in_var = _as_string(step.get("in"))
+        item = _as_string(step.get("item"))
+        nested_steps = _normalize_nested_steps(step)
+        if not (in_var and item and nested_steps):
+            return {}
+        normalized = {"type": "for", "in": in_var, "item": item, "steps": nested_steps}
+        _normalize_common_step_fields(step, normalized)
+        return normalized
+    if step_type == "while":
+        condition = _as_string(step.get("condition"))
+        nested_steps = _normalize_nested_steps(step)
+        if not (condition and nested_steps):
+            return {}
+        normalized = {"type": "while", "condition": condition, "steps": nested_steps}
+        _normalize_common_step_fields(step, normalized)
+        return normalized
+    if step_type == "parallel":
+        nested_steps = _normalize_nested_steps(step)
+        if not nested_steps:
+            return {}
+        normalized = {"type": "parallel", "steps": nested_steps}
+        _normalize_common_step_fields(step, normalized)
         return normalized
     return {}
+
+
+def _normalize_workflow_params(workflow: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_params = workflow.get("params")
+    params: list[dict[str, Any]] = []
+    if not isinstance(raw_params, list):
+        return params
+    for raw_param in raw_params:
+        if not isinstance(raw_param, dict):
+            continue
+        name = _as_string(raw_param.get("name"))
+        if not name:
+            continue
+        param: dict[str, Any] = {"name": name}
+        description = _as_string(raw_param.get("description"))
+        if description:
+            param["description"] = description
+        param["required"] = _as_bool(raw_param.get("required"), default=False)
+        params.append(param)
+    return params
 
 
 def _normalize_workflow(workflow: Any, index: int) -> dict[str, Any] | None:
@@ -98,6 +180,15 @@ def _normalize_workflow(workflow: Any, index: int) -> dict[str, Any] | None:
         "schedule": schedule,
         "steps": steps,
     }
+
+    description = _as_string(workflow.get("description"))
+    if description:
+        normalized_workflow["description"] = description
+
+    params = _normalize_workflow_params(workflow)
+    if params:
+        normalized_workflow["params"] = params
+
     if shell_script_path:
         normalized_workflow["shellScriptPath"] = shell_script_path
 

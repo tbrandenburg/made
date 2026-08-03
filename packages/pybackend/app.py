@@ -72,6 +72,7 @@ from workflow_harness_service import (
     WorkflowParseError,
     WorkflowVerificationError,
 )
+from flowsh_cli.models import workflow_schema_yaml
 from cron_service import (
     force_terminate_job,
     get_cron_clock_status,
@@ -920,6 +921,18 @@ def global_workflows():
         return read_workflows()
     except Exception as exc:
         logger.exception("Failed to list global workflows")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/workflows/schema")
+def workflows_schema():
+    try:
+        logger.info("Returning workflows schema")
+        return Response(content=workflow_schema_yaml(), media_type="text/yaml")
+    except Exception as exc:
+        logger.exception("Failed to build workflows schema")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
