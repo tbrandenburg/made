@@ -349,4 +349,143 @@ describe("WorkflowBuilderPanel", () => {
       ],
     });
   });
+
+  it("adds a workflow parameter and persists it", async () => {
+    const saveWorkflows = vi.fn(async () => undefined);
+
+    render(
+      <WorkflowBuilderPanel
+        loadWorkflows={async () => ({ workflows })}
+        saveWorkflows={saveWorkflows}
+        listAgents={async () => ({ agents: [{ name: "planner" }] })}
+        onRunWorkflow={vi.fn(async () => undefined)}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Edit workflow parameters" }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit workflow parameters" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add parameter" }));
+    fireEvent.change(screen.getByLabelText("Parameter 1 name"), {
+      target: { value: "release_branch" },
+    });
+    fireEvent.change(screen.getByLabelText("Parameter 1 description"), {
+      target: { value: "Branch to release" },
+    });
+    fireEvent.click(screen.getByLabelText("Parameter 1 required"));
+    fireEvent.click(screen.getByRole("button", { name: "Save parameters" }));
+
+    await waitFor(() => {
+      expect(saveWorkflows).toHaveBeenCalledTimes(1);
+    });
+    expect(saveWorkflows).toHaveBeenCalledWith({
+      workflows: [
+        {
+          ...workflows[0],
+          params: [
+            {
+              name: "release_branch",
+              description: "Branch to release",
+              required: true,
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("removes a workflow parameter", async () => {
+    const saveWorkflows = vi.fn(async () => undefined);
+    const workflowsWithParams: WorkflowDefinition[] = [
+      {
+        ...workflows[0],
+        params: [{ name: "release_branch", required: false }],
+      },
+    ];
+
+    render(
+      <WorkflowBuilderPanel
+        loadWorkflows={async () => ({ workflows: workflowsWithParams })}
+        saveWorkflows={saveWorkflows}
+        listAgents={async () => ({ agents: [{ name: "planner" }] })}
+        onRunWorkflow={vi.fn(async () => undefined)}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Edit workflow parameters" }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit workflow parameters" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove parameter 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save parameters" }));
+
+    await waitFor(() => {
+      expect(saveWorkflows).toHaveBeenCalledTimes(1);
+    });
+    expect(saveWorkflows).toHaveBeenCalledWith({
+      workflows: [{ ...workflowsWithParams[0], params: undefined }],
+    });
+  });
+
+  it("sets extended agent fields via the advanced agent options modal", async () => {
+    const saveWorkflows = vi.fn(async () => undefined);
+
+    render(
+      <WorkflowBuilderPanel
+        loadWorkflows={async () => ({ workflows })}
+        saveWorkflows={saveWorkflows}
+        listAgents={async () => ({ agents: [{ name: "planner" }] })}
+        onRunWorkflow={vi.fn(async () => undefined)}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Advanced agent options" }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Advanced agent options" }),
+    );
+    fireEvent.change(screen.getByLabelText("Model"), {
+      target: { value: "claude-sonnet-4" },
+    });
+    fireEvent.change(screen.getByLabelText("Capture variable"), {
+      target: { value: "plan_output" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Expand prompt" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expand fields" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Dangerously skip permissions",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(saveWorkflows).toHaveBeenCalledTimes(5);
+    });
+    const lastCall = saveWorkflows.mock.calls[4]?.[0] as {
+      workflows: WorkflowDefinition[];
+    };
+    expect(lastCall.workflows[0].steps[0]).toEqual({
+      ...workflows[0].steps[0],
+      model: "claude-sonnet-4",
+      capture: "PLAN_OUTPUT",
+      expandPrompt: true,
+      expandFields: true,
+      dangerouslySkipPermissions: true,
+    });
+  });
 });
