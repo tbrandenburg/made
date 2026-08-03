@@ -47,7 +47,9 @@ const stepToYaml = (step: WorkflowStep, indent: string) => {
     return lines;
   }
   if (step.type === "while") {
-    lines.push(`${indent}  condition: ${escapeYamlValue(step.condition || "")}`);
+    lines.push(
+      `${indent}  condition: ${escapeYamlValue(step.condition || "")}`,
+    );
     lines.push(`${indent}  steps:`);
     (step.steps || []).forEach((child) => {
       lines.push(...stepToYaml(child, `${indent}    `));

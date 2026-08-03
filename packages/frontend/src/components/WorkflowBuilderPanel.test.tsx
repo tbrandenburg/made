@@ -329,10 +329,9 @@ describe("WorkflowBuilderPanel", () => {
       ).toBeInTheDocument();
     });
 
-    fireEvent.change(
-      screen.getAllByPlaceholderText("when (optional)")[1],
-      { target: { value: "PREVIOUS_STEP_OK" } },
-    );
+    fireEvent.change(screen.getAllByPlaceholderText("when (optional)")[1], {
+      target: { value: "PREVIOUS_STEP_OK" },
+    });
 
     await waitFor(() => {
       expect(saveWorkflows).toHaveBeenCalledTimes(1);

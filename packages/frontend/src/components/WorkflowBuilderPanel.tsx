@@ -95,7 +95,11 @@ const parseAgentText = (value: string) => {
 };
 
 const normalizeStep = (step: WorkflowStep): WorkflowStep => {
-  if (step.type === "for" || step.type === "while" || step.type === "parallel") {
+  if (
+    step.type === "for" ||
+    step.type === "while" ||
+    step.type === "parallel"
+  ) {
     return {
       ...step,
       steps: (step.steps || []).map(normalizeStep),
@@ -137,7 +141,10 @@ const updateAtPath = (
   });
 };
 
-const removeAtPath = (steps: WorkflowStep[], path: number[]): WorkflowStep[] => {
+const removeAtPath = (
+  steps: WorkflowStep[],
+  path: number[],
+): WorkflowStep[] => {
   const [index, ...rest] = path;
   if (rest.length === 0) {
     return steps.filter((_, i) => i !== index);
@@ -513,7 +520,10 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                 } else if (editLast > stepIndex) {
                   const newPath = [...editStep.path];
                   newPath[newPath.length - 1] = editLast - 1;
-                  setEditStep({ workflowId: editStep.workflowId, path: newPath });
+                  setEditStep({
+                    workflowId: editStep.workflowId,
+                    path: newPath,
+                  });
                 }
               }
               updateWorkflowSteps(workflow.id, (steps) =>
