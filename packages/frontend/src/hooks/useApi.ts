@@ -1,3 +1,5 @@
+import type { WorkflowStep, WorkflowDefinition } from "../types/workflow";
+
 const API_BASE =
   (import.meta.env?.VITE_API_BASE as string | undefined) || "/api";
 
@@ -299,20 +301,7 @@ export type TemplateApplyResponse = {
   template: string;
 };
 
-export type WorkflowStep = {
-  type: "agent" | "bash" | "vars" | "for" | "while" | "parallel";
-  agent?: string;
-  varName?: string;
-  command?: string;
-  prompt?: string;
-  run?: string;
-  values?: Record<string, string>;
-  when?: string;
-  in?: string;
-  item?: string;
-  condition?: string;
-  steps?: WorkflowStep[];
-};
+export type { WorkflowStep, WorkflowDefinition };
 
 export type WorkspaceWorkflowSummary = {
   repository: string;
@@ -345,14 +334,6 @@ export type CronClockSummary = {
   successfulJobsSinceStartup: number;
 };
 
-export type WorkflowDefinition = {
-  id: string;
-  name: string;
-  enabled: boolean;
-  schedule: string | null;
-  shellScriptPath?: string;
-  steps: WorkflowStep[];
-};
 
 export type WorkflowLogSummary = {
   name: string;

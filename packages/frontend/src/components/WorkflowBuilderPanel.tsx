@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { MentionPathTextarea } from "./MentionPathTextarea";
 import { Modal } from "./Modal";
 import { AvailableAgent } from "../hooks/useApi";
+import type { WorkflowStep, WorkflowDefinition } from "../types/workflow";
 import { ArrowDownIcon } from "./icons/ArrowDownIcon";
 import { CheckboxIcon } from "./icons/CheckboxIcon";
 import { ClockIcon } from "./icons/ClockIcon";
@@ -13,29 +14,7 @@ import { TrashIcon } from "./icons/TrashIcon";
 import { XIcon } from "./icons/XIcon";
 import { workflowShellScriptPath } from "../utils/workflowHarnessPrompt";
 
-export type WorkflowStep = {
-  type: "agent" | "bash" | "vars" | "for" | "while" | "parallel";
-  agent?: string;
-  varName?: string;
-  command?: string;
-  prompt?: string;
-  run?: string;
-  values?: Record<string, string>;
-  when?: string;
-  in?: string;
-  item?: string;
-  condition?: string;
-  steps?: WorkflowStep[];
-};
-
-export type WorkflowDefinition = {
-  id: string;
-  name: string;
-  enabled: boolean;
-  schedule: string | null;
-  shellScriptPath?: string;
-  steps: WorkflowStep[];
-};
+export type { WorkflowStep, WorkflowDefinition };
 
 type WorkflowBuilderPanelProps = {
   loadWorkflows: () => Promise<{ workflows: WorkflowDefinition[] }>;
