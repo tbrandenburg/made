@@ -2,7 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { MentionPathTextarea } from "./MentionPathTextarea";
 import { Modal } from "./Modal";
 import { AvailableAgent } from "../hooks/useApi";
-import type { WorkflowStep, WorkflowDefinition } from "../types/workflow";
+import type {
+  WorkflowStep,
+  WorkflowDefinition,
+  WorkflowParam,
+} from "../types/workflow";
 import { ArrowDownIcon } from "./icons/ArrowDownIcon";
 import { CheckboxIcon } from "./icons/CheckboxIcon";
 import { ClockIcon } from "./icons/ClockIcon";
@@ -10,11 +14,12 @@ import { PlayIcon } from "./icons/PlayIcon";
 import { PlusIcon } from "./icons/PlusIcon";
 import { RefreshIcon } from "./icons/RefreshIcon";
 import { SaveIcon } from "./icons/SaveIcon";
+import { TagIcon } from "./icons/TagIcon";
 import { TrashIcon } from "./icons/TrashIcon";
 import { XIcon } from "./icons/XIcon";
 import { workflowShellScriptPath } from "../utils/workflowHarnessPrompt";
 
-export type { WorkflowStep, WorkflowDefinition };
+export type { WorkflowStep, WorkflowDefinition, WorkflowParam };
 
 type WorkflowBuilderPanelProps = {
   loadWorkflows: () => Promise<{ workflows: WorkflowDefinition[] }>;
@@ -101,6 +106,17 @@ const normalizeStep = (step: WorkflowStep): WorkflowStep => {
     run,
     values: varName ? { [varName]: run } : {},
   };
+};
+
+const getStepAtPath = (
+  steps: WorkflowStep[],
+  path: number[],
+): WorkflowStep | undefined => {
+  const [index, ...rest] = path;
+  const step = steps[index];
+  if (!step) return undefined;
+  if (rest.length === 0) return step;
+  return getStepAtPath(step.steps || [], rest);
 };
 
 const pathPrefix = (path: number[]) => path.slice(0, -1);
@@ -206,6 +222,14 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
     workflowId: "",
     value: "",
   });
+  const [paramsEditor, setParamsEditor] = useState<{
+    workflowId: string;
+    params: WorkflowParam[];
+  } | null>(null);
+  const [agentOptions, setAgentOptions] = useState<{
+    workflowId: string;
+    path: number[];
+  } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -435,6 +459,18 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
             }}
           >
             {previewText(step)}
+          </button>
+        )}
+        {step.type === "agent" && (
+          <button
+            className="copy-button workflow-icon-button"
+            title="Advanced agent options"
+            aria-label="Advanced agent options"
+            onClick={() => setAgentOptions({ workflowId: workflow.id, path })}
+          >
+            <span className="workflow-icon">
+              <TagIcon />
+            </span>
           </button>
         )}
         <input
@@ -667,6 +703,21 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                 </button>
                 <button
                   className="copy-button workflow-icon-button"
+                  title="Edit workflow parameters"
+                  aria-label="Edit workflow parameters"
+                  onClick={() =>
+                    setParamsEditor({
+                      workflowId: workflow.id,
+                      params: (workflow.params || []).map((param) => ({
+                        ...param,
+                      })),
+                    })
+                  }
+                >
+                  <TagIcon />
+                </button>
+                <button
+                  className="copy-button workflow-icon-button"
                   onClick={() => addStep(workflow.id)}
                   title="Add step"
                   aria-label="Add step"
@@ -867,6 +918,305 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
             <SaveIcon />
           </button>
         </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(paramsEditor)}
+        title="Workflow Parameters"
+        onClose={() => setParamsEditor(null)}
+      >
+        <div className="workflow-params-list">
+          {(paramsEditor?.params || []).length === 0 ? (
+            <div className="empty">No parameters yet.</div>
+          ) : (
+            paramsEditor?.params.map((param, index) => (
+              <div className="workflow-param-row" key={index}>
+                <input
+                  className="workflow-step-target__input"
+                  value={param.name}
+                  placeholder="name"
+                  aria-label={`Parameter ${index + 1} name`}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setParamsEditor((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            params: prev.params.map((item, itemIndex) =>
+                              itemIndex === index
+                                ? { ...item, name: value }
+                                : item,
+                            ),
+                          }
+                        : prev,
+                    );
+                  }}
+                />
+                <input
+                  className="workflow-step-target__input"
+                  value={param.description || ""}
+                  placeholder="description (optional)"
+                  aria-label={`Parameter ${index + 1} description`}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setParamsEditor((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            params: prev.params.map((item, itemIndex) =>
+                              itemIndex === index
+                                ? { ...item, description: value || undefined }
+                                : item,
+                            ),
+                          }
+                        : prev,
+                    );
+                  }}
+                />
+                <button
+                  className="copy-button workflow-icon-button"
+                  title="Required"
+                  aria-label={`Parameter ${index + 1} required`}
+                  onClick={() => {
+                    setParamsEditor((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            params: prev.params.map((item, itemIndex) =>
+                              itemIndex === index
+                                ? { ...item, required: !item.required }
+                                : item,
+                            ),
+                          }
+                        : prev,
+                    );
+                  }}
+                >
+                  <span
+                    className={
+                      param.required
+                        ? "workflow-icon workflow-icon--enabled"
+                        : "workflow-icon"
+                    }
+                  >
+                    <CheckboxIcon checked={param.required} />
+                  </span>
+                </button>
+                <button
+                  className="copy-button workflow-icon-button workflow-icon-button--danger"
+                  title="Remove parameter"
+                  aria-label={`Remove parameter ${index + 1}`}
+                  onClick={() => {
+                    setParamsEditor((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            params: prev.params.filter(
+                              (_, itemIndex) => itemIndex !== index,
+                            ),
+                          }
+                        : prev,
+                    );
+                  }}
+                >
+                  <TrashIcon />
+                </button>
+              </div>
+            ))
+          )}
+          <button
+            className="copy-button workflow-icon-button"
+            title="Add parameter"
+            aria-label="Add parameter"
+            onClick={() => {
+              setParamsEditor((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      params: [
+                        ...prev.params,
+                        { name: "", description: undefined, required: false },
+                      ],
+                    }
+                  : prev,
+              );
+            }}
+          >
+            <PlusIcon />
+          </button>
+        </div>
+        <div className="modal-actions">
+          <button
+            className="copy-button workflow-icon-button"
+            onClick={() => setParamsEditor(null)}
+            title="Cancel"
+            aria-label="Cancel"
+          >
+            <XIcon />
+          </button>
+          <button
+            className="copy-button workflow-icon-button"
+            title="Save parameters"
+            aria-label="Save parameters"
+            onClick={() => {
+              if (!paramsEditor) return;
+              const cleaned = paramsEditor.params.filter((param) =>
+                param.name.trim(),
+              );
+              const next = workflows.map((workflow) =>
+                workflow.id === paramsEditor.workflowId
+                  ? {
+                      ...workflow,
+                      params: cleaned.length ? cleaned : undefined,
+                    }
+                  : workflow,
+              );
+              setParamsEditor(null);
+              void persist(next);
+            }}
+          >
+            <SaveIcon />
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(agentOptions)}
+        title="Advanced Agent Options"
+        onClose={() => setAgentOptions(null)}
+      >
+        {(() => {
+          const workflow = workflows.find(
+            (item) => item.id === agentOptions?.workflowId,
+          );
+          const step =
+            workflow && agentOptions
+              ? getStepAtPath(workflow.steps, agentOptions.path)
+              : undefined;
+          if (!agentOptions || !workflow || !step || step.type !== "agent") {
+            return null;
+          }
+          const updateAgentField = (updater: (step: WorkflowStep) => WorkflowStep) => {
+            updateWorkflowSteps(workflow.id, (steps) =>
+              updateAtPath(steps, agentOptions.path, updater),
+            );
+          };
+          return (
+            <>
+              <div className="form-group">
+                <label htmlFor="workflow-agent-model">Model</label>
+                <input
+                  id="workflow-agent-model"
+                  value={step.model || ""}
+                  placeholder="e.g. claude-sonnet-4"
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    updateAgentField((item) => ({
+                      ...item,
+                      model: value || undefined,
+                    }));
+                  }}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="workflow-agent-capture">Capture variable</label>
+                <input
+                  id="workflow-agent-capture"
+                  value={step.capture || ""}
+                  placeholder="VARIABLE_NAME"
+                  onChange={(event) => {
+                    const value = toBashVariableName(event.target.value);
+                    updateAgentField((item) => ({
+                      ...item,
+                      capture: value || undefined,
+                    }));
+                  }}
+                />
+              </div>
+              <div className="workflow-agent-checkboxes">
+                <button
+                  className="copy-button workflow-icon-button"
+                  title="Expand prompt"
+                  aria-label="Expand prompt"
+                  onClick={() =>
+                    updateAgentField((item) => ({
+                      ...item,
+                      expandPrompt: !item.expandPrompt,
+                    }))
+                  }
+                >
+                  <span
+                    className={
+                      step.expandPrompt
+                        ? "workflow-icon workflow-icon--enabled"
+                        : "workflow-icon"
+                    }
+                  >
+                    <CheckboxIcon checked={Boolean(step.expandPrompt)} />
+                  </span>
+                  Expand prompt
+                </button>
+                <button
+                  className="copy-button workflow-icon-button"
+                  title="Expand fields"
+                  aria-label="Expand fields"
+                  onClick={() =>
+                    updateAgentField((item) => ({
+                      ...item,
+                      expandFields: !item.expandFields,
+                    }))
+                  }
+                >
+                  <span
+                    className={
+                      step.expandFields
+                        ? "workflow-icon workflow-icon--enabled"
+                        : "workflow-icon"
+                    }
+                  >
+                    <CheckboxIcon checked={Boolean(step.expandFields)} />
+                  </span>
+                  Expand fields
+                </button>
+                <button
+                  className="copy-button workflow-icon-button"
+                  title="Dangerously skip permissions"
+                  aria-label="Dangerously skip permissions"
+                  onClick={() =>
+                    updateAgentField((item) => ({
+                      ...item,
+                      dangerouslySkipPermissions:
+                        !item.dangerouslySkipPermissions,
+                    }))
+                  }
+                >
+                  <span
+                    className={
+                      step.dangerouslySkipPermissions
+                        ? "workflow-icon workflow-icon--enabled"
+                        : "workflow-icon"
+                    }
+                  >
+                    <CheckboxIcon
+                      checked={Boolean(step.dangerouslySkipPermissions)}
+                    />
+                  </span>
+                  Dangerously skip permissions
+                </button>
+              </div>
+              <div className="modal-actions">
+                <button
+                  className="copy-button workflow-icon-button"
+                  onClick={() => setAgentOptions(null)}
+                  title="Close"
+                  aria-label="Close"
+                >
+                  <XIcon />
+                </button>
+              </div>
+            </>
+          );
+        })()}
       </Modal>
     </div>
   );

@@ -11,6 +11,17 @@ export type WorkflowStep = {
   item?: string;
   condition?: string;
   steps?: WorkflowStep[];
+  model?: string;
+  capture?: string;
+  expandPrompt?: boolean;
+  expandFields?: boolean;
+  dangerouslySkipPermissions?: boolean;
+};
+
+export type WorkflowParam = {
+  name: string;
+  description?: string;
+  required: boolean;
 };
 
 export type WorkflowDefinition = {
@@ -20,4 +31,6 @@ export type WorkflowDefinition = {
   schedule: string | null;
   shellScriptPath?: string;
   steps: WorkflowStep[];
+  description?: string;
+  params?: WorkflowParam[];
 };
