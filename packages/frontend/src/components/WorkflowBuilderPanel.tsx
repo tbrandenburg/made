@@ -408,9 +408,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                             value={step.type}
                             onChange={(event) => {
                               const nextType = event.target.value as
-                                | "agent"
-                                | "bash"
-                                | "vars";
+                                "agent" | "bash" | "vars";
                               const nextStep: WorkflowStep =
                                 nextType === "bash"
                                   ? { type: "bash", run: "" }

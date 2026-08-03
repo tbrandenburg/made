@@ -62,7 +62,9 @@ def _validate_shell_script_path(workflow: Workflow) -> str:
             f"workflow {workflow.id}: shellScriptPath must be a relative .harness/*.sh path"
         )
     if ".." in Path(value).parts:
-        raise WorkflowParseError(f"workflow {workflow.id}: shellScriptPath must not contain '..'")
+        raise WorkflowParseError(
+            f"workflow {workflow.id}: shellScriptPath must not contain '..'"
+        )
     return value
 
 
