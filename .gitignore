@@ -314,3 +314,4 @@ workspace/
 
 # dev files
 dev/
+.worktrees/

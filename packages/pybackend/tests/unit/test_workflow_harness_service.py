@@ -1,3 +1,5 @@
+import subprocess
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -10,6 +12,8 @@ from workflow_harness_service import (
     parse_workflow_payload,
     render_harness,
 )
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 def sample_payload() -> dict:
@@ -80,7 +84,7 @@ def test_generate_workflow_harnesses_writes_executable_file(tmp_path: Path):
 
 def test_parse_workflow_payload_rejects_duplicate_workflow_ids():
     payload = sample_payload()
-    duplicate = payload["workflows"][0].copy()
+    duplicate = deepcopy(payload["workflows"][0])
     duplicate["shellScriptPath"] = ".harness/other.sh"
     payload["workflows"].append(duplicate)
 
@@ -120,4 +124,100 @@ def test_parse_workflow_payload_rejects_source_file():
     payload["workflows"][0]["sourceFile"] = "workflows.yml"
 
     with pytest.raises(WorkflowParseError, match="sourceFile"):
+        parse_workflow_payload(payload)
+
+
+# ---------------------------------------------------------------------------
+# Issue #727 Phase 0: safety-net tests (golden snapshot, live execution,
+# adversarial parse errors) written against the engine BEFORE the flowsh-cli
+# swap. These document pre-swap behavior and continue to enforce made's own
+# contracts (function signatures, exception types, shellScriptPath guard)
+# after the swap.
+# ---------------------------------------------------------------------------
+
+
+def test_render_harness_delegates_to_flowsh_cli_and_adds_security_hardening():
+    """Post-swap: flowsh-cli is the new source of truth for the script body.
+
+    The exact string no longer matches the pre-swap golden fixture (see
+    fixtures/pre_swap_golden_harness.sh for the old baseline); instead assert
+    on the specific new safety features flowsh-cli adds so the test
+    communicates intent rather than pinning an opaque string.
+    """
+    workflow = parse_workflow_payload(sample_payload()).workflows[0]
+    pre_swap_golden = (FIXTURES_DIR / "pre_swap_golden_harness.sh").read_text(encoding="utf-8")
+
+    harness = render_harness(workflow)
+
+    assert harness != pre_swap_golden
+    assert "umask 077" in harness
+    assert "refuse_symlink_path()" in harness
+    assert 'chmod 700 "$LOG_DIR"' in harness
+    assert 'chmod 600 "$LOG_FILE"' in harness
+    assert "run_step step_echo_sha bash" in harness
+    assert "run_stateful_step step_resolve_sha vars" in harness
+
+
+def test_generate_workflow_harnesses_runs_bash_dry_run_for_real(tmp_path: Path):
+    """Live (non-mocked) subprocess execution of bash -n and --dry-run."""
+    written = generate_workflow_harnesses(sample_payload(), tmp_path)
+
+    script_path = tmp_path / written[0]
+
+    syntax_check = subprocess.run(
+        ["bash", "-n", str(script_path)], capture_output=True, text=True
+    )
+    assert syntax_check.returncode == 0, syntax_check.stderr
+
+    dry_run = subprocess.run(
+        [str(script_path), "--dry-run"], capture_output=True, text=True
+    )
+    assert dry_run.returncode == 0, dry_run.stderr
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        pytest.param(lambda p: p["workflows"][0].__setitem__("steps", []), id="empty-steps"),
+        pytest.param(
+            lambda p: p["workflows"][0].__setitem__("id", "not-a-valid-id"), id="bad-id"
+        ),
+        pytest.param(
+            lambda p: p["workflows"][0]["steps"][0].__setitem__(
+                "values", {"git_sha": "git rev-parse HEAD"}
+            ),
+            id="lowercase-var-name",
+        ),
+        pytest.param(
+            lambda p: p["workflows"][0].__setitem__(
+                "shellScriptPath", ".harness/release-flow.txt"
+            ),
+            id="shell-script-path-wrong-extension",
+        ),
+        pytest.param(
+            lambda p: p["workflows"][0].__setitem__(
+                "shellScriptPath", ".harness/../escape.sh"
+            ),
+            id="shell-script-path-traversal",
+        ),
+    ],
+)
+def test_parse_workflow_payload_rejects_invalid_payloads(mutate):
+    payload = sample_payload()
+    mutate(payload)
+
+    with pytest.raises(WorkflowParseError):
+        parse_workflow_payload(payload)
+
+
+def test_parse_workflow_payload_rejects_shell_script_path_valid_for_flowsh_but_not_made():
+    """flowsh-cli's own schema treats shellScriptPath as optional/unvalidated.
+
+    made's own guard must still reject a path flowsh-cli itself would accept
+    (e.g. missing entirely, or outside `.harness/`).
+    """
+    payload = sample_payload()
+    del payload["workflows"][0]["shellScriptPath"]
+
+    with pytest.raises(WorkflowParseError, match="shellScriptPath"):
         parse_workflow_payload(payload)
