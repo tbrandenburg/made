@@ -334,7 +334,6 @@ export type CronClockSummary = {
   successfulJobsSinceStartup: number;
 };
 
-
 export type WorkflowLogSummary = {
   name: string;
   location: "var" | "tmp" | string;
