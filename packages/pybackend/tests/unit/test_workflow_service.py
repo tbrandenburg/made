@@ -2,8 +2,24 @@ from pathlib import Path
 from unittest.mock import patch
 
 import yaml
+from flowsh_cli.models import (
+    AgentStep,
+    BashStep,
+    ForStep,
+    ParallelStep,
+    VarsStep,
+    WhileStep,
+    WorkflowParam,
+)
 
-from workflow_service import _normalize_payload, list_workspace_workflows, read_workflows, write_workflows
+from workflow_service import (
+    _normalize_payload,
+    _normalize_step,
+    _normalize_workflow_params,
+    list_workspace_workflows,
+    read_workflows,
+    write_workflows,
+)
 
 
 def test_normalize_payload_keeps_shell_script_path():
@@ -381,3 +397,162 @@ def test_normalize_payload_round_trips_full_flowsh_schema(tmp_path):
         {"type": "bash", "run": "echo a"},
         {"type": "bash", "run": "echo b"},
     ]
+
+
+# ---------------------------------------------------------------------------
+# drift detection — introspects flowsh-cli's real schema at test-run time
+# (#739). If flowsh-cli adds a new field to a step model or WorkflowParam in
+# a future version bump, this test's own expectations grow automatically
+# (they are derived from `model_cls.model_fields`, not hand-copied here) and
+# it starts failing until workflow_service.py's normalization is updated to
+# preserve that new field.
+# ---------------------------------------------------------------------------
+
+# Known-valid sample value per flowsh-cli field name, chosen to satisfy each
+# model's own field validators (e.g. `capture` must match ^[A-Z_][A-Z0-9_]*$).
+# This is the only hand-maintained part of the test: supplying a value that
+# passes validation for a *known* field. The set of fields checked is never
+# hand-maintained — it always comes from `model_cls.model_fields`.
+_SAMPLE_FIELD_VALUES: dict[str, object] = {
+    "name": "step-name",
+    "when": "$FLAG == 1",
+    "prompt": "Do the thing",
+    "agent": "opencode",
+    "model": "claude-sonnet-5",
+    "command": "run",
+    "capture": "AGENT_RESULT",
+    "dangerouslySkipPermissions": True,
+    "expandPrompt": True,
+    "expandFields": True,
+    "in_": "ITEMS",
+    "item": "ITEM",
+    "condition": "$COUNT -lt 5",
+    "description": "A workflow parameter",
+    "required": True,
+}
+
+
+def _external_key(model_cls, field_name: str) -> str:
+    field_info = model_cls.model_fields[field_name]
+    alias = field_info.validation_alias
+    if isinstance(alias, str):
+        return alias
+    choices = getattr(alias, "choices", None)
+    if choices:
+        return choices[0]
+    return field_name
+
+
+def _build_step_payload(model_cls, step_type: str, structural: dict) -> dict:
+    payload = {"type": step_type, **structural}
+    for field_name in model_cls.model_fields:
+        if field_name in ("type", "steps") or field_name in structural:
+            continue
+        key = _external_key(model_cls, field_name)
+        if key in payload:
+            continue
+        payload[key] = _SAMPLE_FIELD_VALUES[field_name]
+    return payload
+
+
+def test_normalize_step_preserves_every_bash_step_field_from_flowsh_schema():
+    payload = _build_step_payload(BashStep, "bash", {"run": "echo hi"})
+
+    normalized = _normalize_step(payload)
+
+    for field_name in BashStep.model_fields:
+        if field_name == "type":
+            continue
+        key = _external_key(BashStep, field_name)
+        assert key in normalized, f"BashStep field '{key}' was dropped by normalization"
+        assert normalized[key] == payload[key]
+
+
+def test_normalize_step_preserves_every_vars_step_field_from_flowsh_schema():
+    payload = {"type": "vars", "name": "step-name", "when": "$FLAG == 1", "values": {"RELEASE": "echo stable"}}
+
+    normalized = _normalize_step(payload)
+
+    for field_name in VarsStep.model_fields:
+        if field_name == "type":
+            continue
+        key = _external_key(VarsStep, field_name)
+        assert key in normalized, f"VarsStep field '{key}' was dropped by normalization"
+        assert normalized[key] == payload[key]
+
+
+def test_normalize_step_preserves_every_agent_step_field_from_flowsh_schema():
+    payload = _build_step_payload(AgentStep, "agent", {})
+
+    normalized = _normalize_step(payload)
+
+    for field_name in AgentStep.model_fields:
+        if field_name == "type":
+            continue
+        key = _external_key(AgentStep, field_name)
+        assert key in normalized, f"AgentStep field '{key}' was dropped by normalization"
+        assert normalized[key] == payload[key]
+
+
+def test_normalize_step_preserves_every_for_step_field_from_flowsh_schema():
+    nested = [{"type": "bash", "run": "echo hi"}]
+    payload = _build_step_payload(ForStep, "for", {"steps": nested})
+
+    normalized = _normalize_step(payload)
+
+    for field_name in ForStep.model_fields:
+        if field_name == "type":
+            continue
+        key = _external_key(ForStep, field_name)
+        assert key in normalized, f"ForStep field '{key}' was dropped by normalization"
+        if key == "steps":
+            assert len(normalized[key]) == len(nested)
+            continue
+        assert normalized[key] == payload[key]
+
+
+def test_normalize_step_preserves_every_while_step_field_from_flowsh_schema():
+    nested = [{"type": "bash", "run": "echo hi"}]
+    payload = _build_step_payload(WhileStep, "while", {"steps": nested})
+
+    normalized = _normalize_step(payload)
+
+    for field_name in WhileStep.model_fields:
+        if field_name == "type":
+            continue
+        key = _external_key(WhileStep, field_name)
+        assert key in normalized, f"WhileStep field '{key}' was dropped by normalization"
+        if key == "steps":
+            assert len(normalized[key]) == len(nested)
+            continue
+        assert normalized[key] == payload[key]
+
+
+def test_normalize_step_preserves_every_parallel_step_field_from_flowsh_schema():
+    nested = [{"type": "bash", "run": "echo a"}, {"type": "bash", "run": "echo b"}]
+    payload = _build_step_payload(ParallelStep, "parallel", {"steps": nested})
+
+    normalized = _normalize_step(payload)
+
+    for field_name in ParallelStep.model_fields:
+        if field_name == "type":
+            continue
+        key = _external_key(ParallelStep, field_name)
+        assert key in normalized, f"ParallelStep field '{key}' was dropped by normalization"
+        if key == "steps":
+            assert len(normalized[key]) == len(nested)
+            continue
+        assert normalized[key] == payload[key]
+
+
+def test_normalize_workflow_params_preserves_every_workflow_param_field_from_flowsh_schema():
+    payload = [_build_step_payload(WorkflowParam, "", {"name": "TARGET_ENV"})]
+    payload[0].pop("type", None)
+
+    normalized = _normalize_workflow_params({"params": payload})
+
+    assert len(normalized) == 1
+    for field_name in WorkflowParam.model_fields:
+        key = _external_key(WorkflowParam, field_name)
+        assert key in normalized[0], f"WorkflowParam field '{key}' was dropped by normalization"
+        assert normalized[0][key] == payload[0][key]

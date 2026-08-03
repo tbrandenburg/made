@@ -5,6 +5,13 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from flowsh_cli.models import (
+    AgentStep,
+    BaseStep,
+    WorkflowParam as FlowshWorkflowParam,
+)
+from pydantic import AliasChoices
+from pydantic.fields import FieldInfo
 
 from config import ensure_directory, get_made_directory, get_workspace_home
 from task_service import list_scheduled_tasks
@@ -12,6 +19,57 @@ from task_service import list_scheduled_tasks
 logger = logging.getLogger(__name__)
 
 DEFAULT_WORKFLOW_NAME = "New workflow"
+
+# Fields handled structurally elsewhere (required-field checks, nested
+# steps, dict-shaped values) rather than by the generic scalar/bool copier
+# below. Everything NOT in this set is derived directly from flowsh-cli's
+# own pydantic models, so a future flowsh-cli field addition flows through
+# `_copy_model_fields` automatically without a hand edit here.
+_COMMON_STEP_SKIP = {"type"}
+_AGENT_STEP_SKIP = {"type", "prompt"}
+_WORKFLOW_PARAM_SKIP = {"name", "required"}
+
+
+def _field_external_key(field_name: str, field_info: FieldInfo) -> str:
+    """Resolve the wire-format (YAML/JSON) key for a pydantic field.
+
+    Mirrors flowsh-cli's own aliasing (e.g. ForStep.in_ -> "in") so made's
+    normalized dicts use the same keys flowsh-cli's schema expects.
+    """
+    alias = field_info.validation_alias
+    if isinstance(alias, str):
+        return alias
+    if isinstance(alias, AliasChoices) and alias.choices:
+        first_choice = alias.choices[0]
+        if isinstance(first_choice, str):
+            return first_choice
+    return field_name
+
+
+def _copy_model_fields(
+    model_cls: type,
+    source: dict[str, Any],
+    target: dict[str, Any],
+    skip: set[str],
+) -> None:
+    """Copy simple str/bool fields declared on `model_cls` from `source` into
+    `target`, deriving the field set from flowsh-cli's own pydantic model
+    (`model_cls.model_fields`) instead of a hand-maintained list. This is the
+    mechanism that keeps made's normalization coupled to flowsh-cli's schema:
+    a field added to a flowsh-cli step/param model is picked up here without
+    a corresponding manual edit in made.
+    """
+    for field_name, field_info in model_cls.model_fields.items():
+        if field_name in skip:
+            continue
+        key = _field_external_key(field_name, field_info)
+        if field_info.annotation is bool:
+            if _as_bool(source.get(key)):
+                target[key] = True
+            continue
+        value = _as_string(source.get(key))
+        if value:
+            target[key] = value
 
 
 def _workflow_path(repo_name: str | None = None) -> Path:
@@ -39,12 +97,12 @@ def _as_bool(value: Any, default: bool = False) -> bool:
 def _normalize_common_step_fields(
     step: dict[str, Any], normalized: dict[str, Any]
 ) -> None:
-    name = _as_string(step.get("name"))
-    when = _as_string(step.get("when"))
-    if name:
-        normalized["name"] = name
-    if when:
-        normalized["when"] = when
+    """Copy step fields common to every step type (name, when).
+
+    Field set is derived from flowsh-cli's own `BaseStep` model so a future
+    common field addition there is picked up automatically.
+    """
+    _copy_model_fields(BaseStep, step, normalized, _COMMON_STEP_SKIP)
 
 
 def _normalize_nested_steps(step: dict[str, Any]) -> list[dict[str, Any]]:
@@ -69,27 +127,13 @@ def _normalize_step(step: Any) -> dict[str, Any]:
         return normalized
     if step_type == "agent":
         normalized = {"type": "agent"}
-        agent = _as_string(step.get("agent"))
-        command = _as_string(step.get("command"))
         prompt = _as_string(step.get("prompt"))
-        model = _as_string(step.get("model"))
-        capture = _as_string(step.get("capture"))
-        if agent:
-            normalized["agent"] = agent
-        if command:
-            normalized["command"] = command
         if prompt:
             normalized["prompt"] = prompt
-        if model:
-            normalized["model"] = model
-        if capture:
-            normalized["capture"] = capture
-        if _as_bool(step.get("expandPrompt")):
-            normalized["expandPrompt"] = True
-        if _as_bool(step.get("expandFields")):
-            normalized["expandFields"] = True
-        if _as_bool(step.get("dangerouslySkipPermissions")):
-            normalized["dangerouslySkipPermissions"] = True
+        # agent/command/model/capture/expandPrompt/expandFields/
+        # dangerouslySkipPermissions are all derived from AgentStep's own
+        # pydantic field list, not hand-copied one-by-one.
+        _copy_model_fields(AgentStep, step, normalized, _AGENT_STEP_SKIP)
         _normalize_common_step_fields(step, normalized)
         return normalized
     if step_type == "vars":
@@ -149,9 +193,8 @@ def _normalize_workflow_params(workflow: dict[str, Any]) -> list[dict[str, Any]]
         if not name:
             continue
         param: dict[str, Any] = {"name": name}
-        description = _as_string(raw_param.get("description"))
-        if description:
-            param["description"] = description
+        # description is derived from WorkflowParam's own field list.
+        _copy_model_fields(FlowshWorkflowParam, raw_param, param, _WORKFLOW_PARAM_SKIP)
         param["required"] = _as_bool(raw_param.get("required"), default=False)
         params.append(param)
     return params
