@@ -3,6 +3,7 @@ from datetime import timedelta
 import subprocess
 
 import cron_service
+import workflow_harness_service
 
 
 def teardown_function():
@@ -692,3 +693,72 @@ def test_start_cron_clock_skips_when_ownership_fails(mock_claim):
 
     # Scheduler should not have been started — _scheduler stays None
     assert cron_service._scheduler is None
+
+
+def _sample_workflow_payload() -> dict:
+    return {
+        "workflows": [
+            {
+                "id": "wf_sample",
+                "name": "Sample Workflow",
+                "enabled": True,
+                "schedule": None,
+                "steps": [{"type": "bash", "run": "echo hello-from-flowsh-log"}],
+                "shellScriptPath": ".harness/sample.sh",
+            }
+        ]
+    }
+
+
+def test_workflow_log_prefix_matches_flowsh_harness_output():
+    """The old 'made-' prefix scheme is gone; flowsh harnesses write 'flowsh-*.log'."""
+    assert cron_service.WORKFLOW_LOG_PREFIX == "flowsh-"
+    assert cron_service._is_workflow_log_file is not None
+    # A file matching the old scheme must NOT be recognized as a workflow log.
+    assert not cron_service._validate_log_name("made-something.log")
+    assert cron_service._validate_log_name("flowsh-sample-20260101T000000Z-123.log")
+
+
+def test_list_and_read_workflow_logs_discovers_real_flowsh_harness_output(tmp_path):
+    """System-level regression test: run a real flowsh-generated harness and verify
+    the log viewer actually finds and reads the log it produces."""
+    workspace_home = tmp_path / "workspace"
+    repo_dir = workspace_home / "my-repo"
+    repo_dir.mkdir(parents=True)
+
+    written = workflow_harness_service.generate_workflow_harnesses(
+        _sample_workflow_payload(), repo_dir
+    )
+    assert written == [".harness/sample.sh"]
+    script_path = repo_dir / ".harness" / "sample.sh"
+    assert script_path.exists()
+
+    result = subprocess.run(
+        ["bash", str(script_path)],
+        cwd=str(repo_dir),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0
+
+    log_dir = repo_dir / ".flowsh" / "logs"
+    produced_logs = list(log_dir.glob("*.log"))
+    assert len(produced_logs) == 1
+
+    with patch("cron_service.get_workspace_home", return_value=workspace_home), patch(
+        "cron_service.get_made_home", return_value=tmp_path / "made-home-unused"
+    ):
+        logs = cron_service.list_workflow_logs()
+
+        assert len(logs) == 1
+        entry = logs[0]
+        assert entry["name"].startswith("flowsh-")
+        assert entry["name"].endswith(".log")
+        assert entry["sizeBytes"] > 0
+
+        tail_result = cron_service.read_workflow_log_tail(
+            entry["location"], entry["name"]
+        )
+        assert "hello-from-flowsh-log" in tail_result["tail"]
+        assert "Running step" in tail_result["tail"]
