@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -10,6 +11,8 @@ from workflow_harness_service import (
     parse_workflow_payload,
     render_harness,
 )
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 def sample_payload() -> dict:
@@ -120,4 +123,86 @@ def test_parse_workflow_payload_rejects_source_file():
     payload["workflows"][0]["sourceFile"] = "workflows.yml"
 
     with pytest.raises(WorkflowParseError, match="sourceFile"):
+        parse_workflow_payload(payload)
+
+
+# ---------------------------------------------------------------------------
+# Issue #727 Phase 0: safety-net tests (golden snapshot, live execution,
+# adversarial parse errors) written against the engine BEFORE the flowsh-cli
+# swap. These document pre-swap behavior and continue to enforce made's own
+# contracts (function signatures, exception types, shellScriptPath guard)
+# after the swap.
+# ---------------------------------------------------------------------------
+
+
+def test_render_harness_matches_pre_swap_golden_snapshot():
+    """Documents exact pre-swap output. Not expected to survive the flowsh-cli swap."""
+    workflow = parse_workflow_payload(sample_payload()).workflows[0]
+
+    harness = render_harness(workflow)
+
+    golden = (FIXTURES_DIR / "pre_swap_golden_harness.sh").read_text(encoding="utf-8")
+    assert harness == golden
+
+
+def test_generate_workflow_harnesses_runs_bash_dry_run_for_real(tmp_path: Path):
+    """Live (non-mocked) subprocess execution of bash -n and --dry-run."""
+    written = generate_workflow_harnesses(sample_payload(), tmp_path)
+
+    script_path = tmp_path / written[0]
+
+    syntax_check = subprocess.run(
+        ["bash", "-n", str(script_path)], capture_output=True, text=True
+    )
+    assert syntax_check.returncode == 0, syntax_check.stderr
+
+    dry_run = subprocess.run(
+        [str(script_path), "--dry-run"], capture_output=True, text=True
+    )
+    assert dry_run.returncode == 0, dry_run.stderr
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        pytest.param(lambda p: p["workflows"][0].__setitem__("steps", []), id="empty-steps"),
+        pytest.param(
+            lambda p: p["workflows"][0].__setitem__("id", "not-a-valid-id"), id="bad-id"
+        ),
+        pytest.param(
+            lambda p: p["workflows"][0]["steps"][0].__setitem__(
+                "values", {"git_sha": "git rev-parse HEAD"}
+            ),
+            id="lowercase-var-name",
+        ),
+        pytest.param(
+            lambda p: p["workflows"][0].__setitem__(
+                "shellScriptPath", ".harness/release-flow.txt"
+            ),
+            id="shell-script-path-wrong-extension",
+        ),
+        pytest.param(
+            lambda p: p["workflows"][0].__setitem__(
+                "shellScriptPath", ".harness/../escape.sh"
+            ),
+            id="shell-script-path-traversal",
+        ),
+    ],
+)
+def test_parse_workflow_payload_rejects_invalid_payloads(mutate):
+    payload = sample_payload()
+    mutate(payload)
+
+    with pytest.raises(WorkflowParseError):
+        parse_workflow_payload(payload)
+
+
+def test_parse_workflow_payload_rejects_duplicate_workflow_ids_adversarial():
+    """Explicit duplicate-id adversarial case kept alongside the others for grouping."""
+    payload = sample_payload()
+    duplicate = payload["workflows"][0].copy()
+    duplicate["shellScriptPath"] = ".harness/other.sh"
+    payload["workflows"].append(duplicate)
+
+    with pytest.raises(WorkflowParseError, match="duplicate workflow ids"):
         parse_workflow_payload(payload)
