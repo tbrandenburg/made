@@ -36,7 +36,9 @@ def _as_bool(value: Any, default: bool = False) -> bool:
     return default
 
 
-def _normalize_common_step_fields(step: dict[str, Any], normalized: dict[str, Any]) -> None:
+def _normalize_common_step_fields(
+    step: dict[str, Any], normalized: dict[str, Any]
+) -> None:
     name = _as_string(step.get("name"))
     when = _as_string(step.get("when"))
     if name:
