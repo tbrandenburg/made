@@ -1096,7 +1096,9 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
           if (!agentOptions || !workflow || !step || step.type !== "agent") {
             return null;
           }
-          const updateAgentField = (updater: (step: WorkflowStep) => WorkflowStep) => {
+          const updateAgentField = (
+            updater: (step: WorkflowStep) => WorkflowStep,
+          ) => {
             updateWorkflowSteps(workflow.id, (steps) =>
               updateAtPath(steps, agentOptions.path, updater),
             );

@@ -427,9 +427,7 @@ describe("WorkflowBuilderPanel", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Edit workflow parameters" }),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Remove parameter 1" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove parameter 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Save parameters" }));
 
     await waitFor(() => {
