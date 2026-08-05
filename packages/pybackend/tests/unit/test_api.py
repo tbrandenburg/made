@@ -100,6 +100,30 @@ class TestAgentsEndpoint:
         assert "Agent error" in response.json()["detail"]
 
 
+class TestModelsEndpoint:
+    """Test the /api/models endpoint (single source of truth for model list)."""
+
+    def test_list_models_success(self):
+        response = client.get("/api/models")
+
+        assert response.status_code == 200
+        models = response.json()["models"]
+        assert len(models) > 0
+        assert all({"value", "label", "group"} <= set(m) for m in models)
+        values = [m["value"] for m in models]
+        assert "default" in values
+        assert "github-copilot/claude-opus-5" in values
+
+    @patch("app.model_options_as_dicts")
+    def test_list_models_error(self, mock_models):
+        mock_models.side_effect = Exception("Models error")
+
+        response = client.get("/api/models")
+
+        assert response.status_code == 500
+        assert "Models error" in response.json()["detail"]
+
+
 class TestRepositoryAgentsEndpoint:
     """Test repository-scoped agents endpoint."""
 
