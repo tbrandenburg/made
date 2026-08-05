@@ -2,5 +2,15 @@
 # Pre-push hook: run lint + format + unit tests before every push.
 # To skip in a genuine emergency only: git push --no-verify
 set -e
+
+# Git sets GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE (and related GIT_* vars) in
+# the environment when invoking hooks. If left set, subprocess `git`
+# invocations inside the test suite (e.g. repository_service tests that run
+# `git init`/`git commit` in a tmp_path fixture) ignore their intended `cwd`
+# and instead operate on *this* repository's real git state, corrupting it.
+# Unset them so qa-quick's git-using tests are correctly isolated.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+  GIT_ALTERNATE_OBJECT_DIRECTORIES
+
 echo "Running qa-quick (lint + format + unit-test) before push..."
 make qa-quick
