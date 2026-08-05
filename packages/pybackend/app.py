@@ -86,6 +86,7 @@ from cron_service import (
     start_cron_clock,
     stop_cron_clock,
 )
+from model_options import model_options_as_dicts
 from repository_service import (
     apply_repository_template,
     create_repository,
@@ -266,6 +267,17 @@ def dashboard():
         return get_dashboard_summary()
     except Exception as exc:  # pragma: no cover - passthrough errors
         logger.exception("Failed to fetch dashboard summary")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@app.get("/api/models")
+async def list_available_models():
+    try:
+        return {"models": model_options_as_dicts()}
+    except Exception as exc:
+        logger.exception("Failed to list available models")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )

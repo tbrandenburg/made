@@ -12,61 +12,16 @@ from agent_service import (
     list_chat_sessions,
     send_agent_message,
 )
+from model_options import MODEL_OPTIONS as _MODEL_OPTIONS
 from repository_service import get_repository_info, list_repositories
 
 router = APIRouter(prefix="/lite")
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
-MODEL_OPTIONS = [
-    ("default", "default"),
-    ("claude-haiku-4.5", "claude-haiku-4.5"),
-    ("claude-opus-4.5", "claude-opus-4.5"),
-    ("claude-sonnet-4", "claude-sonnet-4"),
-    ("claude-sonnet-4.5", "claude-sonnet-4.5"),
-    ("opencode/big-pickle", "opencode/big-pickle"),
-    ("opencode/glm-4.7-free", "opencode/glm-4.7-free"),
-    ("opencode/gpt-5-nano", "opencode/gpt-5-nano"),
-    ("opencode/grok-code", "opencode/grok-code"),
-    ("github-copilot/claude-haiku-4.5", "github-copilot/claude-haiku-4.5"),
-    ("github-copilot/claude-opus-4.5", "github-copilot/claude-opus-4.5"),
-    ("github-copilot/claude-opus-4.6", "github-copilot/claude-opus-4.6"),
-    ("github-copilot/claude-opus-4.6-fast", "github-copilot/claude-opus-4.6-fast"),
-    ("github-copilot/claude-opus-4.7", "github-copilot/claude-opus-4.7"),
-    ("github-copilot/claude-opus-4.7-fast", "github-copilot/claude-opus-4.7-fast"),
-    ("github-copilot/claude-opus-4.8", "github-copilot/claude-opus-4.8"),
-    ("github-copilot/claude-opus-4.8-fast", "github-copilot/claude-opus-4.8-fast"),
-    ("github-copilot/claude-sonnet-4.5", "github-copilot/claude-sonnet-4.5"),
-    ("github-copilot/claude-sonnet-4.6", "github-copilot/claude-sonnet-4.6"),
-    ("github-copilot/claude-sonnet-5", "github-copilot/claude-sonnet-5"),
-    ("github-copilot/gemini-2.5-pro", "github-copilot/gemini-2.5-pro"),
-    ("github-copilot/gemini-3.5-flash", "github-copilot/gemini-3.5-flash"),
-    ("github-copilot/gpt-5-mini", "github-copilot/gpt-5-mini"),
-    ("github-copilot/gpt-5.3-codex", "github-copilot/gpt-5.3-codex"),
-    ("github-copilot/gpt-5.4", "github-copilot/gpt-5.4"),
-    ("github-copilot/gpt-5.4-mini", "github-copilot/gpt-5.4-mini"),
-    ("github-copilot/gpt-5.5", "github-copilot/gpt-5.5"),
-    ("github-copilot/gpt-5.6-luna", "github-copilot/gpt-5.6-luna"),
-    ("github-copilot/gpt-5.6-sol", "github-copilot/gpt-5.6-sol"),
-    ("github-copilot/gpt-5.6-terra", "github-copilot/gpt-5.6-terra"),
-    ("github-copilot/kimi-k2.7-code", "github-copilot/kimi-k2.7-code"),
-    (
-        "github-copilot/mai-code-1-flash-picker",
-        "github-copilot/mai-code-1-flash-picker",
-    ),
-    ("openai/gpt-5.3-codex-spark", "openai/gpt-5.3-codex-spark"),
-    ("openai/gpt-5.4", "openai/gpt-5.4"),
-    ("openai/gpt-5.4-fast", "openai/gpt-5.4-fast"),
-    ("openai/gpt-5.4-mini", "openai/gpt-5.4-mini"),
-    ("openai/gpt-5.4-mini-fast", "openai/gpt-5.4-mini-fast"),
-    ("openai/gpt-5.5", "openai/gpt-5.5"),
-    ("openai/gpt-5.5-fast", "openai/gpt-5.5-fast"),
-    ("openai/gpt-5.6-luna", "openai/gpt-5.6-luna"),
-    ("openai/gpt-5.6-luna-fast", "openai/gpt-5.6-luna-fast"),
-    ("openai/gpt-5.6-sol", "openai/gpt-5.6-sol"),
-    ("openai/gpt-5.6-sol-fast", "openai/gpt-5.6-sol-fast"),
-    ("openai/gpt-5.6-terra", "openai/gpt-5.6-terra"),
-    ("openai/gpt-5.6-terra-fast", "openai/gpt-5.6-terra-fast"),
-]
+# The lite template only needs (value, label) pairs; the canonical list with
+# group metadata lives in model_options.py (single source of truth, also
+# consumed by the /api/models endpoint used by the React frontend).
+MODEL_OPTIONS = [(value, label) for value, label, _group in _MODEL_OPTIONS]
 
 
 @router.get("/", response_class=HTMLResponse)

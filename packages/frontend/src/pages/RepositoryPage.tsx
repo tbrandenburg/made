@@ -109,7 +109,11 @@ const splitMentionSearch = (query: string) => {
   };
 };
 
-const MODEL_OPTIONS = [
+type ModelOption = { value: string; label: string; disabled?: boolean };
+
+// Fallback used only if GET /api/models fails; the canonical, single source
+// of truth for the model list lives in packages/pybackend/model_options.py.
+const DEFAULT_MODEL_OPTIONS: ModelOption[] = [
   { value: "default", label: "default" },
   { value: "", label: "------ kiro ------", disabled: true },
   { value: "claude-haiku-4.5", label: "claude-haiku-4.5" },
@@ -242,6 +246,28 @@ const MODEL_OPTIONS = [
     label: "openai/gpt-5.6-terra-fast",
   },
 ];
+
+type ApiModelOption = { value: string; label: string; group: string | null };
+
+// Converts the flat /api/models response into the UI shape, inserting
+// disabled "section header" entries before each group's first member (same
+// visual grouping the previous hardcoded list used for "kiro"/"opencode").
+const toModelOptions = (models: ApiModelOption[]): ModelOption[] => {
+  const options: ModelOption[] = [];
+  let lastGroup: string | null = null;
+  for (const model of models) {
+    if (model.group && model.group !== lastGroup) {
+      options.push({
+        value: "",
+        label: `------ ${model.group} ------`,
+        disabled: true,
+      });
+    }
+    lastGroup = model.group;
+    options.push({ value: model.value, label: model.label });
+  }
+  return options;
+};
 
 type HarnessRun = {
   pid: number;
@@ -506,6 +532,28 @@ export const RepositoryPage: React.FC = () => {
   );
   const normalizedSelectedModel = selectedModel ?? "default";
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
+  const [modelOptions, setModelOptions] =
+    useState<ModelOption[]>(DEFAULT_MODEL_OPTIONS);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/models")
+      .then((response) => {
+        if (!response.ok) throw new Error(`status ${response.status}`);
+        return response.json();
+      })
+      .then((data: { models?: ApiModelOption[] }) => {
+        if (cancelled || !Array.isArray(data.models) || !data.models.length) {
+          return;
+        }
+        setModelOptions(toModelOptions(data.models));
+      })
+      .catch(() => {
+        // Keep DEFAULT_MODEL_OPTIONS fallback on network/server failure.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [availableCommands, setAvailableCommands] = useState<
     CommandDefinition[]
   >([]);
@@ -1890,7 +1938,7 @@ export const RepositoryPage: React.FC = () => {
                   disabled={chatAgentProcessing}
                   aria-label="Model"
                 >
-                  {MODEL_OPTIONS.map((option) => (
+                  {modelOptions.map((option) => (
                     <option
                       key={`${option.label}-${option.value}`}
                       value={option.value}
