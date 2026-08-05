@@ -532,8 +532,9 @@ export const RepositoryPage: React.FC = () => {
   );
   const normalizedSelectedModel = selectedModel ?? "default";
   const normalizedSelectedAgent = selectedAgent ?? DEFAULT_AGENT_VALUE;
-  const [modelOptions, setModelOptions] =
-    useState<ModelOption[]>(DEFAULT_MODEL_OPTIONS);
+  const [modelOptions, setModelOptions] = useState<ModelOption[]>(
+    DEFAULT_MODEL_OPTIONS,
+  );
   useEffect(() => {
     let cancelled = false;
     fetch("/api/models")
