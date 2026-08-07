@@ -37,20 +37,11 @@ const previewText = (step: WorkflowStep) => {
       ? step.run || ""
       : step.type === "vars"
         ? step.run || ""
-        : step.type === "while"
-          ? step.condition || ""
-          : step.command
-            ? `/${step.command}${step.prompt ? ` ${step.prompt}` : ""}`
-            : step.prompt || "";
+        : step.command
+          ? `/${step.command}${step.prompt ? ` ${step.prompt}` : ""}`
+          : step.prompt || "";
   const [firstLine] = raw.split(/\r?\n/, 1);
-  return (
-    firstLine ||
-    (step.type === "agent"
-      ? "Prompt"
-      : step.type === "while"
-        ? "Condition"
-        : "Command")
-  );
+  return firstLine || (step.type === "agent" ? "Prompt" : "Command");
 };
 
 const toBashVariableName = (value: string) => {
@@ -79,17 +70,6 @@ const parseAgentText = (value: string) => {
 };
 
 const normalizeStep = (step: WorkflowStep): WorkflowStep => {
-  if (
-    step.type === "for" ||
-    step.type === "while" ||
-    step.type === "parallel"
-  ) {
-    return {
-      ...step,
-      steps: (step.steps || []).map(normalizeStep),
-    };
-  }
-
   if (step.type !== "vars") {
     return step;
   }
@@ -111,13 +91,7 @@ const normalizeStep = (step: WorkflowStep): WorkflowStep => {
 const getStepAtPath = (
   steps: WorkflowStep[],
   path: number[],
-): WorkflowStep | undefined => {
-  const [index, ...rest] = path;
-  const step = steps[index];
-  if (!step) return undefined;
-  if (rest.length === 0) return step;
-  return getStepAtPath(step.steps || [], rest);
-};
+): WorkflowStep | undefined => steps[path[0]];
 
 const pathPrefix = (path: number[]) => path.slice(0, -1);
 const samePrefix = (a: number[], b: number[]) =>
@@ -128,27 +102,16 @@ const updateAtPath = (
   path: number[],
   updater: (step: WorkflowStep) => WorkflowStep,
 ): WorkflowStep[] => {
-  const [index, ...rest] = path;
-  return steps.map((step, i) => {
-    if (i !== index) return step;
-    if (rest.length === 0) return updater(step);
-    return { ...step, steps: updateAtPath(step.steps || [], rest, updater) };
-  });
+  const [index] = path;
+  return steps.map((step, i) => (i === index ? updater(step) : step));
 };
 
 const removeAtPath = (
   steps: WorkflowStep[],
   path: number[],
 ): WorkflowStep[] => {
-  const [index, ...rest] = path;
-  if (rest.length === 0) {
-    return steps.filter((_, i) => i !== index);
-  }
-  return steps.map((step, i) =>
-    i === index
-      ? { ...step, steps: removeAtPath(step.steps || [], rest) }
-      : step,
-  );
+  const [index] = path;
+  return steps.filter((_, i) => i !== index);
 };
 
 const moveAtPath = (
@@ -156,29 +119,13 @@ const moveAtPath = (
   path: number[],
   direction: -1 | 1,
 ): WorkflowStep[] => {
-  const [index, ...rest] = path;
-  if (rest.length === 0) {
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= steps.length) return steps;
-    const next = [...steps];
-    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
-    return next;
-  }
-  return steps.map((step, i) =>
-    i === index
-      ? { ...step, steps: moveAtPath(step.steps || [], rest, direction) }
-      : step,
-  );
+  const [index] = path;
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= steps.length) return steps;
+  const next = [...steps];
+  [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+  return next;
 };
-
-const addChildAtPath = (
-  steps: WorkflowStep[],
-  path: number[],
-): WorkflowStep[] =>
-  updateAtPath(steps, path, (step) => ({
-    ...step,
-    steps: [...(step.steps || []), { type: "bash" as const, run: "" }],
-  }));
 
 const normalizeWorkflows = (items: WorkflowDefinition[]) =>
   items.map((workflow) => ({
@@ -317,16 +264,10 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
     step: WorkflowStep,
     path: number[],
     siblingsLength: number,
-    depth: number,
   ): React.ReactNode => {
     const stepIndex = path[path.length - 1];
-    const isContainer =
-      step.type === "for" || step.type === "while" || step.type === "parallel";
     const hasPreview =
-      step.type === "agent" ||
-      step.type === "bash" ||
-      step.type === "vars" ||
-      step.type === "while";
+      step.type === "agent" || step.type === "bash" || step.type === "vars";
 
     return (
       <div className="workflow-step-row" key={path.join("-")}>
@@ -335,7 +276,6 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
             value={step.type}
             onChange={(event) => {
               const nextType = event.target.value as WorkflowStep["type"];
-              const when = step.when;
               let nextStep: WorkflowStep;
               switch (nextType) {
                 case "bash":
@@ -344,15 +284,6 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                 case "vars":
                   nextStep = { type: "vars", varName: "", run: "", values: {} };
                   break;
-                case "for":
-                  nextStep = { type: "for", in: "", item: "", steps: [] };
-                  break;
-                case "while":
-                  nextStep = { type: "while", condition: "", steps: [] };
-                  break;
-                case "parallel":
-                  nextStep = { type: "parallel", steps: [] };
-                  break;
                 default:
                   nextStep = {
                     type: "agent",
@@ -360,7 +291,6 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                     prompt: "",
                   };
               }
-              if (when) nextStep.when = when;
               updateWorkflowSteps(workflow.id, (steps) =>
                 updateAtPath(steps, path, () => nextStep),
               );
@@ -369,9 +299,6 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
             <option value="agent">Agent</option>
             <option value="bash">Bash</option>
             <option value="vars">Vars</option>
-            {depth === 0 && <option value="for">For</option>}
-            {depth === 0 && <option value="while">While</option>}
-            {depth === 0 && <option value="parallel">Parallel</option>}
           </select>
           {step.type === "agent" ? (
             <select
@@ -407,39 +334,6 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                 );
               }}
             />
-          ) : step.type === "for" ? (
-            <>
-              <input
-                className="workflow-step-target__input"
-                value={step.in || ""}
-                placeholder="IN_VARIABLE"
-                aria-label="For loop source variable"
-                onChange={(event) => {
-                  const value = event.target.value;
-                  updateWorkflowSteps(workflow.id, (steps) =>
-                    updateAtPath(steps, path, (item) => ({
-                      ...item,
-                      in: value,
-                    })),
-                  );
-                }}
-              />
-              <input
-                className="workflow-step-target__input"
-                value={step.item || ""}
-                placeholder="ITEM_VARIABLE"
-                aria-label="For loop item variable"
-                onChange={(event) => {
-                  const value = event.target.value;
-                  updateWorkflowSteps(workflow.id, (steps) =>
-                    updateAtPath(steps, path, (item) => ({
-                      ...item,
-                      item: value,
-                    })),
-                  );
-                }}
-              />
-            </>
           ) : null}
         </div>
         {hasPreview && (
@@ -451,9 +345,7 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                   ? step.command
                     ? `/${step.command}${step.prompt ? ` ${step.prompt}` : ""}`
                     : step.prompt || ""
-                  : step.type === "while"
-                    ? step.condition || ""
-                    : step.run || "";
+                  : step.run || "";
               setEditStep({ workflowId: workflow.id, path });
               setEditStepValue(currentText);
             }}
@@ -473,21 +365,6 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
             </span>
           </button>
         )}
-        <input
-          className="workflow-step-target__input"
-          value={step.when || ""}
-          placeholder="when (optional)"
-          aria-label="Step when condition"
-          onChange={(event) => {
-            const value = event.target.value;
-            updateWorkflowSteps(workflow.id, (steps) =>
-              updateAtPath(steps, path, (item) => ({
-                ...item,
-                when: value || undefined,
-              })),
-            );
-          }}
-        />
         <div className="workflow-step-controls">
           <button
             className="copy-button workflow-icon-button"
@@ -549,35 +426,6 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
             <TrashIcon />
           </button>
         </div>
-        {isContainer && (
-          <div className="workflow-steps workflow-step-children">
-            {(step.steps || []).length === 0 ? (
-              <div className="empty">No child steps yet.</div>
-            ) : (
-              (step.steps || []).map((child, childIndex) =>
-                renderStepRow(
-                  workflow,
-                  child,
-                  [...path, childIndex],
-                  (step.steps || []).length,
-                  depth + 1,
-                ),
-              )
-            )}
-            <button
-              className="copy-button workflow-icon-button"
-              title="Add child step"
-              aria-label="Add child step"
-              onClick={() => {
-                updateWorkflowSteps(workflow.id, (steps) =>
-                  addChildAtPath(steps, path),
-                );
-              }}
-            >
-              <PlusIcon />
-            </button>
-          </div>
-        )}
       </div>
     );
   };
@@ -788,7 +636,6 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                         step,
                         [stepIndex],
                         workflow.steps.length,
-                        0,
                       ),
                     )
                   )}
@@ -837,9 +684,6 @@ export const WorkflowBuilderPanel: React.FC<WorkflowBuilderPanelProps> = ({
                 return {
                   ...workflow,
                   steps: updateAtPath(workflow.steps, editStep.path, (step) => {
-                    if (step.type === "while") {
-                      return { ...step, condition: editStepValue };
-                    }
                     if (step.type === "vars") {
                       const varName = step.varName || "";
                       return {
