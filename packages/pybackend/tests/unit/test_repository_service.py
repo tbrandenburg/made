@@ -13,6 +13,12 @@ def clear_git_status_cache():
 
 from repository_service import (
     apply_repository_template,
+    create_repository_file,
+    delete_repository_file,
+    read_repository_file,
+    rename_repository_file,
+    write_repository_file,
+    write_repository_file_bytes,
     clone_repository,
     create_repository_worktree,
     delete_repository,
@@ -594,3 +600,68 @@ def test_invalidate_git_status_cache(monkeypatch, tmp_path):
     svc.invalidate_git_status_cache("nonexistent")
 
     svc._git_status_cache.clear()
+
+
+@pytest.fixture
+def repository_with_safe_files(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    repo = workspace / "myrepo"
+    repo.mkdir(parents=True)
+    (repo / "safe.txt").write_text("hello", encoding="utf-8")
+    (repo / "subdir").mkdir()
+    (repo / "subdir" / "nested.txt").write_text("nested", encoding="utf-8")
+    monkeypatch.setattr("repository_service.get_workspace_home", lambda: workspace)
+    return workspace, repo
+
+
+class TestRepositoryFilePathValidation:
+    """Verify repository file operations reject paths outside the repository."""
+
+    @pytest.mark.parametrize(
+        "bad_path",
+        ["../outside.txt", "../../outside.txt", "subdir/../../outside.txt", "/etc/passwd"],
+    )
+    def test_read_rejects_traversal(self, repository_with_safe_files, bad_path):
+        with pytest.raises(ValueError, match="must stay within"):
+            read_repository_file("myrepo", bad_path)
+
+    @pytest.mark.parametrize("bad_path", ["../outside.txt", "../../outside.txt"])
+    def test_write_rejects_traversal(self, repository_with_safe_files, bad_path):
+        with pytest.raises(ValueError, match="must stay within"):
+            write_repository_file("myrepo", bad_path, "pwned")
+
+    @pytest.mark.parametrize("bad_path", ["../outside.txt", "../../outside.txt"])
+    def test_create_rejects_traversal(self, repository_with_safe_files, bad_path):
+        with pytest.raises(ValueError, match="must stay within"):
+            create_repository_file("myrepo", bad_path, "pwned")
+
+    @pytest.mark.parametrize("bad_path", ["../outside.bin", "../../outside.bin"])
+    def test_upload_rejects_traversal(self, repository_with_safe_files, bad_path):
+        with pytest.raises(ValueError, match="must stay within"):
+            write_repository_file_bytes("myrepo", bad_path, b"pwned")
+
+    @pytest.mark.parametrize(
+        "old_path,new_path",
+        [
+            ("../old.txt", "new.txt"),
+            ("old.txt", "../new.txt"),
+            ("../old.txt", "../new.txt"),
+        ],
+    )
+    def test_rename_rejects_traversal(
+        self, repository_with_safe_files, old_path, new_path
+    ):
+        with pytest.raises(ValueError, match="must stay within"):
+            rename_repository_file("myrepo", old_path, new_path)
+
+    @pytest.mark.parametrize("bad_path", ["../outside.txt", "../../outside"])
+    def test_delete_rejects_traversal(self, repository_with_safe_files, bad_path):
+        with pytest.raises(ValueError, match="must stay within"):
+            delete_repository_file("myrepo", bad_path)
+
+    def test_read_allows_valid_nested_path(self, repository_with_safe_files):
+        assert read_repository_file("myrepo", "subdir/nested.txt") == "nested"
+
+    def test_empty_path_is_rejected(self, repository_with_safe_files):
+        with pytest.raises(ValueError, match="required"):
+            read_repository_file("myrepo", "")

@@ -320,49 +320,56 @@ def list_repository_files(repo_name: str, path: str = ".") -> FileNode:
     return build_directory_node(target_path, repo_path)
 
 
+def _repository_file_path(repo_name: str, file_path: str) -> Path:
+    repo_root = (get_workspace_home() / repo_name).resolve()
+    normalized = (file_path or "").strip()
+    if not normalized:
+        raise ValueError("File path is required")
+    candidate = (repo_root / normalized).resolve()
+    if repo_root not in [candidate, *candidate.parents]:
+        raise ValueError("Path must stay within repository directory")
+    return candidate
+
+
 def read_repository_file(repo_name: str, file_path: str) -> str:
-    workspace = get_workspace_home()
-    target = workspace / repo_name / file_path
+    target = _repository_file_path(repo_name, file_path)
     return target.read_text(encoding="utf-8")
 
 
 def write_repository_file(repo_name: str, file_path: str, content: str) -> None:
-    workspace = get_workspace_home()
-    target = workspace / repo_name / file_path
+    target = _repository_file_path(repo_name, file_path)
     logger.info("Writing repository file '%s' in '%s'", file_path, repo_name)
     target.write_text(content, encoding="utf-8")
 
 
 def create_repository_file(repo_name: str, file_path: str, content: str = "") -> None:
-    workspace = get_workspace_home()
-    target = workspace / repo_name / file_path
+    target = _repository_file_path(repo_name, file_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     logger.info("Creating repository file '%s' in '%s'", file_path, repo_name)
     target.write_text(content, encoding="utf-8")
 
 
 def write_repository_file_bytes(repo_name: str, file_path: str, content: bytes) -> None:
-    workspace = get_workspace_home()
-    target = workspace / repo_name / file_path
+    target = _repository_file_path(repo_name, file_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     logger.info("Uploading repository file '%s' in '%s'", file_path, repo_name)
     target.write_bytes(content)
 
 
 def rename_repository_file(repo_name: str, old_path: str, new_path: str) -> None:
-    workspace = get_workspace_home()
+    old_target = _repository_file_path(repo_name, old_path)
+    new_target = _repository_file_path(repo_name, new_path)
     logger.info(
         "Renaming repository file from '%s' to '%s' in '%s'",
         old_path,
         new_path,
         repo_name,
     )
-    (workspace / repo_name / old_path).rename(workspace / repo_name / new_path)
+    old_target.rename(new_target)
 
 
 def delete_repository_file(repo_name: str, file_path: str) -> None:
-    workspace = get_workspace_home()
-    target = workspace / repo_name / file_path
+    target = _repository_file_path(repo_name, file_path)
     logger.info("Deleting repository path '%s' in '%s'", file_path, repo_name)
     if target.is_dir():
         for child in list(target.iterdir()):
