@@ -33,3 +33,12 @@ def get_backend_host() -> str:
 
 def get_backend_port() -> int:
     return int(os.environ.get("MADE_BACKEND_PORT", 3000))
+
+
+def get_cors_origins() -> list[str]:
+    default_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    configured_origins = os.environ.get("MADE_ALLOWED_ORIGINS")
+    if not configured_origins:
+        return default_origins
+    origins = [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+    return origins or default_origins
