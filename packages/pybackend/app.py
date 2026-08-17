@@ -117,6 +117,7 @@ from config import (
     get_workspace_home,
     get_backend_host,
     get_backend_port,
+    get_cors_origins,
 )
 from fastapi.staticfiles import StaticFiles
 from lite_router import router as lite_router
@@ -153,8 +154,8 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="MADE Python Backend", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=get_cors_origins(),
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

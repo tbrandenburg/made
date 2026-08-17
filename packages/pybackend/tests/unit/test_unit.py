@@ -1205,3 +1205,40 @@ class TestAgentService:
             with _processing_lock:
                 _processing_channels.pop(stale_key, None)
                 _active_processes.pop(stale_key, None)
+
+
+class TestCorsOrigins:
+    """Tests for CORS origin configuration."""
+
+    def test_default_origins_local_dev(self, monkeypatch):
+        monkeypatch.delenv("MADE_ALLOWED_ORIGINS", raising=False)
+
+        from config import get_cors_origins
+
+        assert get_cors_origins() == [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ]
+
+    def test_custom_origins_from_env(self, monkeypatch):
+        monkeypatch.setenv(
+            "MADE_ALLOWED_ORIGINS",
+            "https://app.example.com, https://admin.example.com",
+        )
+
+        from config import get_cors_origins
+
+        assert get_cors_origins() == [
+            "https://app.example.com",
+            "https://admin.example.com",
+        ]
+
+    def test_empty_or_whitespace_only_env_falls_back_to_defaults(self, monkeypatch):
+        from config import get_cors_origins
+
+        for value in ("", "   ,  "):
+            monkeypatch.setenv("MADE_ALLOWED_ORIGINS", value)
+            assert get_cors_origins() == [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ]
