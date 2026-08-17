@@ -14,6 +14,11 @@ name: GHAR - Auto Issue Investigation
 
 jobs:
   investigate:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.issue.author_association == 'OWNER' ||
+      github.event.issue.author_association == 'MEMBER' ||
+      github.event.issue.author_association == 'COLLABORATOR'
     uses: ./.github/workflows/core-opencode-run.yml
     with:
       run-name: issue-investigation
@@ -22,8 +27,8 @@ jobs:
         ${{ github.event.issue.number || github.event.inputs.issue_number }}
       timeout-minutes: 30
     permissions:
-      # Required permissions for the job to access and modify issues/PRs
+      # Required permissions for the job to investigate and comment on issues
       issues: write
-      pull-requests: write
+      pull-requests: read
       contents: read
     secrets: inherit
