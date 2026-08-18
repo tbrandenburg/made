@@ -63,11 +63,25 @@ jobs:
 
       - name: Install tmux
         if: ${{ steps.admin.outputs.is_admin == 'true' }}
-        env:
-          DEBIAN_FRONTEND: noninteractive
+        timeout-minutes: 5
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends tmux
+          set -euo pipefail
+
+          if command -v tmux >/dev/null 2>&1; then
+            tmux -V
+            exit 0
+          fi
+
+          sudo DEBIAN_FRONTEND=noninteractive \
+            timeout 4m apt-get update \
+            -o Acquire::Retries=3 \
+            -o DPkg::Lock::Timeout=60
+
+          sudo DEBIAN_FRONTEND=noninteractive \
+            timeout 2m apt-get install -y --no-install-recommends tmux \
+            -o DPkg::Lock::Timeout=60
+
+          tmux -V
 
       - name: Install UV
         if: ${{ steps.admin.outputs.is_admin == 'true' }}
