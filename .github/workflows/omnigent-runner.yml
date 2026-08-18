@@ -82,7 +82,13 @@ jobs:
           TMPDIR="$(mktemp -d)"
           trap 'rm -rf "$TMPDIR"' EXIT
           ARCHIVE_PATH="$TMPDIR/opencode.tar.gz"
-          DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-x64.tar.gz"
+          # Pinned (not "latest"): Omnigent 0.9.0 only supports the OpenCode
+          # native harness within [1.17.7, 1.18.0) (see
+          # opencode_native_client.OPENCODE_MIN_VERSION /
+          # OPENCODE_MAX_VERSION_EXCLUSIVE). A newer opencode (e.g. latest,
+          # 1.18.18) is rejected as "outdated"/unconfigured by Omnigent's own
+          # readiness gate, so pin to the newest release under 1.18.0.
+          DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v1.17.20/opencode-linux-x64.tar.gz"
 
           download_with_retry() {
             local url="$1"
