@@ -193,36 +193,6 @@ jobs:
       # ------------------------------------------------------
       # Start Omnigent (in the checked-out repo as its workspace)
       # ------------------------------------------------------
-      - name: Start Omnigent (server + local host)
-        if: ${{ steps.admin.outputs.is_admin == 'true' }}
-        id: omnigent
-        run: |
-          echo "🚀 Starting Omnigent (background server + local host) in $(pwd)..."
-          # `omni host ""` spawns a local background server AND attaches this
-          # machine as an execution host in one step; without the host
-          # attach, the web UI shows "No hosts" and sessions can't launch.
-          nohup omni host "" > omnigent.log 2>&1 &
-          echo "🧩 omni host process started with PID $!"
-
-          echo "⏳ Waiting for Omnigent server to become available on port 6767..."
-          for i in {1..30}; do
-            if curl -sf http://127.0.0.1:6767 > /dev/null 2>&1; then
-              echo "✅ Omnigent server is ready on port 6767"
-              break
-            fi
-            if [ $i -eq 30 ]; then
-              echo "❌ Omnigent server never became ready"
-              echo "🔍 omnigent.log:"
-              cat omnigent.log || true
-              exit 1
-            fi
-            sleep 2
-          done
-
-          omni server status || true
-          echo "🔍 omnigent.log so far:"
-          cat omnigent.log || true
-
       - name: Start ngrok tunnel (v4 CLI, verbose)
         if: ${{ steps.admin.outputs.is_admin == 'true' }}
         id: ngrok
@@ -262,6 +232,46 @@ jobs:
           {
             echo "### 🌐 Omnigent tunnel URL"
             echo ""
+            echo "$url"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ------------------------------------------------------
+      - name: Start Omnigent (server + local host)
+        if: ${{ steps.admin.outputs.is_admin == 'true' }}
+        id: omnigent
+        env:
+          # The web UI is reached through the ngrok tunnel origin, not
+          # loopback, so it must be explicitly trusted or the server's
+          # CSRF guard (require_trusted_origin) rejects session-start and
+          # file-upload requests with 403 Forbidden.
+          OMNIGENT_WS_ALLOWED_ORIGINS: ${{ steps.ngrok.outputs.tunnel_url }}
+        run: |
+          echo "🚀 Starting Omnigent (background server + local host) in $(pwd)..."
+          echo "🔐 Trusting origin: $OMNIGENT_WS_ALLOWED_ORIGINS"
+          # `omni host ""` spawns a local background server AND attaches this
+          # machine as an execution host in one step; without the host
+          # attach, the web UI shows "No hosts" and sessions can't launch.
+          nohup omni host "" > omnigent.log 2>&1 &
+          echo "🧩 omni host process started with PID $!"
+
+          echo "⏳ Waiting for Omnigent server to become available on port 6767..."
+          for i in {1..30}; do
+            if curl -sf http://127.0.0.1:6767 > /dev/null 2>&1; then
+              echo "✅ Omnigent server is ready on port 6767"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "❌ Omnigent server never became ready"
+              echo "🔍 omnigent.log:"
+              cat omnigent.log || true
+              exit 1
+            fi
+            sleep 2
+          done
+
+          omni server status || true
+          echo "🔍 omnigent.log so far:"
+          cat omnigent.log || true
             echo "$url"
           } >> "$GITHUB_STEP_SUMMARY"
 
