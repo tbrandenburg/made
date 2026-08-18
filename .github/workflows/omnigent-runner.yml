@@ -63,7 +63,11 @@ jobs:
 
       - name: Install tmux
         if: ${{ steps.admin.outputs.is_admin == 'true' }}
-        run: sudo apt-get update && sudo apt-get install -y tmux
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tmux
 
       - name: Install UV
         if: ${{ steps.admin.outputs.is_admin == 'true' }}
