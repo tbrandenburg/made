@@ -193,12 +193,16 @@ jobs:
       # ------------------------------------------------------
       # Start Omnigent (in the checked-out repo as its workspace)
       # ------------------------------------------------------
-      - name: Start Omnigent server
+      - name: Start Omnigent (server + local host)
         if: ${{ steps.admin.outputs.is_admin == 'true' }}
         id: omnigent
         run: |
-          echo "🚀 Starting Omnigent background server in $(pwd)..."
-          omni server start 2>&1 | tee omnigent.log
+          echo "🚀 Starting Omnigent (background server + local host) in $(pwd)..."
+          # `omni host ""` spawns a local background server AND attaches this
+          # machine as an execution host in one step; without the host
+          # attach, the web UI shows "No hosts" and sessions can't launch.
+          nohup omni host "" > omnigent.log 2>&1 &
+          echo "🧩 omni host process started with PID $!"
 
           echo "⏳ Waiting for Omnigent server to become available on port 6767..."
           for i in {1..30}; do
@@ -208,14 +212,16 @@ jobs:
             fi
             if [ $i -eq 30 ]; then
               echo "❌ Omnigent server never became ready"
-              echo "🔍 omni server status:"
-              omni server status || true
+              echo "🔍 omnigent.log:"
+              cat omnigent.log || true
               exit 1
             fi
             sleep 2
           done
 
           omni server status || true
+          echo "🔍 omnigent.log so far:"
+          cat omnigent.log || true
 
       - name: Start ngrok tunnel (v4 CLI, verbose)
         if: ${{ steps.admin.outputs.is_admin == 'true' }}
