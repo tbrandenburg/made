@@ -13,6 +13,7 @@ services:
       MADE_BACKEND_PORT: 3000
     volumes:
       - made-data:/app/.made
+      - made-workspace:/workspace
     ports:
       - "3000:3000"
 
@@ -27,3 +28,4 @@ services:
 
 volumes:
   made-data:
+  made-workspace:

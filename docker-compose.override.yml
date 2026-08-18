@@ -10,6 +10,10 @@ services:
     volumes:
       - ./packages/pybackend:/app
       - made-data:/app/.made
+      - made-workspace:/workspace
+      # Anonymous volume so the bind mount above doesn't shadow the venv
+      # that was built inside the image during `docker build`.
+      - /app/.venv
     # Enable hot reloading
     command: ["uv", "run", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "3000", "--reload"]
     environment:
@@ -18,3 +22,4 @@ services:
 
 volumes:
   made-data:
+  made-workspace:

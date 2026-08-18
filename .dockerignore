@@ -14,3 +14,12 @@ coverage
 .env
 .vscode
 .idea
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/htmlcov
+**/.mutmut-cache
+**/coverage.json
+**/.flowsh
+packages/pybackend/.made
