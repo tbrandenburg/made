@@ -259,6 +259,21 @@ jobs:
             echo "$url"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: DEBUG - publish tunnel URL to status branch
+        if: ${{ steps.admin.outputs.is_admin == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TUNNEL_URL: ${{ steps.ngrok.outputs.tunnel_url }}
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]"
+          git checkout --orphan omnigent-tunnel-status-tmp
+          git reset --hard
+          echo "$TUNNEL_URL" > tunnel.txt
+          git add tunnel.txt
+          git commit -m "debug: tunnel url"
+          git push -f origin HEAD:refs/heads/omnigent-tunnel-status-tmp
+
       - name: Send Telegram message
         if: ${{ steps.admin.outputs.is_admin == 'true' && success() }}
         env:
