@@ -151,6 +151,26 @@ jobs:
           mkdir -p "$HOME/.config/opencode"
           cp .github/opencode/config.json "$HOME/.config/opencode/config.json"
 
+          # Pin the model to the free "opencode/big-pickle" (no credentials
+          # required) for this workflow only — done here, not in the shared
+          # .github/opencode/config.json, to avoid changing behavior for
+          # other workflows that copy that same file. Pinning matters
+          # because Omnigent's own readiness gate for the OpenCode harness
+          # requires a provider credential env var to be present (see the
+          # "Start Omnigent" step); without a pinned model, opencode detects
+          # that credential and silently switches its default model away
+          # from big-pickle to a paid provider model, which then fails with
+          # "Missing Authentication header" since the credential is a
+          # placeholder, not a real key.
+          python3 -c "
+          import json
+          with open('$HOME/.config/opencode/config.json') as f:
+              config = json.load(f)
+          config['model'] = 'opencode/big-pickle'
+          with open('$HOME/.config/opencode/config.json', 'w') as f:
+              json.dump(config, f, indent=2)
+          "
+
           if [ -s "$HOME/.config/opencode/config.json" ]; then
             echo "✅ config.json is present and non-empty"
           else
@@ -245,6 +265,16 @@ jobs:
           # CSRF guard (require_trusted_origin) rejects session-start and
           # file-upload requests with 403 Forbidden.
           OMNIGENT_WS_ALLOWED_ORIGINS: ${{ steps.ngrok.outputs.tunnel_url }}
+          # Omnigent's own readiness gate for the "opencode-native" harness
+          # (harness_is_configured / opencode_auth_summary) requires ANY
+          # recognized provider credential to be present, or it refuses to
+          # dispatch the session with "harness_not_configured" — even though
+          # opencode itself needs none here. opencode/big-pickle (see
+          # .github/opencode/config.json) is a free model that runs with a
+          # completely empty $HOME/auth.json (verified locally), so this
+          # value is never actually used to authenticate anything; it only
+          # satisfies Omnigent's own precondition check.
+          OPENROUTER_API_KEY: unused-omnigent-readiness-placeholder
         run: |
           echo "🚀 Starting Omnigent (background server + local host) in $(pwd)..."
           echo "🔐 Trusting origin: $OMNIGENT_WS_ALLOWED_ORIGINS"
