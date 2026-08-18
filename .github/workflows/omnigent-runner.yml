@@ -272,8 +272,6 @@ jobs:
           omni server status || true
           echo "🔍 omnigent.log so far:"
           cat omnigent.log || true
-            echo "$url"
-          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Send Telegram message
         if: ${{ steps.admin.outputs.is_admin == 'true' && success() }}
