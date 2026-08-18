@@ -319,6 +319,7 @@ jobs:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           REPO: ${{ github.repository }}
+          REPO_NAME: ${{ github.event.repository.name }}
           TUNNEL_URL: ${{ steps.ngrok.outputs.tunnel_url }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           BRANCH_NAME: ${{ github.ref_name }}
@@ -329,6 +330,7 @@ jobs:
           ESCAPED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
           ESCAPED_ACTOR=$(echo "$ACTOR" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
           ESCAPED_REPO=$(echo "$REPO" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
+          ESCAPED_REPO_NAME=$(echo "$REPO_NAME" | sed 's/[-_*\[\]()~`>#+=|{}.!]/\\&/g')
 
           MSG=$(printf '%s\n' \
             "🤖 *Omnigent runner started for $ESCAPED_REPO*" \
@@ -338,6 +340,8 @@ jobs:
             "" \
             "*Omnigent Web UI:* [Open Session]($TUNNEL_URL)" \
             "*Workflow:* [View Run]($WORKFLOW_URL)" \
+            "" \
+            "ℹ️ Pick *OpenCode* in the harness picker, then set *Working directory* to the repo checkout \\(browse into \`work/$ESCAPED_REPO_NAME/$ESCAPED_REPO_NAME\`\\) before starting a session\\." \
             "⏳ *This session will expire in ${TIMEOUT_MINUTES} minutes\.*"
           )
 
