@@ -253,6 +253,12 @@ jobs:
             exit 1
           fi
 
+          {
+            echo "### 🌐 Omnigent tunnel URL"
+            echo ""
+            echo "$url"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Send Telegram message
         if: ${{ steps.admin.outputs.is_admin == 'true' && success() }}
         env:
