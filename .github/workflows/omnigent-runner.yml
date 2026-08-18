@@ -193,12 +193,13 @@ jobs:
       # ------------------------------------------------------
       # Start Omnigent (in the checked-out repo as its workspace)
       # ------------------------------------------------------
-      - name: Start Omnigent host
+      - name: Start Omnigent server
         if: ${{ steps.admin.outputs.is_admin == 'true' }}
         id: omnigent
         run: |
-          echo "🚀 Starting Omnigent host in $(pwd)..."
-          nohup omni host --background > omnigent.log 2>&1 &
+          echo "🚀 Starting Omnigent background server in $(pwd)..."
+          omni server start 2>&1 | tee omnigent.log
+
           echo "⏳ Waiting for Omnigent server to become available on port 6767..."
           for i in {1..30}; do
             if curl -sf http://127.0.0.1:6767 > /dev/null 2>&1; then
@@ -207,14 +208,14 @@ jobs:
             fi
             if [ $i -eq 30 ]; then
               echo "❌ Omnigent server never became ready"
-              echo "🔍 omnigent.log:"
-              cat omnigent.log || true
+              echo "🔍 omni server status:"
+              omni server status || true
               exit 1
             fi
             sleep 2
           done
-          echo "🔍 omnigent.log so far:"
-          cat omnigent.log || true
+
+          omni server status || true
 
       - name: Start ngrok tunnel (v4 CLI, verbose)
         if: ${{ steps.admin.outputs.is_admin == 'true' }}
