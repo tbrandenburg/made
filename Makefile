@@ -377,8 +377,7 @@ release: qa
 	echo "🏷️  Creating annotated tag v$$NEW_VERSION..."; \
 	git tag -a v$$NEW_VERSION -m "Release v$$NEW_VERSION"; \
 	echo "🚀 Pushing commit and tag to trigger release workflow..."; \
-	git push origin HEAD; \
-	git push origin v$$NEW_VERSION; \
+	MADE_SKIP_PREPUSH_QA=1 git push origin HEAD v$$NEW_VERSION; \
 	echo "✅ Release v$$NEW_VERSION created and pushed"; \
 	echo "📦 Check GitHub Actions for automated release: https://github.com/tbrandenburg/made/actions"
 
@@ -389,5 +388,5 @@ tag-release: qa
 	fi; \
 	echo "🏷️  Creating tag $(VERSION)..."; \
 	git tag -a $(VERSION) -m "Release $(VERSION)"; \
-	git push origin $(VERSION); \
+	MADE_SKIP_PREPUSH_QA=1 git push origin $(VERSION); \
 	echo "✅ Tag $(VERSION) pushed"

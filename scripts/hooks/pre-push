@@ -12,5 +12,15 @@ set -e
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
   GIT_ALTERNATE_OBJECT_DIRECTORIES
 
+# `make release`/`make tag-release` already run the full `qa` gate (which is
+# a superset of qa-quick) before pushing, so re-running qa-quick here would
+# just repeat work that was already validated in the same invocation. Those
+# targets set MADE_SKIP_PREPUSH_QA=1 on their own `git push` calls only;
+# ordinary `git push` from a developer is unaffected and still gated.
+if [ -n "$MADE_SKIP_PREPUSH_QA" ]; then
+  echo "Skipping pre-push qa-quick (already validated by make release/tag-release)."
+  exit 0
+fi
+
 echo "Running qa-quick (lint + format + unit-test) before push..."
 make qa-quick
