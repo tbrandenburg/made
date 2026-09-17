@@ -40,5 +40,7 @@ def get_cors_origins() -> list[str]:
     configured_origins = os.environ.get("MADE_ALLOWED_ORIGINS")
     if not configured_origins:
         return default_origins
-    origins = [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+    origins = [
+        origin.strip() for origin in configured_origins.split(",") if origin.strip()
+    ]
     return origins or default_origins
