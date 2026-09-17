@@ -156,15 +156,23 @@ git tag --list | tail -1
 
 ### Creating a Release
 
+Release version bumps are non-interactive and keep the root, frontend, and
+backend package versions synchronized:
+
 ```bash
-# Run quality assurance
-make qa
+# Patch/minor/major bump (e.g. 0.1.0 -> 0.1.1)
+make release VERSION_BUMP=patch
 
-# Create and push release tag
-make release VERSION=v0.1.1
-
-# Automated: CI creates GitHub release
+# Or set an explicit version
+make release VERSION=1.2.3
 ```
+
+`make release` runs the full QA suite (`make qa`), bumps `package.json`,
+`packages/frontend/package.json`, and `packages/pybackend/pyproject.toml` to
+the same version, commits the change, creates an annotated `vX.Y.Z` tag, and
+pushes the commit and tag. The pushed tag triggers the GitHub Actions release
+workflow, which re-validates that the tag version matches all package
+manifests before publishing the GitHub Release.
 
 ### Release Automation
 
