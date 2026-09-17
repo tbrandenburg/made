@@ -60,7 +60,7 @@ help:
 	@echo "  make docker-build              # Build Docker images"
 	@echo "  make docker-dev                # Start development environment"
 	@echo "  make run PORT=3000 FRONTEND_PORT=5173  # Start frontend + Python backend"
-	@echo "  release            Synchronized version bump + tag + push (VERSION_BUMP=patch|minor|major or VERSION=x.y.z)"
+	@echo "  release            Synchronized version bump + tag + push (BUMP=patch|minor|major or VERSION=x.y.z)"
 	@echo "  tag-release        Run QA, create and push version tag (VERSION=v0.1.1)"
 
 # Quality Assurance Tasks
@@ -352,18 +352,19 @@ docker-clean: docker-down
 	@echo "✅ Docker cleanup completed"
 
 # Release Management
-# Non-interactive: make release VERSION_BUMP=major|minor|patch
+# Non-interactive: make release BUMP=major|minor|patch (case-insensitive, e.g. BUMP=PATCH)
 # Or explicit:      make release VERSION=1.2.3
 release: qa
 	@echo "🚀 Release Workflow"
 	@echo "=================="
-	@if [ -z "$(VERSION_BUMP)" ] && [ -z "$(VERSION)" ]; then \
-		echo "❌ Usage: make release VERSION_BUMP=major|minor|patch"; \
+	@if [ -z "$(BUMP)" ] && [ -z "$(VERSION)" ]; then \
+		echo "❌ Usage: make release BUMP=major|minor|patch"; \
 		echo "       or make release VERSION=1.2.3"; \
 		exit 1; \
 	fi; \
-	if [ -n "$(VERSION_BUMP)" ]; then \
-		BUMP_ARGS="--bump $(VERSION_BUMP)"; \
+	if [ -n "$(BUMP)" ]; then \
+		BUMP_LOWER=$$(echo "$(BUMP)" | tr '[:upper:]' '[:lower:]'); \
+		BUMP_ARGS="--bump $$BUMP_LOWER"; \
 	else \
 		BUMP_ARGS="--version $(VERSION)"; \
 	fi; \

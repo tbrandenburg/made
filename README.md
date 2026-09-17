@@ -160,8 +160,9 @@ Release version bumps are non-interactive and keep the root, frontend, and
 backend package versions synchronized:
 
 ```bash
-# Patch/minor/major bump (e.g. 0.1.0 -> 0.1.1)
-make release VERSION_BUMP=patch
+# Patch/minor/major bump (e.g. 0.1.0 -> 0.1.1), BUMP is case-insensitive
+make release BUMP=patch
+make release BUMP=MAJOR
 
 # Or set an explicit version
 make release VERSION=1.2.3
