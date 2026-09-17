@@ -56,6 +56,23 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
+      - name: Verify tag matches package versions
+        run: |
+          TAG_VERSION="${{ steps.version.outputs.version }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          ROOT_VERSION=$(node -p "require('./package.json').version")
+          FRONTEND_VERSION=$(node -p "require('./packages/frontend/package.json').version")
+          BACKEND_VERSION=$(grep -m1 '^version = "' packages/pybackend/pyproject.toml | sed -E 's/^version = "([^"]+)"/\1/')
+          echo "Tag version:      $TAG_VERSION"
+          echo "Root version:     $ROOT_VERSION"
+          echo "Frontend version: $FRONTEND_VERSION"
+          echo "Backend version:  $BACKEND_VERSION"
+          if [ "$TAG_VERSION" != "$ROOT_VERSION" ] || [ "$TAG_VERSION" != "$FRONTEND_VERSION" ] || [ "$TAG_VERSION" != "$BACKEND_VERSION" ]; then
+            echo "::error::Tag version $TAG_VERSION does not match all package versions (root=$ROOT_VERSION, frontend=$FRONTEND_VERSION, backend=$BACKEND_VERSION)"
+            exit 1
+          fi
+          echo "✅ Tag version matches all package manifests"
+
       - name: Generate changelog excerpt
         id: changelog
         run: |

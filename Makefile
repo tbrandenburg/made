@@ -60,8 +60,8 @@ help:
 	@echo "  make docker-build              # Build Docker images"
 	@echo "  make docker-dev                # Start development environment"
 	@echo "  make run PORT=3000 FRONTEND_PORT=5173  # Start frontend + Python backend"
-	@echo "  release            Interactive release creation workflow"
-	@echo "  tag-release        Create and push version tag (VERSION=v0.1.1)"
+	@echo "  release            Synchronized version bump + tag + push (VERSION_BUMP=patch|minor|major or VERSION=x.y.z)"
+	@echo "  tag-release        Run QA, create and push version tag (VERSION=v0.1.1)"
 
 # Quality Assurance Tasks
 format:
@@ -352,34 +352,36 @@ docker-clean: docker-down
 	@echo "✅ Docker cleanup completed"
 
 # Release Management
+# Non-interactive: make release VERSION_BUMP=major|minor|patch
+# Or explicit:      make release VERSION=1.2.3
 release: qa
 	@echo "🚀 Release Workflow"
 	@echo "=================="
-	@echo ""
-	@echo "Current version tags:"
-	@git tag --list --sort=-version:refname | head -5 || echo "  (no tags yet)"
-	@echo ""
-	@read -p "Enter new version tag (e.g., v0.1.1): " VERSION; \
-	if [ -z "$$VERSION" ]; then \
-		echo "❌ Version is required"; \
+	@if [ -z "$(VERSION_BUMP)" ] && [ -z "$(VERSION)" ]; then \
+		echo "❌ Usage: make release VERSION_BUMP=major|minor|patch"; \
+		echo "       or make release VERSION=1.2.3"; \
 		exit 1; \
 	fi; \
-	if ! echo "$$VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$$'; then \
-		echo "❌ Version must follow semantic versioning (e.g., v1.0.0, v1.0.0-beta.1)"; \
-		exit 1; \
+	if [ -n "$(VERSION_BUMP)" ]; then \
+		BUMP_ARGS="--bump $(VERSION_BUMP)"; \
+	else \
+		BUMP_ARGS="--version $(VERSION)"; \
 	fi; \
-	if git tag --list | grep -q "^$$VERSION$$"; then \
-		echo "❌ Tag $$VERSION already exists"; \
-		exit 1; \
-	fi; \
-	echo "🏷️  Creating annotated tag $$VERSION..."; \
-	git tag -a $$VERSION -m "Release $$VERSION"; \
-	echo "🚀 Pushing tag to trigger release workflow..."; \
-	git push origin $$VERSION; \
-	echo "✅ Release $$VERSION created and pushed"; \
+	echo "🔧 Resolving synchronized version..."; \
+	NEW_VERSION=$$(python3 scripts/bump_version.py $$BUMP_ARGS) || exit 1; \
+	echo "✅ Bumped all package versions to $$NEW_VERSION"; \
+	echo "📝 Committing version bump..."; \
+	git add package.json packages/frontend/package.json packages/pybackend/pyproject.toml; \
+	git commit -m "chore(release): bump version to v$$NEW_VERSION"; \
+	echo "🏷️  Creating annotated tag v$$NEW_VERSION..."; \
+	git tag -a v$$NEW_VERSION -m "Release v$$NEW_VERSION"; \
+	echo "🚀 Pushing commit and tag to trigger release workflow..."; \
+	git push origin HEAD; \
+	git push origin v$$NEW_VERSION; \
+	echo "✅ Release v$$NEW_VERSION created and pushed"; \
 	echo "📦 Check GitHub Actions for automated release: https://github.com/tbrandenburg/made/actions"
 
-tag-release:
+tag-release: qa
 	@if [ -z "$(VERSION)" ]; then \
 		echo "❌ Usage: make tag-release VERSION=v0.1.1"; \
 		exit 1; \
