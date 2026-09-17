@@ -5,6 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mobile Agentic Development Environment</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      :root {
+        --bg: #f5f7fb;
+      }
+      :root.dark {
+        --bg: #0f172a;
+      }
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        background-color: var(--bg);
+      }
+    </style>
+    <script>
+      (function () {
+        try {
+          var prefersDark =
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches;
+          document.documentElement.classList.add(
+            prefersDark ? "dark" : "light",
+          );
+        } catch (e) {
+          document.documentElement.classList.add("light");
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
