@@ -11,7 +11,7 @@ MADE_WORKSPACE_HOME ?= $(abspath $(CURDIR)/workspace/)
 export MADE_HOME
 export MADE_WORKSPACE_HOME
 
-.PHONY: help lint format test unit-test system-test qa qa-quick qa-quick-frontend qa-quick-backend qa-quick-changed test-frontend test-backend build run stop restart clean install install-node install-pybackend install-hooks test-coverage security-audit docker-build docker-up docker-down docker-dev docker-clean release tag-release
+.PHONY: help lint format test unit-test system-test qa qa-quick qa-quick-frontend qa-quick-backend qa-quick-changed test-frontend test-backend test-integration build run stop restart clean install install-node install-pybackend install-hooks test-coverage security-audit docker-build docker-up docker-down docker-dev docker-clean release tag-release
 
 # Default target
 help:
@@ -25,6 +25,7 @@ help:
 	@echo "  unit-test     Run unit tests only (frontend + backend)"
 	@echo "  test-frontend Run one frontend test file/pattern in serial mode"
 	@echo "  test-backend   Run one backend test file/pattern"
+	@echo "  test-integration Run backend integration tests (opt-in, needs real agent CLIs on PATH)"
 	@echo "  system-test   Run system tests only (frontend + backend)"
 	@echo "  qa            Run all quality assurance tasks (lint + format + test)"
 	@echo "  qa-quick      Run all quick quality assurance tasks (lint + format + unit-test)"
@@ -60,8 +61,8 @@ help:
 	@echo "  make docker-build              # Build Docker images"
 	@echo "  make docker-dev                # Start development environment"
 	@echo "  make run PORT=3000 FRONTEND_PORT=5173  # Start frontend + Python backend"
-	@echo "  release            Synchronized version bump + tag + push (BUMP=patch|minor|major or VERSION=x.y.z)"
-	@echo "  tag-release        Run QA, create and push version tag (VERSION=v0.1.1)"
+	@echo "  release            Synchronized version bump + tag + push, gated by qa-quick (BUMP=patch|minor|major or VERSION=x.y.z)"
+	@echo "  tag-release        Run qa-quick, create and push version tag (VERSION=v0.1.1)"
 
 # Quality Assurance Tasks
 format:
@@ -155,6 +156,13 @@ test-backend:
 		uv run pytest -c pytest.cov.ini "$(FILE)"; \
 	fi
 
+# Opt-in only: hits real external agent CLIs (kiro, ob1, opencode, ...) on
+# PATH. Not part of qa/qa-quick/test-coverage since these can hang or fail
+# for reasons unrelated to this repo (CLI not installed, needs auth, network).
+test-integration:
+	@echo "🔬 Running backend integration tests (requires real agent CLIs on PATH)..."
+	cd $(PYBACKEND_DIR) && uv sync && uv run pytest -c pytest.cov.ini tests/integration -m integration --no-cov
+
 system-test:
 	@echo "🏗️ Running system tests with service management..."
 	@echo "🚀 Starting services for system tests..."
@@ -224,7 +232,7 @@ test-coverage:
 	@echo "📊 Frontend tests with coverage..."
 	cd packages/frontend && npx vitest run --coverage
 	@echo "📊 Backend tests with detailed coverage..."
-	cd $(PYBACKEND_DIR) && uv sync && uv run pytest -c pytest.cov.ini --cov-branch --cov-fail-under=70
+	cd $(PYBACKEND_DIR) && uv sync && uv run pytest -c pytest.cov.ini --cov-branch --cov-fail-under=70 --cov-report=html:htmlcov --cov-report=json:coverage.json
 	@echo "📊 Coverage report generated in packages/pybackend/htmlcov/"
 
 # Security Tasks
@@ -352,9 +360,15 @@ docker-clean: docker-down
 	@echo "✅ Docker cleanup completed"
 
 # Release Management
+# Gate: qa-quick (format + lint + unit tests only, ~30s) — deliberately not
+# the full `qa`, which also runs tests/integration (real external agent CLIs
+# on PATH: kiro, ob1, opencode, ...) and can hang or fail for reasons
+# unrelated to this repo. CI's release.yml workflow re-validates with its own
+# QA run server-side, and `make system-test`/`make test-integration` remain
+# available to run explicitly before a release if you want the deeper gate.
 # Non-interactive: make release BUMP=major|minor|patch (case-insensitive, e.g. BUMP=PATCH)
 # Or explicit:      make release VERSION=1.2.3
-release: qa
+release: qa-quick
 	@echo "🚀 Release Workflow"
 	@echo "=================="
 	@if [ -z "$(BUMP)" ] && [ -z "$(VERSION)" ]; then \
@@ -381,7 +395,7 @@ release: qa
 	echo "✅ Release v$$NEW_VERSION created and pushed"; \
 	echo "📦 Check GitHub Actions for automated release: https://github.com/tbrandenburg/made/actions"
 
-tag-release: qa
+tag-release: qa-quick
 	@if [ -z "$(VERSION)" ]; then \
 		echo "❌ Usage: make tag-release VERSION=v0.1.1"; \
 		exit 1; \

@@ -168,12 +168,16 @@ make release BUMP=MAJOR
 make release VERSION=1.2.3
 ```
 
-`make release` runs the full QA suite (`make qa`), bumps `package.json`,
-`packages/frontend/package.json`, and `packages/pybackend/pyproject.toml` to
-the same version, commits the change, creates an annotated `vX.Y.Z` tag, and
-pushes the commit and tag. The pushed tag triggers the GitHub Actions release
-workflow, which re-validates that the tag version matches all package
-manifests before publishing the GitHub Release.
+`make release` runs the fast QA gate (`make qa-quick`: format + lint + unit
+tests), bumps `package.json`, `packages/frontend/package.json`, and
+`packages/pybackend/pyproject.toml` to the same version, commits the change,
+creates an annotated `vX.Y.Z` tag, and pushes the commit and tag together in
+one push. The pushed tag triggers the GitHub Actions release workflow, which
+re-validates that the tag version matches all package manifests and runs its
+own QA before publishing the GitHub Release. `make qa` (full test suite,
+including `tests/integration`, which hits real external agent CLIs) and
+`make system-test` are intentionally not part of the release gate — run them
+manually first if you want that deeper check before releasing.
 
 ### Release Automation
 
