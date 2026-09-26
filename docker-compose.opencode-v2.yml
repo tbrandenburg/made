@@ -1,0 +1,29 @@
+services:
+  pybackend:
+    build:
+      context: .
+      dockerfile: docker/pybackend.opencode-v2.Dockerfile
+      args:
+        COMMIT_SHA: ${COMMIT_SHA:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    environment:
+      MADE_ALLOWED_ORIGINS: http://127.0.0.1:18080
+      OPENCODE_DB: /opencode-data/opencode.db
+      MADE_HOME: /app
+    volumes: !override
+      - made-data:/app/.made
+      - made-workspace:/workspace
+      - opencode-home:/root
+      - opencode-data:/opencode-data
+    ports: !override
+      - "127.0.0.1:13000:3000"
+
+  frontend:
+    ports: !override
+      - "127.0.0.1:18080:80"
+
+volumes:
+  made-data:
+  made-workspace:
+  opencode-home:
+  opencode-data:

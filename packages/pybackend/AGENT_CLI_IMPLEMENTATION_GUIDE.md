@@ -163,11 +163,13 @@ def list_sessions(self, cwd):
 ```
 
 Key points:
+
 - Always filter by `cwd` so users only see sessions for the current project.
 - Limit results (50 is a reasonable default).
 - Handle timestamp scaling — agents store nanoseconds, milliseconds, or seconds inconsistently (see `opencode_database_agent_cli.py:94–114` for the heuristic).
 
 **Timestamp scaling heuristic:**
+
 ```python
 def _normalize_timestamp_to_ms(self, value: int) -> int:
     magnitude = len(str(abs(value)))
@@ -197,20 +199,22 @@ def list_sessions(self, cwd):
 
 Agents encode the working directory differently:
 
-| Agent | Encoding | Example |
-|-------|----------|---------|
-| Claude | path-slug as directory name | `~/.claude/projects/-home-tom-myproject/` |
-| Codex | `session_meta` event in JSONL | first line: `{"type":"session_meta","payload":{"cwd":"/home/tom/myproject"}}` |
-| Copilot | `session.start` event | `{"type":"session.start","data":{"context":{"cwd":"/home/tom/myproject"}}}` |
-| OB1 | project directory in path | `~/.ob1/tmp/myproject/chats/session-*.json` |
+| Agent   | Encoding                      | Example                                                                       |
+| ------- | ----------------------------- | ----------------------------------------------------------------------------- |
+| Claude  | path-slug as directory name   | `~/.claude/projects/-home-tom-myproject/`                                     |
+| Codex   | `session_meta` event in JSONL | first line: `{"type":"session_meta","payload":{"cwd":"/home/tom/myproject"}}` |
+| Copilot | `session.start` event         | `{"type":"session.start","data":{"context":{"cwd":"/home/tom/myproject"}}}`   |
+| OB1     | project directory in path     | `~/.ob1/tmp/myproject/chats/session-*.json`                                   |
 
 For Claude-style path slugs:
+
 ```python
 def _cwd_to_slug(self, cwd: Path) -> str:
     return str(cwd.resolve()).replace("/", "-").replace("\\", "-")
 ```
 
 For event-based CWD (Codex/Copilot):
+
 ```python
 def _session_matches_cwd(self, path: Path, cwd: Path) -> bool:
     with path.open() as f:
@@ -329,9 +333,11 @@ def export_session(self, session_id, cwd):
 Run `myagent agent list` and parse the output.
 
 **Table format** (OpenCode):
+
 ```
 ses_abc123   My session title   2024-01-15 10:30
 ```
+
 ```python
 AGENT_ROW = re.compile(r"^(\S+)\s{2,}(.*?)\s{2,}(.+)$")
 result = subprocess.run(["myagent", "agent", "list"], capture_output=True, text=True)
@@ -342,12 +348,14 @@ for line in result.stdout.splitlines():
 ```
 
 **Section-header format** (Claude):
+
 ```
 Built-in agents:
   claude       General purpose assistant
 Project agents:
   reviewer     /path/to/AGENTS.md
 ```
+
 ```python
 current_type = "Unknown"
 for line in result.stdout.splitlines():
@@ -359,10 +367,12 @@ for line in result.stdout.splitlines():
 ```
 
 **Bullet format** (Kiro):
+
 ```
 * myagent (Built-in)
   custom-agent /path/to/agent.md
 ```
+
 ```python
 for line in result.stdout.splitlines():
     line = line.strip()
@@ -445,43 +455,43 @@ Use these tables to quickly decide which approach fits a new agent.
 
 ### Session storage
 
-| Signal | Use |
-|--------|-----|
-| Agent has a `~/.local/share/<name>/*.db` or similar | SQLite approach |
-| Agent writes one file per session to `~/.agent/sessions/` | Filesystem glob |
-| Agent writes dated directories `YYYY/MM/DD/` | Filesystem walk (Codex pattern) |
+| Signal                                                           | Use                                 |
+| ---------------------------------------------------------------- | ----------------------------------- |
+| Agent has a `~/.local/share/<name>/*.db` or similar              | SQLite approach                     |
+| Agent writes one file per session to `~/.agent/sessions/`        | Filesystem glob                     |
+| Agent writes dated directories `YYYY/MM/DD/`                     | Filesystem walk (Codex pattern)     |
 | Agent writes structured project dirs `~/.agent/projects/<slug>/` | Path-slug approach (Claude pattern) |
 
 ### Prompt delivery
 
-| Signal | Use |
-|--------|-----|
-| `myagent --help` shows `--stdin` or prompt is omitted | stdin (Pattern A) |
-| `myagent --help` shows `--prompt TEXT` or `-p TEXT` | flag argument (Pattern B) |
-| `myagent --help` shows positional `<message>` | positional argument (Pattern B) |
+| Signal                                                | Use                             |
+| ----------------------------------------------------- | ------------------------------- |
+| `myagent --help` shows `--stdin` or prompt is omitted | stdin (Pattern A)               |
+| `myagent --help` shows `--prompt TEXT` or `-p TEXT`   | flag argument (Pattern B)       |
+| `myagent --help` shows positional `<message>`         | positional argument (Pattern B) |
 
 ### Session resumption
 
-| Flag style | Example agents |
-|------------|---------------|
-| `-s <id>` | opencode |
-| `--resume <id>` | claude, copilot, kiro, ob1 |
+| Flag style                 | Example agents                   |
+| -------------------------- | -------------------------------- |
+| `-s <id>`                  | opencode                         |
+| `--resume <id>`            | claude, copilot, kiro, ob1       |
 | `resume <id>` (subcommand) | codex (`codex exec resume <id>`) |
 
 ### Run output format
 
-| Format | Example agents | Parsing approach |
-|--------|---------------|-----------------|
-| Newline-delimited JSON (NDJSON) | opencode, codex | parse each line, find session_id field |
-| Single JSON object on stdout | claude, ob1 | `json.loads(stdout)` |
-| Plain text / ANSI | copilot, kiro | strip ANSI, use as-is; session id from separate source |
+| Format                          | Example agents  | Parsing approach                                       |
+| ------------------------------- | --------------- | ------------------------------------------------------ |
+| Newline-delimited JSON (NDJSON) | opencode, codex | parse each line, find session_id field                 |
+| Single JSON object on stdout    | claude, ob1     | `json.loads(stdout)`                                   |
+| Plain text / ANSI               | copilot, kiro   | strip ANSI, use as-is; session id from separate source |
 
 ### Agent listing
 
-| Situation | Use |
-|-----------|-----|
-| `myagent agent list` / `myagent agents` works | CLI subprocess + regex |
-| No listing command | Hardcoded single-item list |
+| Situation                                     | Use                        |
+| --------------------------------------------- | -------------------------- |
+| `myagent agent list` / `myagent agents` works | CLI subprocess + regex     |
+| No listing command                            | Hardcoded single-item list |
 
 ---
 
@@ -702,11 +712,31 @@ class MyAgentCLI(AgentCLI):
 
 ## Reference: Existing Implementations
 
-| File | Agent | Session storage | Prompt delivery | Agent listing |
-|------|-------|----------------|-----------------|---------------|
-| `opencode_database_agent_cli.py` | OpenCode | SQLite `~/.local/share/opencode/opencode.db` | stdin | CLI subprocess |
-| `claude_agent_cli.py` | Claude Code | JSONL `~/.claude/projects/<slug>/<id>.jsonl` | positional arg | `claude agents` |
-| `codex_agent_cli.py` | Codex | JSONL `~/.codex/sessions/YYYY/MM/DD/rollout-<id>.jsonl` | stdin | hardcoded |
-| `copilot_agent_cli.py` | GitHub Copilot | Events JSONL `~/.copilot/session-state/<id>/events.jsonl` | `-p` flag | hardcoded |
-| `kiro_agent_cli.py` | Kiro | SQLite `~/.local/share/kiro-cli/data.sqlite3` | stdin | `kiro-cli agent list` |
-| `ob1_agent_cli.py` | OB1 | JSON `~/.ob1/tmp/<project>/chats/session-*.json` | `--prompt` flag | hardcoded |
+| File                             | Agent                                   | Session storage                                                                          | Prompt delivery           | Agent listing                                               |
+| -------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------- |
+| `opencode_database_agent_cli.py` | OpenCode                                | SQLite `~/.local/share/opencode/opencode.db`                                             | stdin                     | CLI subprocess                                              |
+| `opencode_v2_agent_cli.py`       | OpenCode v2 (`agentCli: "opencode-v2"`) | Read-only SQLite `session_v2` / `session_message`, resolved by `opencode debug paths db` | stdin with subprocess cwd | Built-ins plus global/project JSON and Markdown definitions |
+| `claude_agent_cli.py`            | Claude Code                             | JSONL `~/.claude/projects/<slug>/<id>.jsonl`                                             | positional arg            | `claude agents`                                             |
+| `codex_agent_cli.py`             | Codex                                   | JSONL `~/.codex/sessions/YYYY/MM/DD/rollout-<id>.jsonl`                                  | stdin                     | hardcoded                                                   |
+| `copilot_agent_cli.py`           | GitHub Copilot                          | Events JSONL `~/.copilot/session-state/<id>/events.jsonl`                                | `-p` flag                 | hardcoded                                                   |
+| `kiro_agent_cli.py`              | Kiro                                    | SQLite `~/.local/share/kiro-cli/data.sqlite3`                                            | stdin                     | `kiro-cli agent list`                                       |
+| `ob1_agent_cli.py`               | OB1                                     | JSON `~/.ob1/tmp/<project>/chats/session-*.json`                                         | `--prompt` flag           | hardcoded                                                   |
+
+### OpenCode v2 storage and acceptance
+
+Select `opencode-v2` in Settings to use the separate v2 adapter. It preserves the
+existing `opencode` v1 selector. The v2 adapter resolves the database with
+`opencode debug paths db`, validates the `session_v2` and `session_message`
+schema, opens SQLite read-only, scopes sessions to the exact canonical working
+directory, and orders messages by the indexed `session_id, seq` key. Unknown
+schemas are rejected rather than migrated or modified.
+
+V2 agent definitions are discovered from global and project JSON/JSONC files
+and Markdown files under `agents/`. The v2 agent-list API can return an empty
+result despite configured agents, so plugin-generated/transformed agents that
+are not represented in those files cannot be enumerated reliably.
+
+For a real CLI acceptance, use the isolated Compose project and pinned image
+described in the repository README. It stores Made settings/workspace and
+OpenCode home/database in project-scoped Docker volumes and binds only loopback
+ports 13000 and 18080; do not run the v2 CLI against host OpenCode data.
