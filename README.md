@@ -96,6 +96,52 @@ docker compose up --build
 
 The backend persists its `.made` workspace inside the named `made-data` volume defined in the compose file. Environment variables such as `MADE_HOME`, `MADE_WORKSPACE_HOME`, `MADE_BACKEND_HOST`, or `MADE_BACKEND_PORT` can be overridden by editing the `pybackend` service configuration.
 
+### Manual agent CLI acceptance in Docker
+
+The following process tests a selected Made agent adapter against the real
+application and CLI in Docker, without mounting host agent configuration or
+using development ports. Before building, configure
+`docker/pybackend.Dockerfile` with the selected CLI's official non-interactive
+install command (replace the default install step or add a separate layer) and
+ensure its executable is on `PATH`. Rebuild whenever the Dockerfile changes.
+Supply any required credentials at container runtime through environment
+variables or a dedicated volume; do not bake credentials into the image.
+
+Start the acceptance project with its own Made data, workspace, and agent home
+volumes:
+
+```bash
+docker compose -p made-agent-acceptance \
+  -f docker-compose.yml -f docker-compose.agent-acceptance.yml \
+  up --build -d
+```
+
+The frontend and API are bound to loopback ports 18080 and 13000. In Made
+Settings, select the adapter matching the installed CLI, save, reload, and
+confirm the choice persisted. Create a repository in the isolated workspace
+and add a small fixture file with a unique marker.
+
+Use Playwright MCP at `http://127.0.0.1:18080` to verify the real UI flow:
+
+1. Open the fixture repository's Agent chat and select a model available to the
+   container's CLI.
+2. Ask the agent to read the fixture file and return its exact marker. Confirm
+   the response appears and a session ID is shown.
+3. Send a follow-up asking for the previous marker without naming it. Confirm
+   the answer is correct and the same session continues.
+4. Reload the repository page. Confirm the request/response history returns
+   from the selected CLI's session store; use the session picker to reopen it
+   if needed.
+5. Confirm Settings still selects the chosen adapter after a reload.
+
+Use explicit Compose files and the same project name for inspection and
+teardown. This removes only the acceptance stack and its isolated volumes:
+
+```bash
+docker compose -p made-agent-acceptance \
+  -f docker-compose.yml -f docker-compose.agent-acceptance.yml down -v
+```
+
 ### OpenCode v2 acceptance environment
 
 The Settings page supports `opencode-v2` as a separate adapter; the existing

@@ -1,0 +1,21 @@
+services:
+  pybackend:
+    environment:
+      MADE_HOME: /app
+      MADE_WORKSPACE_HOME: /workspace
+      HOME: /agent-home
+    volumes: !override
+      - made-data:/app/.made
+      - made-workspace:/workspace
+      - agent-home:/agent-home
+    ports: !override
+      - "127.0.0.1:13000:3000"
+
+  frontend:
+    ports: !override
+      - "127.0.0.1:18080:80"
+
+volumes:
+  made-data:
+  made-workspace:
+  agent-home:
