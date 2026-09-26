@@ -77,7 +77,7 @@ MADE frontend available on http://localhost:5173
 Access the web interface at `http://localhost:5173` to:
 
 1. **Browse Repositories** - View and manage your code projects
-2. **Chat with Agents** - Get AI assistance for development tasks  
+2. **Chat with Agents** - Get AI assistance for development tasks
 3. **Manage Knowledge** - Create and organize documentation
 4. **Define Constitutions** - Set development rules and guidelines
 5. **Edit Files** - Use the integrated editor with live preview
@@ -96,6 +96,38 @@ docker compose up --build
 
 The backend persists its `.made` workspace inside the named `made-data` volume defined in the compose file. Environment variables such as `MADE_HOME`, `MADE_WORKSPACE_HOME`, `MADE_BACKEND_HOST`, or `MADE_BACKEND_PORT` can be overridden by editing the `pybackend` service configuration.
 
+### OpenCode v2 acceptance environment
+
+The Settings page supports `opencode-v2` as a separate adapter; the existing
+`opencode` selector remains unchanged. To exercise v2 without changing a host
+OpenCode installation or using the standard development ports, build the
+dedicated pinned image under a unique Compose project:
+
+```bash
+docker compose -p made-opencode-v2-acceptance \
+  -f docker-compose.yml -f docker-compose.opencode-v2.yml \
+  up --build -d
+
+# Run the opt-in real-CLI persistence/resume test inside the v2 container
+docker compose -p made-opencode-v2-acceptance \
+  -f docker-compose.yml -f docker-compose.opencode-v2.yml \
+  exec -T -e MADE_OPENCODE_V2_ACCEPTANCE=1 pybackend \
+  .venv/bin/pytest -q tests/integration/test_opencode_v2_acceptance.py
+
+# Remove only this acceptance project and its dedicated volumes
+docker compose -p made-opencode-v2-acceptance \
+  -f docker-compose.yml -f docker-compose.opencode-v2.yml down -v
+```
+
+This project binds the backend and frontend to `127.0.0.1:13000` and
+`127.0.0.1:18080`. Its project-scoped Docker volumes isolate Made settings,
+workspace, OpenCode home/config, and the `OPENCODE_DB` SQLite database. Create
+or seed a test repository under `/workspace` inside the backend container,
+select `opencode-v2` in Settings, and verify a real chat, session resume, and
+reloaded v2 database history at `http://127.0.0.1:18080`. Keep these explicit
+Compose files and project name for startup, inspection, and teardown; do not
+use the default Compose project for this acceptance.
+
 ## Configuration
 
 Environment variables / config:
@@ -106,6 +138,7 @@ Environment variables / config:
 - `MADE_BACKEND_PORT` — number — default: `3000` — Port for the backend API server
 
 The application automatically creates a `.made` directory structure:
+
 ```
 $MADE_HOME/.made/
 ├── knowledge/     # Knowledge base articles
@@ -127,7 +160,7 @@ MADE loads commands from the following locations (first found are combined):
 The backend provides a RESTful API with endpoints for:
 
 - **Repositories**: `/api/repositories` - CRUD operations for code repositories
-- **Knowledge**: `/api/knowledge` - Manage documentation and knowledge artifacts  
+- **Knowledge**: `/api/knowledge` - Manage documentation and knowledge artifacts
 - **Constitutions**: `/api/constitutions` - Define development rules and constraints
 - **Agent Communication**: `/api/repositories/:name/agent` - AI agent chat interface
 - **File Operations**: `/api/repositories/:name/file` - File management and editing
@@ -140,7 +173,8 @@ This project follows [Semantic Versioning](https://semver.org/) (SemVer).
 ### Version Format
 
 Given a version number `MAJOR.MINOR.PATCH`:
-- **MAJOR** - Incompatible API changes  
+
+- **MAJOR** - Incompatible API changes
 - **MINOR** - New functionality (backwards compatible)
 - **PATCH** - Bug fixes (backwards compatible)
 
@@ -149,6 +183,7 @@ Given a version number `MAJOR.MINOR.PATCH`:
 [![Latest Release](https://img.shields.io/github/v/release/tbrandenburg/made)](https://github.com/tbrandenburg/made/releases)
 
 Check the latest version:
+
 ```bash
 git fetch --tags
 git tag --list | tail -1
@@ -182,8 +217,9 @@ manually first if you want that deeper check before releasing.
 ### Release Automation
 
 Releases are automated via GitHub Actions:
+
 1. Developer creates annotated tag (`v*.*.*` format)
-2. CI runs full test suite (`make qa`)  
+2. CI runs full test suite (`make qa`)
 3. GitHub release is created automatically
 4. Release artifacts are built and attached
 
@@ -228,6 +264,7 @@ uv run --project packages/pybackend python -m pytest packages/pybackend/tests/un
 ### Testing Execution Patterns
 
 **For Unit Tests (Jest):**
+
 ```bash
 # Simple - no dependencies required
 npm test
@@ -261,6 +298,7 @@ npx playwright test --headed             # Visual debugging
 ```
 
 **Alternative - Combined Server Start:**
+
 ```bash
 # Start both servers in background
 make run &
@@ -271,6 +309,7 @@ npx playwright test                       # Run tests
 ### Testing Architecture
 
 Testing follows the pyramid approach:
+
 - **Unit Tests** - Core business logic and services (pytest)
 - **Integration Tests** - API endpoints and database interactions (pytest)
 - **System Tests** - Full user journeys and workflows (Playwright)
@@ -285,6 +324,7 @@ Please read [CONTRIBUTING.md](./CONTRIBUTING.md) (or follow the short flow below
 4. Open a pull request
 
 Development setup:
+
 ```bash
 # Install dependencies
 make install
@@ -310,4 +350,3 @@ This project is licensed under the MIT License — see the [LICENSE](./LICENSE) 
 ## Maintainers
 
 - **Tom Brandenburg** — contact: [GitHub Profile](https://github.com/tbrandenburg)
-

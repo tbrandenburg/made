@@ -9,6 +9,7 @@ from unittest.mock import patch
 from agent_service import get_agent_cli
 from opencode_legacy_agent_cli import OpenCodeAgentCLI
 from opencode_database_agent_cli import OpenCodeDatabaseAgentCLI
+from opencode_v2_agent_cli import OpenCodeV2AgentCLI
 from copilot_agent_cli import CopilotAgentCLI
 from kiro_agent_cli import KiroAgentCLI
 from codex_agent_cli import CodexAgentCLI
@@ -41,6 +42,17 @@ class TestAgentCliSetting(unittest.TestCase):
             ):
                 cli = get_agent_cli()
                 self.assertIsInstance(cli, OpenCodeDatabaseAgentCLI)
+
+    def test_agent_cli_setting_opencode_v2_selection(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_file = Path(temp_dir) / "settings.json"
+            settings_file.write_text(json.dumps({"agentCli": "opencode-v2"}))
+            with patch(
+                "settings_service.get_settings_path", return_value=settings_file
+            ):
+                cli = get_agent_cli()
+                self.assertIsInstance(cli, OpenCodeV2AgentCLI)
+                self.assertEqual(cli.cli_name, "opencode-v2")
 
     def test_agent_cli_setting_copilot_selection(self):
         """Test that 'copilot' setting returns CopilotAgentCLI."""

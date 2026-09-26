@@ -12,6 +12,7 @@ from threading import Event, Lock
 from agent_cli import AgentCLI
 from opencode_legacy_agent_cli import OpenCodeAgentCLI
 from opencode_database_agent_cli import OpenCodeDatabaseAgentCLI
+from opencode_v2_agent_cli import OpenCodeV2AgentCLI
 from copilot_agent_cli import CopilotAgentCLI
 from kiro_agent_cli import KiroAgentCLI
 from codex_agent_cli import CodexAgentCLI
@@ -334,6 +335,7 @@ _AGENTS_CACHE: dict[str, dict] = {}
 _CACHE_TTL_SECONDS = 60
 REGISTERED_AGENT_CLI_CLASSES: tuple[type[AgentCLI], ...] = (
     OpenCodeDatabaseAgentCLI,
+    OpenCodeV2AgentCLI,
     OpenCodeAgentCLI,
     KiroAgentCLI,
     CopilotAgentCLI,
@@ -364,6 +366,8 @@ def get_agent_cli(context_path: Path | None = None):
             return PiAgentCLI()
         elif agent_cli_setting == "opencode":
             return OpenCodeDatabaseAgentCLI()
+        elif agent_cli_setting == "opencode-v2":
+            return OpenCodeV2AgentCLI()
         elif agent_cli_setting == "opencode-legacy":
             return OpenCodeAgentCLI()
         else:

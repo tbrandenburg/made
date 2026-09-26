@@ -8,6 +8,7 @@ type SettingsMap = Record<string, unknown>;
 
 const agentCliOptions = [
   "opencode",
+  "opencode-v2",
   "opencode-legacy",
   "kiro",
   "pi",
