@@ -113,6 +113,12 @@ class TestModelsEndpoint:
         values = [m["value"] for m in models]
         assert "default" in values
         assert "github-copilot/claude-opus-5" in values
+        assert {
+            "github-copilot/gpt-6-luna",
+            "github-copilot/gpt-6-sol",
+            "github-copilot/gpt-6-astra",
+            "github-copilot/claude-opus-5.5",
+        } <= set(values)
 
     @patch("app.model_options_as_dicts")
     def test_list_models_error(self, mock_models):

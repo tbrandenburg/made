@@ -45,6 +45,7 @@ MODEL_OPTIONS: list[ModelOption] = [
         None,
     ),
     ("github-copilot/claude-opus-5", "github-copilot/claude-opus-5", None),
+    ("github-copilot/claude-opus-5.5", "github-copilot/claude-opus-5.5", None),
     ("github-copilot/claude-sonnet-4.5", "github-copilot/claude-sonnet-4.5", None),
     ("github-copilot/claude-sonnet-4.6", "github-copilot/claude-sonnet-4.6", None),
     ("github-copilot/claude-sonnet-5", "github-copilot/claude-sonnet-5", None),
@@ -58,6 +59,9 @@ MODEL_OPTIONS: list[ModelOption] = [
     ("github-copilot/gpt-5.6-luna", "github-copilot/gpt-5.6-luna", None),
     ("github-copilot/gpt-5.6-sol", "github-copilot/gpt-5.6-sol", None),
     ("github-copilot/gpt-5.6-terra", "github-copilot/gpt-5.6-terra", None),
+    ("github-copilot/gpt-6-astra", "github-copilot/gpt-6-astra", None),
+    ("github-copilot/gpt-6-luna", "github-copilot/gpt-6-luna", None),
+    ("github-copilot/gpt-6-sol", "github-copilot/gpt-6-sol", None),
     ("github-copilot/kimi-k2.7-code", "github-copilot/kimi-k2.7-code", None),
     (
         "github-copilot/mai-code-1-flash-picker",

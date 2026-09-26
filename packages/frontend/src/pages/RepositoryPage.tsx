@@ -158,6 +158,10 @@ const DEFAULT_MODEL_OPTIONS: ModelOption[] = [
     label: "github-copilot/claude-opus-4.8-fast",
   },
   {
+    value: "github-copilot/claude-opus-5.5",
+    label: "github-copilot/claude-opus-5.5",
+  },
+  {
     value: "github-copilot/claude-sonnet-4.5",
     label: "github-copilot/claude-sonnet-4.5",
   },
@@ -208,6 +212,18 @@ const DEFAULT_MODEL_OPTIONS: ModelOption[] = [
   {
     value: "github-copilot/gpt-5.6-terra",
     label: "github-copilot/gpt-5.6-terra",
+  },
+  {
+    value: "github-copilot/gpt-6-astra",
+    label: "github-copilot/gpt-6-astra",
+  },
+  {
+    value: "github-copilot/gpt-6-luna",
+    label: "github-copilot/gpt-6-luna",
+  },
+  {
+    value: "github-copilot/gpt-6-sol",
+    label: "github-copilot/gpt-6-sol",
   },
   {
     value: "github-copilot/kimi-k2.7-code",
