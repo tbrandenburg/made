@@ -11,7 +11,7 @@ MADE_WORKSPACE_HOME ?= $(abspath $(CURDIR)/workspace/)
 export MADE_HOME
 export MADE_WORKSPACE_HOME
 
-.PHONY: help lint format test unit-test system-test qa qa-quick qa-quick-frontend qa-quick-backend qa-quick-changed test-frontend test-backend test-integration build run stop restart clean install install-node install-pybackend install-hooks test-coverage security-audit docker-build docker-up docker-down docker-dev docker-clean release tag-release
+.PHONY: help lint format test unit-test system-test qa qa-quick qa-quick-frontend qa-quick-backend qa-quick-changed lock-check test-frontend test-backend test-integration build run stop restart clean install install-node install-pybackend install-hooks test-coverage security-audit docker-build docker-up docker-down docker-dev docker-clean release tag-release
 
 # Default target
 help:
@@ -195,10 +195,10 @@ system-test:
 	fi; \
 	echo "✅ All system tests passed"
 
-qa: format lint test
+qa: format lint lock-check test
 	@echo "✅ All quality assurance tasks completed successfully!"
 
-qa-quick: format lint unit-test
+qa-quick: format lint lock-check unit-test
 	@echo "✅ All quick quality assurance tasks completed successfully!"
 
 qa-quick-frontend:
@@ -209,9 +209,13 @@ qa-quick-frontend:
 
 qa-quick-backend:
 	@echo "🔬 Running backend-only quick QA..."
+	$(MAKE) lock-check
 	cd $(PYBACKEND_DIR) && uv sync && uv run ruff check *.py
 	cd $(PYBACKEND_DIR) && uv sync && uv run pytest -c pytest.cov.ini tests/unit/
 	@echo "✅ Backend quick QA completed successfully!"
+
+lock-check:
+	cd $(PYBACKEND_DIR) && uv lock --check
 
 qa-quick-changed:
 	@changed="$$(git diff --name-only --diff-filter=ACMRTUXB HEAD; git ls-files --others --exclude-standard)"; \
@@ -384,9 +388,11 @@ release: qa-quick
 	fi; \
 	echo "🔧 Resolving synchronized version..."; \
 	NEW_VERSION=$$(python3 scripts/bump_version.py $$BUMP_ARGS) || exit 1; \
+	echo "🔒 Synchronizing backend lockfile..."; \
+	uv lock --project $(PYBACKEND_DIR) || exit 1; \
 	echo "✅ Bumped all package versions to $$NEW_VERSION"; \
 	echo "📝 Committing version bump..."; \
-	git add package.json packages/frontend/package.json packages/pybackend/pyproject.toml; \
+	git add package.json packages/frontend/package.json packages/pybackend/pyproject.toml packages/pybackend/uv.lock; \
 	git commit -m "chore(release): bump version to v$$NEW_VERSION"; \
 	echo "🏷️  Creating annotated tag v$$NEW_VERSION..."; \
 	git tag -a v$$NEW_VERSION -m "Release v$$NEW_VERSION"; \

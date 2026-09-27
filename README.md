@@ -238,7 +238,7 @@ git tag --list | tail -1
 ### Creating a Release
 
 Release version bumps are non-interactive and keep the root, frontend, and
-backend package versions synchronized:
+backend package versions synchronized with the backend lockfile:
 
 ```bash
 # Patch/minor/major bump (e.g. 0.1.0 -> 0.1.1), BUMP is case-insensitive
@@ -249,9 +249,10 @@ make release BUMP=MAJOR
 make release VERSION=1.2.3
 ```
 
-`make release` runs the fast QA gate (`make qa-quick`: format + lint + unit
-tests), bumps `package.json`, `packages/frontend/package.json`, and
-`packages/pybackend/pyproject.toml` to the same version, commits the change,
+`make release` runs the fast QA gate (`make qa-quick`: format + lint + lockfile
+consistency check + unit tests), bumps `package.json`,
+`packages/frontend/package.json`, and `packages/pybackend/pyproject.toml` to the
+same version, regenerates `packages/pybackend/uv.lock`, commits the changes,
 creates an annotated `vX.Y.Z` tag, and pushes the commit and tag together in
 one push. The pushed tag triggers the GitHub Actions release workflow, which
 re-validates that the tag version matches all package manifests and runs its
