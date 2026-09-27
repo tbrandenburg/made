@@ -81,6 +81,9 @@ MODEL_OPTIONS: list[ModelOption] = [
     ("openai/gpt-5.6-sol-fast", "openai/gpt-5.6-sol-fast", None),
     ("openai/gpt-5.6-terra", "openai/gpt-5.6-terra", None),
     ("openai/gpt-5.6-terra-fast", "openai/gpt-5.6-terra-fast", None),
+    ("openai/gpt-6-astra", "openai/gpt-6-astra", None),
+    ("openai/gpt-6-luna", "openai/gpt-6-luna", None),
+    ("openai/gpt-6-sol", "openai/gpt-6-sol", None),
 ]
 
 

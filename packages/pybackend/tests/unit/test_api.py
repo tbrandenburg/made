@@ -117,6 +117,9 @@ class TestModelsEndpoint:
             "github-copilot/gpt-6-luna",
             "github-copilot/gpt-6-sol",
             "github-copilot/gpt-6-astra",
+            "openai/gpt-6-luna",
+            "openai/gpt-6-sol",
+            "openai/gpt-6-astra",
             "github-copilot/claude-opus-5.5",
         } <= set(values)
 
