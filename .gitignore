@@ -312,6 +312,9 @@ workspace/
 # claude agent files
 .claude/
 
+# Ghar agent files
+.ghar/
+
 # dev files
 dev/
 .worktrees/
