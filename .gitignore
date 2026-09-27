@@ -317,4 +317,5 @@ workspace/
 
 # dev files
 dev/
+.harness/
 .worktrees/
