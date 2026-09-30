@@ -226,6 +226,10 @@ const DEFAULT_MODEL_OPTIONS: ModelOption[] = [
     label: "github-copilot/gpt-6-sol",
   },
   {
+    value: "github-copilot/gpt-6.1-sol",
+    label: "github-copilot/gpt-6.1-sol",
+  },
+  {
     value: "github-copilot/kimi-k2.7-code",
     label: "github-copilot/kimi-k2.7-code",
   },

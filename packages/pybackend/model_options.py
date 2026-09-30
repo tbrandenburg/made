@@ -62,6 +62,7 @@ MODEL_OPTIONS: list[ModelOption] = [
     ("github-copilot/gpt-6-astra", "github-copilot/gpt-6-astra", None),
     ("github-copilot/gpt-6-luna", "github-copilot/gpt-6-luna", None),
     ("github-copilot/gpt-6-sol", "github-copilot/gpt-6-sol", None),
+    ("github-copilot/gpt-6.1-sol", "github-copilot/gpt-6.1-sol", None),
     ("github-copilot/kimi-k2.7-code", "github-copilot/kimi-k2.7-code", None),
     (
         "github-copilot/mai-code-1-flash-picker",

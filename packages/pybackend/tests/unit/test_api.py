@@ -116,6 +116,7 @@ class TestModelsEndpoint:
         assert {
             "github-copilot/gpt-6-luna",
             "github-copilot/gpt-6-sol",
+            "github-copilot/gpt-6.1-sol",
             "github-copilot/gpt-6-astra",
             "openai/gpt-6-luna",
             "openai/gpt-6-sol",
