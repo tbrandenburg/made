@@ -268,6 +268,7 @@ const DEFAULT_MODEL_OPTIONS: ModelOption[] = [
   { value: "openai/gpt-6-astra", label: "openai/gpt-6-astra" },
   { value: "openai/gpt-6-luna", label: "openai/gpt-6-luna" },
   { value: "openai/gpt-6-sol", label: "openai/gpt-6-sol" },
+  { value: "openai/gpt-6.1-sol", label: "openai/gpt-6.1-sol" },
 ];
 
 type ApiModelOption = { value: string; label: string; group: string | null };
