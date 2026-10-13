@@ -6,6 +6,7 @@ import sqlite3
 import tempfile
 import threading
 import unittest
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -199,6 +200,79 @@ class TestOpenCodeV2AgentCLI(unittest.TestCase):
             result = self.cli.list_sessions(self.root)
         self.assertFalse(result.success)
         self.assertIn("Unsupported OpenCode database schema", result.error_message)
+
+    def test_child_observes_resolved_cwd_pwd_prompt_flags_and_inherited_environment(
+        self,
+    ):
+        repo = self.root / "repository with spaces"
+        repo.mkdir()
+        executable = self.root / "opencode"
+        executable.write_text(
+            f"#!{sys.executable}\n"
+            "import json, os, sys\n"
+            "observation = {'cwd': os.getcwd(), 'pwd': os.environ.get('PWD'), "
+            "'prompt': sys.stdin.read(), 'argv': sys.argv[1:], "
+            "'database': os.environ.get('OPENCODE_DB'), "
+            "'provider': os.environ.get('MADE_TEST_PROVIDER')}\n"
+            "print(json.dumps({'type': 'text', 'sessionID': 'ses_observed', "
+            "'part': {'text': json.dumps(observation)}}))\n",
+            encoding="utf-8",
+        )
+        executable.chmod(0o755)
+        for parent_pwd in (str(self.root / "backend"), None):
+            with (
+                self.subTest(parent_pwd=parent_pwd),
+                patch.dict(
+                    os.environ,
+                    {
+                        "PATH": f"{self.root}{os.pathsep}{os.environ['PATH']}",
+                        "OPENCODE_DB": str(self.database),
+                        "MADE_TEST_PROVIDER": "synthetic-provider-value",
+                    },
+                ),
+            ):
+                if parent_pwd is None:
+                    os.environ.pop("PWD", None)
+                else:
+                    os.environ["PWD"] = parent_pwd
+                parent = dict(os.environ)
+                processes = []
+                result = self.cli.run_agent(
+                    "prompt with spaces\nand a second line",
+                    "ses_existing",
+                    "plan",
+                    "provider/model with spaces",
+                    repo / ".." / repo.name,
+                    on_process=processes.append,
+                )
+                self.assertTrue(result.success, result.error_message)
+                observed = json.loads(result.response_parts[0].text)
+                self.assertEqual(observed["cwd"], str(repo))
+                self.assertEqual(observed["pwd"], str(repo))
+                self.assertEqual(
+                    observed["prompt"], "prompt with spaces\nand a second line"
+                )
+                self.assertEqual(
+                    observed["argv"],
+                    [
+                        "run",
+                        "--format",
+                        "json",
+                        "--session",
+                        "ses_existing",
+                        "--agent",
+                        "plan",
+                        "--model",
+                        "provider/model with spaces",
+                    ],
+                )
+                self.assertEqual(observed["database"], str(self.database))
+                self.assertEqual(observed["provider"], "synthetic-provider-value")
+                self.assertTrue(
+                    dict(os.environ) == parent, "Parent environment mutated"
+                )
+                self.assertEqual(len(processes), 1)
+                self.assertEqual(processes[0].poll(), 0)
 
     def test_cancelled_run_terminates_child_and_never_succeeds(self):
         executable = self.root / "opencode"

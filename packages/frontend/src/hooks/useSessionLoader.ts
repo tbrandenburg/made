@@ -10,6 +10,15 @@ export type GetHistoryFn = (
   signal?: AbortSignal,
 ) => Promise<ChatHistoryResponse>;
 
+export function historyErrorMessage(error: unknown): string {
+  if (error instanceof TypeError) {
+    return "Unable to load session history. Check your connection and retry refresh.";
+  }
+  return error instanceof Error
+    ? error.message
+    : "Failed to load session history. Retry refresh or select another session.";
+}
+
 interface UseSessionLoaderParams {
   name: string | undefined;
   sessionId: string | null | undefined;
@@ -21,6 +30,7 @@ interface UseSessionLoaderParams {
 interface UseSessionLoaderResult {
   sessionLoading: boolean;
   sessionError: string | null;
+  setSessionError: Dispatch<SetStateAction<string | null>>;
   clearSessionError: () => void;
 }
 
@@ -31,8 +41,8 @@ interface UseSessionLoaderResult {
  *
  * - Sets sessionLoading=true for the duration of the fetch.
  * - Ignores AbortError (stale request cancelled by cleanup).
- * - Surfaces other errors in sessionError.
- * - Resets sessionError when name/sessionId becomes falsy (e.g. session clear).
+ * - Shares sessionError with manual refresh and incremental history loads.
+ * - Clears errors on successful history load or name/sessionId change.
  */
 export function useSessionLoader({
   name,
@@ -54,18 +64,15 @@ export function useSessionLoader({
     onHistoryLoadedRef.current = onHistoryLoaded;
   }, [onHistoryLoaded]);
 
-  // Reset error state when the session is cleared (name or sessionId goes falsy).
+  // History errors belong to the selected session, independently of agent status.
   useEffect(() => {
-    if (!name || !sessionId) {
-      setSessionError(null);
-    }
+    setSessionError(null);
   }, [name, sessionId]);
 
   useEffect(() => {
     if (!name || !sessionId) return;
 
     setSessionLoading(true);
-    setSessionError(null);
 
     const controller = new AbortController();
 
@@ -73,19 +80,17 @@ export function useSessionLoader({
       .then((history) => {
         if (controller.signal.aborted) return;
         setSessionLoading(false);
+        setSessionError(null);
         const mapped = mapHistoryToMessages(history.messages || []);
         setChat(mapped);
         onHistoryLoadedRef.current?.(history);
       })
       .catch((error) => {
+        if (controller.signal.aborted) return;
         if (error instanceof DOMException && error.name === "AbortError")
           return;
         setSessionLoading(false);
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Failed to load session history";
-        setSessionError(message);
+        setSessionError(historyErrorMessage(error));
       });
 
     return () => {
@@ -94,5 +99,5 @@ export function useSessionLoader({
     };
   }, [name, sessionId, getHistory, setChat]);
 
-  return { sessionLoading, sessionError, clearSessionError };
+  return { sessionLoading, sessionError, setSessionError, clearSessionError };
 }

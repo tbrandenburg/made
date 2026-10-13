@@ -30,7 +30,10 @@ async function request<T>(
     if (inflight) return inflight;
     const promise = executeRequest<T>(endpoint, options);
     inflightRequests.set(key, promise as Promise<unknown>);
-    promise.finally(() => inflightRequests.delete(key));
+    void promise.then(
+      () => inflightRequests.delete(key),
+      () => inflightRequests.delete(key),
+    );
     return promise;
   }
 
@@ -61,7 +64,9 @@ async function executeRequest<T>(
             message =
               typeof parsed.detail === "string"
                 ? parsed.detail
-                : JSON.stringify(parsed.detail);
+                : typeof parsed.detail.message === "string"
+                  ? parsed.detail.message
+                  : JSON.stringify(parsed.detail);
           }
         } catch {
           // Ignore JSON parse errors and keep the raw message

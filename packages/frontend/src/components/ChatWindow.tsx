@@ -22,6 +22,7 @@ interface ChatWindowProps {
   running: boolean;
   refreshing?: boolean;
   sessionLoading?: boolean;
+  historyError?: string | null;
   emptyMessage: string;
   sessionId?: string | null;
   onClearSession?: () => void;
@@ -197,6 +198,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
     running,
     refreshing,
     sessionLoading,
+    historyError,
     emptyMessage,
     sessionId,
     onClearSession,
@@ -261,44 +263,53 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
     );
 
     return (
-      <div className="chat-window" ref={setChatWindowElement}>
-        {scrollParent && chat.length > 0 && (
-          <Virtuoso
-            ref={virtuosoRef}
-            customScrollParent={scrollParent ?? undefined}
-            data={chat}
-            itemContent={itemContent}
-            components={stableComponents}
-            computeItemKey={(_index, message) => message.id}
-            context={{
-              refreshing,
-              sessionLoading,
-              running,
-              sessionId,
-              isSessionSaved,
-              onClearSession,
-              onSaveSession,
-            }}
-            followOutput={(atBottom) => (atBottom ? "smooth" : false)}
-            increaseViewportBy={{ top: 300, bottom: 300 }}
-            style={{ height: "100%" }}
-          />
+      <>
+        {historyError && (
+          <div role="alert" className="alert error">
+            {historyError}
+          </div>
         )}
-        {chat.length === 0 && !refreshing && !sessionLoading && !running && (
-          <div className="empty">{emptyMessage}</div>
-        )}
-        {chat.length === 0 && (
-          <ChatFooter
-            refreshing={refreshing}
-            sessionLoading={sessionLoading}
-            running={running}
-            sessionId={sessionId}
-            isSessionSaved={isSessionSaved}
-            onClearSession={onClearSession}
-            onSaveSession={onSaveSession}
-          />
-        )}
-      </div>
+        <div className="chat-window" ref={setChatWindowElement}>
+          {scrollParent && chat.length > 0 && (
+            <Virtuoso
+              ref={virtuosoRef}
+              customScrollParent={scrollParent ?? undefined}
+              data={chat}
+              itemContent={itemContent}
+              components={stableComponents}
+              computeItemKey={(_index, message) => message.id}
+              context={{
+                refreshing,
+                sessionLoading,
+                running,
+                sessionId,
+                isSessionSaved,
+                onClearSession,
+                onSaveSession,
+              }}
+              followOutput={(atBottom) => (atBottom ? "smooth" : false)}
+              increaseViewportBy={{ top: 300, bottom: 300 }}
+              style={{ height: "100%" }}
+            />
+          )}
+          {chat.length === 0 &&
+            !historyError &&
+            !refreshing &&
+            !sessionLoading &&
+            !running && <div className="empty">{emptyMessage}</div>}
+          {chat.length === 0 && (
+            <ChatFooter
+              refreshing={refreshing}
+              sessionLoading={sessionLoading}
+              running={running}
+              sessionId={sessionId}
+              isSessionSaved={isSessionSaved}
+              onClearSession={onClearSession}
+              onSaveSession={onSaveSession}
+            />
+          )}
+        </div>
+      </>
     );
   },
 );

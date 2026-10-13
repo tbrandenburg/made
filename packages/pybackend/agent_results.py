@@ -95,6 +95,7 @@ class ExportResult:
     session_id: str
     messages: list[HistoryMessage]
     error_message: str | None = None
+    error_code: Literal["session_directory_mismatch"] | None = None
 
 
 @dataclass

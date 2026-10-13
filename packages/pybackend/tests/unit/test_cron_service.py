@@ -1,6 +1,12 @@
 from unittest.mock import MagicMock, patch
 from datetime import timedelta
 import subprocess
+import json
+import sys
+import time
+import os
+
+import pytest
 
 import cron_service
 import workflow_harness_service
@@ -389,6 +395,7 @@ def test_start_cron_clock_registers_scheduled_tasks(
 @patch("cron_service.shutil.which")
 @patch("cron_service.Thread")
 @patch("cron_service.subprocess.Popen")
+@patch.dict(os.environ, {"PATH": os.defpath, "PWD": "/synthetic/backend"}, clear=True)
 def test_run_scheduled_task_uses_configured_agent_cli(
     mock_popen,
     mock_thread,
@@ -425,11 +432,96 @@ def test_run_scheduled_task_uses_configured_agent_cli(
         stderr=cron_service.subprocess.PIPE,
         text=True,
         stdin=cron_service.subprocess.PIPE,
+        env={**os.environ, "PWD": str(tasks_dir.resolve())},
     )
     mock_thread.assert_called_once()
-    assert (
-        mock_thread.call_args.kwargs["args"][3] == "# check things\n- task body"
+    assert mock_thread.call_args.kwargs["args"][3] == "# check things\n- task body"
+
+
+@pytest.mark.parametrize("parent_pwd", ["conflicting backend", None])
+def test_scheduled_v2_child_observes_task_cwd_pwd_and_stdin(
+    tmp_path, monkeypatch, parent_pwd
+):
+    monkeypatch.setattr(os, "environ", {"PATH": os.defpath})
+    processes = []
+    waiters = []
+    popen = subprocess.Popen
+    thread = cron_service.Thread
+
+    def capture_process(*args, **kwargs):
+        process = popen(*args, **kwargs)
+        processes.append(process)
+        return process
+
+    def capture_waiter(*args, **kwargs):
+        waiter = thread(*args, **kwargs)
+        waiters.append(waiter)
+        return waiter
+
+    monkeypatch.setattr(cron_service.subprocess, "Popen", capture_process)
+    monkeypatch.setattr(cron_service, "Thread", capture_waiter)
+    home = tmp_path / "home with spaces"
+    tasks = home / ".made" / "tasks"
+    tasks.mkdir(parents=True)
+    (tasks.parent / "settings.json").write_text(
+        '{"agentCli": "opencode-v2"}', encoding="utf-8"
     )
+    (tasks / "observation.md").write_text(
+        "scheduled prompt\nsecond line", encoding="utf-8"
+    )
+    monkeypatch.setenv("MADE_HOME", str(home))
+    executable = tmp_path / "opencode"
+    executable.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, sys\n"
+        "print(json.dumps({'cwd': os.getcwd(), 'pwd': os.environ.get('PWD'), "
+        "'prompt': sys.stdin.read(), 'argv': sys.argv[1:], "
+        "'database': os.environ.get('OPENCODE_DB')}))\n",
+        encoding="utf-8",
+    )
+    executable.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("OPENCODE_DB", str(tmp_path / "synthetic.db"))
+    if parent_pwd is None:
+        monkeypatch.delenv("PWD", raising=False)
+    else:
+        monkeypatch.setenv("PWD", str(tmp_path / parent_pwd))
+    parent = dict(os.environ)
+    try:
+        cron_service._run_scheduled_task("task:observation", "observation.md")
+        deadline = time.monotonic() + 5
+        while (
+            "task:observation" not in cron_service._last_finished_by_job
+            and time.monotonic() < deadline
+        ):
+            time.sleep(0.01)
+        assert "task:observation" in cron_service._last_finished_by_job
+        observed = json.loads(cron_service._last_stdout_by_job["task:observation"])
+        assert observed["cwd"] == str(tasks)
+        assert observed["pwd"] == str(tasks)
+        assert observed["prompt"] == "scheduled prompt\nsecond line"
+        assert observed["argv"] == ["run", "--format", "json"]
+        assert observed["database"] == str(tmp_path / "synthetic.db")
+        assert cron_service._last_exit_code_by_job["task:observation"] == 0
+        assert not [
+            key
+            for key in set(os.environ) | set(parent)
+            if os.environ.get(key) != parent.get(key)
+        ]
+    finally:
+        try:
+            for process in processes:
+                if process.poll() is None:
+                    process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=5)
+        finally:
+            for waiter in waiters:
+                waiter.join(timeout=5)
+                assert not waiter.is_alive(), "Scheduled task waiter did not finish"
 
 
 @patch("cron_service.get_tasks_directory")
@@ -618,8 +710,6 @@ def test_get_long_running_jobs_returns_running_jobs_above_threshold():
 
 # --- PID file singleton tests ---
 
-import os
-
 
 def test_claim_cron_ownership_succeeds_when_no_existing_file(tmp_path):
     """Test claiming ownership when no PID file exists."""
@@ -635,8 +725,10 @@ def test_claim_cron_ownership_fails_when_process_alive(tmp_path):
     pid_file = tmp_path / "backend-cron.pid"
     pid_file.write_text("99999")
 
-    with patch("cron_service._get_pid_file_path") as mock_path, \
-         patch("cron_service._is_process_alive") as mock_alive:
+    with (
+        patch("cron_service._get_pid_file_path") as mock_path,
+        patch("cron_service._is_process_alive") as mock_alive,
+    ):
         mock_path.return_value = pid_file
         mock_alive.return_value = True
 
@@ -648,8 +740,10 @@ def test_claim_cron_ownership_succeeds_when_process_dead(tmp_path):
     pid_file = tmp_path / "backend-cron.pid"
     pid_file.write_text("99999")
 
-    with patch("cron_service._get_pid_file_path") as mock_path, \
-         patch("cron_service._is_process_alive") as mock_alive:
+    with (
+        patch("cron_service._get_pid_file_path") as mock_path,
+        patch("cron_service._is_process_alive") as mock_alive,
+    ):
         mock_path.return_value = pid_file
         mock_alive.return_value = False
 
@@ -746,8 +840,9 @@ def test_list_and_read_workflow_logs_discovers_real_flowsh_harness_output(tmp_pa
     produced_logs = list(log_dir.glob("*.log"))
     assert len(produced_logs) == 1
 
-    with patch("cron_service.get_workspace_home", return_value=workspace_home), patch(
-        "cron_service.get_made_home", return_value=tmp_path / "made-home-unused"
+    with (
+        patch("cron_service.get_workspace_home", return_value=workspace_home),
+        patch("cron_service.get_made_home", return_value=tmp_path / "made-home-unused"),
     ):
         logs = cron_service.list_workflow_logs()
 

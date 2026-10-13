@@ -39,6 +39,7 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 
 from agent_service import (
     ChannelBusyError,
+    SessionDirectoryMismatchError,
     cancel_agent_message,
     export_chat_history,
     get_channel_status,
@@ -1376,6 +1377,11 @@ def knowledge_agent_history(
             start,
         )
         return export_chat_history(session_id, normalized_start, f"knowledge:{name}")
+    except SessionDirectoryMismatchError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
     except ValueError as exc:
         logger.warning(
             "Bad request exporting agent history for knowledge '%s' (session: %s, start: %s): %s",
@@ -1590,6 +1596,11 @@ def constitution_agent_history(
             start,
         )
         return export_chat_history(session_id, normalized_start, f"constitution:{name}")
+    except SessionDirectoryMismatchError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
     except ValueError as exc:
         logger.warning(
             "Bad request exporting agent history for constitution '%s' (session: %s, start: %s): %s",
@@ -1734,6 +1745,11 @@ def task_agent_history(
             start,
         )
         return export_chat_history(session_id, normalized_start, f"task:{name}")
+    except SessionDirectoryMismatchError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
     except ValueError as exc:
         logger.warning(
             "Bad request exporting agent history for task '%s' (session: %s, start: %s): %s",
@@ -1824,6 +1840,11 @@ def repository_agent_history(
             start,
         )
         return export_chat_history(session_id, normalized_start, name)
+    except SessionDirectoryMismatchError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
     except ValueError as exc:
         logger.warning(
             "Bad request exporting agent history for '%s' (session: %s, start: %s): %s",

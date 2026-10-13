@@ -574,6 +574,7 @@ export const ConstitutionPage: React.FC = () => {
               sessionLoading={sessionLoading}
               refreshing={isRefreshing}
               emptyMessage="Start a conversation to discuss this constitution."
+              historyError={sessionError}
               sessionId={sessionId}
               onClearSession={openClearSessionModal}
               onSaveSession={handleSaveSession}
@@ -583,7 +584,6 @@ export const ConstitutionPage: React.FC = () => {
               markdownOptions={chatMarkdownOptions}
             />
             {agentStatus && <div className="alert">{agentStatus}</div>}
-            {sessionError && <div className="alert error">{sessionError}</div>}
             <MentionPathTextarea
               id={chatInputId}
               value={prompt}

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
-import { api } from "./useApi";
+import { api, HttpError } from "./useApi";
 
 describe("useApi retry behavior", () => {
   const originalFetch = window.fetch;
@@ -12,6 +12,39 @@ describe("useApi retry behavior", () => {
   afterAll(() => {
     window.fetch = originalFetch;
     consoleSpy.mockRestore();
+  });
+
+  it("surfaces a safe structured history conflict message without retrying or poisoning later requests", async () => {
+    const message =
+      "This session belongs to a different directory. Start a new session.";
+    window.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            detail: { code: "session_directory_mismatch", message },
+          }),
+          { status: 409 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ sessionId: "ses_conflict", messages: [] }),
+          { status: 200 },
+        ),
+      );
+    const failure = await api
+      .getRepositoryAgentHistory("repo", "ses_conflict")
+      .catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(HttpError);
+    expect(failure).toMatchObject({ status: 409, message });
+    expect(window.fetch).toHaveBeenCalledTimes(1);
+    const recovered = await api.getRepositoryAgentHistory(
+      "repo",
+      "ses_conflict",
+    );
+    expect(recovered.messages).toEqual([]);
+    expect(window.fetch).toHaveBeenCalledTimes(2);
   });
 
   describe("idempotent methods (GET, HEAD, OPTIONS)", () => {

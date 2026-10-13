@@ -174,6 +174,30 @@ reloaded v2 database history at `http://127.0.0.1:18080`. Keep these explicit
 Compose files and project name for startup, inspection, and teardown; do not
 use the default Compose project for this acceptance.
 
+Interactive v2 runs and scheduled task prompts set the child's `PWD` to its
+resolved working directory using a copied environment; the parent environment
+is unchanged. This prevents a backend-directory `PWD` from misplacing a new
+repository conversation. Session listing and export still enforce exact directory
+scope. A session that exists elsewhere returns HTTP **409**, with
+`detail.code: "session_directory_mismatch"` and a safe, actionable `detail.message`
+on repository, knowledge, constitution, and task history routes. Refresh failures
+retain the current transcript; selecting an inaccessible session clears the old
+session's transcript and displays the error instead.
+
+Historical misplaced sessions are **not moved automatically**. Start a new session
+in the intended repository, or have an operator verify ownership and the intended
+repository using the supported OpenCode API/CLI before attempting recovery. Use
+only recovery/location operations supported by the installed release; never
+modify the database with SQL UPDATEs or remove MADE's directory checks.
+
+The opt-in test forces conflicting inherited `PWD`, checks persisted location,
+listing, resume, transcript, and foreign-directory isolation. Its version check
+defaults to `opencode v2.0.18`, matching the pinned image. For a separately prepared
+isolated v2.0.28 environment, explicitly set
+`MADE_OPENCODE_V2_EXPECTED_VERSION='opencode v2.0.28'` when running the same test;
+this does not change the image pin. Record each actual version and test result.
+An opt-in skip is not acceptance evidence; finish with the real browser flow.
+
 ## Configuration
 
 Environment variables / config:

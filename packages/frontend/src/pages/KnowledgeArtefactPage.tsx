@@ -587,6 +587,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
             sessionLoading={sessionLoading}
             refreshing={isRefreshing}
             emptyMessage="Start a conversation to collaborate with agents."
+            historyError={sessionError}
             sessionId={sessionId}
             onClearSession={openClearSessionModal}
             onSaveSession={handleSaveSession}
@@ -596,7 +597,6 @@ export const KnowledgeArtefactPage: React.FC = () => {
             markdownOptions={chatMarkdownOptions}
           />
           {agentStatus && <div className="alert">{agentStatus}</div>}
-          {sessionError && <div className="alert error">{sessionError}</div>}
           <MentionPathTextarea
             id={chatInputId}
             value={prompt}

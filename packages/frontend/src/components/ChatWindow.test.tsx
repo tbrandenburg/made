@@ -105,9 +105,76 @@ describe("ChatWindow", () => {
     expect(screen.getByText("No messages")).toBeInTheDocument();
   });
 
+  it("shows a history error instead of a successful empty state, then restores genuine empty state on recovery", () => {
+    const message =
+      "This session belongs to a different directory. Start a new session.";
+    const { rerender } = render(
+      <ChatWindow
+        chat={[]}
+        running={false}
+        sessionId="inaccessible"
+        historyError={message}
+        emptyMessage="No conversation yet."
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(message);
+    expect(screen.queryByText("No conversation yet.")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Session ID")).toHaveTextContent(
+      "inaccessible",
+    );
+    rerender(
+      <ChatWindow
+        chat={[]}
+        running={false}
+        sessionId="empty"
+        historyError={null}
+        emptyMessage="No conversation yet."
+      />,
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("No conversation yet.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Session ID")).toHaveTextContent("empty");
+  });
+
   it("shows loading indicator", () => {
     render(<ChatWindow chat={[]} running emptyMessage="No messages" />);
     expect(screen.getByText("Agent is thinking...")).toBeInTheDocument();
+  });
+
+  it("keeps refresh failure outside the scrolling transcript while retaining messages and scroll behavior", () => {
+    const chat = Array.from({ length: 20 }, (_, index) =>
+      makeMessage({ text: `Retained message ${index}` }),
+    );
+    const { container, rerender } = render(
+      <ChatWindow
+        chat={chat}
+        running={false}
+        refreshing
+        emptyMessage="No messages"
+      />,
+    );
+    scrollToIndexMock.mockClear();
+    rerender(
+      <ChatWindow
+        chat={chat}
+        running={false}
+        refreshing={false}
+        historyError="Unable to load session history. Retry refresh."
+        emptyMessage="No messages"
+      />,
+    );
+    const alert = screen.getByRole("alert");
+    const pane = container.querySelector(".chat-window");
+    expect(pane).not.toContainElement(alert);
+    expect(alert.parentElement).toBe(pane?.parentElement);
+    expect(alert).toHaveTextContent("Retry refresh.");
+    expect(screen.getByText("Retained message 0")).toBeInTheDocument();
+    expect(screen.getByText("Retained message 19")).toBeInTheDocument();
+    expect(scrollToIndexMock).toHaveBeenCalledWith({
+      index: 19,
+      align: "end",
+      behavior: "auto",
+    });
   });
 
   it("renders loading indicator in the virtualized footer for non-empty chat", () => {
