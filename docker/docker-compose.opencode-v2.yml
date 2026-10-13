@@ -1,7 +1,7 @@
 services:
   pybackend:
     build:
-      context: .
+      context: ..
       dockerfile: docker/pybackend.opencode-v2.Dockerfile
       args:
         COMMIT_SHA: ${COMMIT_SHA:-unknown}

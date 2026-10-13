@@ -386,6 +386,18 @@ class ChannelBusyError(RuntimeError):
     """Raised when a chat channel already has a pending request."""
 
 
+class SessionDirectoryMismatchError(RuntimeError):
+    """History exists outside the requested scope; never expose its location."""
+
+    code = "session_directory_mismatch"
+
+    def __init__(self) -> None:
+        super().__init__(
+            "This session belongs to a different directory and cannot be loaded here. "
+            "Start a new session, or ask an operator to verify its intended location before recovery."
+        )
+
+
 # Helper functions for backward compatibility with tests
 def _to_milliseconds(raw_value: object) -> int | None:
     """Convert value to milliseconds timestamp."""
@@ -848,6 +860,8 @@ def export_chat_history(
     )
 
     if not result.success:
+        if result.error_code == SessionDirectoryMismatchError.code:
+            raise SessionDirectoryMismatchError()
         if _is_missing_session_error(result.error_message):
             logger.warning(
                 "Chat history requested for unknown session (channel: %s, session: %s); returning empty history",

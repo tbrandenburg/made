@@ -335,13 +335,16 @@ clean:
 	@echo "✅ Cleaned up build artifacts and cache"
 
 # Docker Tasks
+# Preserve the development override previously loaded by Compose discovery.
+DOCKER_COMPOSE := docker compose -f docker/docker-compose.yml -f docker/docker-compose.override.yml
+
 docker-build:
 	@echo "🐳 Building Docker images..."
-	docker compose build
+	$(DOCKER_COMPOSE) build
 
 docker-up: docker-build
 	@echo "🚀 Starting all services with Docker Compose..."
-	docker compose up -d
+	$(DOCKER_COMPOSE) up -d
 	@echo "✅ Services started:"
 	@echo "  Frontend: http://localhost:8080"
 	@echo "  Python API: http://localhost:3000/api/"
@@ -349,17 +352,17 @@ docker-up: docker-build
 
 docker-down:
 	@echo "⏹️  Stopping Docker services..."
-	docker compose down
+	$(DOCKER_COMPOSE) down
 	@echo "✅ All services stopped"
 
 docker-dev:
 	@echo "🔧 Starting development environment with hot reload..."
-	docker compose up --build
+	$(DOCKER_COMPOSE) up --build
 	@echo "✅ Development environment started with hot reload"
 
 docker-clean: docker-down
 	@echo "🧹 Cleaning up Docker resources..."
-	docker compose down -v --remove-orphans
+	$(DOCKER_COMPOSE) down -v --remove-orphans
 	docker system prune -f
 	@echo "✅ Docker cleanup completed"
 

@@ -201,14 +201,20 @@ class OpenCodeV2AgentCLI(AgentCLI):
             with closing(self._connect()) as connection:
                 query = "SELECT id, directory FROM session_v2 WHERE id = ? AND parent_id IS NULL"
                 session = connection.execute(query, (session_id,)).fetchone()
-                if session is None or (
-                    cwd and session["directory"] != str(cwd.resolve())
-                ):
+                if session is None:
                     return ExportResult(
                         False,
                         session_id,
                         [],
                         f"Session {session_id} not found in requested directory",
+                    )
+                if cwd and session["directory"] != str(cwd.resolve()):
+                    return ExportResult(
+                        False,
+                        session_id,
+                        [],
+                        "Session belongs to a different directory",
+                        error_code="session_directory_mismatch",
                     )
                 rows = connection.execute(
                     "SELECT id, type, time_created, data FROM session_message WHERE session_id = ? ORDER BY seq ASC",
@@ -401,13 +407,17 @@ class OpenCodeV2AgentCLI(AgentCLI):
         if cancel_event and cancel_event.is_set():
             return RunResult(False, session_id, [], "Agent request cancelled.")
         try:
+            directory = cwd.resolve()
+            environment = os.environ.copy()
+            environment["PWD"] = str(directory)
             process = subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                cwd=cwd,
+                cwd=directory,
+                env=environment,
             )
             if on_process:
                 on_process(process)

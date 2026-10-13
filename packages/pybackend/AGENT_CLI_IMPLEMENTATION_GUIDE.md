@@ -715,7 +715,7 @@ class MyAgentCLI(AgentCLI):
 | File                             | Agent                                   | Session storage                                                                          | Prompt delivery           | Agent listing                                               |
 | -------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------- |
 | `opencode_database_agent_cli.py` | OpenCode                                | SQLite `~/.local/share/opencode/opencode.db`                                             | stdin                     | CLI subprocess                                              |
-| `opencode_v2_agent_cli.py`       | OpenCode v2 (`agentCli: "opencode-v2"`) | Read-only SQLite `session_v2` / `session_message`, resolved by `opencode debug paths db` | stdin with subprocess cwd | Built-ins plus global/project JSON and Markdown definitions |
+| `opencode_v2_agent_cli.py`       | OpenCode v2 (`agentCli: "opencode-v2"`) | Read-only SQLite `session_v2` / `session_message`, resolved by `opencode debug paths db` | stdin with resolved cwd and matching child PWD | Built-ins plus global/project JSON and Markdown definitions |
 | `claude_agent_cli.py`            | Claude Code                             | JSONL `~/.claude/projects/<slug>/<id>.jsonl`                                             | positional arg            | `claude agents`                                             |
 | `codex_agent_cli.py`             | Codex                                   | JSONL `~/.codex/sessions/YYYY/MM/DD/rollout-<id>.jsonl`                                  | stdin                     | hardcoded                                                   |
 | `copilot_agent_cli.py`           | GitHub Copilot                          | Events JSONL `~/.copilot/session-state/<id>/events.jsonl`                                | `-p` flag                 | hardcoded                                                   |
@@ -731,6 +731,28 @@ schema, opens SQLite read-only, scopes sessions to the exact canonical working
 directory, and orders messages by the indexed `session_id, seq` key. Unknown
 schemas are rejected rather than migrated or modified.
 
+For execution, resolve cwd once, copy `os.environ`, override only the copy's `PWD`
+with that directory, and pass both to `Popen`. Do not change the parent environment:
+provider/config/database overrides and PATH must remain inherited. The separate
+scheduled-task launch in `cron_service` enforces the same invariant, retaining the
+configured adapter's stdin/argv prompt contract and process lifecycle.
+
+`ExportResult.error_code` is an optional typed discriminator appended after the
+existing fields to preserve positional consumers. V2 sets
+`session_directory_mismatch` only when an existing root session has a different
+exact directory, returning no transcript or location. The service raises
+`SessionDirectoryMismatchError` before legacy missing-session string detection;
+the four history routes return HTTP 409 with `detail.code` and a safe
+`detail.message`. Genuine empty/absent sessions and legacy missing errors retain
+their existing semantics. Frontend refresh failures preserve the current chat;
+session selection clears the previous chat, and stale failures are ignored.
+
+Never automatically relocate historical sessions or use SQL UPDATEs for recovery.
+An operator must first verify session ownership and the intended repository with
+the supported OpenCode API/CLI, then use only recovery/location operations
+supported by that release. Starting a fresh correctly scoped session is the safe
+alternative; do not weaken directory isolation to recover a transcript.
+
 V2 agent definitions are discovered from global and project JSON/JSONC files
 and Markdown files under `agents/`. The v2 agent-list API can return an empty
 result despite configured agents, so plugin-generated/transformed agents that
@@ -740,3 +762,8 @@ For a real CLI acceptance, use the isolated Compose project and pinned image
 described in the repository README. It stores Made settings/workspace and
 OpenCode home/database in project-scoped Docker volumes and binds only loopback
 ports 13000 and 18080; do not run the v2 CLI against host OpenCode data.
+The opt-in test deliberately conflicts parent PWD and verifies the real persisted
+directory, listing, resume, transcript, and foreign-directory rejection. The image
+and default expected version remain v2.0.18. Separately prepared isolated v2.0.28
+runs must explicitly set `MADE_OPENCODE_V2_EXPECTED_VERSION='opencode v2.0.28'`;
+report the actual version/result rather than counting an opt-in skip as a pass.

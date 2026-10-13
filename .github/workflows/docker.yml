@@ -48,7 +48,7 @@ jobs:
       
       - name: Show Docker logs on failure
         if: failure()
-        run: docker compose logs
+        run: docker compose -f docker/docker-compose.yml -f docker/docker-compose.override.yml logs
 
   docker-dev-mode:
     name: Docker Development Mode

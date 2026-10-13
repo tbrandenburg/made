@@ -5,7 +5,11 @@ import { mapHistoryToMessages, mergeChatMessages } from "../utils/chat";
 import type { AgentReply, ChatHistoryResponse, ChatSession } from "./useApi";
 import { HttpError } from "./useApi";
 import { useAgentPolling } from "./useAgentPolling";
-import { useSessionLoader, type GetHistoryFn } from "./useSessionLoader";
+import {
+  useSessionLoader,
+  historyErrorMessage,
+  type GetHistoryFn,
+} from "./useSessionLoader";
 
 type AgentStatusResponse = {
   running: boolean;
@@ -196,6 +200,7 @@ export function useChatSession({
   const {
     sessionLoading,
     sessionError,
+    setSessionError: setSessionHistoryError,
     clearSessionError: clearSessionHistoryError,
   } = useSessionLoader({
     name: isExternal ? undefined : name,
@@ -224,20 +229,31 @@ export function useChatSession({
           startTimestamp,
           signal,
         );
-        if (signal.aborted) return;
+        if (signal.aborted || sessionIdRef.current !== sessionId) return;
+        clearSessionHistoryError();
         if (!history.messages?.length) return;
         setChat((previousChat) => {
           const mapped = mapHistoryToMessages(history.messages);
           return mergeChatMessages(previousChat, mapped);
         });
       } catch (error) {
+        if (signal.aborted || sessionIdRef.current !== sessionId) return;
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
         console.error("Failed to sync chat history", error);
+        setSessionHistoryError(historyErrorMessage(error));
       }
     },
-    [getHistoryApi, isExternal, name, sessionId, setChat],
+    [
+      clearSessionHistoryError,
+      getHistoryApi,
+      isExternal,
+      name,
+      sessionId,
+      setChat,
+      setSessionHistoryError,
+    ],
   );
 
   const isProcessing = agentState.status === "processing";
@@ -275,29 +291,20 @@ export function useChatSession({
     const sessionIdAtCall = sessionId;
     isRefreshingRef.current = true;
     setRefreshing(true);
-    clearSessionHistoryError();
-    let chatBeforeRefresh: ChatMessage[] = [];
-    setChat((prev) => {
-      chatBeforeRefresh = prev;
-      return [];
-    });
 
     try {
       const history = await getHistoryApi(name, sessionIdAtCall);
       if (sessionIdRef.current !== sessionIdAtCall) return;
+      clearSessionHistoryError();
       const mapped = mapHistoryToMessages(history.messages || []);
       setChat(mapped);
       setIdle();
       // Always probe backend for authoritative status on manual refresh (#686).
       await refreshAgentStatus(sessionIdAtCall);
     } catch (error) {
-      setChat(chatBeforeRefresh);
+      if (sessionIdRef.current !== sessionIdAtCall) return;
       console.error("Failed to load session history", error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to load session history";
-      setError(message);
+      setSessionHistoryError(historyErrorMessage(error));
     } finally {
       setRefreshing(false);
     }
@@ -309,7 +316,7 @@ export function useChatSession({
     refreshAgentStatus,
     sessionId,
     setChat,
-    setError,
+    setSessionHistoryError,
     setIdle,
     setRefreshing,
   ]);
@@ -468,9 +475,18 @@ export function useChatSession({
       setSessionModalOpen(false);
       setIdle();
       lastKnownTimestampRef.current = undefined;
+      setChat([]);
       setSessionId(session.id);
     },
-    [isExternal, name, reloadCurrentSession, sessionId, setIdle, setSessionId],
+    [
+      isExternal,
+      name,
+      reloadCurrentSession,
+      sessionId,
+      setChat,
+      setIdle,
+      setSessionId,
+    ],
   );
 
   const openClearSessionModal = useCallback(() => {

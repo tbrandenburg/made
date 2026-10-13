@@ -1927,6 +1927,7 @@ export const RepositoryPage: React.FC = () => {
             refreshing={isRefreshing}
             sessionLoading={sessionLoading}
             emptyMessage="No conversation yet."
+            historyError={sessionError}
             sessionId={sessionId}
             onClearSession={openClearSessionModal}
             onSaveSession={handleSaveSession}
@@ -1936,7 +1937,6 @@ export const RepositoryPage: React.FC = () => {
             markdownOptions={chatMarkdownOptions}
           />
           {agentStatus && <div className="alert">{agentStatus}</div>}
-          {sessionError && <div className="alert error">{sessionError}</div>}
           <MentionPathTextarea
             id={chatInputId}
             value={pendingPrompt}

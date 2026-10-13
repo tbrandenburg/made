@@ -380,7 +380,7 @@ def _run_scheduled_task(task_id: str, task_file_name: str) -> None:
     global _started_jobs, _failed_jobs
 
     started_at = datetime.now(timezone.utc)
-    tasks_directory = get_tasks_directory()
+    tasks_directory = get_tasks_directory().resolve()
     task_data = read_task(task_file_name)
     prompt = str(task_data.get("content") or "").strip()
     if not prompt:
@@ -399,8 +399,11 @@ def _run_scheduled_task(task_id: str, task_file_name: str) -> None:
         logger.warning("Skipping scheduled task '%s': %s", task_id, exc)
         return
 
+    environment = os.environ.copy()
+    environment["PWD"] = str(tasks_directory)
     popen_kwargs: dict[str, object] = {
         "cwd": str(tasks_directory),
+        "env": environment,
         "stdout": subprocess.PIPE,
         "stderr": subprocess.PIPE,
         "text": True,
