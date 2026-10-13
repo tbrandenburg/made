@@ -1,6 +1,6 @@
 # Docker Compose override for development
-# This file is automatically used when running docker-compose in development
-# Usage: docker-compose up (automatically includes this override)
+# Make Docker targets explicitly include this override to preserve hot reload.
+# Usage: make docker-dev
 
 version: '3.9'
 
@@ -8,7 +8,7 @@ services:
   pybackend:
     # Mount source code for development
     volumes:
-      - ./packages/pybackend:/app
+      - ../packages/pybackend:/app
       - made-data:/app/.made
       - made-workspace:/workspace
       # Anonymous volume so the bind mount above doesn't shadow the venv

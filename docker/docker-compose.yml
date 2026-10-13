@@ -1,10 +1,12 @@
 version: '3.9'
 
+name: made
+
 services:
   # Python backend
   pybackend:
     build:
-      context: .
+      context: ..
       dockerfile: docker/pybackend.Dockerfile
       args:
         - COMMIT_SHA=${COMMIT_SHA:-unknown}
@@ -19,7 +21,7 @@ services:
 
   frontend:
     build:
-      context: .
+      context: ..
       dockerfile: docker/frontend.Dockerfile
     depends_on:
       - pybackend
