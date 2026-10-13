@@ -280,9 +280,9 @@ same version, regenerates `packages/pybackend/uv.lock`, commits the changes,
 creates an annotated `vX.Y.Z` tag, and pushes the commit and tag together in
 one push. The pushed tag triggers the GitHub Actions release workflow, which
 re-validates that the tag version matches all package manifests and runs its
-own QA before publishing the GitHub Release. `make qa` (full test suite,
-including `tests/integration`, which hits real external agent CLIs) and
-`make system-test` are intentionally not part of the release gate — run them
+own QA before publishing the GitHub Release. `make qa` (frontend and
+non-external backend tests), opt-in `make test-integration` (real external agent
+CLIs), and `make system-test` are intentionally not part of the release gate — run them
 manually first if you want that deeper check before releasing.
 
 ### Release Automation
@@ -299,16 +299,19 @@ Releases are automated via GitHub Actions:
 ### Quick Test Commands
 
 ```bash
-# Unit tests (Python backend)
+# Frontend and Python backend unit tests
 make unit-test
 
 # System tests (Playwright)
 make system-test
 
-# All tests with coverage
+# Frontend and non-external backend tests with coverage
 make test-coverage
 
-# Lint and format code
+# Format, lint, lock consistency, and unit tests
+make qa-quick
+
+# Format, lint, lock consistency, and non-external tests
 make qa
 ```
 
@@ -334,12 +337,18 @@ uv run --project packages/pybackend python -m pytest packages/pybackend/tests/un
 
 ### Testing Execution Patterns
 
-**For Unit Tests (Jest):**
+**For Frontend Unit Tests (Vitest):**
 
 ```bash
-# Simple - no dependencies required
+# From the repository root, after installing dependencies
 npm test
 ```
+
+The root test command delegates to the frontend workspace's real test runner.
+Frontend failures propagate to `make unit-test`, `make test`, `make qa-quick`,
+and the ordinary pre-push hook; a successful informational echo is not a test
+result. The combined Make targets also execute the Python backend suite.
+External agent CLI integrations remain opt-in through `make test-integration`.
 
 **For End-to-End Tests (Playwright):**
 
@@ -417,6 +426,25 @@ This project is licensed under the MIT License — see the [LICENSE](./LICENSE) 
 - Use environment variables for sensitive configuration
 - Follow secure coding practices for file operations
 - Report security issues privately to the maintainers
+
+Dependency security floors are maintained in the manifests and lockfiles; update
+the affected packages selectively rather than using forced dependency changes or
+ignoring advisory IDs. Validate the installed tree after a frozen/clean install:
+
+```bash
+npm ci
+npm audit
+uv sync --project packages/pybackend --frozen
+make security-audit
+```
+
+PyJWT's `PYSEC-2026-4146` / `GHSA-gvp8-978c-rx2q` advisory lists no patched
+version but bounds its reported affected versions through 2.13.0. The selected
+2.15.1 release preserves a caller's decode options instead of mutating them;
+reusing the options after enabling signature verification rejects expired claims.
+The manifest requires at least 2.15.0 to address the other PyJWT findings, and
+urllib3 requires at least 2.8.0. Verify behavior and affected ranges as well as the
+audit result when upstream advisory metadata is incomplete.
 
 ## Maintainers
 

@@ -4,6 +4,7 @@ Dockerfile*
 dist
 .git
 .gitignore
+.worktrees
 README.md
 LICENSE
 *.md
