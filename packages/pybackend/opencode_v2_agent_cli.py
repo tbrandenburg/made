@@ -257,7 +257,12 @@ class OpenCodeV2AgentCLI(AgentCLI):
                         text = str(part.get("text") or "")
                         content_type = "text" if kind == "text" else "reasoning"
                     elif kind == "tool":
-                        text = str(part.get("tool") or part.get("name") or "Tool")
+                        text = str(
+                            part.get("tool")
+                            or part.get("name")
+                            or part.get("id")
+                            or "Tool"
+                        )
                         content_type = "tool_use"
                     else:
                         continue
@@ -274,9 +279,16 @@ class OpenCodeV2AgentCLI(AgentCLI):
                                         "created", row["time_created"]
                                     )
                                 ),
-                                str(part.get("partID")) if part.get("partID") else None,
+                                str(part.get("partID") or part.get("partId"))
+                                if part.get("partID") or part.get("partId")
+                                else None,
                                 str(part.get("id"))
-                                if kind == "tool" and part.get("id")
+                                if kind == "tool"
+                                and (
+                                    part.get("callID")
+                                    or part.get("callId")
+                                    or part.get("id")
+                                )
                                 else None,
                             )
                         )
@@ -474,8 +486,12 @@ class OpenCodeV2AgentCLI(AgentCLI):
                 session_id = str(payload["sessionID"])
             part = payload.get("part") or {}
             kind = payload.get("type") or part.get("type")
-            part_id = part.get("partID")
-            call_id = part.get("id") if kind in {"tool", "tool_use"} else None
+            part_id = part.get("partID") or part.get("partId")
+            call_id = (
+                part.get("callID") or part.get("callId") or part.get("id")
+                if kind in {"tool", "tool_use"}
+                else None
+            )
             text = str(part.get("text") or "")
             if kind in {"text", "reasoning"} and text:
                 events.append(
@@ -483,7 +499,17 @@ class OpenCodeV2AgentCLI(AgentCLI):
                         kind,
                         text,
                         payload.get("timestamp") or part.get("time"),
-                        str(part_id) if part_id else None,
+                        str(
+                            part_id
+                            or (
+                                part.get("id")
+                                if kind not in {"tool", "tool_use"}
+                                else None
+                            )
+                        )
+                        if part_id
+                        or (part.get("id") and kind not in {"tool", "tool_use"})
+                        else None,
                         str(call_id) if call_id else None,
                     )
                 )
