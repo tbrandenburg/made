@@ -193,6 +193,25 @@ class TestOpenCodeV2AgentCLI(unittest.TestCase):
         self.assertEqual(parts[2].timestamp, 1234)
         self.assertIsNone(missing_id)
 
+    def test_v2_tool_events_accept_legacy_call_id_aliases(self):
+        output = json.dumps(
+            {
+                "type": "tool_use",
+                "part": {
+                    "type": "tool",
+                    "tool": "bash",
+                    "partId": "prt_legacy_shape",
+                    "callID": "call_legacy_shape",
+                },
+            }
+        )
+
+        _, parts = self.cli._parse_v2_events(output)
+
+        self.assertEqual(parts[0].text, "bash")
+        self.assertEqual(parts[0].part_id, "prt_legacy_shape")
+        self.assertEqual(parts[0].call_id, "call_legacy_shape")
+
     def test_unknown_database_schema_fails_explicitly(self):
         unknown = self.root / "unknown.db"
         sqlite3.connect(unknown).close()
