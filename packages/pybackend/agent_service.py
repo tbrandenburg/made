@@ -782,6 +782,15 @@ def terminate_agent_process(pid: int) -> bool:
 
 def _get_working_directory(channel: str) -> Path:
     """Determine the working directory based on the channel context."""
+    if channel.startswith("task:"):
+        tasks_dir = ensure_directory(get_made_directory() / "tasks")
+        logger.info(
+            "Resolved agent working directory to tasks directory (channel: %s, cwd: %s)",
+            channel,
+            tasks_dir,
+        )
+        return tasks_dir
+
     # For repository chats, run opencode in the repository directory
     if not channel.startswith("knowledge:") and not channel.startswith("constitution:"):
         workspace = get_workspace_home()

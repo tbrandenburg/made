@@ -81,6 +81,7 @@ class TestAgentService:
     def setup_method(self):
         """Clear agents cache before each test to prevent cross-test contamination."""
         import agent_service
+
         agent_service._AGENTS_CACHE.clear()
 
     @patch("agent_service.get_workspace_home")
@@ -170,6 +171,24 @@ class TestAgentService:
         mock_ensure_directory.assert_called_once_with(const_dir)
         assert result == const_dir
 
+    @patch("agent_service.ensure_directory")
+    @patch("agent_service.get_made_directory")
+    def test_get_working_directory_task_chat(
+        self, mock_get_made_directory, mock_ensure_directory
+    ):
+        from agent_service import _get_working_directory
+
+        made_dir = Path("/test/made/home/.made")
+        tasks_dir = made_dir / "tasks"
+        mock_get_made_directory.return_value = made_dir
+        mock_ensure_directory.return_value = tasks_dir
+
+        result = _get_working_directory("task:daily.md")
+
+        mock_get_made_directory.assert_called_once()
+        mock_ensure_directory.assert_called_once_with(tasks_dir)
+        assert result == tasks_dir
+
     @patch("agent_service.get_agent_cli")
     @patch("agent_service.get_workspace_home")
     def test_list_agents_uses_workspace_cwd(
@@ -217,8 +236,9 @@ class TestAgentService:
             agents=[AgentInfo(name="test", agent_type="primary", details=[])],
         )
 
-        with patch.object(Path, "exists", return_value=True), patch.object(
-            Path, "is_dir", return_value=True
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
         ):
             result = list_agents("sample")
 
@@ -233,8 +253,9 @@ class TestAgentService:
         workspace = Path("/workspace")
         mock_get_workspace_home.return_value = workspace
 
-        with patch.object(Path, "exists", return_value=False), patch.object(
-            Path, "is_dir", return_value=False
+        with (
+            patch.object(Path, "exists", return_value=False),
+            patch.object(Path, "is_dir", return_value=False),
         ):
             with pytest.raises(FileNotFoundError):
                 list_agents("missing")
@@ -245,7 +266,9 @@ class TestAgentService:
         import agent_service
 
         agent_service._AGENTS_CACHE.clear()
-        mock_uncached.return_value = [{"name": "test", "type": "primary", "details": []}]
+        mock_uncached.return_value = [
+            {"name": "test", "type": "primary", "details": []}
+        ]
 
         result1 = agent_service.list_agents("my-repo")
         result2 = agent_service.list_agents("my-repo")
@@ -462,9 +485,12 @@ class TestAgentService:
                 # send_agent_message derives lock_key = session_id when provided
                 # We simulate by calling _mark_channel_processing directly as the function would
                 from agent_service import _mark_channel_processing as mark
+
                 result = mark("ses_X")
                 assert result is False
-                raise ChannelBusyError("Agent is still processing a previous message for this chat.")
+                raise ChannelBusyError(
+                    "Agent is still processing a previous message for this chat."
+                )
         finally:
             _clear_channel_processing("ses_X")
 
@@ -736,7 +762,9 @@ class TestAgentService:
             {"pid": 1002, "command": "pi --print --mode json --session pi-xyz"},
         ]
 
-        with patch("agent_service.list_running_agent_processes", return_value=fake_processes):
+        with patch(
+            "agent_service.list_running_agent_processes", return_value=fake_processes
+        ):
             assert _is_process_running_for_session("ses_abc123") is True
             assert _is_process_running_for_session("pi-xyz") is True
             assert _is_process_running_for_session("nonexistent-session") is False
@@ -931,9 +959,10 @@ class TestAgentService:
                     "sessionId": None,
                 }
 
-            with patch("agent_service._save_process_registry"), patch(
-                "agent_service.os.kill"
-            ) as mock_kill:
+            with (
+                patch("agent_service._save_process_registry"),
+                patch("agent_service.os.kill") as mock_kill,
+            ):
                 assert cancel_agent_message(lock_key) is True
                 mock_kill.assert_called_once_with(4321, signal.SIGTERM)
         finally:
@@ -1037,7 +1066,11 @@ class TestAgentService:
         """_load_process_registry must discard entries older than _MAX_PROCESSING_AGE."""
         from datetime import UTC, datetime, timedelta
         from unittest.mock import patch
-        from agent_service import _load_process_registry, _MAX_PROCESSING_AGE, _process_registry
+        from agent_service import (
+            _load_process_registry,
+            _MAX_PROCESSING_AGE,
+            _process_registry,
+        )
 
         recent_time = datetime.now(UTC) - timedelta(minutes=10)
         stale_time = datetime.now(UTC) - _MAX_PROCESSING_AGE - timedelta(minutes=1)
@@ -1070,7 +1103,11 @@ class TestAgentService:
     def test_get_channel_status_ignores_dead_registry_entry(self):
         """get_channel_status must return False when no lock is held — dead registry entry is irrelevant."""
         from datetime import UTC, datetime
-        from agent_service import get_channel_status, _process_registry, _processing_lock
+        from agent_service import (
+            get_channel_status,
+            _process_registry,
+            _processing_lock,
+        )
 
         lock_key = "registry-dead-test"
         try:
@@ -1142,7 +1179,11 @@ class TestAgentService:
         """_load_processing_state must discard stale registry entries."""
         from datetime import UTC, datetime, timedelta
         from unittest.mock import patch
-        from agent_service import _load_processing_state, _MAX_PROCESSING_AGE, _process_registry
+        from agent_service import (
+            _load_processing_state,
+            _MAX_PROCESSING_AGE,
+            _process_registry,
+        )
 
         recent_time = datetime.now(UTC) - timedelta(minutes=10)
         stale_time = datetime.now(UTC) - _MAX_PROCESSING_AGE - timedelta(minutes=1)
