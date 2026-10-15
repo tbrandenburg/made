@@ -1,415 +1,181 @@
-# MADE [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE) [![Node.js CI](https://img.shields.io/badge/CI-Node.js-green.svg)](https://nodejs.org/)
+# MADE
 
-![8382E3F9-F4E9-43DD-8BBD-E2C1E5206DC6](https://github.com/user-attachments/assets/dfb345f8-eb0a-4ac9-81b5-7fe729c3b0e4)
+![MADE mobile development workspace](https://github.com/user-attachments/assets/dfb345f8-eb0a-4ac9-81b5-7fe729c3b0e4)
 
-**One-line:** A comprehensive web-based development environment for managing repositories, knowledge bases, and AI agent interactions - optimized for your phone 📱!
+**Your repositories. Your AI agents. From your phone.**
 
-MADE (Mobile Agentic Development Environment) is a full-stack Node.js application that provides developers with an integrated workspace for project management, knowledge organization, and AI-powered development assistance. It features a React-based frontend with repository browsing, file editing, markdown-based knowledge management, and seamless agent communication through the A2A protocol.
+MADE (**Mobile Agentic Development Environment**) brings repository browsing,
+file editing, agent chat, and project knowledge into a mobile-friendly web
+workspace. Run it on your development machine or server, then work through
+your browser.
 
-## Key Features
+[![Tests](https://github.com/tbrandenburg/made/actions/workflows/tests.yml/badge.svg)](https://github.com/tbrandenburg/made/actions/workflows/tests.yml)
+[![Latest release](https://img.shields.io/github/v/release/tbrandenburg/made)](https://github.com/tbrandenburg/made/releases)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](/LICENSE)
 
-- 📁 **Repository Management** - Create, browse, and manage multiple code repositories with Git integration
-- 🤖 **AI Agent Integration** - Chat with AI agents for code assistance, project planning, and development guidance
-- 📚 **Knowledge Base** - Organize documentation, notes, and project artifacts with markdown support
-- ⚖️ **Constitution System** - Define and manage development rules, guidelines, and constraints
-- 📝 **Integrated File Editor** - Edit files directly in the browser with live preview capabilities
-- 🚀 **Publishment Workflows** - Streamlined deployment and publishing automation
-- 🎨 **Modern UI** - Responsive React interface with dark/light theme support
+[Quickstart](#quickstart) · [Features](#features) · [Docker](#run-with-docker) ·
+[Configuration](#configuration) · [Development](#development) · [Get help](#get-help)
+
+## Why MADE?
+
+Coding agents run where your code lives. MADE gives you a browser interface to
+that environment, so you can inspect a repository, ask an agent to work on it,
+and keep the project's notes and development rules close at hand—even on a
+small screen.
+
+The frontend is **React + Vite**; the backend is **Python + FastAPI**. Agent
+chat uses CLI adapters on the backend host rather than requiring a separate
+editor on your phone.
 
 ## Quickstart
 
-```bash
-# Install dependencies (preferred)
-make install
+### Prerequisites
 
-# Run development servers
-make run
-```
-
-## Table of Contents
-
-- [Quickstart](#quickstart)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Configuration](#configuration)
-- [Contributing](#contributing)
-- [License](#license)
-- [Security](#security)
-- [Maintainers](#maintainers)
-
-## Installation
-
-Install dependencies and start the development environment:
+- **Node.js 22.12+** and npm.
+- **Python 3.12+** and [uv](https://docs.astral.sh/uv/getting-started/installation/).
+- **Git** and **Make**.
+- For agent chat: a supported agent CLI installed and authenticated on the
+  backend host. Repository browsing and editing do not require an agent CLI.
 
 ```bash
-# Clone the repository
 git clone https://github.com/tbrandenburg/made.git
 cd made
-
-# Install all dependencies (monorepo setup)
 make install
-
-# Run both frontend and Python backend
 make run
 ```
 
-(Alternative: build from source: `npm run build && npm run start`)
+Open **[https://localhost:5173](https://localhost:5173)**. The development frontend
+uses a self-signed certificate; your browser may ask you to accept it.
+The backend API listens at `http://localhost:3000`.
 
-## Usage
+> **Existing development session?** `make run` stops processes using its configured
+> backend and frontend ports before starting. Do not run it over a session you
+> want to keep. See [starting services separately](/docs/DEVELOPMENT.md#start-services-without-stopping-an-existing-session).
 
-Minimal example to get started:
+### Your first session
 
-```bash
-# Start the development servers
-make run
+1. **Open Settings** and choose the adapter for your installed agent CLI.
+2. **Create or clone a repository** in the workspace, then open it.
+3. **Browse a file** to get your bearings, or edit it in the browser.
+4. **Open Agent chat** and ask a concrete question, such as “Explain this
+   repository's structure and suggest the next step.”
+5. **Keep context nearby:** add project notes to Knowledge and development
+   guidelines to Constitutions.
 
-# Backend runs on: http://localhost:3000
-# Frontend runs on: http://localhost:5173
-```
+To use MADE from your phone, the device needs a route to the host. Use a trusted
+private network or an authenticated HTTPS gateway; `localhost` on your phone is
+not your development machine. See [security](#security) before exposing MADE.
 
-Expected output:
+## Features
 
-```
-MADE backend listening on http://0.0.0.0:3000
-MADE frontend available on http://localhost:5173
-```
+| Work on…                | With MADE                                                                                |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| **Repositories**        | Create, clone, browse, and inspect Git-backed projects.                                  |
+| **Agent conversations** | Chat with a backend CLI agent and revisit saved sessions where supported by the adapter. |
+| **Files**               | Read and edit repository files with Markdown preview.                                    |
+| **Project knowledge**   | Organize notes and documentation as Markdown files.                                      |
+| **Development rules**   | Maintain constitutions that describe project guidelines and constraints.                 |
+| **Repeatable work**     | Discover reusable commands and manage workflows and scheduled tasks.                     |
+| **Small screens**       | Use a responsive interface with light and dark themes.                                   |
 
-Access the web interface at `http://localhost:5173` to:
+Agent choices include OpenCode (database, v2, and legacy adapters), Claude Code,
+Codex, GitHub Copilot, Kiro, OB1, and Pi. Capabilities and model availability
+depend on the selected CLI and its configuration.
 
-1. **Browse Repositories** - View and manage your code projects
-2. **Chat with Agents** - Get AI assistance for development tasks
-3. **Manage Knowledge** - Create and organize documentation
-4. **Define Constitutions** - Set development rules and guidelines
-5. **Edit Files** - Use the integrated editor with live preview
+## Run with Docker
 
-## Docker Deployment
-
-Container images are provided for both the API backend and the static frontend. The [`docker-compose.yml`](./docker-compose.yml) file builds and runs the complete stack with one command.
-
-```bash
-# Build images and start the containers
-docker compose up --build
-
-# Backend API:    http://localhost:3000
-# Frontend (Nginx): http://localhost:8080
-```
-
-The backend persists its `.made` workspace inside the named `made-data` volume defined in the compose file. Environment variables such as `MADE_HOME`, `MADE_WORKSPACE_HOME`, `MADE_BACKEND_HOST`, or `MADE_BACKEND_PORT` can be overridden by editing the `pybackend` service configuration.
-
-### Manual agent CLI acceptance in Docker
-
-The following process tests a selected Made agent adapter against the real
-application and CLI in Docker, without mounting host agent configuration or
-using development ports. Before building, configure
-`docker/pybackend.Dockerfile` with the selected CLI's official non-interactive
-install command (replace the default install step or add a separate layer) and
-ensure its executable is on `PATH`. Rebuild whenever the Dockerfile changes.
-Supply any required credentials at container runtime through environment
-variables or a dedicated volume; do not bake credentials into the image.
-
-Start the acceptance project with its own Made data, workspace, and agent home
-volumes:
+From the repository root, build and start the backend and Nginx frontend:
 
 ```bash
-docker compose -p made-agent-acceptance \
-  -f docker-compose.yml -f docker-compose.agent-acceptance.yml \
-  up --build -d
+docker compose -f docker/docker-compose.yml up --build -d
 ```
 
-The frontend and API are bound to loopback ports 18080 and 13000. In Made
-Settings, select the adapter matching the installed CLI, save, reload, and
-confirm the choice persisted. Create a repository in the isolated workspace
-and add a small fixture file with a unique marker.
+- **Web interface:** [http://localhost:8080](http://localhost:8080).
+- **Backend API:** `http://localhost:3000`.
+- **Persistent data:** named volumes `made-data` (settings and knowledge) and
+  `made-workspace` (repositories).
 
-Use Playwright MCP at `http://127.0.0.1:18080` to verify the real UI flow:
+The backend image installs OpenCode. Configure its authentication inside the
+container before chatting; host credentials are not mounted automatically.
 
-1. Open the fixture repository's Agent chat and select a model available to the
-   container's CLI.
-2. Ask the agent to read the fixture file and return its exact marker. Confirm
-   the response appears and a session ID is shown.
-3. Send a follow-up asking for the previous marker without naming it. Confirm
-   the answer is correct and the same session continues.
-4. Reload the repository page. Confirm the request/response history returns
-   from the selected CLI's session store; use the session picker to reopen it
-   if needed.
-5. Confirm Settings still selects the chosen adapter after a reload.
-
-Use explicit Compose files and the same project name for inspection and
-teardown. This removes only the acceptance stack and its isolated volumes:
+Stop this stack without deleting its data:
 
 ```bash
-docker compose -p made-agent-acceptance \
-  -f docker-compose.yml -f docker-compose.agent-acceptance.yml down -v
+docker compose -f docker/docker-compose.yml down
 ```
 
-### OpenCode v2 acceptance environment
-
-V2 tool messages include the tool name and input arguments in live responses and
-saved history. Argument previews are truncated to 90 characters, matching the V1
-database adapter.
-
-Both database adapters read history through short-lived, read-only SQLite
-connections; history reads do not invoke `opencode api`. Set `OPENCODE_DB` to an
-absolute database path to avoid CLI path discovery. V1 also retains its legacy
-`OPENCODE_DATABASE_PATH` override, which takes precedence when it exists.
-V2 caches successful CLI path discovery across adapter instances, keyed by the
-working directory and `PATH`, `HOME`, `XDG_DATA_HOME`, and `OPENCODE_DB` values.
-It rediscovers when the cached file disappears, retries failed discovery on the
-next read, and always checks explicit overrides before the cache. Restart the
-backend after an OpenCode upgrade that changes its database location while the
-old database still exists. Database connections and history contents are not
-cached.
-
-The Settings page supports `opencode-v2` as a separate adapter; the existing
-`opencode` selector remains unchanged. To exercise v2 without changing a host
-OpenCode installation or using the standard development ports, build the
-dedicated pinned image under a unique Compose project:
-
-```bash
-docker compose -p made-opencode-v2-acceptance \
-  -f docker-compose.yml -f docker-compose.opencode-v2.yml \
-  up --build -d
-
-# Run the opt-in real-CLI persistence/resume test inside the v2 container
-docker compose -p made-opencode-v2-acceptance \
-  -f docker-compose.yml -f docker-compose.opencode-v2.yml \
-  exec -T -e MADE_OPENCODE_V2_ACCEPTANCE=1 pybackend \
-  .venv/bin/pytest -q tests/integration/test_opencode_v2_acceptance.py
-
-# Remove only this acceptance project and its dedicated volumes
-docker compose -p made-opencode-v2-acceptance \
-  -f docker-compose.yml -f docker-compose.opencode-v2.yml down -v
-```
-
-This project binds the backend and frontend to `127.0.0.1:13000` and
-`127.0.0.1:18080`. Its project-scoped Docker volumes isolate Made settings,
-workspace, OpenCode home/config, and the `OPENCODE_DB` SQLite database. Create
-or seed a test repository under `/workspace` inside the backend container,
-select `opencode-v2` in Settings, and verify a real chat, session resume, and
-reloaded v2 database history at `http://127.0.0.1:18080`. Keep these explicit
-Compose files and project name for startup, inspection, and teardown; do not
-use the default Compose project for this acceptance.
+See the [Docker guide](/docs/DOCKER.md) for isolated agent acceptance testing and
+the pinned OpenCode v2 environment.
 
 ## Configuration
 
-Environment variables / config:
+| Variable               | Purpose                                                 | Default                                                        |
+| ---------------------- | ------------------------------------------------------- | -------------------------------------------------------------- |
+| `MADE_HOME`            | Base directory for `.made` configuration and knowledge. | Backend working directory; `make run` uses `<repo>/workspace`. |
+| `MADE_WORKSPACE_HOME`  | Directory containing your repositories.                 | Backend working directory; `make run` uses `<repo>/workspace`. |
+| `MADE_BACKEND_HOST`    | Backend bind address.                                   | `0.0.0.0`                                                      |
+| `MADE_BACKEND_PORT`    | Backend port when using `made-backend`.                 | `3000`                                                         |
+| `MADE_ALLOWED_ORIGINS` | Comma-separated CORS origins.                           | `http://localhost:5173,http://127.0.0.1:5173`                  |
 
-- `MADE_HOME` — string — default: `process.cwd()` — Base directory for MADE configuration and data storage
-- `MADE_WORKSPACE_HOME` — string — default: `process.cwd()` — Root directory where repositories are stored
-- `MADE_BACKEND_HOST` — string — default: `0.0.0.0` — Host address for the backend API server
-- `MADE_BACKEND_PORT` — number — default: `3000` — Port for the backend API server
-
-The application automatically creates a `.made` directory structure:
-
-```
-$MADE_HOME/.made/
-├── knowledge/     # Knowledge base articles
-├── constitutions/ # Development rules and guidelines
-└── settings.json  # Application settings
-```
-
-### Command Discovery Locations
-
-MADE loads commands from the following locations (first found are combined):
-
-- `$MADE_HOME/.made/commands/`, `$MADE_HOME/.kiro/prompts/` — pre-installed commands bundled at the MADE home.
-- `$MADE_WORKSPACE_HOME/.made/commands/`, `$MADE_WORKSPACE_HOME/.kiro/prompts/` — workspace-scoped commands.
-- `~/.made/commands/`, `~/.claude/commands/`, `~/.codex/commands/`, `~/.kiro/commands/`, `~/.kiro/prompts/`, `~/.opencode/command/` — user commands.
-- `$MADE_WORKSPACE_HOME/<repo>/.*/commands/**/*.md`, `$MADE_WORKSPACE_HOME/<repo>/.*/prompts/**/*.md` — repository-specific commands inside hidden folders.
-
-## API / Reference
-
-The backend provides a RESTful API with endpoints for:
-
-- **Repositories**: `/api/repositories` - CRUD operations for code repositories
-- **Knowledge**: `/api/knowledge` - Manage documentation and knowledge artifacts
-- **Constitutions**: `/api/constitutions` - Define development rules and constraints
-- **Agent Communication**: `/api/repositories/:name/agent` - AI agent chat interface
-- **File Operations**: `/api/repositories/:name/file` - File management and editing
-- **Settings**: `/api/settings` - Application configuration
-
-## 📦 Releases & Versioning
-
-This project follows [Semantic Versioning](https://semver.org/) (SemVer).
-
-### Version Format
-
-Given a version number `MAJOR.MINOR.PATCH`:
-
-- **MAJOR** - Incompatible API changes
-- **MINOR** - New functionality (backwards compatible)
-- **PATCH** - Bug fixes (backwards compatible)
-
-### Latest Release
-
-[![Latest Release](https://img.shields.io/github/v/release/tbrandenburg/made)](https://github.com/tbrandenburg/made/releases)
-
-Check the latest version:
+Set Make variables when using `make run`, for example:
 
 ```bash
-git fetch --tags
-git tag --list | tail -1
+make run MADE_HOME=/path/to/data MADE_WORKSPACE_HOME=/path/to/projects
 ```
 
-### Creating a Release
+MADE stores knowledge, constitutions, tasks, and settings under
+`$MADE_HOME/.made/`. Select the agent adapter in **Settings**.
+See the [configuration reference](/docs/CONFIGURATION.md) for command discovery
+and OpenCode database settings.
 
-Release version bumps are non-interactive and keep the root, frontend, and
-backend package versions synchronized with the backend lockfile:
+## Development
 
-```bash
-# Patch/minor/major bump (e.g. 0.1.0 -> 0.1.1), BUMP is case-insensitive
-make release BUMP=patch
-make release BUMP=MAJOR
+| Command              | Purpose                                                       |
+| -------------------- | ------------------------------------------------------------- |
+| `make install`       | Install dependencies and the pre-push quality hook.           |
+| `make run`           | Start the backend and frontend with development reload.       |
+| `make qa-quick`      | Format, lint, check the backend lockfile, and run unit tests. |
+| `make test-coverage` | Run frontend and backend coverage checks.                     |
+| `make system-test`   | Run full-stack Playwright and backend system tests.           |
+| `make build`         | Build the frontend and Python package.                        |
 
-# Or set an explicit version
-make release VERSION=1.2.3
+`make qa-quick` can rewrite files through its formatting step. System tests
+need the standard development ports; do not run them over an existing session.
+See the [development guide](/docs/DEVELOPMENT.md) for focused tests, contribution
+steps, and releases.
+
+### Repository map
+
+```text
+packages/frontend/   React interface and component tests
+packages/pybackend/  FastAPI services, CLI adapters, and Python tests
+tests/               Playwright end-to-end tests
+docker/              Container images and Compose configurations
+scripts/             Development, quality, and release tooling
+docs/                Configuration, Docker, and contributor guides
 ```
-
-`make release` runs the fast QA gate (`make qa-quick`: format + lint + lockfile
-consistency check + unit tests), bumps `package.json`,
-`packages/frontend/package.json`, and `packages/pybackend/pyproject.toml` to the
-same version, regenerates `packages/pybackend/uv.lock`, commits the changes,
-creates an annotated `vX.Y.Z` tag, and pushes the commit and tag together in
-one push. The pushed tag triggers the GitHub Actions release workflow, which
-re-validates that the tag version matches all package manifests and runs its
-own QA before publishing the GitHub Release. `make qa` (full test suite,
-including `tests/integration`, which hits real external agent CLIs) and
-`make system-test` are intentionally not part of the release gate — run them
-manually first if you want that deeper check before releasing.
-
-### Release Automation
-
-Releases are automated via GitHub Actions:
-
-1. Developer creates annotated tag (`v*.*.*` format)
-2. CI runs full test suite (`make qa`)
-3. GitHub release is created automatically
-4. Release artifacts are built and attached
-
-## Tests & CI
-
-### Quick Test Commands
-
-```bash
-# Unit tests (Python backend)
-make unit-test
-
-# System tests (Playwright)
-make system-test
-
-# All tests with coverage
-make test-coverage
-
-# Lint and format code
-make qa
-```
-
-### CI/CD Notes for Python Tests
-
-If your CI/CD environment runs `python -m pytest packages/pybackend/tests/unit` directly, make sure to install the backend dependencies first and run pytest inside the `uv` environment. Otherwise, collection can fail with missing imports like `fastapi` or `frontmatter`.
-
-```bash
-# Option A: use uv (recommended)
-cd packages/pybackend
-uv sync
-uv run python -m pytest tests/unit
-
-# Option B: use pip
-python -m pip install -e packages/pybackend
-```
-
-If you run tests from the repo root, use `uv run` with the backend project so `pytest` sees the `uv` environment:
-
-```bash
-uv run --project packages/pybackend python -m pytest packages/pybackend/tests/unit
-```
-
-### Testing Execution Patterns
-
-**For Unit Tests (Jest):**
-
-```bash
-# Simple - no dependencies required
-npm test
-```
-
-**For End-to-End Tests (Playwright):**
-
-Playwright tests require the full application stack running. Follow this sequence:
-
-```bash
-# 1. First-time setup (one-time only)
-npm install
-npx playwright install                    # Download browser binaries
-sudo npx playwright install-deps         # Install system dependencies (optional)
-
-# 2. Start application servers (keep running)
-# Use make run to start both services:
-make run
-# Wait for both:
-# "✅ Backend started" and "VITE v5.4.21 ready"
-
-# 3. Verify server connectivity (optional)
-curl http://localhost:3000 -I            # Backend health check
-curl http://localhost:5173 -I            # Frontend health check
-
-# 4. Run tests (separate terminal)
-# Terminal 3 - Tests:
-npx playwright test                       # All tests
-npx playwright test --grep "test name"   # Specific test
-npx playwright test --headed             # Visual debugging
-```
-
-**Alternative - Combined Server Start:**
-
-```bash
-# Start both servers in background
-make run &
-sleep 5                                   # Wait for startup
-npx playwright test                       # Run tests
-```
-
-### Testing Architecture
-
-Testing follows the pyramid approach:
-
-- **Unit Tests** - Core business logic and services (pytest)
-- **Integration Tests** - API endpoints and database interactions (pytest)
-- **System Tests** - Full user journeys and workflows (Playwright)
-
-## Contributing
-
-Please read [CONTRIBUTING.md](./CONTRIBUTING.md) (or follow the short flow below):
-
-1. Fork the project
-2. Create a branch `feature/your-feature`
-3. Add tests and documentation
-4. Open a pull request
-
-Development setup:
-
-```bash
-# Install dependencies
-make install
-
-# Start development servers with hot reload
-make run
-
-# Run quality assurance checks before committing
-make qa
-```
-
-## License
-
-This project is licensed under the MIT License — see the [LICENSE](./LICENSE) file for details.
 
 ## Security
 
-- Never commit secrets or API keys to the repository
-- Use environment variables for sensitive configuration
-- Follow secure coding practices for file operations
-- Report security issues privately to the maintainers
+MADE can edit files and invoke coding agents with the backend user's permissions.
+Treat access to the application as access to that development environment.
 
-## Maintainers
+- Keep the backend and frontend on a trusted network, or place them behind an
+  authenticated gateway. Do not expose the default setup directly to the internet.
+- Keep API keys and CLI credentials out of Git and container images.
+- Report vulnerabilities privately through
+  [GitHub's security reporting page](https://github.com/tbrandenburg/made/security).
+  If private reporting is unavailable, contact the maintainer before posting details publicly.
 
-- **Tom Brandenburg** — contact: [GitHub Profile](https://github.com/tbrandenburg)
+## Get help
+
+- **Bug reports and feature requests:** [GitHub Issues](https://github.com/tbrandenburg/made/issues).
+- **Versions and release notes:** [Releases](https://github.com/tbrandenburg/made/releases)
+  and [Changelog](/CHANGELOG.md).
+- **Maintainer:** [Tom Brandenburg](https://github.com/tbrandenburg).
+
+Want to contribute? Start with the [development guide](/docs/DEVELOPMENT.md#contribute).
+
+## License
+
+MADE is released under the [MIT License](/LICENSE).
