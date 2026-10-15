@@ -93,6 +93,7 @@ class TestOpenCodeV2AgentCLI(unittest.TestCase):
                                 "id": "call_tool",
                                 "partID": "prt_tool",
                                 "tool": "read",
+                                "state": {"input": {"filePath": "README.md"}},
                             },
                         ],
                     }
@@ -111,7 +112,7 @@ class TestOpenCodeV2AgentCLI(unittest.TestCase):
         self.assertEqual([item.session_id for item in sessions.sessions], ["ses_a"])
         self.assertEqual(
             [message.content for message in history.messages],
-            ["question", "answer", "thinking", "read"],
+            ["question", "answer", "thinking", "Tool: read\n  filePath: README.md"],
         )
         self.assertEqual(history.messages[1].part_id, "prt_text")
         self.assertEqual(history.messages[2].timestamp, 1500)
@@ -202,15 +203,29 @@ class TestOpenCodeV2AgentCLI(unittest.TestCase):
                     "tool": "bash",
                     "partId": "prt_legacy_shape",
                     "callID": "call_legacy_shape",
+                    "state": {"input": {"command": "pwd"}},
                 },
             }
         )
 
         _, parts = self.cli._parse_v2_events(output)
 
-        self.assertEqual(parts[0].text, "bash")
+        self.assertEqual(parts[0].text, "Tool: bash\n  command: pwd")
         self.assertEqual(parts[0].part_id, "prt_legacy_shape")
         self.assertEqual(parts[0].call_id, "call_legacy_shape")
+
+    def test_tool_format_matches_v1_arguments_and_handles_missing_input(self):
+        part = {
+            "name": "execute",
+            "state": {"input": {"code": "x" * 100, "limit": 3}},
+        }
+        text = self.cli._format_tool(part)
+        self.assertEqual(text, "Tool: execute\n  code: " + "x" * 90 + "...\n  limit: 3")
+        self.assertEqual(self.cli._format_tool({"name": "read"}), "Tool: read")
+        self.assertEqual(
+            self.cli._format_tool({"name": "read", "state": {"input": None}}),
+            "Tool: read",
+        )
 
     def test_unknown_database_schema_fails_explicitly(self):
         unknown = self.root / "unknown.db"

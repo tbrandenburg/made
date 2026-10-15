@@ -69,6 +69,20 @@ def _strip_json_comments(text: str) -> str:
 class OpenCodeV2AgentCLI(AgentCLI):
     """Adapter for v2 CLI execution and v2 session database history."""
 
+    @staticmethod
+    def _format_tool(part: dict[str, object]) -> str:
+        name = part.get("tool") or part.get("name") or part.get("id") or "Tool"
+        lines = [f"Tool: {name}"]
+        state = part.get("state")
+        arguments = state.get("input") if isinstance(state, dict) else None
+        if isinstance(arguments, dict):
+            for key, value in arguments.items():
+                text = str(value)
+                lines.append(
+                    f"  {key}: {text[:90] + '...' if len(text) > 90 else text}"
+                )
+        return "\n".join(lines)
+
     @classmethod
     def main_executable_name(cls) -> str:
         return "opencode"
@@ -257,12 +271,7 @@ class OpenCodeV2AgentCLI(AgentCLI):
                         text = str(part.get("text") or "")
                         content_type = "text" if kind == "text" else "reasoning"
                     elif kind == "tool":
-                        text = str(
-                            part.get("tool")
-                            or part.get("name")
-                            or part.get("id")
-                            or "Tool"
-                        )
+                        text = self._format_tool(part)
                         content_type = "tool_use"
                     else:
                         continue
@@ -514,9 +523,7 @@ class OpenCodeV2AgentCLI(AgentCLI):
                     )
                 )
             elif kind in {"tool", "tool_use"}:
-                name = str(
-                    part.get("tool") or part.get("name") or part.get("id") or "Tool"
-                )
+                name = self._format_tool(part)
                 events.append(
                     (
                         "tool",

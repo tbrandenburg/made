@@ -144,6 +144,10 @@ docker compose -p made-agent-acceptance \
 
 ### OpenCode v2 acceptance environment
 
+V2 tool messages include the tool name and input arguments in live responses and
+saved history. Argument previews are truncated to 90 characters, matching the V1
+database adapter.
+
 The Settings page supports `opencode-v2` as a separate adapter; the existing
 `opencode` selector remains unchanged. To exercise v2 without changing a host
 OpenCode installation or using the standard development ports, build the
