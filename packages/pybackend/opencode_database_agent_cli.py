@@ -15,6 +15,7 @@ from threading import Event
 import subprocess
 from datetime import datetime
 from collections import defaultdict
+from contextlib import closing
 
 from agent_cli import AgentCLI
 from agent_results import (
@@ -137,6 +138,13 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
         if configured and Path(configured).expanduser().exists():
             return Path(configured).expanduser()
 
+        native = os.environ.get("OPENCODE_DB")
+        if native:
+            if native == ":memory:":
+                return None
+            path = Path(native).expanduser().resolve()
+            return path if path.is_file() else None
+
         # Standard OpenCode database location
         opencode_db = Path.home() / ".local/share/opencode/opencode.db"
         return opencode_db if opencode_db.exists() else None
@@ -144,6 +152,12 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
     def _get_directory_key(self, cwd: Path) -> str:
         """Get the directory key for database queries."""
         return str(cwd.resolve())
+
+    @staticmethod
+    def _connect_database(path: Path) -> sqlite3.Connection:
+        return sqlite3.connect(
+            f"{path.resolve().as_uri()}?mode=ro", uri=True, timeout=2
+        )
 
     def _session_matches_directory(self, session_id: str, cwd: Path) -> bool:
         """Check whether a session belongs to the provided working directory."""
@@ -153,7 +167,7 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
 
         directory_key = self._get_directory_key(cwd)
         try:
-            with sqlite3.connect(db_path) as conn:
+            with closing(self._connect_database(db_path)) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     "SELECT 1 FROM session WHERE id = ? AND directory = ? LIMIT 1",
@@ -215,7 +229,7 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
             sessions = []
             directory_key = self._get_directory_key(cwd) if cwd else None
 
-            with sqlite3.connect(db_path) as conn:
+            with closing(self._connect_database(db_path)) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
 
@@ -281,7 +295,7 @@ class OpenCodeDatabaseAgentCLI(AgentCLI):
                 )
 
             messages = []
-            with sqlite3.connect(db_path) as conn:
+            with closing(self._connect_database(db_path)) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
 

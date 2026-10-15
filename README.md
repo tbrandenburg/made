@@ -148,6 +148,18 @@ V2 tool messages include the tool name and input arguments in live responses and
 saved history. Argument previews are truncated to 90 characters, matching the V1
 database adapter.
 
+Both database adapters read history through short-lived, read-only SQLite
+connections; history reads do not invoke `opencode api`. Set `OPENCODE_DB` to an
+absolute database path to avoid CLI path discovery. V1 also retains its legacy
+`OPENCODE_DATABASE_PATH` override, which takes precedence when it exists.
+V2 caches successful CLI path discovery across adapter instances, keyed by the
+working directory and `PATH`, `HOME`, `XDG_DATA_HOME`, and `OPENCODE_DB` values.
+It rediscovers when the cached file disappears, retries failed discovery on the
+next read, and always checks explicit overrides before the cache. Restart the
+backend after an OpenCode upgrade that changes its database location while the
+old database still exists. Database connections and history contents are not
+cached.
+
 The Settings page supports `opencode-v2` as a separate adapter; the existing
 `opencode` selector remains unchanged. To exercise v2 without changing a host
 OpenCode installation or using the standard development ports, build the

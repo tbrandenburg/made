@@ -16,6 +16,7 @@ from typing import Callable
 import frontmatter
 
 from agent_cli import AgentCLI
+from opencode_database_paths import discover_database
 from agent_results import (
     AgentInfo,
     AgentListResult,
@@ -106,20 +107,7 @@ class OpenCodeV2AgentCLI(AgentCLI):
             path = Path(override).expanduser()
             if path.is_absolute():
                 return path
-        result = subprocess.run(
-            ["opencode", "debug", "paths", "db"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode:
-            raise RuntimeError(
-                (result.stderr or "Could not resolve OpenCode database path").strip()
-            )
-        path = Path(result.stdout.strip()).expanduser()
-        if not path.is_absolute():
-            raise ValueError("OpenCode returned a non-absolute database path")
-        return path
+        return discover_database()
 
     def _connect(self) -> sqlite3.Connection:
         path = self._database_path()
