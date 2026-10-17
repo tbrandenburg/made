@@ -44,14 +44,21 @@ at `$XDG_STATE_HOME/opencode/service.json` (defaulting to
 not start or restart it, invoke a per-refresh CLI, or fall back to SQLite.
 Requests accept only literal loopback IP addresses over HTTP (not `localhost`
 or other DNS names), disable environment proxies and redirects, and are
-bounded across discovery/retry/pages to 30 seconds, 100 pages, 10,000 records,
+bounded across discovery/retry/pages to 30 seconds, 201 pages, 10,000 records,
 and 32 MiB decoded response bytes. Connect/read timeouts are 2/5 seconds;
 they do not replace the complete-operation deadline. One shared whole-read
 retry budget covers rediscovery and detectable pagination conflicts. V2 session
 listing and activity detection remain SQLite-backed and retain their existing
 freshness limitations. External terminal activity need not start MADE polling;
 manual refresh and a polling refresh that executes read a complete V2 snapshot.
-V1 keeps its incremental history behavior.
+V1 keeps its incremental history behavior. The page budget includes an empty
+terminating page after 200 full pages. Retries consume the same cumulative
+budgets, so repeated or short pages can exhaust the page budget first.
+
+JSON history routes and the Lite repository view run synchronous history work
+in FastAPI worker threads. Other async callers must offload the synchronous
+adapter with `asyncio.to_thread`; direct reads on a running event loop fail
+immediately rather than block unrelated requests.
 
 Responses must use identity encoding; compressed responses are rejected rather
 than decompressed. Raw reads are at most 64 KiB per chunk. Per-response JSON

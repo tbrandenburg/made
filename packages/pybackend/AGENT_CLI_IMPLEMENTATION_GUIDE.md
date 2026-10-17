@@ -742,7 +742,7 @@ creation-time filter. Initial load, manual refresh, and executed polling
 refresh reconcile the persisted snapshot without dropping optimistic sends or
 collapsing repeated prompts. Other adapters keep their incremental behavior.
 
-The shared operation budget is 30 seconds, 100 pages, 10,000 records and 32 MiB
+The shared operation budget is 30 seconds, 201 pages, 10,000 records and 32 MiB
 decoded bytes, with 2/5-second connect/read timeouts. One bounded whole-read
 retry covers registration replacement and detectable cursor/overlap conflicts;
 restart metadata validation and pagination, not an old cursor. Enforce bounds
@@ -755,6 +755,11 @@ bytes, depth 64, and 128 bytes per unquoted primitive token. Quoted strings
 share the operation's byte budget. The async deadline covers I/O/cooperative
 preflight, not CPU preemption inside the bounded stdlib JSON decoder.
 Concurrent pages are not an atomic snapshot; another refresh can be needed.
+The 201-page allowance includes an empty terminal page after 200 full pages;
+retries and short pages still consume the cumulative budget. Keep synchronous
+adapter calls off the event loop: FastAPI history/Lite handlers use worker
+threads, and other async callers must use `await asyncio.to_thread(...)`.
+Direct event-loop calls to the synchronous reader fail before service access.
 
 Session listing still resolves `opencode debug paths db` and reads the indexed
 SQLite schema read-only. Activity detection retains its existing limitations;

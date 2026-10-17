@@ -31,7 +31,7 @@ async def list_repos(request: Request):
 
 
 @router.get("/repo/{name}", response_class=HTMLResponse)
-async def repo_chat(request: Request, name: str, session_id: str = Query(default="")):
+def repo_chat(request: Request, name: str, session_id: str = Query(default="")):
     try:
         get_repository_info(name)
     except FileNotFoundError:
@@ -46,7 +46,7 @@ async def repo_chat(request: Request, name: str, session_id: str = Query(default
     messages = []
     if current_session_id:
         try:
-            history = export_chat_history(current_session_id, name)
+            history = export_chat_history(current_session_id, channel=name)
             messages = history.get("messages", [])
         except Exception:
             messages = []

@@ -1,9 +1,12 @@
 """Real V2 HTTP adapter, history service, and four route-family isolation."""
 
+import asyncio
 import json
+from threading import Event
 from urllib.parse import urlsplit
 
 from fastapi.testclient import TestClient
+import httpx
 import pytest
 
 import agent_service
@@ -102,6 +105,56 @@ def test_service_preserves_snapshot_even_with_newer_start_and_missing(history_st
     with pytest.raises(RuntimeError, match="endpoint"):
         agent_service.export_chat_history("ses_endpoint", channel="repository")
     assert not any("ses_foreign/message" in path for path in service.requests)
+
+
+@pytest.mark.parametrize(
+    "route",
+    [
+        "/api/repositories/repository/agent/history",
+        "/api/knowledge/notes.md/agent/history",
+        "/api/constitutions/policy.md/agent/history",
+        "/api/tasks/daily.md/agent/history",
+        "/lite/repo/repository",
+    ],
+)
+def test_history_routes_leave_event_loop_responsive(history_store, route: str):
+    _, _, service = history_store
+    entered, release = Event(), Event()
+    original = service.respond
+
+    def respond(path: str, count: int) -> Reply:
+        if not entered.is_set():
+            entered.set()
+            if not release.wait(2):
+                return Reply({}, 500)
+        assert original is not None
+        return original(path, count)
+
+    service.respond = respond
+
+    async def caller() -> None:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            pending = asyncio.create_task(
+                client.get(route, params={"session_id": "ses_local"})
+            )
+            try:
+                assert await asyncio.to_thread(entered.wait, 5)
+                health = await asyncio.wait_for(client.get("/api/health"), timeout=1)
+                assert health.status_code == 200
+                assert not pending.done()
+            finally:
+                release.set()
+            response = await pending
+            assert response.status_code == (
+                200 if "repositories" in route or route.startswith("/lite") else 409
+            )
+            if response.status_code == 200:
+                assert "local answer" in response.text
+
+    asyncio.run(caller())
+    assert service.requests[0] == "/api/session/ses_local"
 
 
 @pytest.mark.parametrize(

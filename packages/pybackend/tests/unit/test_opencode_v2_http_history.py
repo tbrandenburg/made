@@ -481,13 +481,15 @@ def test_malformed_required_conversion_fields_fail_not_drop(
     )
 
 
-def test_public_id_prefix_schema_and_sync_adapter_in_async_host(tmp_path):
+def test_public_id_prefix_schema_and_offloaded_adapter_in_async_host(tmp_path):
     registration = tmp_path / "registration"
     with serve(tmp_path) as service:
         service.register(registration)
 
         async def caller():
-            return history.read_session("ses.with.dots", tmp_path, registration)
+            return await asyncio.to_thread(
+                history.read_session, "ses.with.dots", tmp_path, registration
+            )
 
         result = asyncio.run(caller())
     assert result == []

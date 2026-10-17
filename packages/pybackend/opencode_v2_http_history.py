@@ -1,6 +1,6 @@
 """Local HTTP history for OpenCode >= 2.0.18; never starts a service.
 
-Limits cover both attempts together: 30s, 100 pages, 10,000 records, 32MiB.
+Limits cover both attempts together: 30s, 201 pages, 10,000 records, 32MiB.
 Identity encoding prevents decompression bombs; raw reads are bounded to 64KiB.
 JSON work limits are defined in opencode_v2_http_json. The async deadline covers
 I/O and cooperative preflight; bounded stdlib decoding is not CPU-preemptible.
@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 import ipaddress
 import json
@@ -25,11 +24,12 @@ import httpx
 
 from opencode_v2_http_json import JsonBudget, JsonComplexityError
 
-MAX_PAGES = 100
 MAX_RECORDS = 10_000
 MAX_BYTES = 32 * 1024 * 1024
 DEADLINE_SECONDS = 30
 PAGE_SIZE = 50
+# Full final pages can advertise a cursor to an empty terminating page.
+MAX_PAGES = (MAX_RECORDS + PAGE_SIZE - 1) // PAGE_SIZE + 1
 CHUNK_BYTES = 64 * 1024
 CONNECT_SECONDS = 2
 READ_SECONDS = 5
@@ -322,17 +322,13 @@ class _Read:
 def read_session(
     session_id: str, directory: Path | None, path: Path | None = None
 ) -> list[dict[str, object]]:
+    """Blocking reader: async callers must offload it with asyncio.to_thread."""
     # The public schema is ^ses, not a fixed alphanumeric UUID grammar.
     if not isinstance(session_id, str) or not session_id.startswith("ses"):
         raise HistoryReadError("Invalid OpenCode session ID")
-    read = _Read(session_id, directory)
-    registration = path or registration_path()
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
     except RuntimeError:
-        loop = None
-    if loop is None:
-        return asyncio.run(read.run(registration))
-    # Sync adapter callers may run in an async host. Do not nest event loops.
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        return executor.submit(lambda: asyncio.run(read.run(registration))).result()
+        read = _Read(session_id, directory)
+        return asyncio.run(read.run(path or registration_path()))
+    raise HistoryReadError("OpenCode synchronous history must run in a worker thread")
