@@ -37,15 +37,55 @@ wait for the cache to expire before checking discovery.
 
 ## OpenCode database history
 
-The `opencode` and `opencode-v2` adapters read saved history using short-lived,
-read-only SQLite connections. History reads do not invoke `opencode api`.
+The `opencode` adapter reads saved history using read-only SQLite connections.
+V2 selected-session history uses the authenticated local HTTP service registered
+at `$XDG_STATE_HOME/opencode/service.json` (defaulting to
+`~/.local/state/opencode/service.json`). The service must be running; MADE does
+not start or restart it, invoke a per-refresh CLI, or fall back to SQLite.
+Requests accept only literal loopback IP addresses over HTTP (not `localhost`
+or other DNS names), disable environment proxies and redirects, and are
+bounded across discovery/retry/pages to 30 seconds, 100 pages, 10,000 records,
+and 32 MiB decoded response bytes. Connect/read timeouts are 2/5 seconds;
+they do not replace the complete-operation deadline. One shared whole-read
+retry budget covers rediscovery and detectable pagination conflicts. V2 session
+listing and activity detection remain SQLite-backed and retain their existing
+freshness limitations. External terminal activity need not start MADE polling;
+manual refresh and a polling refresh that executes read a complete V2 snapshot.
+V1 keeps its incremental history behavior.
+
+Responses must use identity encoding; compressed responses are rejected rather
+than decompressed. Raw reads are at most 64 KiB per chunk. Per-response JSON
+preflight limits are 100,000 structural punctuation bytes, depth 64, and 128
+bytes per unquoted primitive token. Quoted tool text shares the operation's
+32 MiB byte budget. The async deadline covers I/O and cooperative preflight;
+the bounded standard-library JSON decode is not CPU-preemptible.
+
+The minimum tested version and isolated image pin are OpenCode **2.0.18**.
+The maintained [real acceptance command](/docs/DOCKER.md#opencode-v2-acceptance)
+exercises CLI creation/resume/tools and MADE initial/manual/polling refresh,
+pagination, isolation and owned service replacement/outage/recovery. Run it
+when changing the adapter or upgrading OpenCode; the issue's 2.0.28 PoC does
+not establish a tested version range.
+
+MADE reads Basic authentication locally from the registration; do not copy its
+password into settings, command arguments, bug reports, or browser code. Only
+literal local HTTP loopback endpoints are accepted, with no redirects or environment
+proxies. Session IDs, root status, and the exact canonical directory are checked
+before content access and again before return. Repository, knowledge,
+constitution, and task scope mismatches return safe HTTP 409 responses.
+Service/auth/schema/network/limit failures remain explicit; there is no stale
+SQL fallback. Failed refresh retains the displayed transcript. A replacement
+service is rediscovered on the next export, without MADE managing its lifecycle.
+Snapshots are complete bounded reads, not atomic transactions: a concurrent edit
+can require another refresh.
 
 - Set `OPENCODE_DB` to an absolute database path to avoid CLI path discovery.
 - The v1 adapter also supports `OPENCODE_DATABASE_PATH`; an existing file at
   that legacy override takes precedence.
-- V2 caches successful path discovery across adapter instances, keyed by the
-  working directory and the `PATH`, `HOME`, `XDG_DATA_HOME`, and `OPENCODE_DB`
-  values. Explicit overrides are checked before the cache.
+- V2's SQLite session-listing reader caches successful path discovery across
+  adapter instances, keyed by the working directory and the `PATH`, `HOME`,
+  `XDG_DATA_HOME`, and `OPENCODE_DB` values. Explicit overrides are checked before
+  the cache.
 - If the cached file disappears, v2 discovers it again. Failed discovery is
   retried on the next read. Connections and history contents are not cached.
 - Restart the backend after an OpenCode upgrade if the database moves but the
@@ -57,7 +97,7 @@ v1 database adapter.
 
 To verify a configuration change, save the adapter in Settings, reload the page,
 send a message, and reopen the session after another reload. Use the
-[isolated Docker acceptance process](/docs/DOCKER.md#agent-cli-acceptance) to test
+[isolated Docker acceptance process](/docs/DOCKER.md#opencode-v2-acceptance) to test
 without changing your host configuration.
 
 ## API reference

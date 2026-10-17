@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM node:22.14-bookworm-slim AS opencode
-RUN npm install --global @opencode/cli@2.0.18
+ARG OPENCODE_VERSION=2.0.18
+RUN npm install --global @opencode/cli@${OPENCODE_VERSION}
 
 FROM python:3.12-slim
 
@@ -21,14 +22,15 @@ COPY packages/pybackend/pyproject.toml packages/pybackend/uv.lock ./
 RUN uv sync --frozen --no-install-project
 
 COPY packages/pybackend/ ./
+COPY scripts/opencode-v2-acceptance/ /acceptance-tools/
 RUN uv sync --frozen && mkdir -p /workspace /opencode-data
 
 ENV PATH="/usr/local/bin:${PATH}"
 ENV PYTHONPATH=/app
-ENV PORT=3000
+ENV PORT=13079
 ENV MADE_WORKSPACE_HOME=/workspace
 ENV COMMIT_SHA=${COMMIT_SHA}
 ENV BUILD_DATE=${BUILD_DATE}
 
-EXPOSE 3000
-CMD [".venv/bin/uvicorn", "app:app", "--host", "0.0.0.0", "--port", "3000"]
+EXPOSE 13079
+CMD [".venv/bin/uvicorn", "app:app", "--host", "0.0.0.0", "--port", "13079"]

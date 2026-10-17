@@ -82,6 +82,13 @@ Agent choices include OpenCode (database, v2, and legacy adapters), Claude Code,
 Codex, GitHub Copilot, Kiro, OB1, and Pi. Capabilities and model availability
 depend on the selected CLI and its configuration.
 
+The `opencode-v2` adapter reads selected-session history through OpenCode's
+authenticated local HTTP service. The service must be running; MADE does not
+start/restart it or fall back to SQLite on history failure. V2 session listing
+and activity detection still use SQLite. See the
+[history security and refresh contract](/docs/CONFIGURATION.md#opencode-database-history)
+and the [isolated real-service/browser acceptance](/docs/DOCKER.md#opencode-v2-acceptance).
+
 ## Run with Docker
 
 From the repository root, build and start the backend and Nginx frontend:

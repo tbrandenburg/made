@@ -1,29 +1,42 @@
+# Standalone acceptance project; never layer over the developer stack.
 services:
   pybackend:
     build:
       context: ..
       dockerfile: docker/pybackend.opencode-v2.Dockerfile
       args:
-        COMMIT_SHA: ${COMMIT_SHA:-unknown}
-        BUILD_DATE: ${BUILD_DATE:-unknown}
+        OPENCODE_VERSION: ${MADE_ACCEPTANCE_OPENCODE_VERSION:-2.0.18}
     environment:
-      MADE_ALLOWED_ORIGINS: http://127.0.0.1:18080
-      OPENCODE_DB: /opencode-data/opencode.db
-      MADE_HOME: /app
-    volumes: !override
-      - made-data:/app/.made
+      HOME: /opencode-home
+      XDG_CONFIG_HOME: /opencode-home/config
+      XDG_DATA_HOME: /opencode-home/data
+      XDG_STATE_HOME: /opencode-home/state
+      XDG_CACHE_HOME: /opencode-home/cache
+      OPENCODE_DB: /opencode-home/data/opencode.db
+      MADE_HOME: /made-home
+      MADE_WORKSPACE_HOME: /workspace
+      MADE_BACKEND_PORT: "13079"
+      MADE_OPENCODE_V2_ACCEPTANCE: "1"
+      MADE_OPENCODE_V2_EXPECTED_VERSION: opencode v${MADE_ACCEPTANCE_OPENCODE_VERSION:-2.0.18}
+      MADE_ACCEPTANCE_MODEL: ${MADE_ACCEPTANCE_MODEL:-opencode/big-pickle}
+      MADE_ALLOWED_ORIGINS: http://127.0.0.1:${MADE_ACCEPTANCE_WEB_PORT:?use acceptance runner}
+    command: [.venv/bin/python, /acceptance-tools/service.py, boot]
+    volumes:
+      - made-data:/made-home
       - made-workspace:/workspace
-      - opencode-home:/root
-      - opencode-data:/opencode-data
-    ports: !override
-      - "127.0.0.1:13000:3000"
-
+      - opencode-home:/opencode-home
+    ports:
+      - "127.0.0.1:${MADE_ACCEPTANCE_API_PORT:?use acceptance runner}:13079"
   frontend:
-    ports: !override
-      - "127.0.0.1:18080:80"
-
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    depends_on: [pybackend]
+    volumes:
+      - ./nginx.opencode-v2-acceptance.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:${MADE_ACCEPTANCE_WEB_PORT:?use acceptance runner}:80"
 volumes:
   made-data:
   made-workspace:
   opencode-home:
-  opencode-data:

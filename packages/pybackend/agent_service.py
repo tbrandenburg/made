@@ -871,13 +871,18 @@ def export_chat_history(
     if not result.success:
         if result.error_code == SessionDirectoryMismatchError.code:
             raise SessionDirectoryMismatchError()
-        if _is_missing_session_error(result.error_message):
+        if result.error_code == "session_not_found" or (
+            result.history_mode != "snapshot"
+            and _is_missing_session_error(result.error_message)
+        ):
             logger.warning(
                 "Chat history requested for unknown session (channel: %s, session: %s); returning empty history",
                 channel or "<unspecified>",
                 session_id,
             )
             response: dict[str, object] = {"sessionId": session_id, "messages": []}
+            if result.history_mode:
+                response["historyMode"] = result.history_mode
             if channel:
                 lock_key = session_id if session_id else channel
                 status = get_channel_status(lock_key)
@@ -898,7 +903,11 @@ def export_chat_history(
     # Filter messages by start timestamp if provided
     filtered_messages = []
     for message in result.messages:
-        if normalized_start is not None and message.timestamp is not None:
+        if (
+            result.history_mode != "snapshot"
+            and normalized_start is not None
+            and message.timestamp is not None
+        ):
             if message.timestamp < normalized_start:
                 continue
         filtered_messages.append(message.to_frontend_format())
@@ -907,6 +916,8 @@ def export_chat_history(
         "sessionId": session_id,
         "messages": filtered_messages,
     }
+    if result.history_mode:
+        response["historyMode"] = result.history_mode
     if channel:
         lock_key = session_id if session_id else channel
         status = get_channel_status(lock_key)

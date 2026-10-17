@@ -1,7 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { ChatMessage } from "../types/chat";
 import { mapHistoryToMessages, mergeChatMessages } from "../utils/chat";
+import { reconcileChatSnapshot, type PendingUser } from "../utils/chatSnapshot";
 import type { AgentReply, ChatHistoryResponse, ChatSession } from "./useApi";
 import { HttpError } from "./useApi";
 import { useAgentPolling } from "./useAgentPolling";
@@ -155,11 +163,72 @@ export function useChatSession({
   const [sessionListLoading, setSessionListLoading] = useState(false);
   const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
   const sendRequestIdRef = useRef(0);
+  const historyRequestGenerationRef = useRef(0);
+  const pendingUsersRef = useRef<PendingUser[]>([]);
+  const persistedUsersRef = useRef<string[] | null>(null);
+  const ownSessionRef = useRef<string | null>(null);
+  const identityRef = useRef({ name, sessionId });
+  const statusGenerationRef = useRef(0);
+  const refreshControllerRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef(sessionId);
-  const chatRef = useRef(chat);
 
-  sessionIdRef.current = sessionId;
-  chatRef.current = chat;
+  useLayoutEffect(() => {
+    const previous = identityRef.current;
+    if (previous.name !== name || previous.sessionId !== sessionId) {
+      const ownTransition =
+        previous.name === name && ownSessionRef.current === sessionId;
+      if (!ownTransition) {
+        sendRequestIdRef.current += 1;
+        pendingUsersRef.current = [];
+        persistedUsersRef.current = null;
+      }
+      ownSessionRef.current = null;
+      historyRequestGenerationRef.current += 1;
+      statusGenerationRef.current += 1;
+      refreshControllerRef.current?.abort();
+      setRefreshing(false);
+      identityRef.current = { name, sessionId };
+    }
+    sessionIdRef.current = sessionId;
+  }, [name, sessionId, setRefreshing]);
+
+  const historyIsCurrent = useCallback(
+    (
+      generation: number,
+      channel: string,
+      session: string,
+      signal?: AbortSignal,
+    ) =>
+      !signal?.aborted &&
+      identityRef.current.name === channel &&
+      identityRef.current.sessionId === session &&
+      generation === historyRequestGenerationRef.current,
+    [],
+  );
+
+  const applyHistory = useCallback(
+    (history: ChatHistoryResponse, incremental = false) => {
+      const messages = history.messages || [];
+      if (history.historyMode === "snapshot") {
+        const result = reconcileChatSnapshot(messages, pendingUsersRef.current);
+        pendingUsersRef.current = result.pending;
+        persistedUsersRef.current = messages.flatMap((entry) =>
+          entry.role === "user" && entry.messageId ? [entry.messageId] : [],
+        );
+        setChat(result.messages);
+        return;
+      }
+      pendingUsersRef.current = [];
+      const mapped = mapHistoryToMessages(messages);
+      if (incremental) {
+        if (mapped.length)
+          setChat((previous) => mergeChatMessages(previous, mapped));
+        return;
+      }
+      setChat(mapped);
+    },
+    [setChat],
+  );
 
   const lastKnownTimestamp = useMemo(() => {
     if (!chat.length) return undefined;
@@ -178,8 +247,16 @@ export function useChatSession({
       }
 
       try {
+        const generation = ++statusGenerationRef.current;
+        const historyGeneration = historyRequestGenerationRef.current;
+        const sendGeneration = sendRequestIdRef.current;
         const status = await getStatus(name, targetSessionId);
-        if (sessionIdRef.current !== targetSessionId) return false;
+        if (
+          !historyIsCurrent(historyGeneration, name, targetSessionId) ||
+          generation !== statusGenerationRef.current ||
+          sendGeneration !== sendRequestIdRef.current
+        )
+          return null;
         if (status.running) setProcessing();
         else setIdle();
         return status.running;
@@ -188,7 +265,7 @@ export function useChatSession({
         return null;
       }
     },
-    [getStatus, isExternal, name, setIdle, setProcessing],
+    [getStatus, historyIsCurrent, isExternal, name, setIdle, setProcessing],
   );
 
   const getHistory: GetHistoryFn = useCallback(
@@ -202,11 +279,14 @@ export function useChatSession({
     sessionError,
     setSessionError: setSessionHistoryError,
     clearSessionError: clearSessionHistoryError,
+    finishHistoryLoad,
   } = useSessionLoader({
     name: isExternal ? undefined : name,
     sessionId,
     setChat,
     getHistory,
+    requestGenerationRef: historyRequestGenerationRef,
+    applyHistory,
     onHistoryLoaded: () => {
       setIdle();
       // Always probe backend for authoritative status on initial load (#686).
@@ -218,6 +298,8 @@ export function useChatSession({
   const syncChatHistory = useCallback(
     async (signal: AbortSignal): Promise<void> => {
       if (!name || isExternal || !sessionId) return;
+      const generation = ++historyRequestGenerationRef.current;
+      finishHistoryLoad();
       const startTimestamp = lastKnownTimestampRef.current
         ? lastKnownTimestampRef.current + 1
         : undefined;
@@ -229,25 +311,26 @@ export function useChatSession({
           startTimestamp,
           signal,
         );
-        if (signal.aborted || sessionIdRef.current !== sessionId) return;
+        if (!historyIsCurrent(generation, name, sessionId, signal)) return;
         clearSessionHistoryError();
-        if (!history.messages?.length) return;
-        setChat((previousChat) => {
-          const mapped = mapHistoryToMessages(history.messages);
-          return mergeChatMessages(previousChat, mapped);
-        });
+        finishHistoryLoad();
+        applyHistory(history, true);
       } catch (error) {
-        if (signal.aborted || sessionIdRef.current !== sessionId) return;
+        if (!historyIsCurrent(generation, name, sessionId, signal)) return;
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
         console.error("Failed to sync chat history", error);
         setSessionHistoryError(historyErrorMessage(error));
+        finishHistoryLoad();
       }
     },
     [
       clearSessionHistoryError,
+      applyHistory,
+      finishHistoryLoad,
       getHistoryApi,
+      historyIsCurrent,
       isExternal,
       name,
       sessionId,
@@ -289,28 +372,47 @@ export function useChatSession({
     if (!name || !sessionId || isExternal || isRefreshingRef.current) return;
 
     const sessionIdAtCall = sessionId;
+    const generation = ++historyRequestGenerationRef.current;
+    finishHistoryLoad();
+    const controller = new AbortController();
+    refreshControllerRef.current = controller;
     isRefreshingRef.current = true;
     setRefreshing(true);
 
     try {
-      const history = await getHistoryApi(name, sessionIdAtCall);
-      if (sessionIdRef.current !== sessionIdAtCall) return;
+      const history = await getHistoryApi(
+        name,
+        sessionIdAtCall,
+        undefined,
+        controller.signal,
+      );
+      if (
+        !historyIsCurrent(generation, name, sessionIdAtCall, controller.signal)
+      )
+        return;
       clearSessionHistoryError();
-      const mapped = mapHistoryToMessages(history.messages || []);
-      setChat(mapped);
+      finishHistoryLoad();
+      applyHistory(history);
       setIdle();
       // Always probe backend for authoritative status on manual refresh (#686).
       await refreshAgentStatus(sessionIdAtCall);
     } catch (error) {
-      if (sessionIdRef.current !== sessionIdAtCall) return;
+      if (
+        !historyIsCurrent(generation, name, sessionIdAtCall, controller.signal)
+      )
+        return;
       console.error("Failed to load session history", error);
       setSessionHistoryError(historyErrorMessage(error));
+      finishHistoryLoad();
     } finally {
-      setRefreshing(false);
+      if (refreshControllerRef.current === controller) setRefreshing(false);
     }
   }, [
     clearSessionHistoryError,
+    applyHistory,
+    finishHistoryLoad,
     getHistoryApi,
+    historyIsCurrent,
     isExternal,
     name,
     refreshAgentStatus,
@@ -330,7 +432,7 @@ export function useChatSession({
       const sendRequestId = ++sendRequestIdRef.current;
       const timestamp = new Date().toISOString();
       const userMessage: ChatMessage = {
-        id: `${timestamp}-user`,
+        id: `${timestamp}-user-${sendRequestId}`,
         role: "user",
         text: trimmed,
         timestamp,
@@ -346,6 +448,14 @@ export function useChatSession({
         const promptWithPolicy = appendPolicy
           ? appendPolicy(userMessage.text, name)
           : userMessage.text;
+        const pendingUser: PendingUser = {
+          message: userMessage,
+          submitted: promptWithPolicy,
+          baseline: !sessionId
+            ? []
+            : (persistedUsersRef.current?.slice() ?? null),
+        };
+        pendingUsersRef.current.push(pendingUser);
         const model =
           normalizedSelectedModel &&
           normalizedSelectedModel !== defaultModelValue
@@ -365,12 +475,15 @@ export function useChatSession({
         );
 
         if (sendRequestIdRef.current !== sendRequestId) return;
+        pendingUser.replyId = reply.messageId;
         if (reply.sessionId) {
+          ownSessionRef.current = reply.sessionId;
           setSessionId(reply.sessionId);
         }
         setIdle();
         onActivateAgentTab?.();
         await syncChatHistory(new AbortController().signal);
+        if (sendRequestIdRef.current !== sendRequestId) return;
         // Fix #687: never clear the optimistic `true` from a potentially stale
         // reply.processing value. If the reply says running, trust it; otherwise
         // let refreshAgentStatus() confirm the real state so we don't prematurely
@@ -381,6 +494,9 @@ export function useChatSession({
           await refreshAgentStatus(reply.sessionId ?? sessionId ?? undefined);
         }
       } catch (error) {
+        pendingUsersRef.current = pendingUsersRef.current.filter(
+          (entry) => entry.message.id !== userMessage.id,
+        );
         if (sendRequestIdRef.current !== sendRequestId) return;
         console.error("Failed to contact agent", error);
         const busy = error instanceof HttpError && error.status === 409;
@@ -418,18 +534,41 @@ export function useChatSession({
     if (!name || isExternal || isCancelingAgentRef.current) return;
 
     isCancelingAgentRef.current = true;
+    const cancellation = ++sendRequestIdRef.current;
+    pendingUsersRef.current = [];
+    historyRequestGenerationRef.current += 1;
     setIsCancelingAgent(true);
     try {
       await cancelAgent(name, sessionId || undefined);
+      if (
+        sendRequestIdRef.current === cancellation &&
+        identityRef.current.name === name &&
+        !sessionIdRef.current
+      )
+        setIdle();
     } catch (error) {
+      if (
+        sendRequestIdRef.current !== cancellation ||
+        identityRef.current.name !== name ||
+        sessionIdRef.current !== sessionId
+      )
+        return;
       console.error("Failed to cancel agent request", error);
       setError("Unable to cancel the agent request.");
     } finally {
-      await refreshAgentStatus();
+      if (sendRequestIdRef.current === cancellation) await refreshAgentStatus();
       isCancelingAgentRef.current = false;
       setIsCancelingAgent(false);
     }
-  }, [cancelAgent, isExternal, name, refreshAgentStatus, sessionId, setError]);
+  }, [
+    cancelAgent,
+    isExternal,
+    name,
+    refreshAgentStatus,
+    sessionId,
+    setError,
+    setIdle,
+  ]);
 
   const openSessionModal = useCallback(async () => {
     if (!name || isExternal) return;
@@ -456,6 +595,9 @@ export function useChatSession({
 
   const invalidatePendingRequests = useCallback(() => {
     sendRequestIdRef.current += 1;
+    pendingUsersRef.current = [];
+    historyRequestGenerationRef.current += 1;
+    refreshControllerRef.current?.abort();
   }, []);
 
   const handleSessionSelect = useCallback(
@@ -472,6 +614,7 @@ export function useChatSession({
       }
 
       sendRequestIdRef.current += 1;
+      pendingUsersRef.current = [];
       setSessionModalOpen(false);
       setIdle();
       lastKnownTimestampRef.current = undefined;
@@ -499,6 +642,7 @@ export function useChatSession({
 
   const handleClearSessionOnly = useCallback(() => {
     sendRequestIdRef.current += 1;
+    pendingUsersRef.current = [];
     lastKnownTimestampRef.current = undefined;
     setSessionId(null);
     setIdle();
@@ -515,6 +659,7 @@ export function useChatSession({
 
   const handleClearSessionAndHistory = useCallback(() => {
     sendRequestIdRef.current += 1;
+    pendingUsersRef.current = [];
     lastKnownTimestampRef.current = undefined;
     setSessionId(null);
     setIdle();
