@@ -104,20 +104,13 @@ class TestOpenCodeV2AgentCLI(unittest.TestCase):
         connection.close()
         self.cli = OpenCodeV2AgentCLI()
 
-    def test_history_is_index_ordered_scoped_and_maps_v2_part_ids(self):
+    def test_listing_remains_sqlite_scoped_root_and_nonempty(self):
         with patch.dict("os.environ", {"OPENCODE_DB": str(self.database)}):
             sessions = self.cli.list_sessions(self.root / "repo")
-            history = self.cli.export_session("ses_a", self.root / "repo")
-            wrong_scope = self.cli.export_session("ses_b", self.root / "repo")
+            other = self.cli.list_sessions(self.root / "other")
+        self.assertTrue(sessions.success)
         self.assertEqual([item.session_id for item in sessions.sessions], ["ses_a"])
-        self.assertEqual(
-            [message.content for message in history.messages],
-            ["question", "answer", "thinking", "Tool: read\n  filePath: README.md"],
-        )
-        self.assertEqual(history.messages[1].part_id, "prt_text")
-        self.assertEqual(history.messages[2].timestamp, 1500)
-        self.assertEqual(history.messages[3].call_id, "call_tool")
-        self.assertFalse(wrong_scope.success)
+        self.assertEqual(other.sessions, [])
 
     def test_agent_listing_discovers_jsonc_and_nested_markdown_and_hides_disabled(self):
         config_home = self.root / "config"

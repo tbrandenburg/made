@@ -1,45 +1,14 @@
-"""Exercise scoped history through the real v2 adapter, service, and HTTP routes."""
+"""Real V2 HTTP adapter, history service, and four route-family isolation."""
 
 import json
-import sqlite3
+from urllib.parse import urlsplit
 
 from fastapi.testclient import TestClient
 import pytest
 
 import agent_service
 from app import app
-
-
-# Relevant v2 DDL from OpenCode's real schema, including required/default columns.
-SCHEMA = """
-CREATE TABLE project (
-    id TEXT PRIMARY KEY, worktree TEXT NOT NULL, vcs TEXT, name TEXT,
-    icon_url TEXT, icon_color TEXT, time_created INTEGER NOT NULL,
-    time_updated INTEGER NOT NULL, time_initialized INTEGER, sandboxes TEXT NOT NULL
-);
-CREATE TABLE session_v2 (
-    id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT, parent_id TEXT,
-    fork_session_id TEXT, fork_boundary TEXT, slug TEXT NOT NULL,
-    directory TEXT NOT NULL, path TEXT, title TEXT, version TEXT NOT NULL,
-    share_url TEXT, summary_additions INTEGER, summary_deletions INTEGER,
-    summary_files INTEGER, summary_diffs TEXT, metadata TEXT,
-    cost REAL DEFAULT 0 NOT NULL, tokens_input INTEGER DEFAULT 0 NOT NULL,
-    tokens_output INTEGER DEFAULT 0 NOT NULL, tokens_reasoning INTEGER DEFAULT 0 NOT NULL,
-    tokens_cache_read INTEGER DEFAULT 0 NOT NULL, tokens_cache_write INTEGER DEFAULT 0 NOT NULL,
-    revert TEXT, permission TEXT, agent TEXT, model TEXT,
-    time_created INTEGER NOT NULL, time_updated INTEGER NOT NULL,
-    time_compacting INTEGER, time_archived INTEGER, time_suspended INTEGER,
-    resume_attempts INTEGER DEFAULT 0 NOT NULL, time_idle INTEGER, time_viewed INTEGER,
-    idle_outcome TEXT,
-    FOREIGN KEY (project_id) REFERENCES project(id) ON DELETE CASCADE
-);
-CREATE TABLE session_message (
-    id TEXT PRIMARY KEY, session_id TEXT NOT NULL, type TEXT NOT NULL, seq INTEGER NOT NULL,
-    time_created INTEGER NOT NULL, time_updated INTEGER NOT NULL, data TEXT NOT NULL,
-    FOREIGN KEY (session_id) REFERENCES session_v2(id) ON DELETE CASCADE
-);
-CREATE INDEX session_message_session_seq_idx ON session_message(session_id, seq);
-"""
+from tests.unit.opencode_http_fixture import Reply, serve
 
 
 @pytest.fixture
@@ -51,67 +20,88 @@ def history_store(tmp_path, monkeypatch):
     for name in ("knowledge", "constitutions", "tasks"):
         (made / name).mkdir(parents=True)
     foreign = tmp_path / "private foreign directory"
-    database = tmp_path / "opencode.db"
-    with sqlite3.connect(database) as connection:
-        connection.executescript(SCHEMA)
-        connection.execute(
-            "INSERT INTO project (id, worktree, time_created, time_updated, sandboxes) VALUES (?, ?, 1, 1, '[]')",
-            ("project", str(workspace)),
-        )
-        for session, directory in (
-            ("ses_local", repository),
-            ("ses_foreign", foreign),
-            ("ses_empty", repository),
-        ):
-            connection.execute(
-                "INSERT INTO session_v2 (id, project_id, slug, directory, title, version, time_created, time_updated) VALUES (?, 'project', ?, ?, ?, '2.0.28', 1, 2)",
-                (session, session, str(directory), session),
-            )
-        for session in ("ses_local", "ses_foreign"):
-            # Insert out of order so the real query must order by seq, not insertion.
-            for seq, role, data in (
-                (
-                    2,
-                    "assistant",
-                    {"content": [{"type": "text", "text": f"{session} answer"}]},
-                ),
-                (1, "user", {"text": f"{session} question", "time": {"created": 1}}),
-            ):
-                connection.execute(
-                    "INSERT INTO session_message VALUES (?, ?, ?, ?, 1, 2, ?)",
-                    (f"{session}_{seq}", session, role, seq, json.dumps(data)),
-                )
-    monkeypatch.setenv("OPENCODE_DB", str(database))
+    monkeypatch.setenv("OPENCODE_DB", str(tmp_path / "absent.db"))
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     monkeypatch.setenv("MADE_WORKSPACE_HOME", str(workspace))
     monkeypatch.setenv("MADE_HOME", str(made.parent))
-    (made / "settings.json").write_text(
-        json.dumps({"agentCli": "opencode-v2"}), encoding="utf-8"
-    )
-    return repository, foreign
+    (made / "settings.json").write_text(json.dumps({"agentCli": "opencode-v2"}))
+    with serve(repository) as service:
+        service.register(tmp_path / "opencode/service.json")
+
+        def respond(path, count):
+            parts = urlsplit(path).path.split("/")
+            session = parts[3]
+            if session == "ses_absent":
+                return Reply(
+                    {
+                        "_tag": "SessionNotFoundError",
+                        "sessionID": session,
+                        "message": "Session not found",
+                    },
+                    404,
+                )
+            if session == "ses_endpoint":
+                return Reply({"message": "Session not found"}, 404)
+            if parts[-1] != "message":
+                return Reply(
+                    {
+                        "data": {
+                            "id": session,
+                            "location": {
+                                "directory": str(
+                                    foreign if session == "ses_foreign" else repository
+                                )
+                            },
+                        }
+                    }
+                )
+            records = (
+                []
+                if session == "ses_empty"
+                else [
+                    {
+                        "id": "msg_user",
+                        "type": "user",
+                        "text": "local question",
+                        "time": {"created": 1000},
+                    },
+                    {
+                        "id": "msg_answer",
+                        "type": "assistant",
+                        "content": [{"type": "text", "text": "local answer"}],
+                        "time": {"created": 2000},
+                    },
+                ]
+            )
+            return Reply({"data": records, "cursor": {"previous": None, "next": None}})
+
+        service.respond = respond
+        yield repository, foreign, service
 
 
-def test_export_chat_history_v2_mismatch_is_typed_and_local_empty_is_preserved(
-    history_store,
-):
-    repository, foreign = history_store
+def test_service_preserves_snapshot_even_with_newer_start_and_missing(history_store):
+    repository, foreign, service = history_store
     cli = agent_service.get_agent_cli(repository)
-    assert [
-        session.session_id for session in cli.list_sessions(repository).sessions
-    ] == ["ses_local"]
     mismatch = cli.export_session("ses_foreign", repository)
     assert not mismatch.success and mismatch.messages == []
-    assert getattr(mismatch, "error_code", None) == "session_directory_mismatch"
+    assert mismatch.error_code == "session_directory_mismatch"
     with pytest.raises(agent_service.SessionDirectoryMismatchError) as failure:
         agent_service.export_chat_history("ses_foreign", channel="repository")
     assert str(foreign) not in str(failure.value)
-    assert "Start a new session" in str(failure.value)
-    history = agent_service.export_chat_history("ses_local", channel="repository")
+    history = agent_service.export_chat_history(
+        "ses_local", start_timestamp=999999, channel="repository"
+    )
     assert [message["content"] for message in history["messages"]] == [
-        "ses_local question",
-        "ses_local answer",
+        "local question",
+        "local answer",
     ]
-    assert agent_service.export_chat_history("ses_empty")["messages"] == []
-    assert agent_service.export_chat_history("ses_absent")["messages"] == []
+    assert history["historyMode"] == "snapshot"
+    for session in ["ses_empty", "ses_absent"]:
+        result = agent_service.export_chat_history(session, channel="repository")
+        assert result["messages"] == [] and result["historyMode"] == "snapshot"
+    with pytest.raises(RuntimeError, match="endpoint"):
+        agent_service.export_chat_history("ses_endpoint", channel="repository")
+    assert not any("ses_foreign/message" in path for path in service.requests)
 
 
 @pytest.mark.parametrize(
@@ -123,8 +113,8 @@ def test_export_chat_history_v2_mismatch_is_typed_and_local_empty_is_preserved(
         "tasks/daily.md",
     ],
 )
-def test_history_routes_return_safe_409_for_v2_directory_mismatch(history_store, route):
-    _, foreign = history_store
+def test_history_routes_return_safe_409_without_foreign_content(history_store, route):
+    _, foreign, service = history_store
     response = TestClient(app).get(
         f"/api/{route}/agent/history", params={"session_id": "ses_foreign"}
     )
@@ -136,5 +126,62 @@ def test_history_routes_return_safe_409_for_v2_directory_mismatch(history_store,
         }
     }
     assert str(foreign) not in response.text
-    assert "ses_foreign question" not in response.text
-    assert "ses_foreign answer" not in response.text
+    assert service.requests == ["/api/session/ses_foreign"]
+
+
+def test_same_id_timestamp_revisions_return_complete_snapshot(history_store):
+    _, _, service = history_store
+    for text in ["original", "longer revised answer", "same-size", "x"]:
+
+        def respond(path, count):
+            if "/message" not in path:
+                return Reply(
+                    {
+                        "data": {
+                            "id": "ses_local",
+                            "location": {"directory": str(service.directory)},
+                        }
+                    }
+                )
+            return Reply(
+                {
+                    "data": [
+                        {
+                            "id": "msg_z",
+                            "type": "user",
+                            "text": "repeat",
+                            "time": {"created": 2000},
+                        },
+                        {
+                            "id": "msg_a",
+                            "type": "user",
+                            "text": "repeat",
+                            "time": {"created": 1000},
+                        },
+                        {
+                            "id": "msg_answer",
+                            "type": "assistant",
+                            "time": {"created": 3000},
+                            "content": [{"type": "text", "text": text}],
+                        },
+                    ],
+                    "cursor": {"next": None},
+                }
+            )
+
+        service.respond = respond
+        result = agent_service.export_chat_history(
+            "ses_local", start_timestamp=99999, channel="repository"
+        )
+        assert result["historyMode"] == "snapshot"
+        assert [message["messageId"] for message in result["messages"]] == [
+            "msg_z",
+            "msg_a",
+            "msg_answer:0",
+        ]
+        assert [message["content"] for message in result["messages"]] == [
+            "repeat",
+            "repeat",
+            text,
+        ]
+        assert result["messages"][2]["timestamp"] == "1970-01-01T00:00:03.000Z"
