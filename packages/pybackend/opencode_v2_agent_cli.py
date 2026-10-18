@@ -1,4 +1,4 @@
-"""OpenCode v2 CLI adapter with read-only access to its indexed SQLite history."""
+"""OpenCode v2 adapter: HTTP history and read-only SQLite session listing."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import sqlite3
 import subprocess
+import time
 from threading import Event
 from typing import Callable
 
@@ -21,12 +22,19 @@ from agent_results import (
     AgentInfo,
     AgentListResult,
     ExportResult,
-    HistoryMessage,
     RunResult,
     ResponsePart,
     SessionInfo,
     SessionListResult,
 )
+from opencode_v2_http_history import (
+    DEADLINE_SECONDS,
+    HistoryReadError,
+    SessionDirectoryMismatch,
+    SessionNotFound,
+    read_session,
+)
+from opencode_v2_history_conversion import convert_history
 
 
 def _strip_json_comments(text: str) -> str:
@@ -68,7 +76,7 @@ def _strip_json_comments(text: str) -> str:
 
 
 class OpenCodeV2AgentCLI(AgentCLI):
-    """Adapter for v2 CLI execution and v2 session database history."""
+    """Adapter for v2 CLI execution, HTTP history, and SQLite session listing."""
 
     @staticmethod
     def _format_tool(part: dict[str, object]) -> str:
@@ -200,98 +208,40 @@ class OpenCodeV2AgentCLI(AgentCLI):
 
     def export_session(self, session_id: str, cwd: Path | None) -> ExportResult:
         try:
-            with closing(self._connect()) as connection:
-                query = "SELECT id, directory FROM session_v2 WHERE id = ? AND parent_id IS NULL"
-                session = connection.execute(query, (session_id,)).fetchone()
-                if session is None:
-                    return ExportResult(
-                        False,
-                        session_id,
-                        [],
-                        f"Session {session_id} not found in requested directory",
-                    )
-                if cwd and session["directory"] != str(cwd.resolve()):
-                    return ExportResult(
-                        False,
-                        session_id,
-                        [],
-                        "Session belongs to a different directory",
-                        error_code="session_directory_mismatch",
-                    )
-                rows = connection.execute(
-                    "SELECT id, type, time_created, data FROM session_message WHERE session_id = ? ORDER BY seq ASC",
-                    (session_id,),
-                ).fetchall()
-            messages: list[HistoryMessage] = []
-            for row in rows:
-                try:
-                    data = json.loads(row["data"])
-                except (TypeError, json.JSONDecodeError):
-                    continue
-                role = row["type"]
-                if role not in {"user", "assistant"}:
-                    continue
-                content = data.get("content")
-                if role == "user":
-                    user_text = str(data.get("text") or "")
-                    if user_text:
-                        messages.append(
-                            HistoryMessage(
-                                row["id"],
-                                role,
-                                "text",
-                                user_text,
-                                self._timestamp(
-                                    (data.get("time") or {}).get(
-                                        "created", row["time_created"]
-                                    )
-                                ),
-                            )
-                        )
-                    continue
-                if not isinstance(content, list):
-                    continue
-                for index, part in enumerate(content):
-                    if not isinstance(part, dict):
-                        continue
-                    kind = part.get("type")
-                    if kind in {"text", "reasoning"}:
-                        text = str(part.get("text") or "")
-                        content_type = "text" if kind == "text" else "reasoning"
-                    elif kind == "tool":
-                        text = self._format_tool(part)
-                        content_type = "tool_use"
-                    else:
-                        continue
-                    if text:
-                        messages.append(
-                            HistoryMessage(
-                                f"{row['id']}:{index}",
-                                role,
-                                content_type,
-                                text,
-                                self._timestamp(
-                                    part.get("time")
-                                    or (data.get("time") or {}).get(
-                                        "created", row["time_created"]
-                                    )
-                                ),
-                                str(part.get("partID") or part.get("partId"))
-                                if part.get("partID") or part.get("partId")
-                                else None,
-                                str(part.get("id"))
-                                if kind == "tool"
-                                and (
-                                    part.get("callID")
-                                    or part.get("callId")
-                                    or part.get("id")
-                                )
-                                else None,
-                            )
-                        )
-            return ExportResult(True, session_id, messages)
-        except Exception as error:
-            return ExportResult(False, session_id, [], f"Error: {error}")
+            deadline = time.monotonic() + DEADLINE_SECONDS
+            messages = convert_history(
+                read_session(session_id, cwd), self._format_tool, deadline
+            )
+            return ExportResult(True, session_id, messages, history_mode="snapshot")
+        except SessionNotFound as error:
+            return ExportResult(
+                False,
+                session_id,
+                [],
+                str(error),
+                error_code="session_not_found",
+                history_mode="snapshot",
+            )
+        except SessionDirectoryMismatch as error:
+            return ExportResult(
+                False,
+                session_id,
+                [],
+                str(error),
+                error_code="session_directory_mismatch",
+            )
+        except HistoryReadError as error:
+            return ExportResult(
+                False, session_id, [], str(error), history_mode="snapshot"
+            )
+        except Exception:
+            return ExportResult(
+                False,
+                session_id,
+                [],
+                "Unable to export OpenCode session history",
+                history_mode="snapshot",
+            )
 
     def list_agents(self, cwd: Path | None = None) -> AgentListResult:
         definitions = {

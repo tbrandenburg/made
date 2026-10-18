@@ -25,6 +25,8 @@ interface UseSessionLoaderParams {
   setChat: Dispatch<SetStateAction<ChatMessage[]>>;
   getHistory: GetHistoryFn;
   onHistoryLoaded?: (history: ChatHistoryResponse) => void;
+  requestGenerationRef?: { current: number };
+  applyHistory?: (history: ChatHistoryResponse) => void;
 }
 
 interface UseSessionLoaderResult {
@@ -32,6 +34,7 @@ interface UseSessionLoaderResult {
   sessionError: string | null;
   setSessionError: Dispatch<SetStateAction<string | null>>;
   clearSessionError: () => void;
+  finishHistoryLoad: () => void;
 }
 
 /**
@@ -50,6 +53,8 @@ export function useSessionLoader({
   setChat,
   getHistory,
   onHistoryLoaded,
+  requestGenerationRef,
+  applyHistory,
 }: UseSessionLoaderParams): UseSessionLoaderResult {
   const [sessionLoading, setSessionLoading] = useState(() =>
     Boolean(name && sessionId),
@@ -59,6 +64,7 @@ export function useSessionLoader({
   const clearSessionError = useCallback(() => {
     setSessionError(null);
   }, []);
+  const finishHistoryLoad = useCallback(() => setSessionLoading(false), []);
 
   useEffect(() => {
     onHistoryLoadedRef.current = onHistoryLoaded;
@@ -75,18 +81,29 @@ export function useSessionLoader({
     setSessionLoading(true);
 
     const controller = new AbortController();
+    const generation = requestGenerationRef
+      ? ++requestGenerationRef.current
+      : 0;
 
     getHistory(name, sessionId, controller.signal)
       .then((history) => {
-        if (controller.signal.aborted) return;
+        if (
+          controller.signal.aborted ||
+          (requestGenerationRef && generation !== requestGenerationRef.current)
+        )
+          return;
         setSessionLoading(false);
         setSessionError(null);
-        const mapped = mapHistoryToMessages(history.messages || []);
-        setChat(mapped);
+        if (applyHistory) applyHistory(history);
+        else setChat(mapHistoryToMessages(history.messages || []));
         onHistoryLoadedRef.current?.(history);
       })
       .catch((error) => {
-        if (controller.signal.aborted) return;
+        if (
+          controller.signal.aborted ||
+          (requestGenerationRef && generation !== requestGenerationRef.current)
+        )
+          return;
         if (error instanceof DOMException && error.name === "AbortError")
           return;
         setSessionLoading(false);
@@ -97,7 +114,20 @@ export function useSessionLoader({
       controller.abort();
       setSessionLoading(false);
     };
-  }, [name, sessionId, getHistory, setChat]);
+  }, [
+    name,
+    sessionId,
+    getHistory,
+    setChat,
+    requestGenerationRef,
+    applyHistory,
+  ]);
 
-  return { sessionLoading, sessionError, setSessionError, clearSessionError };
+  return {
+    sessionLoading,
+    sessionError,
+    setSessionError,
+    clearSessionError,
+    finishHistoryLoad,
+  };
 }

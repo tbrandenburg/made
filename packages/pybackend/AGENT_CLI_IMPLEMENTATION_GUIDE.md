@@ -715,7 +715,7 @@ class MyAgentCLI(AgentCLI):
 | File                             | Agent                                   | Session storage                                                                          | Prompt delivery           | Agent listing                                               |
 | -------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------- |
 | `opencode_database_agent_cli.py` | OpenCode                                | SQLite `~/.local/share/opencode/opencode.db`                                             | stdin                     | CLI subprocess                                              |
-| `opencode_v2_agent_cli.py`       | OpenCode v2 (`agentCli: "opencode-v2"`) | Read-only SQLite `session_v2` / `session_message`, resolved by `opencode debug paths db` | stdin with resolved cwd and matching child PWD | Built-ins plus global/project JSON and Markdown definitions |
+| `opencode_v2_agent_cli.py`       | OpenCode v2 (`agentCli: "opencode-v2"`) | Authenticated local HTTP selected-session snapshots; SQLite session listing | stdin with resolved cwd and matching child PWD | Built-ins plus global/project JSON and Markdown definitions |
 | `claude_agent_cli.py`            | Claude Code                             | JSONL `~/.claude/projects/<slug>/<id>.jsonl`                                             | positional arg            | `claude agents`                                             |
 | `codex_agent_cli.py`             | Codex                                   | JSONL `~/.codex/sessions/YYYY/MM/DD/rollout-<id>.jsonl`                                  | stdin                     | hardcoded                                                   |
 | `copilot_agent_cli.py`           | GitHub Copilot                          | Events JSONL `~/.copilot/session-state/<id>/events.jsonl`                                | `-p` flag                 | hardcoded                                                   |
@@ -725,11 +725,46 @@ class MyAgentCLI(AgentCLI):
 ### OpenCode v2 storage and acceptance
 
 Select `opencode-v2` in Settings to use the separate v2 adapter. It preserves the
-existing `opencode` v1 selector. The v2 adapter resolves the database with
-`opencode debug paths db`, validates the `session_v2` and `session_message`
-schema, opens SQLite read-only, scopes sessions to the exact canonical working
-directory, and orders messages by the indexed `session_id, seq` key. Unknown
-schemas are rejected rather than migrated or modified.
+existing `opencode` v1 selector. Selected-session history uses the local V2
+HTTP service, discovered per export from
+`${XDG_STATE_HOME:-~/.local/state}/opencode/service.json`. Authenticate as
+`opencode` using its private password. Never expose registration values in
+logs, API errors, subprocess arguments, or browser state. Do not use a
+per-refresh CLI, a SQL history fallback, or automatic service lifecycle changes.
+
+Validate session ID, root status and exact canonical `data.location.directory`
+before fetching messages and again after pagination. Start with `order=asc`
+and `limit=50`, then send only `limit` and the opaque `cursor.next`. Preserve
+record/content order, original event timestamps, `messageId = messageID:index`
+for assistant parts, and separate `partId`/`callId` identities. A V2 export
+returns `history_mode="snapshot"`; the service must not apply an incremental
+creation-time filter. Initial load, manual refresh, and executed polling
+refresh reconcile the persisted snapshot without dropping optimistic sends or
+collapsing repeated prompts. Other adapters keep their incremental behavior.
+
+The shared operation budget is 30 seconds, 201 pages, 10,000 records and 32 MiB
+decoded bytes, with 2/5-second connect/read timeouts. One bounded whole-read
+retry covers registration replacement and detectable cursor/overlap conflicts;
+restart metadata validation and pagination, not an old cursor. Enforce bounds
+while receiving and fail explicitly on incomplete history. Disable proxies and
+redirects; credentials are only sent to validated literal loopback HTTP addresses
+with explicit ports. DNS names, including `localhost`, are rejected. Request
+identity encoding and reject compressed responses; stream at most 64 KiB per
+chunk. Per-response JSON preflight limits are 100,000 structural punctuation
+bytes, depth 64, and 128 bytes per unquoted primitive token. Quoted strings
+share the operation's byte budget. The async deadline covers I/O/cooperative
+preflight, not CPU preemption inside the bounded stdlib JSON decoder.
+Concurrent pages are not an atomic snapshot; another refresh can be needed.
+The 201-page allowance includes an empty terminal page after 200 full pages;
+retries and short pages still consume the cumulative budget. Keep synchronous
+adapter calls off the event loop: FastAPI history/Lite handlers use worker
+threads, and other async callers must use `await asyncio.to_thread(...)`.
+Direct event-loop calls to the synchronous reader fail before service access.
+
+Session listing still resolves `opencode debug paths db` and reads the indexed
+SQLite schema read-only. Activity detection retains its existing limitations;
+an external terminal need not trigger polling. Do not migrate/repair storage,
+reproduce WAL corruption, or silently restart OpenCode to make history fresh.
 
 For execution, resolve cwd once, copy `os.environ`, override only the copy's `PWD`
 with that directory, and pass both to `Popen`. Do not change the parent environment:
@@ -758,12 +793,23 @@ and Markdown files under `agents/`. The v2 agent-list API can return an empty
 result despite configured agents, so plugin-generated/transformed agents that
 are not represented in those files cannot be enumerated reliably.
 
-For a real CLI acceptance, use the isolated Compose project and pinned image
-described in the repository README. It stores Made settings/workspace and
-OpenCode home/database in project-scoped Docker volumes and binds only loopback
-ports 13000 and 18080; do not run the v2 CLI against host OpenCode data.
-The opt-in test deliberately conflicts parent PWD and verifies the real persisted
-directory, listing, resume, transcript, and foreign-directory rejection. The image
-and default expected version remain v2.0.18. Separately prepared isolated v2.0.28
-runs must explicitly set `MADE_OPENCODE_V2_EXPECTED_VERSION='opencode v2.0.28'`;
-report the actual version/result rather than counting an opt-in skip as a pass.
+For real CLI and browser acceptance, use the maintained
+[isolated runner](/docs/DOCKER.md#opencode-v2-acceptance). It creates unique
+Compose resources, isolated HOME/XDG paths and free loopback ports, and exercises
+real CLI creation/resume/tools, MADE refresh/polling, pagination, four-route
+isolation and owned service replacement/outage/recovery. Provider calls are real;
+the 89-record payload-size fixture is explicitly synthetic and imported through
+the supported API, not fabricated provider output. No host auth/config/data is
+mounted. The minimum tested version and image pin are 2.0.18. Re-run the real
+acceptance on adapter changes and version upgrades. Select a separate version
+run explicitly with
+`MADE_ACCEPTANCE_OPENCODE_VERSION=2.0.28`; do not infer a supported version range
+from a contract probe or count an opt-in skip as acceptance success.
+
+The acceptance helper supplies prompts as argv and explicitly closes stdin.
+OpenCode 2.0.18 also reads stdin for `run`: an open inherited pipe from Node's
+`execFile` through Compose can block before prompt admission, even with an argv
+prompt. This harness-only EOF rule does not change MADE's production stdin
+prompt contract. CLI partial output and sanitized active-session/inbox/permission
+observations are retained on failure; never retry or increase a timeout without
+checking whether the service actually admitted the prompt.

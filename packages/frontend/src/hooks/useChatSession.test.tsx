@@ -13,36 +13,11 @@ import type { ChatMessage } from "../types/chat";
 import { useState } from "react";
 import type { ChatHistoryResponse } from "./useApi";
 import { HttpError } from "./useApi";
-import { ChatWindow } from "../components/ChatWindow";
-import type { ChatSessionApi } from "./useChatSession";
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason: Error) => void;
-  const promise = new Promise<T>((success, failure) => {
-    resolve = success;
-    reject = failure;
-  });
-  return { promise, resolve, reject };
-}
-
-const historyFor = (sessionId: string): ChatHistoryResponse => ({
-  sessionId,
-  messages: [
-    {
-      messageId: `${sessionId}-user`,
-      role: "user",
-      type: "text",
-      content: `${sessionId} question`,
-    },
-    {
-      messageId: `${sessionId}-assistant`,
-      role: "assistant",
-      type: "text",
-      content: `${sessionId} answer`,
-    },
-  ],
-});
+import {
+  deferred,
+  historyFor,
+  SessionWindow,
+} from "./useChatSession.testSupport";
 
 function renderSession(getHistory: ReturnType<typeof vi.fn>) {
   const api = {
@@ -73,45 +48,6 @@ function renderSession(getHistory: ReturnType<typeof vi.fn>) {
 }
 
 const makeChat = (): ChatMessage[] => [];
-
-function SessionWindow({ api }: { api: ChatSessionApi }) {
-  const [sessionId, setSessionId] = useState<string | null>("A");
-  const [chat, setChat] = useState<ChatMessage[]>([]);
-  const session = useChatSession({
-    name: "repo",
-    sessionId,
-    setSessionId,
-    chat,
-    setChat,
-    setPrompt: vi.fn(),
-    setSelectedAgent: vi.fn(),
-    normalizedSelectedAgent: "default",
-    defaultAgentValue: "default",
-    api,
-  });
-  return (
-    <>
-      <button onClick={() => void session.reloadCurrentSession()}>
-        Refresh
-      </button>
-      <button onClick={() => void session.handleSendMessage("follow up")}>
-        Send
-      </button>
-      <output aria-label="Transcript">
-        {chat.map((message) => message.text).join(" | ")}
-      </output>
-      <ChatWindow
-        chat={chat}
-        running={session.agentState.status === "processing"}
-        refreshing={session.isRefreshing}
-        sessionLoading={session.sessionLoading}
-        sessionId={sessionId}
-        historyError={session.sessionError}
-        emptyMessage="No conversation yet."
-      />
-    </>
-  );
-}
 
 describe("useChatSession", () => {
   afterEach(() => {
@@ -649,7 +585,12 @@ describe("useChatSession", () => {
       await result.current.reloadCurrentSession();
     });
 
-    expect(api.getHistory).toHaveBeenCalledWith("repo", "session-1");
+    expect(api.getHistory).toHaveBeenCalledWith(
+      "repo",
+      "session-1",
+      undefined,
+      expect.any(AbortSignal),
+    );
     expect(setChat).toHaveBeenCalled();
   });
 

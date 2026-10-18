@@ -1,4 +1,9 @@
 import pytest
+from contextlib import closing
+import json
+import sqlite3
+
+import agent_service
 
 from agent_service import (
     _format_timestamp,
@@ -91,3 +96,41 @@ class TestExportChatHistory:
             },
         ]
     }
+
+
+def test_v1_real_database_keeps_incremental_filter_and_no_snapshot(
+    tmp_path, monkeypatch
+):
+    database = tmp_path / "v1.db"
+    made = tmp_path / "home/.made"
+    made.mkdir(parents=True)
+    (made / "settings.json").write_text(json.dumps({"agentCli": "opencode"}))
+    monkeypatch.setenv("MADE_HOME", str(made.parent))
+    monkeypatch.setenv("OPENCODE_DATABASE_PATH", str(database))
+    with closing(sqlite3.connect(database)) as connection:
+        connection.executescript("""
+            CREATE TABLE message (id TEXT, session_id TEXT, time_created INTEGER,
+                                  time_updated INTEGER, data TEXT);
+            CREATE TABLE part (id TEXT, message_id TEXT, time_created INTEGER,
+                               time_updated INTEGER, data TEXT);
+        """)
+        for identifier, timestamp, role, content in [
+            ("msg_early", 1700000000000, "user", "early"),
+            ("msg_late", 1700000001000, "assistant", "late"),
+        ]:
+            connection.execute(
+                "INSERT INTO message VALUES (?, 'ses_v1', ?, ?, ?)",
+                (
+                    identifier,
+                    timestamp,
+                    timestamp,
+                    json.dumps({"role": role, "content": content}),
+                ),
+            )
+        connection.commit()
+    result = agent_service.export_chat_history("ses_v1", start_timestamp=1700000001000)
+    assert "historyMode" not in result
+    assert [
+        (message["messageId"], message["content"]) for message in result["messages"]
+    ] == [("msg_late", "late")]
+    assert result["messages"][0]["timestamp"] == "2023-11-14T22:13:21.000Z"

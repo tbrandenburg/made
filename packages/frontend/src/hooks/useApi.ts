@@ -213,6 +213,7 @@ export type ChatHistoryResponse = {
   messages: ChatHistoryMessage[];
   processing?: boolean;
   startedAt?: string | null;
+  historyMode?: "snapshot";
 };
 
 export type ChatSession = {
