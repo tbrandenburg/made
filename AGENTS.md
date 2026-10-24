@@ -141,6 +141,7 @@ It runs `make qa-quick` (lint + format + unit-test) automatically before every `
 
 ## Lessons Learned
 
+- 2026-10-24: Pitfall: `shell=False` does not prevent a build tool from evaluating variable values. Prevention: check the target CLI's expansion semantics, escape interpreter-specific syntax, and verify literal metacharacters with real-process tests.
 - 2026-10-17: Pitfall: Transport migrations left database-only fixtures reading an inherited live service. Prevention: Give transport tests explicit isolated service discovery and production-shaped HTTP fixtures; verify both missing-endpoint and genuine missing-session errors before accepting empty-history behavior.
 - 2026-06-29: `_processing_channels` cleanup in `agent_service.py` is deferred to polling — any code path that skips polling can leave stale lock keys. Prevention: always verify cleanup happens on the write path (success path of `send_agent_message`), not only on the read path (`get_channel_status`). When adding new async state, ask "what cleans this up if the reader never arrives?"
 - 2026-06-29: In parallel subagent workflows, group all changes to a single high-contention file (e.g. `agent_service.py`) under one subagent. Splitting them across agents on the same branch always risks merge conflicts. Frontend and backend can safely run in parallel as they share no files.

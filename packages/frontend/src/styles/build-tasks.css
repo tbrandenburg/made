@@ -1,0 +1,54 @@
+.build-tasks {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.build-tasks .command-button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.build-task-runs {
+  display: grid;
+  gap: 1rem;
+}
+.build-task-runs article {
+  border-bottom: 1px solid var(--border-color, #444);
+  padding-bottom: 1rem;
+  min-width: 0;
+}
+.build-task-run-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+.build-task-run-id {
+  display: block;
+  overflow-wrap: anywhere;
+  margin-bottom: 0.5rem;
+}
+.build-task-status {
+  font-weight: 600;
+}
+.build-task-status--failed {
+  color: var(--danger, #e87878);
+}
+.build-task-status--succeeded {
+  color: var(--success, #62bc98);
+}
+.build-tasks pre {
+  max-height: 24rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.build-tasks .form-field {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+@media (max-width: 600px) {
+  .build-tasks .commands-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -67,6 +67,7 @@ from knowledge_service import (
 from external_matter_service import read_external_matter, write_external_matter
 from command_service import list_commands
 from harness_service import is_process_running, list_harnesses, run_harness
+from build_task_routes import router as build_task_router
 from workflow_service import list_workspace_workflows, read_workflows, write_workflows
 from workflow_harness_service import (
     generate_workflow_harnesses,
@@ -166,6 +167,7 @@ app.mount(
     name="lite_static",
 )
 app.include_router(lite_router)
+app.include_router(build_task_router)
 
 TERMINAL_BUFFER_SIZE = 4096
 DEFAULT_TERMINAL_COLUMNS = 120

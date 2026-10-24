@@ -1,4 +1,5 @@
 import type { WorkflowStep, WorkflowDefinition } from "../types/workflow";
+import type { BuildTaskDiscovery, BuildTaskRun } from "../types/buildTasks";
 
 const API_BASE =
   (import.meta.env?.VITE_API_BASE as string | undefined) || "/api";
@@ -17,6 +18,7 @@ const inflightRequests = new Map<string, Promise<unknown>>();
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
+  retryServerErrors = true,
 ): Promise<T> {
   const method = (options.method ?? "GET").toUpperCase();
 
@@ -37,12 +39,13 @@ async function request<T>(
     return promise;
   }
 
-  return executeRequest<T>(endpoint, options);
+  return executeRequest<T>(endpoint, options, retryServerErrors);
 }
 
 async function executeRequest<T>(
   endpoint: string,
   options: RequestInit = {},
+  retryServerErrors = true,
 ): Promise<T> {
   const maxRetries = 3;
   const retryDelay = 1000;
@@ -72,7 +75,11 @@ async function executeRequest<T>(
           // Ignore JSON parse errors and keep the raw message
         }
 
-        if (response.status >= 500 && attempt < maxRetries) {
+        if (
+          retryServerErrors &&
+          response.status >= 500 &&
+          attempt < maxRetries
+        ) {
           console.log(
             `API attempt ${attempt} failed with status ${response.status}, retrying in ${retryDelay}ms...`,
           );
@@ -341,6 +348,7 @@ export type CronClockSummary = {
 };
 
 export type WorkflowLogSummary = {
+  type?: "flowsh" | "build-task";
   name: string;
   location: "var" | "tmp" | string;
   path: string;
@@ -407,6 +415,32 @@ function toHarnessCompatibleWorkflows(
 }
 
 export const api = {
+  getBuildTasks: (name: string) =>
+    request<BuildTaskDiscovery>(
+      `/repositories/${encodeURIComponent(name)}/build-tasks`,
+    ),
+  getBuildTaskRuns: (name: string) =>
+    request<{ runs: BuildTaskRun[] }>(
+      `/repositories/${encodeURIComponent(name)}/build-tasks/runs`,
+    ),
+  getBuildTaskRun: (name: string, runId: string) =>
+    request<BuildTaskRun & { tail: string }>(
+      `/repositories/${encodeURIComponent(name)}/build-tasks/runs/${encodeURIComponent(runId)}`,
+    ),
+  runBuildTask: (
+    name: string,
+    file: string,
+    target: string,
+    parameters: Record<string, string>,
+  ) =>
+    request<BuildTaskRun>(
+      `/repositories/${encodeURIComponent(name)}/build-tasks/runs`,
+      {
+        method: "POST",
+        body: JSON.stringify({ file, target, parameters }),
+      },
+      false,
+    ),
   getDashboard: () =>
     request<{
       projectCount: number;
