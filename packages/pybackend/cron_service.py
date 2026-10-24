@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import stat
 import os
 import signal
 import shutil
@@ -16,6 +17,7 @@ from agent_service import get_agent_cli
 from config import get_made_home, get_workspace_home
 from task_service import get_tasks_directory, list_scheduled_tasks, read_task
 from workflow_service import read_workflows
+from run_log_service import bounded_tail, log_type, scoped_log_directory
 
 logger = logging.getLogger("made.pybackend.cron")
 
@@ -118,9 +120,7 @@ def _workflow_log_locations() -> dict[str, Path]:
     workspace_home = get_workspace_home()
     if workspace_home.is_dir():
         for repo_path in workspace_home.iterdir():
-            if not repo_path.is_dir():
-                continue
-            if (repo_path / ".git").is_file():
+            if not repo_path.is_dir() or repo_path.is_symlink():
                 continue
             locations[repo_path.name] = repo_path / FLOWSH_LOGS_DIRNAME
 
@@ -195,43 +195,42 @@ def _tail_output(value: str, max_lines: int = 20) -> str:
 def _is_workflow_log_file(file_path: Path) -> bool:
     return (
         file_path.is_file()
-        and file_path.name.startswith(WORKFLOW_LOG_PREFIX)
-        and file_path.suffix == ".log"
+        and not file_path.is_symlink()
+        and log_type(file_path.name) is not None
     )
 
 
 def _validate_log_name(log_name: str) -> bool:
-    return (
-        bool(log_name)
-        and "/" not in log_name
-        and "\\" not in log_name
-        and log_name.startswith(WORKFLOW_LOG_PREFIX)
-        and log_name.endswith(".log")
-    )
+    return log_type(log_name) is not None
 
 
 def list_workflow_logs() -> list[dict[str, object]]:
     log_files: list[tuple[float, dict[str, object]]] = []
     for location, log_dir in _workflow_log_locations().items():
-        if not log_dir.exists() or not log_dir.is_dir():
+        try:
+            with scoped_log_directory(log_dir.parent.parent) as directory:
+                for filename in os.listdir(directory):
+                    if log_type(filename) is None:
+                        continue
+                    info = os.stat(filename, dir_fd=directory, follow_symlinks=False)
+                    if not stat.S_ISREG(info.st_mode):
+                        continue
+                    modified_at = datetime.fromtimestamp(info.st_mtime, timezone.utc)
+                    log_files.append(
+                        (
+                            info.st_mtime,
+                            {
+                                "name": filename,
+                                "location": location,
+                                "path": str(log_dir / filename),
+                                "sizeBytes": info.st_size,
+                                "modifiedAt": modified_at.isoformat(),
+                                "type": log_type(filename),
+                            },
+                        )
+                    )
+        except FileNotFoundError:
             continue
-        for file_path in log_dir.iterdir():
-            if not _is_workflow_log_file(file_path):
-                continue
-            stat = file_path.stat()
-            modified_at = datetime.fromtimestamp(stat.st_mtime, timezone.utc)
-            log_files.append(
-                (
-                    stat.st_mtime,
-                    {
-                        "name": file_path.name,
-                        "location": location,
-                        "path": str(file_path),
-                        "sizeBytes": stat.st_size,
-                        "modifiedAt": modified_at.isoformat(),
-                    },
-                )
-            )
 
     return [
         entry for _, entry in sorted(log_files, key=lambda item: item[0], reverse=True)
@@ -246,17 +245,15 @@ def read_workflow_log_tail(
         raise FileNotFoundError("Unknown log location")
     if not _validate_log_name(log_name):
         raise FileNotFoundError("Invalid log filename")
-
     file_path = log_dir / log_name
-    if not file_path.exists() or not file_path.is_file():
-        raise FileNotFoundError("Workflow log file not found")
+    with scoped_log_directory(log_dir.parent.parent) as directory:
+        tail = bounded_tail(file_path, max_lines=max_lines, directory=directory)
 
-    content = file_path.read_text(encoding="utf-8", errors="replace")
     return {
         "name": log_name,
         "location": location,
         "path": str(file_path),
-        "tail": _tail_output(content, max_lines=max_lines),
+        "tail": tail,
     }
 
 

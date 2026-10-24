@@ -29,6 +29,98 @@ editor on your phone.
 
 ## Quickstart
 
+### Repository Build & Tasks
+
+Open a repository's **Build & Tasks** tab to run trusted Make/go-task targets as
+backend processes (not agent prompts). Targets without declared parameters start
+on click; parameterized targets show a required-value/enum dialog. Each file has
+its own button grid. **Runs** shows independent run IDs, PID, timestamps, actual
+exit status, duration and **View tail** output. Refresh re-discovers changed files.
+
+Discovery is static: it never runs Make, Task, recipes, `$(shell ...)`, or YAML
+`sh:` variables. It scans the root and four nested directory levels, bounded to
+2,000 directories, 200 files, 256 KiB/file and 500 targets/file. Hidden,
+dependency/generated directories and symlinks are excluded. Supported files:
+`GNUmakefile`, `makefile`, `Makefile`, and `Taskfile.yml`/`.yaml`, lowercase variants
+and `Taskfile.dist.yml`/`.yaml` (also lowercase).
+
+Make discovery recognizes literal rules, including multiple targets, adjacent
+description comments and `##` descriptions. It does not resolve includes,
+computed targets, patterns, `define` bodies or conditional expansion. Declare
+parameters directly above a rule; `!` marks a required parameter:
+
+```make
+# Run a selected test file
+# made:args FILE! NAME
+test-file:
+	@test -n "$(FILE)"
+	@echo "Run $(FILE) with optional filter $(NAME)"
+```
+
+Taskfiles use safe YAML parsing, `desc`/`summary`, `requires.vars` and literal
+`enum` choices. Public local task names (including namespaces) are shown;
+`internal: true` tasks and local files included with `internal: true` are hidden.
+Discovery does not expand include namespaces,
+task-name aliases, templates or dynamic enum references. YAML aliases and merge
+keys (`<<`) are rejected before loading, including small chained-merge documents;
+v1 does not support YAML anchor reuse. Nested files run explicitly from
+their containing directory; Task's authored `dir:` remains effective. Interactive
+or confirmation-prompt tasks are disabled; v1 has no terminal/PTY and closes stdin.
+Install **GNU Make** and/or [go-task](https://taskfile.dev/docs/installation) on the
+backend host's PATH. One missing tool does not prevent discovery or other tools.
+
+Runs persist in the repository's `.flowsh/logs/build-task-<runId>.log` and private
+JSON sidecars. **Tasks → Run logs** labels these **Build & Tasks**, separately from
+existing flowsh workflow logs. Tail reads are capped to 64 KiB/200 lines (the shared
+Tasks view requests 20 lines); run-list responses contain at most 50 records.
+Files are created with mode `0600` and new log directories with `0700`; `.flowsh/logs`
+must stay ignored by Git. Newly used log directories receive an ignore-everything
+`.gitignore` if none exists; existing ignore files are preserved. There is no
+automatic retention/deletion in v1.
+After a backend restart, an unowned unfinished run is **Unknown / interrupted**,
+never declared successful/running based only on its old PID. The process may
+survive; MADE does not implicitly cancel it or other runs.
+
+**Security:** this is not a sandbox. Clicking a target executes repository code
+with backend permissions. Parameters use validated names and single argv values,
+not a shell command assembled by MADE; dollar signs are escaped against Make's
+own recursive variable expansion. Repository recipes/templates can themselves
+expand/interpolate variables: authors must quote or pass environment values safely.
+Discovery and dispatch reject reserved Make parameters: `SHELL`, `MAKESHELL`,
+`COMSPEC`, `MAKE`, `MAKE_COMMAND`, `MAKEFLAGS`, `GNUMAKEFLAGS`, `MFLAGS`, `MAKEFILES`,
+`MAKEOVERRIDES`, `MAKELEVEL`, `MAKE_RESTARTS`, `MAKEFILE_LIST`, `MAKECMDGOALS`,
+`MAKE_HOST`, `MAKE_VERSION`, `MAKE_TERMOUT`, `MAKE_TERMERR`, `CURDIR`, `GPATH`, `VPATH`.
+Dot-prefixed Make special variables are excluded by the parameter-name grammar.
+Task's reserved template variables are also rejected: `CLI_ARGS`, `CLI_ARGS_LIST`,
+`CLI_FORCE`, `CLI_SILENT`, `CLI_VERBOSE`, `CLI_OFFLINE`, `CLI_ASSUME_YES`, `TASK`,
+`ALIAS`, `TASK_EXE`, `ROOT_TASKFILE`, `ROOT_DIR`, `TASKFILE`, `TASKFILE_DIR`, `TASK_DIR`,
+`USER_WORKING_DIR`, `FILE_PATH_SEPARATOR`, `PATH_LIST_SEPARATOR`, `CHECKSUM`,
+`TIMESTAMP`, `ITEM`, `EXIT_CODE`, `TASK_VERSION`.
+Parameter names use `[A-Za-z_][A-Za-z0-9_]{0,63}`; requests accept up to 50 values,
+each at most 4,096 characters with no NUL or line breaks. Task required-variable
+lists are capped at 50 entries and literal enums at 100 choices.
+Log access pins directory handles rather than following a validated pathname later.
+If output disappears or becomes unreadable, run details report **Output unavailable**
+while retaining the true process outcome, exit code and timing independently.
+Output can contain secrets, including anything scripts print. Backend lifecycle
+logs omit submitted values and bulk output; run logs are private but not redacted.
+
+Focused real verification (after dependency installation and frontend build):
+
+```bash
+(cd packages/pybackend && uv run pytest tests/unit/test_build_task_service.py tests/unit/test_build_task_security.py tests/unit/test_run_log_security.py)
+npm --workspace packages/frontend test -- src/components/BuildTasksTab.test.tsx
+npm run build:frontend
+npx playwright test tests/system/build-tasks.spec.ts --reporter=list
+```
+
+The component tests start a real scoped feature backend. The browser test starts
+the real MADE backend with built frontend, temporary MADE/workspace homes, harmless
+fixtures and dynamically allocated nonstandard ports. It exercises the 16 issue
+acceptance steps and writes screenshot/run-ID/log evidence under `test-results/`.
+It requires `make`, `task`, Python, Git, and an installed Playwright Chromium;
+it never calls the project's run/stop/restart targets or uses ports 3000/5173.
+
 ### Prerequisites
 
 - **Node.js 22.12+** and npm.

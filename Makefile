@@ -135,6 +135,7 @@ unit-test:
 	fi; \
 	exit $$status
 
+# made:args FILE! NAME
 test-frontend:
 	@test -n "$(FILE)" || (echo "Usage: make test-frontend FILE=path [NAME=pattern]" && exit 1)
 	@echo "🔬 Running frontend test: $(FILE)"
@@ -145,6 +146,7 @@ test-frontend:
 		npm run test:serial -- "$(FILE)"; \
 	fi
 
+# made:args FILE! NAME
 test-backend:
 	@test -n "$(FILE)" || (echo "Usage: make test-backend FILE=path [NAME=pattern]" && exit 1)
 	@echo "🔬 Running backend test: $(FILE)"
@@ -375,6 +377,7 @@ docker-clean: docker-down
 # available to run explicitly before a release if you want the deeper gate.
 # Non-interactive: make release BUMP=major|minor|patch (case-insensitive, e.g. BUMP=PATCH)
 # Or explicit:      make release VERSION=1.2.3
+# made:args VERSION BUMP
 release: qa-quick
 	@echo "🚀 Release Workflow"
 	@echo "=================="
@@ -404,6 +407,7 @@ release: qa-quick
 	echo "✅ Release v$$NEW_VERSION created and pushed"; \
 	echo "📦 Check GitHub Actions for automated release: https://github.com/tbrandenburg/made/actions"
 
+# made:args VERSION!
 tag-release: qa-quick
 	@if [ -z "$(VERSION)" ]; then \
 		echo "❌ Usage: make tag-release VERSION=v0.1.1"; \

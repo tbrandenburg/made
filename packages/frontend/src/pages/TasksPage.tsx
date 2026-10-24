@@ -459,15 +459,16 @@ export const TasksPage: React.FC = () => {
                     </table>
                   )}
 
-                  <h3>Available workflow logs</h3>
+                  <h3>Run logs</h3>
                   {workflowLogs.length === 0 ? (
-                    <div className="empty">No workflow logs found.</div>
+                    <div className="empty">No run logs found.</div>
                   ) : (
                     <>
                       <table className="git-table">
                         <thead>
                           <tr>
                             <th>Filename</th>
+                            <th>Type</th>
                             <th>Location</th>
                             <th>Modified</th>
                             <th>Size</th>
@@ -478,6 +479,11 @@ export const TasksPage: React.FC = () => {
                           {visibleWorkflowLogs.map((logFile) => (
                             <tr key={`${logFile.location}:${logFile.name}`}>
                               <td>{logFile.name}</td>
+                              <td>
+                                {logFile.type === "build-task"
+                                  ? "Build & Tasks"
+                                  : "Workflow"}
+                              </td>
                               <td>{logFile.path}</td>
                               <td>{formatDateTime(logFile.modifiedAt)}</td>
                               <td>{formatBytes(logFile.sizeBytes)}</td>

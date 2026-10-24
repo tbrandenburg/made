@@ -30,6 +30,17 @@ jobs:
       
       - name: Install dependencies
         run: make install
+
+      - name: Install go-task 3.45.4 (verified release)
+        run: &install-go-task |
+          curl --fail --location --silent --show-error --max-time 120 \
+            https://github.com/go-task/task/releases/download/v3.45.4/task_linux_amd64.tar.gz \
+            --output "$RUNNER_TEMP/task.tar.gz"
+          echo "4367eba04abcbcb407578d18d2439ee32604a872419601abec76a829c797fb82  $RUNNER_TEMP/task.tar.gz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/go-task"
+          tar -xzf "$RUNNER_TEMP/task.tar.gz" -C "$RUNNER_TEMP/go-task" task
+          echo "$RUNNER_TEMP/go-task" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/go-task/task" --version
       
       - name: Run QA (lint + format + unit tests with warnings)
         run: make qa-quick
@@ -114,6 +125,9 @@ jobs:
       - name: Install dependencies
         run: make install
       
+      - name: Install go-task 3.45.4 (verified release)
+        run: *install-go-task
+
       - name: Run backend and frontend tests with coverage
         run: make test-coverage
 
@@ -180,11 +194,25 @@ jobs:
       - name: Install dependencies
         run: make install
       
+      - name: Install go-task 3.45.4 (verified release)
+        run: *install-go-task
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
+
+      - name: Build frontend for isolated Build & Tasks acceptance
+        run: npm run build:frontend
       
       - name: Run system tests
         run: make system-test
+
+      - name: Upload browser acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-acceptance-evidence
+          path: test-results/
+          if-no-files-found: ignore
       
       - name: Upload frontend logs on failure
         if: failure()

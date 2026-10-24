@@ -15,6 +15,7 @@ import {
 } from "react-router-dom";
 import { renderMarkdown } from "../utils/markdown";
 import { Panel } from "../components/Panel";
+import { BuildTasksTab } from "../components/BuildTasksTab";
 import { TabView } from "../components/TabView";
 import { Modal } from "../components/Modal";
 import { ChatWindow, type ChatWindowHandle } from "../components/ChatWindow";
@@ -2024,6 +2025,11 @@ export const RepositoryPage: React.FC = () => {
       ) : (
         <div className="empty">No Git repository found.</div>
       ),
+    },
+    {
+      id: "build-tasks",
+      label: "Build & Tasks",
+      content: name ? <BuildTasksTab repository={name} /> : null,
     },
     {
       id: "harnesses",
