@@ -141,6 +141,7 @@ It runs `make qa-quick` (lint + format + unit-test) automatically before every `
 
 ## Lessons Learned
 
+- 2026-10-24: Pitfall: Concurrent builds, browser suites and dependency installs caused existing deadline tests to fail under shared-host load. Prevention: Run timing-sensitive QA gates without competing validation workloads before attributing timing failures to code.
 - 2026-10-24: Pitfall: `shell=False` does not prevent a build tool from evaluating variable values. Prevention: check the target CLI's expansion semantics, escape interpreter-specific syntax, and verify literal metacharacters with real-process tests.
 - 2026-10-17: Pitfall: Transport migrations left database-only fixtures reading an inherited live service. Prevention: Give transport tests explicit isolated service discovery and production-shaped HTTP fixtures; verify both missing-endpoint and genuine missing-session errors before accepting empty-history behavior.
 - 2026-06-29: `_processing_channels` cleanup in `agent_service.py` is deferred to polling — any code path that skips polling can leave stale lock keys. Prevention: always verify cleanup happens on the write path (success path of `send_agent_message`), not only on the read path (`get_channel_status`). When adding new async state, ask "what cleans this up if the reader never arrives?"
