@@ -187,9 +187,7 @@ class _Read:
                         raise HistoryReadError(
                             "OpenCode history exceeded its byte limit"
                         )
-                    budget.feed(chunk)
-                    self.remaining()
-                    await asyncio.sleep(0)
+                    await budget.feed(chunk, self.remaining)
                     body.extend(chunk)
                 self.remaining()
                 try:

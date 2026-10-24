@@ -1,5 +1,6 @@
 """Adversarial CPU and logging checks against the real local HTTP transport."""
 
+import asyncio
 import logging
 import json
 import time
@@ -11,6 +12,25 @@ import httpx
 import opencode_v2_http_history as history
 from opencode_v2_agent_cli import OpenCodeV2AgentCLI
 from tests.unit.opencode_http_fixture import Reply, serve
+
+
+def test_json_deadline_is_checked_within_a_network_chunk(tmp_path):
+    async def scan():
+        read = history._Read("ses_test", tmp_path)
+        budget = history.JsonBudget()
+
+        def expire():
+            read.deadline = time.monotonic() - 1
+
+        # Expire at the first cooperative yield, without scheduler timing noise.
+        asyncio.get_running_loop().call_soon(expire)
+        chunk = b"[" + b"0," * (history.CHUNK_BYTES // 2 - 2) + b"0] "
+        with pytest.raises(history.HistoryReadError, match="total deadline"):
+            await budget.feed(chunk, read.remaining)
+        assert 0 < budget.structures <= 1024
+        assert budget.depth == 1
+
+    asyncio.run(scan())
 
 
 @pytest.mark.parametrize("shape", ["dense", "whitespace"])
