@@ -58,6 +58,7 @@ from constitution_service import (
 )
 from task_service import delete_task, list_tasks, read_task, write_task
 from dashboard_service import get_dashboard_summary
+from system_metrics_service import get_system_metrics
 from knowledge_service import (
     delete_knowledge_artefact,
     list_knowledge_artefacts,
@@ -262,6 +263,11 @@ def get_version():
         "build_date": os.environ.get("BUILD_DATE", "unknown"),
         "environment": os.environ.get("ENVIRONMENT", "development"),
     }
+
+
+@app.get("/api/system-metrics")
+def system_metrics():
+    return get_system_metrics(get_workspace_home())
 
 
 @app.get("/api/dashboard")

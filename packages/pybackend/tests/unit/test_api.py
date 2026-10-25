@@ -75,6 +75,17 @@ class TestDashboardEndpoint:
         assert "Dashboard error" in response.json()["detail"]
 
 
+def test_system_metrics_endpoint():
+    response = client.get("/api/system-metrics")
+    assert response.status_code == 200
+    data = response.json()
+    assert set(data) == {
+        "cpuUtilization", "cpuPressure", "ramUtilization", "memoryPressure",
+        "diskUtilization", "ioPressure",
+    }
+    assert all(value is None or 0 <= value <= 100 for value in data.values())
+
+
 class TestAgentsEndpoint:
     """Test the agents endpoint."""
 

@@ -116,3 +116,17 @@ With the backend running, open its generated API documentation at
 The API includes repository, file, agent chat, knowledge, constitution, task,
 workflow, and settings operations. Check the generated reference for exact
 methods, paths, and request bodies instead of copying frontend route patterns.
+
+## Dashboard system metrics
+
+The dashboard refreshes overall CPU, RAM, and workspace filesystem utilization
+every five seconds. Utilization is collected with `psutil`; RAM usage accounts
+for available (including reclaimable) memory. Linux pressure readings use
+`some avg10` from `/proc/pressure/{cpu,memory,io}`: the percentage of time at
+least one task was stalled over the last ten seconds. Missing or unreadable
+metrics display as **Unavailable**. Pressure requires Linux with PSI enabled.
+
+These are system readings visible to the backend, not MADE process metrics or
+container quota usage. In containers they may describe the host or Linux VM;
+disk utilization describes the filesystem containing `MADE_WORKSPACE_HOME`.
+The read-only `/api/system-metrics` endpoint returns six nullable percentages.

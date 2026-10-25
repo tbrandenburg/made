@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api, type CronClockSummary } from "../hooks/useApi";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
+import { SystemMetrics } from "../components/SystemMetrics";
 import "../styles/page.css";
 
 type DashboardData = {
@@ -44,43 +45,50 @@ export const DashboardPage: React.FC = () => {
             id: "statistics",
             label: "Statistics",
             content: (
-              <div className="dashboard-grid">
-                <Panel title="Project Count">
-                  <div className="metric">{data?.projectCount ?? "—"}</div>
-                </Panel>
-                <Panel title="Agent-2-Agent Connection">
-                  <div
-                    className={`status-indicator ${data?.agentConnection ? "ok" : "error"}`}
-                  >
-                    <span className="light" />
-                    {data?.agentConnection
-                      ? "Connection established"
-                      : "Connection lost"}
-                  </div>
-                </Panel>
-                <Panel title="Cron Clock Status">
-                  <div className={`status-indicator ${cronLight}`}>
-                    <span className="light" />
-                    {data?.cronClock.message ?? "Cron status unknown"}
-                  </div>
-                </Panel>
-                <Panel title="Cron Job Success Rate Since Startup">
-                  <div className="metric">
-                    {data
-                      ? `${data.cronClock.successfulJobsSinceStartup}/${data.cronClock.startedJobsSinceStartup}`
-                      : "—"}
-                  </div>
-                </Panel>
-                <Panel title="MADE Home">
-                  <div className="path-info">{data?.madeHome ?? "—"}</div>
-                </Panel>
-                <Panel title=".made Folder">
-                  <div className="path-info">{data?.madeDirectory ?? "—"}</div>
-                </Panel>
-                <Panel title="Workspace Home">
-                  <div className="path-info">{data?.workspaceHome ?? "—"}</div>
-                </Panel>
-              </div>
+              <>
+                <SystemMetrics />
+                <div className="dashboard-grid">
+                  <Panel title="Project Count">
+                    <div className="metric">{data?.projectCount ?? "—"}</div>
+                  </Panel>
+                  <Panel title="Agent-2-Agent Connection">
+                    <div
+                      className={`status-indicator ${data?.agentConnection ? "ok" : "error"}`}
+                    >
+                      <span className="light" />
+                      {data?.agentConnection
+                        ? "Connection established"
+                        : "Connection lost"}
+                    </div>
+                  </Panel>
+                  <Panel title="Cron Clock Status">
+                    <div className={`status-indicator ${cronLight}`}>
+                      <span className="light" />
+                      {data?.cronClock.message ?? "Cron status unknown"}
+                    </div>
+                  </Panel>
+                  <Panel title="Cron Job Success Rate Since Startup">
+                    <div className="metric">
+                      {data
+                        ? `${data.cronClock.successfulJobsSinceStartup}/${data.cronClock.startedJobsSinceStartup}`
+                        : "—"}
+                    </div>
+                  </Panel>
+                  <Panel title="MADE Home">
+                    <div className="path-info">{data?.madeHome ?? "—"}</div>
+                  </Panel>
+                  <Panel title=".made Folder">
+                    <div className="path-info">
+                      {data?.madeDirectory ?? "—"}
+                    </div>
+                  </Panel>
+                  <Panel title="Workspace Home">
+                    <div className="path-info">
+                      {data?.workspaceHome ?? "—"}
+                    </div>
+                  </Panel>
+                </div>
+              </>
             ),
           },
         ]}
