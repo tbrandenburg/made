@@ -25,7 +25,7 @@ async function request<T>(
   if (method === "GET") {
     // Requests with an AbortSignal need independent cancellation — skip dedup
     if (options.signal) {
-      return executeRequest<T>(endpoint, options);
+      return executeRequest<T>(endpoint, options, retryServerErrors);
     }
     const key = `GET:${endpoint}`;
     const inflight = inflightRequests.get(key) as Promise<T> | undefined;
@@ -336,6 +336,15 @@ export type WorkspaceWorkflowSummary = {
   } | null;
 };
 
+export type SystemMetrics = {
+  cpuUtilization: number | null;
+  cpuPressure: number | null;
+  ramUtilization: number | null;
+  memoryPressure: number | null;
+  diskUtilization: number | null;
+  ioPressure: number | null;
+};
+
 export type CronClockSummary = {
   running: boolean;
   trafficLight: "ok" | "warning" | "error";
@@ -441,6 +450,8 @@ export const api = {
       },
       false,
     ),
+  getSystemMetrics: (signal: AbortSignal) =>
+    request<SystemMetrics>("/system-metrics", { signal }, false),
   getDashboard: () =>
     request<{
       projectCount: number;

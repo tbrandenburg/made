@@ -27,6 +27,14 @@
   font-weight: 700;
 }
 
+.system-resources {
+  margin-bottom: 1.5rem;
+}
+
+.metric-unavailable {
+  color: var(--text-secondary);
+}
+
 .status-indicator {
   display: flex;
   align-items: center;
