@@ -3,21 +3,33 @@
 <head>
     <meta charset="utf-8">
     <title>MADE Lite &mdash; Waiting...</title>
-    <meta http-equiv="refresh" content="5;url=/lite/repo/{{ name }}/wait/{{ msg_id }}?attempt={{ attempt + 1 }}&amp;session_id={{ session_id }}">
+    {% if refresh_url %}<meta http-equiv="refresh" content="5;url={{ refresh_url }}">{% endif %}
     <link rel="stylesheet" href="/lite/static/lite.css">
 </head>
 <body>
     <div class="breadcrumb">
-        <a href="/lite/">Repositories</a> / <a href="/lite/repo/{{ name }}">{{ name }}</a>
+        <a href="/lite/">Repositories</a> / <a href="{{ repo_url }}">{{ name }}</a>
     </div>
-    <h1>Waiting for agent response...</h1>
-
-    <p class="wait-info">
-        Processing your message for <strong>{{ name }}</strong>.
-    </p>
+    {% if state in ['queued', 'running'] %}
+    <h1>{{ 'Accepted / queued' if state == 'queued' else 'Waiting for agent response...' }}</h1>
+    <p class="wait-info">Your request for <strong>{{ name }}</strong> is {{ state }}. Acceptance is process-local, not durable storage.</p>
+    {% if refresh_url %}
     <p class="attempt-counter">Check {{ attempt + 1 }}/60 &mdash; refreshing in 5 seconds.</p>
+    {% else %}
+    <p>Automatic checks stopped. Execution has not been cancelled or confirmed successful. Refresh this page manually to check again.</p>
+    {% endif %}
+    {% elif state == 'failed' %}
+    <h1>Request failed</h1>
+    {% if error == 'cancelled' %}<p>The request was cancelled.</p>
+    {% elif error == 'scheduling' %}<p>The request could not be scheduled.</p>
+    {% else %}<p>The agent could not complete the request. Ask an operator to check CLI availability, authentication and repository setup.</p>{% endif %}
+    <p>Check your session history before submitting again; the agent may have received your message.</p>
+    {% else %}
+    <h1>Unknown or expired request</h1>
+    <p>Tracking may have expired or the backend may have restarted. Completion is unknown. Check your session history before submitting again. This page will not resend your message.</p>
+    {% endif %}
     <p>
-        <a href="/lite/repo/{{ name }}">Cancel / go back</a>
+        <a href="{{ repo_url }}">Go back</a> (leaving this page does not cancel execution)
     </p>
 </body>
 </html>

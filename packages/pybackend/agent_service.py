@@ -6,6 +6,7 @@ import signal
 import subprocess
 import time
 from datetime import UTC, datetime, timedelta
+from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Event, Lock
 
@@ -32,6 +33,16 @@ _cancelled_channels: set[str] = set()
 _active_processes: dict[str, subprocess.Popen[str]] = {}
 _cancel_events: dict[str, Event] = {}
 _conversation_sessions: dict[str, str] = {}
+
+
+@dataclass(eq=False)
+class MessageReservation:
+    key: str
+    cancel: Event = field(default_factory=Event)
+    running: bool = False
+
+
+_processing_owners: dict[str, MessageReservation] = {}
 
 _MAX_PROCESSING_AGE = timedelta(hours=2)
 
@@ -224,7 +235,8 @@ def _remove_process_locked(lock_key: str) -> None:
                 keys_to_remove.add(channel)
 
     for key in keys_to_remove:
-        _process_registry.pop(key, None)
+        if key not in _processing_owners:
+            _process_registry.pop(key, None)
 
 
 def _remove_process(lock_key: str) -> None:
@@ -240,7 +252,10 @@ def _cleanup_process_locked(lock_key: str) -> None:
     call ``_dump_processing_state()`` (or set ``needs_dump = True``) after
     releasing the lock.
     """
-    for key in _get_related_processing_keys(lock_key):
+    related = _get_related_processing_keys(lock_key)
+    if any(key in _processing_owners for key in related):
+        return
+    for key in related:
         _processing_channels.pop(key, None)
         _cancelled_channels.discard(key)
         _active_processes.pop(key, None)
@@ -294,6 +309,8 @@ def _purge_dead_processing_entries() -> None:
         with _processing_lock:
             if key not in _processing_channels:
                 continue  # Already removed by a previous iteration
+            if key in _processing_owners:
+                continue
             started_at = _processing_channels.get(key)
             if started_at is not None and now - started_at > _MAX_PROCESSING_AGE:
                 # Too old: remove regardless of PID liveness
@@ -487,8 +504,12 @@ def _resolve_part_timestamp(
     return fallback
 
 
-def _mark_channel_processing(channel: str) -> bool:
+def _mark_channel_processing(
+    channel: str, owner: MessageReservation | None = None
+) -> bool:
     with _processing_lock:
+        if channel in _processing_owners:
+            return False
         if channel in _processing_channels:
             process = _active_processes.get(channel)
             # Positive evidence check: live Popen → truly busy
@@ -506,18 +527,54 @@ def _mark_channel_processing(channel: str) -> bool:
             _active_processes.pop(channel, None)
             _cancel_events.pop(channel, None)
         _processing_channels[channel] = datetime.now(UTC)
+        if owner is not None:
+            _processing_owners[channel] = owner
+            _cancel_events[channel] = owner.cancel
     _dump_processing_state()
     return True
 
 
 def _clear_channel_processing(channel: str) -> None:
     with _processing_lock:
+        if any(
+            key in _processing_owners for key in _get_related_processing_keys(channel)
+        ):
+            return
         for key in _get_related_processing_keys(channel):
             _processing_channels.pop(key, None)
             _cancelled_channels.discard(key)
             _active_processes.pop(key, None)
             _cancel_events.pop(key, None)
     _remove_process(channel)
+    _dump_processing_state()
+
+
+def reserve_agent_message(
+    channel: str, session_id: str | None = None
+) -> MessageReservation:
+    owner = MessageReservation(session_id or channel)
+    try:
+        if not _mark_channel_processing(owner.key, owner):
+            raise ChannelBusyError(
+                "Agent is still processing a previous message for this chat."
+            )
+    except BaseException:
+        release_agent_message(owner)
+        raise
+    return owner
+
+
+def release_agent_message(owner: MessageReservation) -> None:
+    """Only the matching request may release admission, including after cancellation."""
+    with _processing_lock:
+        if _processing_owners.get(owner.key) is not owner:
+            return
+        _processing_owners.pop(owner.key)
+        _processing_channels.pop(owner.key, None)
+        _cancelled_channels.discard(owner.key)
+        _active_processes.pop(owner.key, None)
+        _cancel_events.pop(owner.key, None)
+        _process_registry.pop(owner.key, None)
     _dump_processing_state()
 
 
@@ -545,6 +602,22 @@ def _was_channel_cancelled(channel: str) -> bool:
 
 def cancel_agent_message(lock_key: str) -> bool:
     """Cancel an active agent message for the given lock key."""
+    with _processing_lock:
+        owner = _processing_owners.get(lock_key)
+        if owner is not None:
+            owner.cancel.set()
+            process = _active_processes.get(lock_key)
+            queued = not owner.running
+    if owner is not None:
+        if queued:
+            release_agent_message(owner)
+        if process is not None and process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                process.kill()
+        return True
     cancel_event = None
     process = None
     started_at = None
@@ -642,6 +715,10 @@ def get_channel_status(lock_key: str) -> dict[str, object]:
     # If lock_key is a session_id that maps to a channel which holds the lock,
     # copy that lock entry under lock_key so Steps 1/2 can find it directly.
     with _processing_lock:
+        if any(
+            key in _processing_owners for key in _get_related_processing_keys(lock_key)
+        ):
+            return {"running": True}
         if (
             lock_key not in _conversation_sessions
             and lock_key not in _processing_channels
@@ -655,6 +732,8 @@ def get_channel_status(lock_key: str) -> dict[str, object]:
     # A Popen object never lies: poll() == None means the process is alive.
     with _processing_lock:
         process = _active_processes.get(lock_key)
+        if lock_key in _processing_owners:
+            return {"running": True}
         if process is not None:
             if process.poll() is None:
                 return {"running": True}
@@ -666,6 +745,8 @@ def get_channel_status(lock_key: str) -> dict[str, object]:
     # An in-memory entry exists but there is no live Popen.  Cross-check the
     # registry to confirm whether the underlying pid is still alive.
     with _processing_lock:
+        if lock_key in _processing_owners:
+            return {"running": True}
         started_at = _processing_channels.get(lock_key)
         if started_at is not None:
             registry_entry = _find_process_registry_entry_locked(lock_key)
@@ -1058,36 +1139,25 @@ def send_agent_message(
     session_id: str | None = None,
     agent: str | None = None,
     model: str | None = None,
+    *,
+    reservation: MessageReservation | None = None,
 ):
     lock_key = session_id if session_id else channel
-    if not _mark_channel_processing(lock_key):
-        raise ChannelBusyError(
-            "Agent is still processing a previous message for this chat."
-        )
-
-    cancel_event = _register_cancel_event(lock_key)
-
-    working_dir = _get_working_directory(channel)
+    owner = reservation or reserve_agent_message(channel, session_id)
+    if owner.key != lock_key:
+        raise ValueError("Reservation does not match chat")
+    cancel_event = owner.cancel
+    working_dir = None
     active_session = session_id
-    logger.info(
-        "Selected agent working directory for message dispatch (channel: %s, cwd: %s)",
-        channel,
-        working_dir,
-    )
-
-    if session_id:
-        _conversation_sessions[lock_key] = session_id
-    else:
-        _conversation_sessions.pop(lock_key, None)
-
-    logger.info(
-        "Sending agent message (channel: %s, session: %s)", channel, active_session
-    )
-
+    with _processing_lock:
+        if owner.running:
+            raise ChannelBusyError("Reservation has been consumed")
+        if _processing_owners.get(lock_key) is not owner:
+            cancel_event.set()
+        owner.running = True
     try:
         # Check if cancelled before running
-        if _was_channel_cancelled(lock_key):
-            _clear_channel_processing(lock_key)
+        if cancel_event.is_set() or _was_channel_cancelled(lock_key):
             sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
             return {
                 "messageId": str(int(time.time() * 1000)),
@@ -1096,8 +1166,15 @@ def send_agent_message(
                 "response": "Agent request cancelled.",
                 "sessionId": _conversation_sessions.get(lock_key),
                 "processing": False,
+                "outcome": "cancelled",
             }
         else:
+            working_dir = _get_working_directory(channel)
+            with _processing_lock:
+                if session_id:
+                    _conversation_sessions[lock_key] = session_id
+                else:
+                    _conversation_sessions.pop(lock_key, None)
             # Use typed interface
             agent_cli = get_agent_cli(working_dir)
             start_time = time.monotonic()
@@ -1114,6 +1191,8 @@ def send_agent_message(
                     agent=agent,
                     working_directory=str(working_dir),
                 )
+                if cancel_event.is_set() and process.poll() is None:
+                    process.terminate()
 
             result = agent_cli.run_agent(
                 message,
@@ -1132,46 +1211,22 @@ def send_agent_message(
                 duration_seconds,
             )
 
-            if result.success:
+            if result.success and not cancel_event.is_set():
                 # Update session if we got a new one
                 if result.session_id:
-                    _conversation_sessions[lock_key] = result.session_id
-                    # Propagate processing state from channel key → session_id key
-                    # so status-polling with session_id finds the active process.
-                    if result.session_id != lock_key:
-                        with _processing_lock:
-                            started_at = _processing_channels.get(lock_key)
-                            if started_at:
-                                _processing_channels[result.session_id] = started_at
-                                proc = _active_processes.get(lock_key)
-                                if proc:
-                                    _active_processes[result.session_id] = proc
-                                ev = _cancel_events.get(lock_key)
-                                if ev:
-                                    _cancel_events[result.session_id] = ev
-                                if lock_key in _cancelled_channels:
-                                    _cancelled_channels.add(result.session_id)
-                                entry = _process_registry.get(lock_key)
-                                if entry is not None:
-                                    _process_registry[result.session_id] = dict(entry)
-                        _save_process_registry()
+                    with _processing_lock:
+                        _conversation_sessions[lock_key] = result.session_id
+                    active_session = result.session_id
 
                 logger.info(
                     "Agent message processed (channel: %s, session: %s)",
                     channel,
                     _conversation_sessions.get(lock_key),
                 )
-                _clear_channel_processing(lock_key)
             else:
                 response = result.error_message or "Command failed with no output"
 
-                logger.error(
-                    "Agent command failed (channel: %s, session: %s): %s",
-                    channel,
-                    _conversation_sessions.get(lock_key),
-                    response,
-                )
-                _clear_channel_processing(lock_key)
+                logger.error("Agent command failed")
                 sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
                 return {
                     "messageId": str(int(time.time() * 1000)),
@@ -1180,12 +1235,12 @@ def send_agent_message(
                     "response": response,
                     "sessionId": _conversation_sessions.get(lock_key),
                     "processing": False,
+                    "outcome": "cancelled" if cancel_event.is_set() else "failed",
                 }
 
     except FileNotFoundError:
         response = get_agent_cli(working_dir).missing_command_error()
         logger.error("Agent command not found for channel %s", channel)
-        _clear_channel_processing(lock_key)
 
         # Return error immediately - no process to poll
         sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -1196,13 +1251,11 @@ def send_agent_message(
             "response": response,
             "sessionId": None,
             "processing": False,
+            "outcome": "failed",
         }
     except Exception as e:
         response = f"Error: {str(e)}"
-        logger.exception(
-            "Unexpected error sending agent message on channel %s", channel
-        )
-        _clear_channel_processing(lock_key)
+        logger.error("Unexpected error sending agent message")
 
         # Return error immediately - no process to poll
         sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -1213,7 +1266,10 @@ def send_agent_message(
             "response": response,
             "sessionId": _conversation_sessions.get(lock_key),
             "processing": False,
+            "outcome": "failed",
         }
+    finally:
+        release_agent_message(owner)
 
     sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
@@ -1222,6 +1278,7 @@ def send_agent_message(
         "sent": sent_at,
         "prompt": message,
         "response": "Processing...",  # Status message only
-        "sessionId": _conversation_sessions.get(lock_key),
+        "sessionId": active_session,
         "processing": True,  # Indicates polling needed
+        "outcome": "succeeded",
     }
