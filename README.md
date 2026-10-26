@@ -253,7 +253,10 @@ and OpenCode database settings.
 | `make build`         | Build the frontend and Python package.                        |
 
 `make qa-quick` can rewrite files through its formatting step. System tests
-need the standard development ports; do not run them over an existing session.
+refuse occupied ports rather than interrupting an existing session. To run
+alongside development servers, choose free nonstandard ports, for example
+`make system-test PORT=3100 FRONTEND_PORT=5273`. The runner waits for successful
+GET readiness checks, reports startup failures, and cleans up its own services.
 See the [development guide](/docs/DEVELOPMENT.md) for focused tests, contribution
 steps, and releases.
 
