@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Event, Lock
+from typing import Literal
 
 from agent_cli import AgentCLI
 from opencode_legacy_agent_cli import OpenCodeAgentCLI
@@ -40,6 +41,7 @@ class MessageReservation:
     key: str
     cancel: Event = field(default_factory=Event)
     running: bool = False
+    outcome: Literal["succeeded", "failed", "cancelled"] | None = None
 
 
 _processing_owners: dict[str, MessageReservation] = {}
@@ -578,6 +580,22 @@ def release_agent_message(owner: MessageReservation) -> None:
     _dump_processing_state()
 
 
+def _commit_message_outcome(
+    owner: MessageReservation, success: bool = False
+) -> Literal["succeeded", "failed", "cancelled"]:
+    """Commit once against cancellation; retain admission until owner cleanup."""
+    with _processing_lock:
+        if owner.outcome is None:
+            owner.outcome = (
+                "cancelled"
+                if owner.cancel.is_set()
+                else "succeeded"
+                if success
+                else "failed"
+            )
+        return owner.outcome
+
+
 def _mark_channel_cancelled(channel: str) -> None:
     with _processing_lock:
         _cancelled_channels.add(channel)
@@ -604,9 +622,20 @@ def cancel_agent_message(lock_key: str) -> bool:
     """Cancel an active agent message for the given lock key."""
     with _processing_lock:
         owner = _processing_owners.get(lock_key)
+        if owner is None:
+            owner = next(
+                (
+                    _processing_owners[key]
+                    for key in _get_related_processing_keys(lock_key)
+                    if key in _processing_owners
+                ),
+                None,
+            )
         if owner is not None:
+            if owner.outcome is not None:
+                return False
             owner.cancel.set()
-            process = _active_processes.get(lock_key)
+            process = _active_processes.get(owner.key)
             queued = not owner.running
     if owner is not None:
         if queued:
@@ -1158,6 +1187,7 @@ def send_agent_message(
     try:
         # Check if cancelled before running
         if cancel_event.is_set() or _was_channel_cancelled(lock_key):
+            _commit_message_outcome(owner)
             sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
             return {
                 "messageId": str(int(time.time() * 1000)),
@@ -1211,7 +1241,8 @@ def send_agent_message(
                 duration_seconds,
             )
 
-            if result.success and not cancel_event.is_set():
+            outcome = _commit_message_outcome(owner, result.success)
+            if outcome == "succeeded":
                 # Update session if we got a new one
                 if result.session_id:
                     with _processing_lock:
@@ -1235,10 +1266,11 @@ def send_agent_message(
                     "response": response,
                     "sessionId": _conversation_sessions.get(lock_key),
                     "processing": False,
-                    "outcome": "cancelled" if cancel_event.is_set() else "failed",
+                    "outcome": outcome,
                 }
 
     except FileNotFoundError:
+        outcome = _commit_message_outcome(owner)
         response = get_agent_cli(working_dir).missing_command_error()
         logger.error("Agent command not found for channel %s", channel)
 
@@ -1251,9 +1283,10 @@ def send_agent_message(
             "response": response,
             "sessionId": None,
             "processing": False,
-            "outcome": "failed",
+            "outcome": outcome,
         }
     except Exception as e:
+        outcome = _commit_message_outcome(owner)
         response = f"Error: {str(e)}"
         logger.error("Unexpected error sending agent message")
 
@@ -1266,7 +1299,7 @@ def send_agent_message(
             "response": response,
             "sessionId": _conversation_sessions.get(lock_key),
             "processing": False,
-            "outcome": "failed",
+            "outcome": outcome,
         }
     finally:
         release_agent_message(owner)

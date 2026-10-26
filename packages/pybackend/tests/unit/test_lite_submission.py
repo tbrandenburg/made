@@ -46,13 +46,17 @@ def test_queued_owner_survives_poll_and_blocks_lite_and_legacy(session):
     agents.release_agent_message(owner)
 
 
-def test_cancelled_queued_worker_cannot_run_or_release_new_owner():
-    job, old = jobs.accept_submission("repository", None)
+@pytest.mark.parametrize("session", [None, "ses_existing"])
+def test_cancelled_queued_worker_cannot_run_or_release_new_owner(session):
+    agents._conversation_sessions["repository"] = "ses_existing"
+    job, old = jobs.accept_submission("repository", session)
+    assert agents.get_channel_status("repository") == {"running": True}
     assert agents.cancel_agent_message("repository") is True
-    newer, owner = jobs.accept_submission("repository", None)
-    jobs.run_submission(job, old, "never dispatched", None, None, None)
+    assert old.cancel.is_set()
+    newer, owner = jobs.accept_submission("repository", session)
+    jobs.run_submission(job, old, "never dispatched", session, None, None)
     assert jobs.get_submission("repository", job.id).error == "cancelled"
-    assert agents._processing_owners["repository"] is owner
+    assert agents._processing_owners[owner.key] is owner
     agents.release_agent_message(old)
     assert agents.get_channel_status("repository") == {"running": True}
     assert jobs.get_submission("repository", newer.id).state == "queued"
@@ -86,7 +90,8 @@ def test_execution_faults_release_without_poll_and_redact(fault, monkeypatch, ca
     agents.release_agent_message(successor)
 
 
-def test_running_owner_cancellation_and_duplicate_consumption(monkeypatch):
+@pytest.mark.parametrize("key", ["ses_existing", "repository"])
+def test_running_owner_cancellation_and_duplicate_consumption(key, monkeypatch):
     entered, release = Event(), Event()
     received = []
 
@@ -102,6 +107,7 @@ def test_running_owner_cancellation_and_duplicate_consumption(monkeypatch):
     monkeypatch.setattr(
         agents, "get_agent_cli", lambda cwd: SimpleNamespace(run_agent=run)
     )
+    agents._conversation_sessions["repository"] = "ses_existing"
     job, owner = jobs.accept_submission("repository", "ses_existing")
     thread = Thread(
         target=jobs.run_submission,
@@ -117,7 +123,7 @@ def test_running_owner_cancellation_and_duplicate_consumption(monkeypatch):
             agents.send_agent_message(
                 "repository", "twice", "ses_existing", reservation=owner
             )
-        assert agents.cancel_agent_message("ses_existing") is True
+        assert agents.cancel_agent_message(key) is True
         with pytest.raises(agents.ChannelBusyError):
             agents.reserve_agent_message("repository", "ses_existing")
         assert owner.cancel.is_set()
@@ -127,6 +133,96 @@ def test_running_owner_cancellation_and_duplicate_consumption(monkeypatch):
     assert not thread.is_alive()
     assert received == [("once", "ses_existing", "build", "model")]
     assert jobs._submissions[job.id].error == "cancelled"
+    assert agents._processing_owners == agents._processing_channels == {}
+
+
+@pytest.mark.parametrize(
+    ("boundary", "success", "accepted", "outcome"),
+    [
+        ("Agent CLI run completed", True, True, "cancelled"),
+        ("Agent message processed", True, False, "succeeded"),
+        ("Agent command failed", False, False, "failed"),
+    ],
+)
+@pytest.mark.parametrize("key", ["ses_existing", "repository"])
+def test_terminal_outcome_serializes_cancellation(
+    boundary, success, accepted, outcome, key, monkeypatch
+):
+    entered, release = Event(), Event()
+    results = []
+
+    def log(message, *args):
+        if message.startswith(boundary):
+            entered.set()
+            assert release.wait(5)
+
+    monkeypatch.setattr(agents.logger, "info", log)
+    monkeypatch.setattr(agents.logger, "error", log)
+    monkeypatch.setattr(
+        agents,
+        "get_agent_cli",
+        lambda cwd: SimpleNamespace(
+            run_agent=lambda *a, **k: RunResult(success, "ses_existing", [])
+        ),
+    )
+    agents._conversation_sessions["repository"] = "ses_existing"
+    owner = agents.reserve_agent_message("repository", "ses_existing")
+    thread = Thread(
+        target=lambda: results.append(
+            agents.send_agent_message(
+                "repository", "once", "ses_existing", reservation=owner
+            )
+        )
+    )
+    thread.start()
+    try:
+        assert entered.wait(5)
+        assert agents.cancel_agent_message(key) is accepted
+        assert owner.cancel.is_set() is accepted
+        assert agents.get_channel_status("repository") == {"running": True}
+        with pytest.raises(agents.ChannelBusyError):
+            agents.reserve_agent_message("repository", "ses_existing")
+    finally:
+        release.set()
+        thread.join(5)
+    assert not thread.is_alive()
+    assert len(results) == 1 and results[0]["outcome"] == outcome
+    assert results[0]["processing"] is (outcome == "succeeded")
+    assert agents._processing_owners == agents._processing_channels == {}
+
+
+@pytest.mark.parametrize("error", [FileNotFoundError, RuntimeError])
+def test_accepted_cancellation_wins_over_execution_exception(error, monkeypatch):
+    entered, release = Event(), Event()
+
+    def run(*args, **kwargs):
+        entered.set()
+        assert release.wait(5)
+        raise error("synthetic execution failure")
+
+    monkeypatch.setattr(
+        agents,
+        "get_agent_cli",
+        lambda cwd: SimpleNamespace(
+            run_agent=run, missing_command_error=lambda: "missing command"
+        ),
+    )
+    job, owner = jobs.accept_submission("repository", None)
+    thread = Thread(
+        target=jobs.run_submission,
+        args=(job, owner, "once", None, None, None),
+    )
+    thread.start()
+    try:
+        assert entered.wait(5)
+        assert agents.cancel_agent_message("repository") is True
+        assert owner.cancel.is_set()
+    finally:
+        release.set()
+        thread.join(5)
+    assert not thread.is_alive()
+    assert jobs._submissions[job.id].error == "cancelled"
+    assert jobs._submissions[job.id].state == "failed"
     assert agents._processing_owners == agents._processing_channels == {}
 
 
