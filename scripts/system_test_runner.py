@@ -110,9 +110,11 @@ class Runner:
         }
         pattern = (
             re.compile(
-                b"|".join(
+                b"(?=("
+                + b"|".join(
                     re.escape(value) for value in sorted(secrets, key=len, reverse=True)
                 )
+                + b"))"
             )
             if secrets
             else None
@@ -124,12 +126,24 @@ class Runner:
             raw = log.read(limit)
             boundary = max(0, len(raw) - 16384)
             if pattern:
-                # Include a complete credential crossing the tail boundary.
+                # Lookahead finds intersecting credentials; redact their union.
+                chunks: list[bytes] = []
+                cursor = boundary
+                end = boundary
                 for match in pattern.finditer(raw):
-                    if match.start() < boundary < match.end():
-                        boundary = match.start()
-                        break
-                output = pattern.sub(b"[REDACTED]", raw[boundary:])
+                    start, stop = match.span(1)
+                    if stop <= boundary:
+                        continue
+                    if start > end:
+                        if end > cursor:
+                            chunks.append(b"[REDACTED]")
+                        chunks.append(raw[end:start])
+                        cursor = start
+                    end = max(end, stop)
+                if end > cursor:
+                    chunks.append(b"[REDACTED]")
+                chunks.append(raw[end:])
+                output = b"".join(chunks)
             else:
                 output = raw[boundary:]
             boundary = max(0, len(output) - 16384)

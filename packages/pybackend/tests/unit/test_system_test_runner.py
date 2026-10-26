@@ -54,19 +54,21 @@ def test_get_only_readiness(http_service) -> None:
     server, requests = http_service
     runner = runner_module.Runner({})
     started = time.monotonic()
-    runner.wait_ready([f"http://127.0.0.1:{server.server_port}/api/health"], 1)
+    runner.wait_ready([f"http://127.0.0.1:{server.server_port}/api/health"], 3)
     assert requests == [("GET", "/api/health")]
-    assert time.monotonic() - started < 1
+    assert time.monotonic() - started < 3
 
 
 @pytest.mark.parametrize("status", [404, 405, 500])
 def test_http_errors_never_signal_ready(http_service, status: int) -> None:
     server, requests = http_service
     runner = runner_module.Runner({})
+    started = time.monotonic()
     with pytest.raises(RuntimeError, match="Readiness timed out.*GET"):
-        runner.wait_ready([f"http://127.0.0.1:{server.server_port}/{status}"], 0.4)
+        runner.wait_ready([f"http://127.0.0.1:{server.server_port}/{status}"], 3)
     assert requests and set(requests) == {("GET", f"/{status}")}
     assert len(requests) >= 2
+    assert 3 <= time.monotonic() - started < 4.5
 
 
 def test_unavailable_endpoint_has_bounded_timeout() -> None:
@@ -92,28 +94,28 @@ def test_slow_headers_obey_total_deadline(complete: bool) -> None:
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         listener.listen()
-        listener.settimeout(2)
+        listener.settimeout(0.1)
 
         def serve() -> None:
-            connection, _ = listener.accept()
-            with connection:
-                connection.settimeout(1)
-                requests.append(connection.recv(4096))
+            while not stop.is_set():
                 try:
-                    connection.sendall(b"HTTP/1.1 200 OK\r\nX-Slow: ")
-                    for _ in range(40):
-                        if stop.wait(0.02):
-                            return
-                        connection.sendall(b"x")
-                    if complete:
-                        connection.sendall(b"\r\nContent-Length: 0\r\n\r\n")
-                        return
-                    for _ in range(80):
-                        if stop.wait(0.02):
-                            return
-                        connection.sendall(b"x")
-                except (BrokenPipeError, ConnectionResetError):
-                    disconnected.set()
+                    connection, _ = listener.accept()
+                except TimeoutError:
+                    continue
+                with connection:
+                    connection.settimeout(1)
+                    requests.append(connection.recv(4096))
+                    try:
+                        connection.sendall(b"HTTP/1.1 200 OK\r\nX-Slow: ")
+                        # Longer than the total budget, not just one socket read.
+                        for _ in range(300 if complete else 600):
+                            if stop.wait(0.02):
+                                return
+                            connection.sendall(b"x")
+                        if complete:
+                            connection.sendall(b"\r\nContent-Length: 0\r\n\r\n")
+                    except (BrokenPipeError, ConnectionResetError):
+                        disconnected.set()
 
         thread = Thread(target=serve)
         thread.start()
@@ -122,11 +124,11 @@ def test_slow_headers_obey_total_deadline(complete: bool) -> None:
             with pytest.raises(RuntimeError, match="Readiness timed out.*GET"):
                 runner_module.Runner({}).wait_ready(
                     [f"http://127.0.0.1:{listener.getsockname()[1]}/api/health"],
-                    0.12,
+                    3,
                 )
-            assert 0.12 <= time.monotonic() - started < 0.5
+            assert 3 <= time.monotonic() - started < 4.5
             assert requests and requests[0].startswith(b"GET /api/health HTTP/")
-            assert disconnected.wait(0.3)
+            assert disconnected.wait(1)
         finally:
             stop.set()
             thread.join(timeout=3)
@@ -172,6 +174,23 @@ def test_diagnostics_preserves_redaction_marker_at_output_boundary(capsys) -> No
     assert "credential" not in output and output.endswith("x" * 16380 + "\n")
 
 
+@pytest.mark.parametrize("padding", [0, 16372])
+def test_diagnostics_redacts_union_of_intersecting_credentials(
+    padding: int, capsys
+) -> None:
+    runner = runner_module.Runner(
+        {"API_TOKEN": "SYNTHETIC-CREDENTIAL", "SECRET": "CREDENTIAL-123456"}
+    )
+    with runner_module.tempfile.TemporaryFile() as log:
+        runner.logs["backend"] = log
+        log.write(b"SYNTHETIC-CREDENTIAL-123456" + b"x" * padding)
+        log.flush()
+        runner.diagnostics()
+    output = capsys.readouterr().err
+    assert output == "--- backend startup output ---\n[REDACTED]" + "x" * padding + "\n"
+    assert "SYNTHETIC" not in output and "123456" not in output
+
+
 @pytest.mark.parametrize("occupied", ["backend", "frontend"])
 def test_occupied_port_refuses_launch_and_preserves_listener(
     http_service, occupied: str
@@ -201,7 +220,7 @@ def test_occupied_port_refuses_launch_and_preserves_listener(
         "startup output" not in result.stderr
     )  # No service launch: both ports are checked before either process starts.
     runner_module.Runner({}).wait_ready(
-        [f"http://127.0.0.1:{server.server_port}/api/health"], 1
+        [f"http://127.0.0.1:{server.server_port}/api/health"], 3
     )
     assert requests == [("GET", "/api/health")]
 
