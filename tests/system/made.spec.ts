@@ -78,7 +78,9 @@ test.describe('MADE journeys', () => {
     await page.locator('.panel-grid').getByRole('link', { name: /Dashboard/ }).click();
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByText('Project Count')).toBeVisible();
-    await expect(page.getByText('1')).toBeVisible();
+    await expect(
+      page.locator('.panel').filter({ has: page.getByRole('heading', { name: 'Project Count', exact: true }) }).locator('.metric')
+    ).toHaveText('1');
   });
 
   test('repository browser and agent chat', async ({ page }) => {
@@ -179,7 +181,9 @@ test.describe('MADE journeys', () => {
     await page.goto('/dashboard');
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByText('Project Count')).toBeVisible();
-    await expect(page.getByText('1')).toBeVisible();
+    await expect(
+      page.locator('.panel').filter({ has: page.getByRole('heading', { name: 'Project Count', exact: true }) }).locator('.metric')
+    ).toHaveText('1');
     expect(attempts).toBe(2);
   });
 });
