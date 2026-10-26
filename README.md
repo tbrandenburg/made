@@ -195,6 +195,21 @@ generic error and **Retry history** link that preserves the selected session,
 rather than reporting an empty conversation. Successful empty sessions retain the
 **No messages yet.** state.
 
+Lite acknowledges **Send** immediately and redirects to a JavaScript-free
+waiting page while the existing agent runner executes in the background. The
+page tracks the submission separately from its eventual session ID and opens
+that session when execution succeeds. Failures and unknown/expired submissions
+are reported explicitly; going back does not cancel an accepted submission.
+
+Submission tracking is process-local and requires a **single backend worker**.
+It is not a durable queue: restarting the backend may lose queued work or its
+tracking, and an agent process may survive the restart. Unknown submissions are
+never automatically resent. Keep the waiting-page link until completion; avoid
+resubmitting an uncertain request, which could create another agent execution.
+Each worker admits up to eight pending Lite submissions and retains up to 128
+tracking records; completed records expire after 15 minutes. A full worker
+rejects new submissions instead of accepting an unbounded queue.
+
 ## Run with Docker
 
 From the repository root, build and start the backend and Nginx frontend:
