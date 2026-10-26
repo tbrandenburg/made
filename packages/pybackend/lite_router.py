@@ -1,4 +1,6 @@
+import logging
 from pathlib import Path
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -15,6 +17,7 @@ from agent_service import (
 from model_options import MODEL_OPTIONS as _MODEL_OPTIONS
 from repository_service import get_repository_info, list_repositories
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/lite")
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
@@ -44,12 +47,14 @@ def repo_chat(request: Request, name: str, session_id: str = Query(default="")):
     )
 
     messages = []
+    history_error = False
     if current_session_id:
         try:
             history = export_chat_history(current_session_id, channel=name)
             messages = history.get("messages", [])
         except Exception:
-            messages = []
+            history_error = True
+            logger.warning("Unable to load Lite chat history")
 
     agents = []
     try:
@@ -69,6 +74,11 @@ def repo_chat(request: Request, name: str, session_id: str = Query(default="")):
         {
             "name": name,
             "messages": messages,
+            "history_error": history_error,
+            "history_retry_url": (
+                f"/lite/repo/{quote(name, safe='')}?"
+                f"{urlencode({'session_id': current_session_id})}"
+            ),
             "agents": agents,
             "sessions": sessions,
             "current_session_id": current_session_id,
