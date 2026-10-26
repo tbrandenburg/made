@@ -76,30 +76,3 @@
     </div>
 </body>
 </html>
-
-    <div class="chat">
-    {% if messages %}
-        {% for msg in messages | reverse %}
-            {% if msg.role == "user" %}
-                <div class="msg-user">
-                    <div class="msg-label">You</div>
-                    <pre>{{ msg.content }}</pre>
-                </div>
-            {% elif msg.type in ("tool", "tool_use", "reasoning") %}
-                <div class="msg-tool">
-                    <div class="msg-label">{{ msg.type }}</div>
-                    <pre class="msg-tool">{{ msg.content }}</pre>
-                </div>
-            {% else %}
-                <div class="msg-agent">
-                    <div class="msg-label">Agent</div>
-                    <pre>{{ msg.content }}</pre>
-                </div>
-            {% endif %}
-        {% endfor %}
-    {% else %}
-        <p>No messages yet.</p>
-    {% endif %}
-    </div>
-</body>
-</html>
