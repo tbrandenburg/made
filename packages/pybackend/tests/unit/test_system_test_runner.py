@@ -9,7 +9,7 @@ import shutil
 import socket
 import subprocess
 import sys
-from threading import Thread
+from threading import Event, Thread
 import time
 
 import pytest
@@ -64,7 +64,7 @@ def test_http_errors_never_signal_ready(http_service, status: int) -> None:
     server, requests = http_service
     runner = runner_module.Runner({})
     with pytest.raises(RuntimeError, match="Readiness timed out.*GET"):
-        runner.wait_ready([f"http://127.0.0.1:{server.server_port}/{status}"], 0.15)
+        runner.wait_ready([f"http://127.0.0.1:{server.server_port}/{status}"], 0.4)
     assert requests and set(requests) == {("GET", f"/{status}")}
     assert len(requests) >= 2
 
@@ -82,6 +82,94 @@ def test_unavailable_endpoint_has_bounded_timeout() -> None:
             )
         assert 0.2 <= time.monotonic() - started < 1
         assert reserved.getsockname() == ("127.0.0.1", port)
+
+
+@pytest.mark.parametrize("complete", [True, False])
+def test_slow_headers_obey_total_deadline(complete: bool) -> None:
+    requests: list[bytes] = []
+    disconnected = Event()
+    stop = Event()
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        listener.settimeout(2)
+
+        def serve() -> None:
+            connection, _ = listener.accept()
+            with connection:
+                connection.settimeout(1)
+                requests.append(connection.recv(4096))
+                try:
+                    connection.sendall(b"HTTP/1.1 200 OK\r\nX-Slow: ")
+                    for _ in range(40):
+                        if stop.wait(0.02):
+                            return
+                        connection.sendall(b"x")
+                    if complete:
+                        connection.sendall(b"\r\nContent-Length: 0\r\n\r\n")
+                        return
+                    for _ in range(80):
+                        if stop.wait(0.02):
+                            return
+                        connection.sendall(b"x")
+                except (BrokenPipeError, ConnectionResetError):
+                    disconnected.set()
+
+        thread = Thread(target=serve)
+        thread.start()
+        try:
+            started = time.monotonic()
+            with pytest.raises(RuntimeError, match="Readiness timed out.*GET"):
+                runner_module.Runner({}).wait_ready(
+                    [f"http://127.0.0.1:{listener.getsockname()[1]}/api/health"],
+                    0.12,
+                )
+            assert 0.12 <= time.monotonic() - started < 0.5
+            assert requests and requests[0].startswith(b"GET /api/health HTTP/")
+            assert disconnected.wait(0.3)
+        finally:
+            stop.set()
+            thread.join(timeout=3)
+        assert not thread.is_alive()
+
+
+@pytest.mark.parametrize("length", [0, 20000])
+def test_diagnostics_redacts_overlapping_secrets_before_tail_cut(
+    length: int, capsys
+) -> None:
+    secret = "SYNTHETIC" + "z" * length + "-CREDENTIAL-123456"
+    runner = runner_module.Runner(
+        {
+            "API_TOKEN": "SYNTHETIC",
+            "SECRET": "SYNTHETIC-CREDENTIAL-123456",
+            "LONG_SECRET": secret,
+        }
+    )
+    trailer = b"\nlatest failure SYNTHETIC-CREDENTIAL-123456 SYNTHETIC\n"
+    with runner_module.tempfile.TemporaryFile() as log:
+        runner.logs["backend"] = log
+        log.seek(8 * 1024 * 1024)
+        log.write(secret.encode() + b"x" * (16384 - 12 - len(trailer)))
+        log.write(trailer)
+        log.flush()
+        runner.diagnostics()
+    output = capsys.readouterr().err
+    assert "CREDENTIAL" not in output and "123456" not in output
+    assert "SYNTHETIC" not in output
+    assert "latest failure [REDACTED] [REDACTED]\n" in output
+    assert len(output) < 16500
+
+
+def test_diagnostics_preserves_redaction_marker_at_output_boundary(capsys) -> None:
+    runner = runner_module.Runner({"SECRET": "credential"})
+    with runner_module.tempfile.TemporaryFile() as log:
+        runner.logs["backend"] = log
+        log.write(b"credential" + b"x" * 16380)
+        log.flush()
+        runner.diagnostics()
+    output = capsys.readouterr().err
+    assert output.startswith("--- backend startup output ---\n[REDACTED]")
+    assert "credential" not in output and output.endswith("x" * 16380 + "\n")
 
 
 @pytest.mark.parametrize("occupied", ["backend", "frontend"])
@@ -126,7 +214,10 @@ def test_invalid_timeout_refuses_launch(timeout: float, capsys) -> None:
     assert "startup output" not in output.err and "Services are ready" not in output.out
 
 
-def test_cleanup_stops_owned_launcher_and_descendant(tmp_path: Path) -> None:
+@pytest.mark.parametrize("launcher_exits", [False, True])
+def test_cleanup_stops_owned_launcher_and_descendant(
+    tmp_path: Path, launcher_exits: bool
+) -> None:
     child = tmp_path / "child.py"
     address = tmp_path / "port"
     child.write_text(
@@ -144,7 +235,11 @@ def test_cleanup_stops_owned_launcher_and_descendant(tmp_path: Path) -> None:
             "-c",
             "import subprocess, sys, signal; "
             "child = subprocess.Popen(sys.argv[1:]); "
-            "signal.signal(signal.SIGTERM, lambda *args: None); child.wait()",
+            + (
+                ""
+                if launcher_exits
+                else "signal.signal(signal.SIGTERM, lambda *args: None); child.wait()"
+            ),
             sys.executable,
             str(child),
             str(address),
@@ -157,6 +252,8 @@ def test_cleanup_stops_owned_launcher_and_descendant(tmp_path: Path) -> None:
         while not address.exists() and time.monotonic() < deadline:
             time.sleep(0.02)
         assert address.exists()
+        if launcher_exits:
+            assert launcher.wait(timeout=1) == 0
         port = int(address.read_text())
         with socket.create_connection(("127.0.0.1", port), timeout=1) as connection:
             assert connection.getpeername()[1] == port

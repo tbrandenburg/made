@@ -8,15 +8,27 @@ from pathlib import Path
 import re
 import signal
 import socket
-import ssl
 import subprocess
 import sys
 import tempfile
 import time
 from types import FrameType
 from typing import BinaryIO
-from urllib.error import URLError
+
+
+PROBE = """
+import ssl
+import sys
 from urllib.request import HTTPSHandler, ProxyHandler, build_opener
+
+# Only the loopback Vite development certificate is self-signed.
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+context.check_hostname = False
+context.verify_mode = ssl.CERT_NONE
+opener = build_opener(ProxyHandler({}), HTTPSHandler(context=context))
+with opener.open(sys.argv[1], timeout=1) as response:
+    sys.exit(0 if 200 <= response.status < 300 else 1)
+"""
 
 
 def check_ports(ports: tuple[int, int]) -> None:
@@ -58,11 +70,6 @@ class Runner:
         return process
 
     def wait_ready(self, urls: list[str], timeout: float) -> None:
-        # Only the loopback Vite development certificate is self-signed.
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        opener = build_opener(ProxyHandler({}), HTTPSHandler(context=context))
         deadline = time.monotonic() + timeout
         pending = set(urls)
         while pending:
@@ -78,29 +85,63 @@ class Runner:
                         f"Readiness timed out waiting for GET {', '.join(sorted(pending))}"
                     )
                 try:
-                    with opener.open(url, timeout=min(1, remaining)) as response:
-                        if 200 <= response.status < 300:
-                            pending.remove(url)
-                except (OSError, URLError):
-                    # Connection failures and HTTP errors are not readiness.
+                    # A child bounds the entire probe, including trickling headers.
+                    # run() kills and reaps it on timeout or interruption.
+                    result = subprocess.run(
+                        [sys.executable, "-I", "-c", PROBE, url],
+                        env=self.env,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=min(1, remaining),
+                    )
+                    if result.returncode == 0 and time.monotonic() < deadline:
+                        pending.remove(url)
+                except (OSError, subprocess.TimeoutExpired):
                     continue
             if pending:
                 time.sleep(min(0.1, max(0, deadline - time.monotonic())))
 
     def diagnostics(self) -> None:
-        secrets = [
-            value
+        secrets = {
+            value.encode()
             for key, value in self.env.items()
             if re.search(r"secret|token|pass|credential|key|auth|cookie", key, re.I)
             and value
-        ]
+        }
+        pattern = (
+            re.compile(
+                b"|".join(
+                    re.escape(value) for value in sorted(secrets, key=len, reverse=True)
+                )
+            )
+            if secrets
+            else None
+        )
+        limit = 16384 + max(map(len, secrets), default=0)
         for name, log in self.logs.items():
             log.seek(0, os.SEEK_END)
-            log.seek(max(0, log.tell() - 16384))
-            output = log.read().decode(errors="replace")
-            for secret in secrets:
-                output = output.replace(secret, "[REDACTED]")
-            print(f"--- {name} startup output ---\n{output}", file=sys.stderr)
+            log.seek(max(0, log.tell() - limit))
+            raw = log.read(limit)
+            boundary = max(0, len(raw) - 16384)
+            if pattern:
+                # Include a complete credential crossing the tail boundary.
+                for match in pattern.finditer(raw):
+                    if match.start() < boundary < match.end():
+                        boundary = match.start()
+                        break
+                output = pattern.sub(b"[REDACTED]", raw[boundary:])
+            else:
+                output = raw[boundary:]
+            boundary = max(0, len(output) - 16384)
+            for position in range(max(0, boundary - 9), boundary):
+                if output.startswith(b"[REDACTED]", position):
+                    boundary = position
+                    break
+            output = output[boundary:]
+            print(
+                f"--- {name} startup output ---\n{output.decode(errors='replace')}",
+                file=sys.stderr,
+            )
 
     def close(self) -> None:
         # A launcher may exit before its descendants; signal its captured group anyway.
