@@ -34,12 +34,12 @@ export default defineConfig(async ({ mode }) => ({
     ],
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: `http://127.0.0.1:${process.env.MADE_BACKEND_PORT || "3000"}`,
         changeOrigin: true,
         ws: true,
       },
       "/lite": {
-        target: "http://localhost:3000",
+        target: `http://127.0.0.1:${process.env.MADE_BACKEND_PORT || "3000"}`,
         changeOrigin: true,
       },
     },

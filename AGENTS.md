@@ -141,6 +141,9 @@ It runs `make qa-quick` (lint + format + unit-test) automatically before every `
 
 ## Lessons Learned
 
+- 2026-10-26: Pitfall: Subprocess deadline tests expired during coverage-instrumented startup without exercising HTTP. Prevention: Validate timing tests under coverage, allow process-startup headroom, and assert the fixture received the intended traffic.
+- 2026-10-26: Pitfall: A page-wide numeric locator matched explanatory text before retry completion. Prevention: Scope loading assertions to the target metric and await its exact final value before asserting request counts.
+- 2026-10-26: Pitfall: Playwright dependencies existed but their matching browser binary was missing. Prevention: Run `npx playwright install chromium` before browser validation after dependency installation or upgrades; do not assume another checkout's browser cache matches.
 - 2026-10-24: Pitfall: Bounded network reads still permitted long synchronous parsing under coverage. Prevention: Bound CPU work independently and check deadlines between small cooperative batches; do not rely on I/O chunk limits.
 - 2026-10-24: Pitfall: `shell=False` does not prevent a build tool from evaluating variable values. Prevention: check the target CLI's expansion semantics, escape interpreter-specific syntax, and verify literal metacharacters with real-process tests.
 - 2026-10-17: Pitfall: Transport migrations left database-only fixtures reading an inherited live service. Prevention: Give transport tests explicit isolated service discovery and production-shaped HTTP fixtures; verify both missing-endpoint and genuine missing-session errors before accepting empty-history behavior.

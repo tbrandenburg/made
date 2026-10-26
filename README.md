@@ -182,6 +182,19 @@ records within shared resource budgets and run off the server event loop. See th
 [history security and refresh contract](/docs/CONFIGURATION.md#opencode-database-history)
 and the [isolated real-service/browser acceptance](/docs/DOCKER.md#opencode-v2-acceptance).
 
+### JavaScript-free Lite chat
+
+Open `/lite/` on the backend or web interface to browse repositories and chat
+without JavaScript. To view an existing conversation, select its session and click
+**Load**; selecting an option alone does not fetch history. A fresh page without
+a selected session explains this workflow instead of implying that saved history
+is empty.
+
+Lite displays each history message once. If history cannot be loaded, it shows a
+generic error and **Retry history** link that preserves the selected session,
+rather than reporting an empty conversation. Successful empty sessions retain the
+**No messages yet.** state.
+
 ## Run with Docker
 
 From the repository root, build and start the backend and Nginx frontend:
@@ -240,7 +253,10 @@ and OpenCode database settings.
 | `make build`         | Build the frontend and Python package.                        |
 
 `make qa-quick` can rewrite files through its formatting step. System tests
-need the standard development ports; do not run them over an existing session.
+refuse occupied ports rather than interrupting an existing session. To run
+alongside development servers, choose free nonstandard ports, for example
+`make system-test PORT=3100 FRONTEND_PORT=5273`. The runner waits for successful
+GET readiness checks, reports startup failures, and cleans up its own services.
 See the [development guide](/docs/DEVELOPMENT.md) for focused tests, contribution
 steps, and releases.
 

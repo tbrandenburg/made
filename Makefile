@@ -3,6 +3,8 @@
 
 PORT ?= 3000
 FRONTEND_PORT ?= 5173
+# Readiness deadline in seconds for the isolated system-test services.
+SYSTEM_TEST_TIMEOUT ?= 120
 HOST ?= 0.0.0.0
 PYBACKEND_DIR := packages/pybackend
 MADE_HOME ?= $(abspath $(CURDIR)/workspace/)
@@ -166,36 +168,7 @@ test-integration:
 	cd $(PYBACKEND_DIR) && uv sync && uv run pytest -c pytest.cov.ini tests/integration -m integration --no-cov
 
 system-test:
-	@echo "🏗️ Running system tests with service management..."
-	@echo "🚀 Starting services for system tests..."
-	@echo "🔍 Checking port availability..."
-	@lsof -ti:5173 >/dev/null 2>&1 && echo "⚠️ Port 5173 still in use" || echo "✅ Port 5173 available"
-	@lsof -ti:3000 >/dev/null 2>&1 && echo "⚠️ Port 3000 still in use" || echo "✅ Port 3000 available"
-	@echo "✅ Ports are available"
-	@MADE_HOME=$(MADE_HOME) MADE_WORKSPACE_HOME=$(MADE_WORKSPACE_HOME) npm --workspace packages/frontend run dev -- --host 127.0.0.1 --port 5173 > frontend-test.log 2>&1 & \
-	FRONTEND_PID=$$!; \
-	cd $(PYBACKEND_DIR) && MADE_HOME=$(MADE_HOME) MADE_WORKSPACE_HOME=$(MADE_WORKSPACE_HOME) MADE_BACKEND_HOST=127.0.0.1 MADE_BACKEND_PORT=3000 uv run made-backend > ../backend-test.log 2>&1 & \
-	BACKEND_PID=$$!; \
-	trap 'echo "🛑 Stopping test services..."; kill $$FRONTEND_PID $$BACKEND_PID 2>/dev/null || true; wait' EXIT INT TERM; \
-	echo "⏳ Waiting for services to be ready..."; \
-	npx wait-on https://127.0.0.1:5173 http://127.0.0.1:3000/api/repositories --timeout 120000 --interval 2000 --insecure; \
-	echo "✅ Services are ready"; \
-	echo "⏳ Allowing services to stabilize..."; \
-	sleep 3; \
-	echo "🔍 Verifying services are still running..."; \
-	curl -sk https://127.0.0.1:5173 > /dev/null && echo "✅ Frontend still responsive" || echo "❌ Frontend not responding"; \
-	curl -s http://127.0.0.1:3000/api/repositories > /dev/null && echo "✅ Backend still responsive" || echo "❌ Backend not responding"; \
-	echo "🔬 Running frontend system tests..."; \
-	npm run test:e2e; \
-	TEST_EXIT_CODE=$$?; \
-	echo "🔬 Running backend system tests..."; \
-	cd $(PYBACKEND_DIR) && uv sync && uv run pytest tests/system/ -v; \
-	BACKEND_TEST_EXIT_CODE=$$?; \
-	if [ $$TEST_EXIT_CODE -ne 0 ] || [ $$BACKEND_TEST_EXIT_CODE -ne 0 ]; then \
-	echo "❌ Some system tests failed"; \
-	exit 1; \
-	fi; \
-	echo "✅ All system tests passed"
+	@python3 scripts/system_test_runner.py --port "$(PORT)" --frontend-port "$(FRONTEND_PORT)" --timeout "$(SYSTEM_TEST_TIMEOUT)"
 
 qa: format lint lock-check test
 	@echo "✅ All quality assurance tasks completed successfully!"

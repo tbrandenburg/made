@@ -66,15 +66,22 @@ Omit `NAME` to run the selected file. Package-scoped gates are
 ### System and integration tests
 
 `make system-test` starts the stack and runs Playwright plus backend system
-tests on ports 3000 and 5173. Use a separate environment with those ports free;
-do not interrupt an existing development session.
+tests on ports 3000 and 5173 by default. It refuses occupied ports; it does not
+stop an existing development session. Use `PORT` and `FRONTEND_PORT` to select
+free nonstandard ports when testing alongside a running stack.
 
 Install Playwright's browser binaries before the first system test:
 
 ```bash
 npx playwright install --with-deps
 make system-test
+# Alongside development servers, after checking these ports are free:
+make system-test PORT=3100 FRONTEND_PORT=5273
 ```
+
+Readiness uses GET requests, including the backend's lightweight `/api/health`
+endpoint. Startup timeouts fail the command and report service diagnostics;
+cleanup targets only services started by the test runner.
 
 `make test-integration` is opt-in and requires real agent CLIs on `PATH`,
 authentication, and network access. For an isolated real-CLI check, follow the

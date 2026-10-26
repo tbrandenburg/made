@@ -51,7 +51,10 @@
     </form>
 
     <div class="chat">
-    {% if messages %}
+    {% if history_error %}
+        <p role="alert">Unable to load session history. Please retry.</p>
+        <p><a href="{{ history_retry_url }}">Retry history</a></p>
+    {% elif messages %}
         {% for msg in messages | reverse %}
             {% if msg.role == "user" %}
                 <div class="msg-user">
@@ -70,33 +73,8 @@
                 </div>
             {% endif %}
         {% endfor %}
-    {% else %}
-        <p>No messages yet.</p>
-    {% endif %}
-    </div>
-</body>
-</html>
-
-    <div class="chat">
-    {% if messages %}
-        {% for msg in messages | reverse %}
-            {% if msg.role == "user" %}
-                <div class="msg-user">
-                    <div class="msg-label">You</div>
-                    <pre>{{ msg.content }}</pre>
-                </div>
-            {% elif msg.type in ("tool", "tool_use", "reasoning") %}
-                <div class="msg-tool">
-                    <div class="msg-label">{{ msg.type }}</div>
-                    <pre class="msg-tool">{{ msg.content }}</pre>
-                </div>
-            {% else %}
-                <div class="msg-agent">
-                    <div class="msg-label">Agent</div>
-                    <pre>{{ msg.content }}</pre>
-                </div>
-            {% endif %}
-        {% endfor %}
+    {% elif not current_session_id %}
+        <p>Select a session and click Load to view its history, or send a message to start a new session.</p>
     {% else %}
         <p>No messages yet.</p>
     {% endif %}
