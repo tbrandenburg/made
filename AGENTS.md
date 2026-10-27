@@ -141,6 +141,7 @@ It runs `make qa-quick` (lint + format + unit-test) automatically before every `
 
 ## Lessons Learned
 
+- 2026-10-27: Pitfall: Cancellation and successful completion could both acknowledge winning the same request. Prevention: Commit terminal outcomes under the admission lock, resolve aliases consistently, and verify competing transitions with deterministic barrier tests.
 - 2026-10-26: Pitfall: Subprocess deadline tests expired during coverage-instrumented startup without exercising HTTP. Prevention: Validate timing tests under coverage, allow process-startup headroom, and assert the fixture received the intended traffic.
 - 2026-10-26: Pitfall: A page-wide numeric locator matched explanatory text before retry completion. Prevention: Scope loading assertions to the target metric and await its exact final value before asserting request counts.
 - 2026-10-26: Pitfall: Playwright dependencies existed but their matching browser binary was missing. Prevention: Run `npx playwright install chromium` before browser validation after dependency installation or upgrades; do not assume another checkout's browser cache matches.

@@ -1,18 +1,25 @@
 import logging
+from html import escape
 from pathlib import Path
 from urllib.parse import quote, urlencode
 
-from fastapi import APIRouter, Form, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from agent_service import (
     ChannelBusyError,
     export_chat_history,
-    get_channel_status,
     list_agents,
     list_chat_sessions,
-    send_agent_message,
+)
+from lite_submission_service import (
+    SubmissionCapacityError,
+    accept_submission,
+    fail_scheduling,
+    get_submission,
+    run_submission,
+    valid_session_id,
 )
 from model_options import MODEL_OPTIONS as _MODEL_OPTIONS
 from repository_service import get_repository_info, list_repositories
@@ -38,9 +45,11 @@ def repo_chat(request: Request, name: str, session_id: str = Query(default="")):
     try:
         get_repository_info(name)
     except FileNotFoundError:
-        return HTMLResponse(content=f"Repository '{name}' not found.", status_code=404)
+        return HTMLResponse(
+            content=f"Repository '{escape(name)}' not found.", status_code=404
+        )
 
-    session_cookie_name = f"lite_session_{name}"
+    session_cookie_name = f"lite_session_{quote(name, safe='')}"
     # query param takes priority over cookie (used by the Load button GET form)
     current_session_id = (
         session_id.strip() or request.cookies.get(session_cookie_name) or ""
@@ -94,67 +103,86 @@ def repo_chat(request: Request, name: str, session_id: str = Query(default="")):
 
 
 @router.post("/repo/{name}/chat")
-async def post_chat(
+def post_chat(
     request: Request,
+    background_tasks: BackgroundTasks,
     name: str,
-    message: str = Form(...),
-    session_id: str = Form(default=""),
-    agent: str = Form(default=""),
-    model: str = Form(default="default"),
+    message: str = Form(..., max_length=100000),
+    session_id: str = Form(default="", max_length=512),
+    agent: str = Form(default="", max_length=256),
+    model: str = Form(default="default", max_length=256),
 ):
+    if name in {".", ".."} or Path(name).name != name:
+        return HTMLResponse("Invalid repository name.", status_code=422)
     try:
         get_repository_info(name)
     except FileNotFoundError:
-        return HTMLResponse(content=f"Repository '{name}' not found.", status_code=404)
+        return HTMLResponse(
+            content=f"Repository '{escape(name)}' not found.", status_code=404
+        )
 
     effective_session_id = session_id.strip() or None
     resolved_agent = agent.strip() or None
     resolved_model = model.strip() if model and model != "default" else None
+    if not message.strip() or (
+        effective_session_id and not valid_session_id(effective_session_id)
+    ):
+        return HTMLResponse("Enter a message and a valid session ID.", status_code=422)
 
     try:
-        result = send_agent_message(
-            channel=name,
-            message=message,
-            session_id=effective_session_id,
-            agent=resolved_agent,
-            model=resolved_model,
-        )
+        job, owner = accept_submission(name, effective_session_id)
     except ChannelBusyError:
         return HTMLResponse(content="Agent is busy, try again.", status_code=409)
-
-    new_session_id = result.get("sessionId") or effective_session_id or ""
-    msg_id = result.get("messageId", "")
-
-    redirect_url = (
-        f"/lite/repo/{name}/wait/{msg_id}?attempt=0&session_id={new_session_id}"
-    )
-    response = RedirectResponse(url=redirect_url, status_code=303)
-
-    if new_session_id:
-        response.set_cookie(
-            key=f"lite_session_{name}",
-            value=new_session_id,
-            httponly=True,
+    except SubmissionCapacityError:
+        return HTMLResponse("Submission capacity is full; try later.", status_code=503)
+    except Exception:
+        return HTMLResponse(
+            "Could not accept the request. Ask an operator to check backend setup.",
+            status_code=503,
         )
-
+    try:
+        response = RedirectResponse(
+            url=f"/lite/repo/{quote(name, safe='')}/wait/{job.id}?attempt=0",
+            status_code=303,
+        )
+        background_tasks.add_task(
+            run_submission,
+            job,
+            owner,
+            message,
+            effective_session_id,
+            resolved_agent,
+            resolved_model,
+        )
+    except Exception:
+        fail_scheduling(job, owner)
+        return HTMLResponse(
+            "Could not schedule the request. Try again later.", status_code=503
+        )
     return response
 
 
 @router.get("/repo/{name}/wait/{msg_id}", response_class=HTMLResponse)
-async def wait_for_response(
+def wait_for_response(
     request: Request,
     name: str,
     msg_id: str,
-    attempt: int = Query(default=0),
-    session_id: str = Query(default=""),
+    attempt: int = Query(default=0, ge=0, le=60),
 ):
-    lock_key = session_id if session_id else name
-    status = get_channel_status(lock_key)
-    running = status.get("running", False)
-
-    if not running or attempt >= 60:
-        return RedirectResponse(url=f"/lite/repo/{name}", status_code=303)
-
+    job = get_submission(name, msg_id)
+    repo_url = f"/lite/repo/{quote(name, safe='')}"
+    if job is not None and job.state == "succeeded":
+        response = RedirectResponse(
+            url=f"{repo_url}?{urlencode({'session_id': job.session_id})}",
+            status_code=303,
+        )
+        response.set_cookie(
+            key=f"lite_session_{quote(name, safe='')}",
+            value=job.session_id,
+            httponly=True,
+        )
+        return response
+    pending = job is not None and job.state in {"queued", "running"}
     return templates.TemplateResponse(
         request,
         "lite_wait.html",
@@ -162,6 +190,14 @@ async def wait_for_response(
             "name": name,
             "msg_id": msg_id,
             "attempt": attempt,
-            "session_id": session_id,
+            "state": job.state if job else "unknown",
+            "error": job.error if job else None,
+            "repo_url": repo_url,
+            "refresh_url": (
+                f"{repo_url}/wait/{quote(msg_id, safe='')}?attempt={attempt + 1}"
+                if pending and attempt < 60
+                else None
+            ),
         },
+        status_code=200 if pending else 410 if job is None else 503,
     )
