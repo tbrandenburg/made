@@ -172,3 +172,41 @@ it("keeps V1 polling's incremental merge and timestamp boundary rather than snap
   ]);
   expect(result.current.sessionError).toBeNull();
 });
+
+
+it("shows a warning for reduced OpenCode v2 history and clears it on full recovery", async () => {
+  const api = snapshotApi(
+    vi.fn().mockResolvedValue({ ...snapshot(), historyReduced: true }),
+  );
+  render(<SessionWindow api={api} />);
+  await waitFor(() =>
+    expect(screen.getByText(/Only recent history is shown/)).toBeInTheDocument(),
+  );
+  expect(screen.getByLabelText("Transcript")).toHaveTextContent("original");
+  expect(screen.getByText(/Only recent history is shown/)).toHaveTextContent(
+    "JSON complexity limit",
+  );
+
+  api.getHistory.mockResolvedValue(snapshot("restored"));
+  fireEvent.click(screen.getByText("Refresh"));
+  await waitFor(() =>
+    expect(screen.queryByText(/Only recent history is shown/)).not.toBeInTheDocument(),
+  );
+  expect(screen.getByLabelText("Transcript")).toHaveTextContent("restored");
+});
+
+it("retains the reduced-history warning on a failed refresh but clears it on session switch", async () => {
+  const api = snapshotApi(
+    vi.fn().mockResolvedValue({ ...snapshot(), historyReduced: true }),
+  );
+  const { result } = renderSnapshotSession(api);
+  await waitFor(() => expect(result.current.historyReduced).toBe(true));
+  api.getHistory.mockRejectedValue(new Error("service offline"));
+  await act(async () => result.current.reloadCurrentSession());
+  expect(result.current.sessionError).toBe("service offline");
+  expect(result.current.historyReduced).toBe(true);
+
+  act(() => result.current.navigate("B"));
+  expect(result.current.historyReduced).toBe(false);
+  expect(result.current.sessionId).toBe("B");
+});
