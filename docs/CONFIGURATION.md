@@ -50,10 +50,19 @@ they do not replace the complete-operation deadline. One shared whole-read
 retry budget covers rediscovery and detectable pagination conflicts. V2 session
 listing and activity detection remain SQLite-backed and retain their existing
 freshness limitations. External terminal activity need not start MADE polling;
-manual refresh and a polling refresh that executes read a complete V2 snapshot.
-V1 keeps its incremental history behavior. The page budget includes an empty
-terminating page after 200 full pages. Retries consume the same cumulative
-budgets, so repeated or short pages can exhaust the page budget first.
+manual refresh and a polling refresh that executes normally read a complete
+V2 snapshot. If a page exceeds the JSON complexity preflight, selected-session
+history instead retries newest-first, reducing page size from 10 down to 1 as
+needed. It recovers at most 50 recent API records under the same cumulative
+30-second, byte, record, and page budgets. When older records are omitted, the
+response has `historyReduced: true` and chat views warn that history was
+reduced due to JSON complexity. The warning persists after failed refreshes
+and clears on a complete successful refresh or session switch. If even one
+newest record is too complex, recovery fails explicitly rather than reporting
+empty history. V1 keeps its incremental history behavior. The page budget
+includes an empty terminating page after 200 full pages. Retries and recovery
+consume the same cumulative budgets, so repeated or short pages can exhaust
+the page budget first.
 
 JSON history routes and the Lite repository view run synchronous history work
 in FastAPI worker threads. Other async callers must offload the synchronous
@@ -80,11 +89,12 @@ literal local HTTP loopback endpoints are accepted, with no redirects or environ
 proxies. Session IDs, root status, and the exact canonical directory are checked
 before content access and again before return. Repository, knowledge,
 constitution, and task scope mismatches return safe HTTP 409 responses.
-Service/auth/schema/network/limit failures remain explicit; there is no stale
-SQL fallback. Failed refresh retains the displayed transcript. A replacement
+Service/auth/schema/network/limit failures remain explicit except for the
+bounded JSON-complexity recovery described above; there is no stale SQL
+fallback. Failed refresh retains the displayed transcript. A replacement
 service is rediscovered on the next export, without MADE managing its lifecycle.
-Snapshots are complete bounded reads, not atomic transactions: a concurrent edit
-can require another refresh.
+Full and reduced snapshots are best-effort reads, not atomic transactions: a
+concurrent edit can require another refresh.
 
 - Set `OPENCODE_DB` to an absolute database path to avoid CLI path discovery.
 - The v1 adapter also supports `OPENCODE_DATABASE_PATH`; an existing file at
