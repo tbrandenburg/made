@@ -302,7 +302,7 @@ class _Read:
             params = {"limit": str(PAGE_SIZE), "cursor": following}
 
     async def recent(self, client: _Connection) -> tuple[list[dict[str, object]], bool]:
-        """Recover the newest records after a complexity failure, never a silent full snapshot."""
+        """Recover newest records after complexity failure, not a full snapshot."""
         await self.metadata(client, initial=True)
         messages: list[dict[str, object]] = []
         identifiers: set[str] = set()

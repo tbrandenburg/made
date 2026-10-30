@@ -212,9 +212,14 @@ class OpenCodeV2AgentCLI(AgentCLI):
             records, reduced = read_session_with_fallback(session_id, cwd)
             messages = convert_history(records, self._format_tool, deadline)
             if reduced and not messages:
-                raise HistoryReadError("Unable to recover readable recent OpenCode history")
+                raise HistoryReadError(
+                    "Unable to recover readable recent OpenCode history"
+                )
             return ExportResult(
-                True, session_id, messages, history_mode="snapshot",
+                True,
+                session_id,
+                messages,
+                history_mode="snapshot",
                 history_reduced=reduced,
             )
         except SessionNotFound as error:

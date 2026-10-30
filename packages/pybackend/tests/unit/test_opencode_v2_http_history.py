@@ -539,10 +539,14 @@ def test_complexity_fallback_reads_newest_records_with_reduced_history_signal(
             if descending:
                 indexes = range(start, max(-1, start - limit), -1)
                 result = [records[i] for i in indexes]
-                following = str(start - len(result)) if start - len(result) >= 0 else None
+                following = (
+                    str(start - len(result)) if start - len(result) >= 0 else None
+                )
             else:
                 result = records[start : start + limit]
-                following = str(start + len(result)) if start + len(result) < 60 else None
+                following = (
+                    str(start + len(result)) if start + len(result) < 60 else None
+                )
             return page(result, following)
 
         service.respond = respond
@@ -623,3 +627,25 @@ def test_complexity_recovery_rechecks_directory_after_messages(tmp_path, monkeyp
     assert not result.success and result.messages == []
     assert result.error_code == "session_directory_mismatch"
     assert len(service.requests) == 5
+
+
+def test_complex_single_old_record_returns_only_verified_newer_records(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    with serve(tmp_path) as service:
+        service.register(tmp_path / "opencode/service.json")
+
+        def respond(path, _count):
+            if "/message" not in path:
+                return metadata(tmp_path)
+            query = parse_qs(urlsplit(path).query)
+            if query.get("order") == ["desc"] and query["limit"] == ["1"]:
+                return page([user("msg_latest", "latest readable")], "bad-older")
+            return Reply(b'{"data":' + b"[" * 65 + b"0" + b"]" * 65 + b"}")
+
+        service.respond = respond
+        result = OpenCodeV2AgentCLI().export_session("ses_test", tmp_path)
+    assert result.success and result.history_reduced
+    assert [message.content for message in result.messages] == ["latest readable"]
+    assert any("cursor=bad-older" in request for request in service.requests)

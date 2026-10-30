@@ -173,8 +173,7 @@ it("keeps V1 polling's incremental merge and timestamp boundary rather than snap
   expect(result.current.sessionError).toBeNull();
 });
 
-
-it("shows a warning for reduced OpenCode v2 history and clears it on full recovery", async () => {
+it("warns for reduced history and clears warning after full recovery", async () => {
   const api = snapshotApi(
     vi.fn().mockResolvedValue({ ...snapshot(), historyReduced: true }),
   );
@@ -190,12 +189,14 @@ it("shows a warning for reduced OpenCode v2 history and clears it on full recove
   api.getHistory.mockResolvedValue(snapshot("restored"));
   fireEvent.click(screen.getByText("Refresh"));
   await waitFor(() =>
-    expect(screen.queryByText(/Only recent history is shown/)).not.toBeInTheDocument(),
+    expect(
+      screen.queryByText(/Only recent history is shown/),
+    ).not.toBeInTheDocument(),
   );
   expect(screen.getByLabelText("Transcript")).toHaveTextContent("restored");
 });
 
-it("retains the reduced-history warning on a failed refresh but clears it on session switch", async () => {
+it("keeps warning after failed refresh but clears on session switch", async () => {
   const api = snapshotApi(
     vi.fn().mockResolvedValue({ ...snapshot(), historyReduced: true }),
   );
