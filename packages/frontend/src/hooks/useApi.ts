@@ -221,6 +221,7 @@ export type ChatHistoryResponse = {
   processing?: boolean;
   startedAt?: string | null;
   historyMode?: "snapshot";
+  historyReduced?: boolean;
 };
 
 export type ChatSession = {
