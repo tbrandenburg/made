@@ -760,6 +760,7 @@ export const RepositoryPage: React.FC = () => {
       cancelAgent: api.cancelRepositoryAgent,
       getHistory: api.getRepositoryAgentHistory,
       getSessions: api.getRepositoryAgentSessions,
+      getChildSessions: api.getRepositoryAgentChildSessions,
     },
     onActivateAgentTab: () => setActiveTab("agent"),
     onClearSessionOnly: () => {

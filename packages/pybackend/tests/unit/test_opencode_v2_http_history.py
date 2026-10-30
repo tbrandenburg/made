@@ -6,6 +6,8 @@ from pathlib import Path
 import socket
 import time
 import traceback
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -145,7 +147,7 @@ def test_three_pages_full_terminal_conversion_without_database(tmp_path, monkeyp
     assert service.authenticated == [True] * 5 and not (tmp_path / "absent.db").exists()
 
 
-@pytest.mark.parametrize("change", ["foreign", "child", "after-foreign", "after-child"])
+@pytest.mark.parametrize("change", ["foreign", "after-foreign"])
 def test_ownership_before_content_and_after_read(tmp_path, change):
     with serve(tmp_path) as service:
         service.register(tmp_path / "registration")
@@ -156,7 +158,6 @@ def test_ownership_before_content_and_after_read(tmp_path, change):
             changed = not change.startswith("after") or count == 3
             return metadata(
                 tmp_path / "private" if changed and "foreign" in change else tmp_path,
-                **({"parentID": "ses_parent"} if changed and "child" in change else {}),
             )
 
         service.respond = respond
@@ -164,6 +165,41 @@ def test_ownership_before_content_and_after_read(tmp_path, change):
             history.read_session("ses_test", tmp_path, tmp_path / "registration")
     assert "private" not in str(failure.value)
     assert len(service.requests) == (3 if change.startswith("after") else 1)
+
+
+@pytest.mark.parametrize("parent", [None, "ses_parent"])
+def test_child_history_is_allowed_when_child_owns_requested_directory(tmp_path, parent):
+    with serve(tmp_path) as service:
+        service.register(tmp_path / "registration")
+        service.respond = lambda path, _count: (
+            page([user("msg_child", "child history")])
+            if "/message" in path
+            else metadata(
+                tmp_path,
+                session="ses_child",
+                **({"parentID": parent} if parent is not None else {}),
+            )
+        )
+
+        records = history.read_session("ses_child", tmp_path, tmp_path / "registration")
+
+    assert [record["id"] for record in records] == ["msg_child"]
+    assert service.requests[0] == "/api/session/ses_child"
+    assert service.requests[-1] == "/api/session/ses_child"
+
+
+@pytest.mark.parametrize("parent", ["", "ses_", "parent", 42, None])
+def test_malformed_present_parent_id_fails_before_read(tmp_path, parent):
+    with serve(tmp_path) as service:
+        service.register(tmp_path / "registration")
+        service.respond = lambda path, _count: metadata(
+            tmp_path, session="ses_child", parentID=parent
+        )
+
+        with pytest.raises(history.HistoryReadError, match="invalid session parent"):
+            history.read_session("ses_child", tmp_path, tmp_path / "registration")
+
+    assert service.requests == ["/api/session/ses_child"]
 
 
 @pytest.mark.parametrize("status", [401, 403, 500])
@@ -351,24 +387,51 @@ def test_operation_bounds_fail_closed(tmp_path, monkeypatch, bound, value):
 
 @pytest.mark.parametrize("mode", ["headers", "trickle", "read-timeout"])
 def test_total_deadline_cancels_blocked_stream(tmp_path, monkeypatch, mode):
-    monkeypatch.setattr(
-        history, "DEADLINE_SECONDS", 0.18 if mode != "read-timeout" else 2
-    )
+    monkeypatch.setattr(history, "DEADLINE_SECONDS", 5 if mode != "read-timeout" else 2)
     if mode == "read-timeout":
         monkeypatch.setattr(history, "READ_SECONDS", 0.05)
     with serve(tmp_path) as service:
         service.register(tmp_path / "registration")
-        service.respond = lambda path, count: Reply(
-            {"private": "prompt"},
-            delay=0.5 if mode != "trickle" else 0,
-            trickle=0.05 if mode == "trickle" else 0,
-        )
+        blocked = Event()
+        release = Event()
+
+        def respond(path, _count):
+            if "/message" not in path:
+                return metadata(tmp_path)
+            return Reply(
+                {"data": [], "cursor": {"previous": None, "next": None}},
+                delay=0 if mode == "trickle" else 0,
+                trickle=0.05 if mode == "trickle" else 0,
+                entered=blocked,
+                release=release,
+                gate_after_headers=mode == "trickle",
+            )
+
+        service.respond = respond
         start = time.monotonic()
-        with pytest.raises(history.HistoryReadError):
-            history.read_session("ses_test", tmp_path, tmp_path / "registration")
+        executor = ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(
+            history.read_session, "ses_test", tmp_path, tmp_path / "registration"
+        )
+        try:
+            assert blocked.wait(timeout=8), "fixture never reached stalled response"
+            expected_error = (
+                "Unable to read OpenCode session history"
+                if mode == "read-timeout"
+                else "OpenCode history exceeded its total deadline"
+            )
+            with pytest.raises(history.HistoryReadError, match=expected_error):
+                future.result(timeout=6)
+        finally:
+            release.set()
+            executor.shutdown(wait=True)
+        assert future.done()
         elapsed = time.monotonic() - start
-    assert elapsed < 0.8
-    assert 1 <= len(service.requests) <= 2
+    assert elapsed < 6
+    assert len(service.requests) == (4 if mode == "read-timeout" else 2)
+    assert service.requests[1].endswith("limit=50&order=asc")
+    if mode == "read-timeout":
+        assert service.requests[2:] == service.requests[:2]
 
 
 def test_connection_refused_is_sanitized_without_sql(tmp_path):

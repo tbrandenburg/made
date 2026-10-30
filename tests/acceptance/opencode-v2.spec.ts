@@ -15,6 +15,9 @@ if (!state) throw new Error("Acceptance state is required");
 interface Manifest {
   session: string;
   fixture: string;
+  child: string;
+  grandchild: string;
+  foreignChild: string;
   realProvider: boolean;
   first: string;
   late: string;
@@ -94,6 +97,48 @@ test("provider-free real browser pagination, isolation, outage and recovery", as
   request,
 }) => {
   const manifest: Manifest = JSON.parse(await control("manifest"));
+  const sessionsResponse = await request.get(
+    "/api/repositories/repoA/agent/sessions",
+  );
+  expect(sessionsResponse.status()).toBe(200);
+  const listedSessions: { id: string }[] = (await sessionsResponse.json())
+    .sessions;
+  expect(listedSessions).toHaveLength(10);
+  expect(
+    listedSessions.some((session) => session.id === manifest.session),
+  ).toBe(false);
+  expect(listedSessions.some((session) => session.id === manifest.child)).toBe(
+    false,
+  );
+  const childSessionsResponse = await request.get(
+    "/api/repositories/repoA/agent/child-sessions",
+  );
+  expect(childSessionsResponse.status()).toBe(200);
+  const listedChildren: {
+    id: string;
+    parentId: string;
+    parentTitle: string;
+  }[] = (await childSessionsResponse.json()).sessions;
+  expect(listedChildren.length).toBeLessThanOrEqual(50);
+  expect(
+    listedChildren.find((session) => session.id === manifest.child),
+  ).toEqual(
+    expect.objectContaining({
+      id: manifest.child,
+      parentId: manifest.session,
+    }),
+  );
+  expect(
+    listedChildren.find((session) => session.id === manifest.grandchild),
+  ).toEqual(
+    expect.objectContaining({
+      id: manifest.grandchild,
+      parentId: manifest.child,
+    }),
+  );
+  expect(
+    listedChildren.some((session) => session.id === manifest.foreignChild),
+  ).toBe(false);
   const initial = await history(request, manifest.fixture);
   expect(initial.messages.map((message) => message.content)).toEqual([
     "MADE779_PAGE_FIRST",
@@ -157,6 +202,58 @@ test("provider-free real browser pagination, isolation, outage and recovery", as
   expect((await history(request, manifest.fixture)).messages).toEqual(
     initial.messages,
   );
+
+  await page
+    .getByRole("button", { name: "Choose a session", exact: true })
+    .click();
+  const child = listedChildren.find((session) => session.id === manifest.child);
+  expect(child).toBeDefined();
+  await expect(
+    page.getByText(`Child of ${child?.parentTitle}`, { exact: true }),
+  ).toBeVisible();
+  const childSelection = page.waitForResponse((reply) => {
+    const url = new URL(reply.url());
+    return (
+      url.pathname.endsWith("/agent/history") &&
+      url.searchParams.get("session_id") === manifest.child
+    );
+  });
+  await page
+    .locator('button.session-pill-select[title="Child acceptance session"]')
+    .click();
+  const selectedChildHistory = await childSelection;
+  expect(selectedChildHistory.status()).toBe(200);
+  expect(
+    ((await selectedChildHistory.json()) as History).messages.map(
+      (message) => message.content,
+    ),
+  ).toContain("MADE800_CHILD_HISTORY_COBALT");
+  await expect(
+    page
+      .locator(".chat-message.user")
+      .filter({ hasText: "MADE800_CHILD_HISTORY_COBALT" }),
+  ).toHaveCount(1);
+
+  await page
+    .getByRole("button", { name: "Choose a session", exact: true })
+    .click();
+  const grandchildSelection = page.waitForResponse((reply) => {
+    const url = new URL(reply.url());
+    return (
+      url.pathname.endsWith("/agent/history") &&
+      url.searchParams.get("session_id") === manifest.grandchild
+    );
+  });
+  await page
+    .getByRole("button", { name: /Grandchild acceptance session/ })
+    .click();
+  const selectedGrandchildHistory = await grandchildSelection;
+  expect(selectedGrandchildHistory.status()).toBe(200);
+  expect(
+    ((await selectedGrandchildHistory.json()) as History).messages.map(
+      (message) => message.content,
+    ),
+  ).toContain("MADE800_GRANDCHILD_HISTORY_COBALT");
 });
 
 test("real CLI root, terminal resume/manual refresh, tools and executed polling refresh", async ({

@@ -206,6 +206,36 @@ class OpenCodeV2AgentCLI(AgentCLI):
                 success=False, sessions=[], error_message=f"Error: {error}"
             )
 
+    def list_child_sessions(
+        self, cwd: Path | None, limit: int = 50
+    ) -> SessionListResult:
+        try:
+            directory = str(cwd.resolve()) if cwd else None
+            bounded_limit = max(0, min(limit, 50))
+            with closing(self._connect()) as connection:
+                query = "SELECT s.id, s.title, s.time_updated, s.parent_id, p.title AS parent_title FROM session_v2 s LEFT JOIN session_v2 p ON p.id=s.parent_id AND p.directory=s.directory WHERE typeof(s.parent_id)='text' AND substr(s.parent_id, 1, 4)='ses_' AND length(s.parent_id)>4 AND s.parent_id NOT GLOB '*[^A-Za-z0-9_-]*' AND EXISTS (SELECT 1 FROM session_message m WHERE m.session_id=s.id AND m.type='user')"
+                parameters: tuple[object, ...] = ()
+                if directory is not None:
+                    query += " AND s.directory = ?"
+                    parameters = (directory,)
+                query += " ORDER BY s.time_updated DESC LIMIT ?"
+                parameters = (*parameters, bounded_limit)
+                sessions = [
+                    SessionInfo(
+                        row["id"],
+                        row["title"] or f"Session {row['id'][:8]}",
+                        self._format_timestamp(row["time_updated"]),
+                        row["parent_id"],
+                        row["parent_title"],
+                    )
+                    for row in connection.execute(query, parameters)
+                ]
+            return SessionListResult(success=True, sessions=sessions)
+        except Exception as error:
+            return SessionListResult(
+                success=False, sessions=[], error_message=f"Error: {error}"
+            )
+
     def export_session(self, session_id: str, cwd: Path | None) -> ExportResult:
         try:
             deadline = time.monotonic() + DEADLINE_SECONDS

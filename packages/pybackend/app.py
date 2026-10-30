@@ -45,6 +45,7 @@ from agent_service import (
     get_channel_status,
     list_running_agent_processes,
     list_agents,
+    list_chat_child_sessions,
     list_chat_sessions,
     send_agent_message,
     terminate_agent_process,
@@ -1432,6 +1433,15 @@ def knowledge_agent_sessions(
         )
 
 
+@app.get("/api/knowledge/{name:path}/agent/child-sessions")
+def knowledge_agent_child_sessions(name: str):
+    try:
+        return {"sessions": list_chat_child_sessions(f"knowledge:{name}", 50)}
+    except Exception:
+        logger.error("Unable to list child sessions for knowledge '%s'", name)
+        raise HTTPException(status_code=500, detail="Unable to list child sessions")
+
+
 @app.get("/api/knowledge/{name:path}")
 def knowledge_item(name: str):
     try:
@@ -1651,6 +1661,15 @@ def constitution_agent_sessions(
         )
 
 
+@app.get("/api/constitutions/{name:path}/agent/child-sessions")
+def constitution_agent_child_sessions(name: str):
+    try:
+        return {"sessions": list_chat_child_sessions(f"constitution:{name}", 50)}
+    except Exception:
+        logger.error("Unable to list child sessions for constitution '%s'", name)
+        raise HTTPException(status_code=500, detail="Unable to list child sessions")
+
+
 @app.get("/api/constitutions/{name:path}")
 def constitution_item(name: str):
     try:
@@ -1798,6 +1817,15 @@ def task_agent_sessions(
         )
 
 
+@app.get("/api/tasks/{name:path}/agent/child-sessions")
+def task_agent_child_sessions(name: str):
+    try:
+        return {"sessions": list_chat_child_sessions(f"task:{name}", 50)}
+    except Exception:
+        logger.error("Unable to list child sessions for task '%s'", name)
+        raise HTTPException(status_code=500, detail="Unable to list child sessions")
+
+
 @app.get("/api/tasks/{name:path}")
 def task_item(name: str):
     try:
@@ -1899,6 +1927,15 @@ def repository_agent_sessions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
+
+
+@app.get("/api/repositories/{name}/agent/child-sessions")
+def repository_agent_child_sessions(name: str):
+    try:
+        return {"sessions": list_chat_child_sessions(name, 50)}
+    except Exception:
+        logger.error("Unable to list child sessions for repository '%s'", name)
+        raise HTTPException(status_code=500, detail="Unable to list child sessions")
 
 
 @app.get("/api/settings")

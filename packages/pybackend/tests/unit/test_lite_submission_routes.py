@@ -77,6 +77,40 @@ def test_success_redirect_selects_explicit_encoded_session(
     assert agents._processing_channels == {}
 
 
+def test_cleared_session_form_submits_as_a_new_background_session(client, monkeypatch):
+    calls = []
+
+    def run(message, selected, agent, model, cwd, **kwargs):
+        calls.append((message, selected))
+        return RunResult(True, "ses_created_after_clear", [])
+
+    monkeypatch.setattr(
+        agents, "get_agent_cli", lambda cwd: SimpleNamespace(run_agent=run)
+    )
+    client.cookies.set(
+        "lite_session_repository", "ses_previous", domain="testserver.local"
+    )
+
+    cleared = client.get("/lite/repo/repository?session_id=")
+    assert "lite_session_repository" not in client.cookies
+    submitted = client.post(
+        "/lite/repo/repository/chat",
+        data={"message": "new-session-marker", "session_id": ""},
+        follow_redirects=False,
+    )
+    completed = client.get(submitted.headers["location"], follow_redirects=False)
+
+    assert cleared.context["current_session_id"] == ""
+    assert 'name="session_id" value=""' in cleared.text
+    assert submitted.status_code == 303
+    assert completed.status_code == 303
+    assert parse_qs(urlsplit(completed.headers["location"]).query) == {
+        "session_id": ["ses_created_after_clear"]
+    }
+    assert calls == [("new-session-marker", None)]
+    assert client.cookies["lite_session_repository"] == "ses_created_after_clear"
+
+
 def test_pending_unknown_and_refresh_limit_are_honest_and_repo_bound(client):
     repository = 'repo &"<tag>'
     job, owner = jobs.accept_submission(repository, None)

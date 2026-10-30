@@ -39,6 +39,22 @@ made-backend = "app:main"
 requires = ["hatchling>=1.21"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+exclude = [
+  "/.made",
+  "/.flowsh",
+  "/logs",
+  "/.coverage*",
+  "/coverage.*",
+  "/htmlcov",
+  "/.pytest_cache",
+  "/.ruff_cache",
+  "/build",
+  "/dist",
+  "**/__pycache__",
+  "*.py[cod]"
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["."]
 exclude = [
@@ -60,4 +76,3 @@ max-complexity = 10
 [tool.mutmut]
 source_paths = ["app.py", "agent_service.py", "repository_service.py", "cron_service.py"]
 pytest_add_cli_args_test_selection = ["tests/unit/"]
-

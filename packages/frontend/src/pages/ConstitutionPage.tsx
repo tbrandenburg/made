@@ -219,6 +219,7 @@ export const ConstitutionPage: React.FC = () => {
       cancelAgent: api.cancelConstitutionAgent,
       getHistory: api.getConstitutionAgentHistory,
       getSessions: api.getConstitutionAgentSessions,
+      getChildSessions: api.getConstitutionAgentChildSessions,
     },
     onActivateAgentTab: () => setActiveTab("agent"),
   });

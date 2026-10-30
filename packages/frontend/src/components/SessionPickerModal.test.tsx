@@ -65,6 +65,71 @@ describe("SessionPickerModal", () => {
     expect(onSelect).toHaveBeenCalledWith(mockSessions[0]);
   });
 
+  it("groups children by parent and selects the child's own session", () => {
+    const child: ChatSession = {
+      id: "ses_child",
+      title: "Child session",
+      updated: "2024-01-03",
+      parentId: "ses_parent",
+      parentTitle: "Parent session",
+    };
+    const parent: ChatSession = {
+      id: "ses_parent",
+      title: "Parent session",
+      updated: "2024-01-02",
+    };
+    const onSelect = vi.fn();
+    render(
+      <SessionPickerModal
+        {...defaultProps}
+        sessions={[parent, child]}
+        onSelect={onSelect}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Child sessions" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Children of Parent session" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Child of Parent session")).toBeInTheDocument();
+    fireEvent.click(screen.getByTitle("Child session"));
+    expect(onSelect).toHaveBeenCalledWith(child);
+  });
+
+  it("shows a saved child once with its own remove action", () => {
+    const child: ChatSession = {
+      id: "ses_child",
+      title: "Child session",
+      updated: "2024-01-03",
+      parentId: "ses_parent",
+      parentTitle: "Parent session",
+    };
+    const parent: ChatSession = {
+      id: "ses_parent",
+      title: "Parent session",
+      updated: "2024-01-02",
+    };
+    const onSelect = vi.fn();
+    const onRemoveSavedSession = vi.fn();
+    render(
+      <SessionPickerModal
+        {...defaultProps}
+        sessions={[parent, child]}
+        savedSessionIds={[child.id]}
+        onSelect={onSelect}
+        onRemoveSavedSession={onRemoveSavedSession}
+      />,
+    );
+
+    expect(screen.getAllByTitle("Child session")).toHaveLength(1);
+    fireEvent.click(screen.getByTitle("Child session"));
+    fireEvent.click(screen.getByLabelText("Remove saved session ses_child"));
+    expect(onSelect).toHaveBeenCalledWith(child);
+    expect(onRemoveSavedSession).toHaveBeenCalledWith(child.id);
+  });
+
   it("calls onClose when Cancel is clicked", () => {
     const onClose = vi.fn();
     render(<SessionPickerModal {...defaultProps} onClose={onClose} />);

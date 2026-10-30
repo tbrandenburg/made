@@ -120,7 +120,7 @@ test:
 unit-test:
 	@echo "🔬 Running frontend unit tests..."
 	@start=$$(date +%s); \
-	npm test; status=$$?; \
+	npm --workspace packages/frontend run test:serial; status=$$?; \
 	elapsed=$$(($$(date +%s) - start)); \
 	echo "Frontend unit tests completed in $${elapsed}s"; \
 	if [ $$elapsed -gt 60 ]; then \

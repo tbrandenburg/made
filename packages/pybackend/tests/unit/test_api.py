@@ -362,6 +362,38 @@ class TestRepositoryAgentSessions:
         assert response.status_code == 500
 
 
+class TestRepositoryAgentChildSessions:
+    @patch("app.list_chat_child_sessions")
+    def test_repository_child_sessions_success(self, mock_list):
+        mock_list.return_value = [
+            {
+                "id": "ses_child",
+                "title": "Child",
+                "updated": "Today",
+                "parentId": "ses_old_parent",
+                "parentTitle": "Older parent",
+            }
+        ]
+
+        response = client.get("/api/repositories/sample/agent/child-sessions")
+
+        assert response.status_code == 200
+        mock_list.assert_called_once_with("sample", 50)
+        assert response.json()["sessions"][0]["parentId"] == "ses_old_parent"
+
+    @patch(
+        "app.list_chat_child_sessions",
+        side_effect=RuntimeError("synthetic-private-child-list-marker"),
+    )
+    def test_repository_child_session_failure_is_sanitized(self, _mock_list, caplog):
+        response = client.get("/api/repositories/sample/agent/child-sessions")
+
+        assert response.status_code == 500
+        assert response.json()["detail"] == "Unable to list child sessions"
+        assert "synthetic-private-child-list-marker" not in response.text
+        assert "synthetic-private-child-list-marker" not in caplog.text
+
+
 class TestKnowledgeAgentHistory:
     @patch("app.export_chat_history")
     def test_knowledge_history_success(self, mock_export):

@@ -106,14 +106,21 @@ class SessionInfo:
     session_id: str
     title: str
     updated: str  # Human-readable timestamp
+    parent_id: str | None = None
+    parent_title: str | None = None
 
     def to_frontend_format(self) -> dict[str, object]:
         """Convert to frontend ChatSession format."""
-        return {
+        result: dict[str, object] = {
             "id": self.session_id,
             "title": self.title,
             "updated": self.updated,
         }
+        if self.parent_id is not None:
+            result["parentId"] = self.parent_id
+        if self.parent_title is not None:
+            result["parentTitle"] = self.parent_title
+        return result
 
 
 @dataclass

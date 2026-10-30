@@ -1001,14 +1001,16 @@ def export_chat_history(
             return response
 
         logger.error(
-            "Exporting chat history failed (channel: %s, session: %s): %s",
+            "Exporting chat history failed (channel: %s, session: %s)",
             channel or "<unspecified>",
             session_id,
-            result.error_message,
         )
-        if "command not found" in (result.error_message or ""):
-            raise FileNotFoundError(result.error_message)
-        raise RuntimeError(result.error_message or "Failed to export session history")
+        safe_error = (result.error_message or "").lower()
+        if "command not found" in safe_error:
+            raise FileNotFoundError("Agent CLI command is not installed or unavailable")
+        if "endpoint" in safe_error:
+            raise RuntimeError("History service endpoint is unavailable")
+        raise RuntimeError("Failed to export session history")
 
     # Filter messages by start timestamp if provided
     filtered_messages = []
@@ -1067,9 +1069,29 @@ def list_chat_sessions(
             raise FileNotFoundError(result.error_message)
         raise RuntimeError(result.error_message or "Failed to list sessions")
 
-    # Apply limit and convert to frontend format
     limited_sessions = result.sessions[:limit]
     return [session.to_frontend_format() for session in limited_sessions]
+
+
+def list_chat_child_sessions(
+    channel: str | None = None, limit: int = 50
+) -> list[dict[str, object]]:
+    working_dir = _get_working_directory(channel) if channel else None
+    agent_cli = get_agent_cli(working_dir)
+    list_children = getattr(agent_cli, "list_child_sessions", None)
+    if not callable(list_children):
+        return []
+
+    bounded_limit = max(0, min(limit, 50))
+    result = list_children(working_dir, bounded_limit)
+    if not result.success:
+        logger.error(
+            "Listing child sessions failed (channel: %s, cwd: %s)",
+            channel or "<unspecified>",
+            working_dir,
+        )
+        raise RuntimeError("Failed to list child sessions")
+    return [session.to_frontend_format() for session in result.sessions[:bounded_limit]]
 
 
 def list_agents(repository_name: str | None = None) -> list[dict[str, object]]:
