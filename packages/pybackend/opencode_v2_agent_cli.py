@@ -32,7 +32,7 @@ from opencode_v2_http_history import (
     HistoryReadError,
     SessionDirectoryMismatch,
     SessionNotFound,
-    read_session,
+    read_session_with_fallback,
 )
 from opencode_v2_history_conversion import convert_history
 
@@ -209,10 +209,14 @@ class OpenCodeV2AgentCLI(AgentCLI):
     def export_session(self, session_id: str, cwd: Path | None) -> ExportResult:
         try:
             deadline = time.monotonic() + DEADLINE_SECONDS
-            messages = convert_history(
-                read_session(session_id, cwd), self._format_tool, deadline
+            records, reduced = read_session_with_fallback(session_id, cwd)
+            messages = convert_history(records, self._format_tool, deadline)
+            if reduced and not messages:
+                raise HistoryReadError("Unable to recover readable recent OpenCode history")
+            return ExportResult(
+                True, session_id, messages, history_mode="snapshot",
+                history_reduced=reduced,
             )
-            return ExportResult(True, session_id, messages, history_mode="snapshot")
         except SessionNotFound as error:
             return ExportResult(
                 False,

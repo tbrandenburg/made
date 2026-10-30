@@ -1028,6 +1028,8 @@ def export_chat_history(
     }
     if result.history_mode:
         response["historyMode"] = result.history_mode
+    if result.history_reduced:
+        response["historyReduced"] = True
     if channel:
         lock_key = session_id if session_id else channel
         status = get_channel_status(lock_key)

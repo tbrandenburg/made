@@ -498,3 +498,128 @@ def test_public_id_prefix_schema_and_offloaded_adapter_in_async_host(tmp_path):
         "/api/session/ses.with.dots/message?limit=50&order=asc",
         "/api/session/ses.with.dots",
     ]
+
+
+def test_complexity_fallback_reads_newest_records_with_reduced_history_signal(
+    tmp_path, monkeypatch
+):
+    """A dense older page must not make a valid recent transcript disappear."""
+    import agent_service
+
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    monkeypatch.setattr(
+        agent_service, "get_agent_cli", lambda *_args: OpenCodeV2AgentCLI()
+    )
+    # Fifty records exceed the structural limit, but ten records fit.
+    payload = [[0] for _ in range(1_100)]
+    records = [
+        {
+            "id": f"msg_{index:03}",
+            "type": "user",
+            "text": f"question {index}",
+            "time": {"created": 1700000000000 + index},
+            "extra": payload,
+        }
+        for index in range(60)
+    ]
+    with serve(tmp_path) as service:
+        service.register(tmp_path / "opencode/service.json")
+
+        def respond(path, _count):
+            if "/message" not in path:
+                return metadata(tmp_path)
+            params = parse_qs(urlsplit(path).query)
+            if "cursor" in params:
+                start = int(params["cursor"][0])
+                descending = True
+            else:
+                descending = params.get("order") == ["desc"]
+                start = 59 if descending else 0
+            limit = int(params["limit"][0])
+            if descending:
+                indexes = range(start, max(-1, start - limit), -1)
+                result = [records[i] for i in indexes]
+                following = str(start - len(result)) if start - len(result) >= 0 else None
+            else:
+                result = records[start : start + limit]
+                following = str(start + len(result)) if start + len(result) < 60 else None
+            return page(result, following)
+
+        service.respond = respond
+        response = agent_service.export_chat_history("ses_test")
+    assert response["historyMode"] == "snapshot"
+    assert response["historyReduced"] is True
+    assert [item["messageId"] for item in response["messages"]] == [
+        f"msg_{index:03}" for index in range(10, 60)
+    ]
+    assert "/message?limit=50&order=asc" in service.requests[1]
+    assert "/message?limit=10&order=desc" in service.requests[3]
+    assert len(service.requests) == 9
+
+
+def test_complexity_fallback_halves_page_size_and_can_recover_full_history(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    with serve(tmp_path) as service:
+        service.register(tmp_path / "opencode/service.json")
+        records = [user(f"msg_{index}", f"entry {index}") for index in range(3)]
+
+        def respond(path, _count):
+            if "/message" not in path:
+                return metadata(tmp_path)
+            params = parse_qs(urlsplit(path).query)
+            limit = int(params["limit"][0])
+            if limit > 2:
+                return Reply(b'{"data":' + b"[" * 65 + b"0" + b"]" * 65 + b"}")
+            start = int(params.get("cursor", ["2"])[0])
+            chosen = list(range(start, max(-1, start - limit), -1))
+            return page(
+                [records[index] for index in chosen],
+                str(start - len(chosen)) if start - len(chosen) >= 0 else None,
+            )
+
+        service.respond = respond
+        result = OpenCodeV2AgentCLI().export_session("ses_test", tmp_path)
+    assert result.success and not result.history_reduced
+    assert [message.message_id for message in result.messages] == [
+        "msg_0", "msg_1", "msg_2"
+    ]
+    assert any("limit=5&order=desc" in path for path in service.requests)
+    assert any("limit=2&order=desc" in path for path in service.requests)
+
+
+def test_single_over_complex_latest_record_still_fails_closed(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    with serve(tmp_path) as service:
+        service.register(tmp_path / "opencode/service.json")
+        service.respond = (
+            lambda path, _count: metadata(tmp_path)
+            if "/message" not in path
+            else Reply(b'{"data":' + b"[" * 65 + b"0" + b"]" * 65 + b"}")
+        )
+        result = OpenCodeV2AgentCLI().export_session("ses_test", tmp_path)
+    assert not result.success and not result.history_reduced
+    assert result.messages == []
+    assert any("limit=1&order=desc" in path for path in service.requests)
+
+
+def test_complexity_recovery_rechecks_directory_after_messages(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    with serve(tmp_path) as service:
+        service.register(tmp_path / "opencode/service.json")
+
+        def respond(path, count):
+            if "/message" not in path:
+                return metadata(
+                    tmp_path / "foreign" if count == 5 else tmp_path
+                )
+            if "order=asc" in path:
+                return Reply(b'{"data":' + b"[" * 65 + b"0" + b"]" * 65 + b"}")
+            return page([user()], None)
+
+        service.respond = respond
+        result = OpenCodeV2AgentCLI().export_session("ses_test", tmp_path)
+    assert not result.success and result.messages == []
+    assert result.error_code == "session_directory_mismatch"
+    assert len(service.requests) == 5
