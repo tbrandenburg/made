@@ -1,7 +1,24 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { mkdtemp, readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createServer } from "node:net";
+import { promisify } from "node:util";
+
+const run = promisify(execFile);
+const frontendBuilds = new Map<string, Promise<string>>();
+
+function buildFrontend(directory: string): Promise<string> {
+  const outDir = join(directory, ".frontend-dist");
+  return run(
+    "npm",
+    ["exec", "--", "vite", "build", "--outDir", outDir, "--emptyOutDir"],
+    {
+      cwd: resolve("packages/frontend"),
+      maxBuffer: 10 * 1024 * 1024,
+      timeout: 300_000,
+    },
+  ).then(() => outDir);
+}
 
 export async function failureEvidence(directory: string): Promise<string> {
   const logs = join(directory, "fixture/.flowsh/logs");
@@ -35,6 +52,10 @@ export async function startBackend(
   const address = socket.address();
   if (!address || typeof address === "string") throw new Error("No test port");
   await new Promise<void>((done) => socket.close(() => done()));
+  const frontendDist =
+    frontendBuilds.get(directory) ?? buildFrontend(directory);
+  frontendBuilds.set(directory, frontendDist);
+  const dist = await frontendDist;
   const home = await mkdtemp(join(directory, "home-"));
   const cwd = resolve("packages/pybackend");
   const process = spawn(
@@ -55,6 +76,7 @@ export async function startBackend(
         ...(path ? { PATH: path } : {}),
         MADE_HOME: home,
         MADE_WORKSPACE_HOME: directory,
+        MADE_BUILD_TASK_DIST: dist,
         PYTHONPATH: `${cwd}/tests/fixtures:${cwd}`,
       },
       stdio: ["ignore", "ignore", "pipe"],
