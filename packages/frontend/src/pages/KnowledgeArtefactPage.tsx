@@ -192,6 +192,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
     openSessionModal,
     reloadCurrentSession,
     sessionError,
+    historyReduced,
     sessionLoading,
     sessionListError,
     sessionListLoading,
@@ -588,6 +589,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
             refreshing={isRefreshing}
             emptyMessage="Start a conversation to collaborate with agents."
             historyError={sessionError}
+            historyReduced={historyReduced}
             sessionId={sessionId}
             onClearSession={openClearSessionModal}
             onSaveSession={handleSaveSession}

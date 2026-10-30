@@ -51,6 +51,9 @@
     </form>
 
     <div class="chat">
+    {% if history_reduced and not history_error %}
+        <p role="status" class="warning">Only recent history is shown. Older messages were omitted because OpenCode history exceeded its JSON complexity limit.</p>
+    {% endif %}
     {% if history_error %}
         <p role="alert">Unable to load session history. Please retry.</p>
         <p><a href="{{ history_retry_url }}">Retry history</a></p>

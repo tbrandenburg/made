@@ -140,3 +140,30 @@ def test_retry_recovers_without_losing_the_selected_session(history_route, messa
     assert client.cookies["lite_session_repository"] == "ses_selected"
     assert exporter.call_count == 2
     assert exporter.call_args_list[0] == exporter.call_args_list[1]
+
+
+def test_reduced_history_warns_in_lite_and_complete_refresh_clears_it(
+    history_route,
+):
+    client, exporter = history_route
+    exporter.return_value = {
+        "messages": [{"role": "assistant", "content": "recent answer"}],
+        "historyMode": "snapshot",
+        "historyReduced": True,
+    }
+    reduced = client.get("/lite/repo/repository?session_id=ses_selected")
+    assert reduced.status_code == 200
+    assert reduced.context["history_reduced"] is True
+    assert reduced.context["history_error"] is False
+    assert "Only recent history is shown." in reduced.text
+    assert "JSON complexity limit." in reduced.text
+    assert "recent answer" in reduced.text
+
+    exporter.return_value = {
+        "messages": [{"role": "assistant", "content": "full answer"}],
+        "historyMode": "snapshot",
+    }
+    complete = client.get("/lite/repo/repository?session_id=ses_selected")
+    assert complete.context["history_reduced"] is False
+    assert "Only recent history is shown." not in complete.text
+    assert "full answer" in complete.text

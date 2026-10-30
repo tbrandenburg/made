@@ -23,6 +23,7 @@ interface ChatWindowProps {
   refreshing?: boolean;
   sessionLoading?: boolean;
   historyError?: string | null;
+  historyReduced?: boolean;
   emptyMessage: string;
   sessionId?: string | null;
   onClearSession?: () => void;
@@ -199,6 +200,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
     refreshing,
     sessionLoading,
     historyError,
+    historyReduced,
     emptyMessage,
     sessionId,
     onClearSession,
@@ -267,6 +269,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(
         {historyError && (
           <div role="alert" className="alert error">
             {historyError}
+          </div>
+        )}
+        {historyReduced && (
+          <div role="status" className="alert warning">
+            Only recent history is shown. Older messages were omitted because
+            OpenCode history exceeded its JSON complexity limit.
           </div>
         )}
         <div className="chat-window" ref={setChatWindowElement}>

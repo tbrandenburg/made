@@ -147,6 +147,7 @@ export function SessionWindow({ api }: { api: ChatSessionApi }) {
         sessionLoading={session.sessionLoading}
         sessionId={sessionId}
         historyError={session.sessionError}
+        historyReduced={session.historyReduced}
         emptyMessage="No conversation yet."
       />
     </>

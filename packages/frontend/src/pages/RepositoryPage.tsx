@@ -737,6 +737,7 @@ export const RepositoryPage: React.FC = () => {
     openSessionModal,
     reloadCurrentSession,
     sessionError,
+    historyReduced,
     sessionListError,
     sessionListLoading,
     sessionLoading,
@@ -1929,6 +1930,7 @@ export const RepositoryPage: React.FC = () => {
             sessionLoading={sessionLoading}
             emptyMessage="No conversation yet."
             historyError={sessionError}
+            historyReduced={historyReduced}
             sessionId={sessionId}
             onClearSession={openClearSessionModal}
             onSaveSession={handleSaveSession}

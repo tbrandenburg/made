@@ -86,6 +86,7 @@ export interface UseChatSessionResult {
   invalidatePendingRequests: () => void;
   isCancelingAgent: boolean;
   isRefreshing: boolean;
+  historyReduced: boolean;
   openClearSessionModal: () => void;
   openSessionModal: () => Promise<void>;
   reloadCurrentSession: () => Promise<void>;
@@ -150,6 +151,7 @@ export function useChatSession({
     [],
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [historyReduced, setHistoryReduced] = useState(false);
   const isRefreshingRef = useRef(false);
   const setRefreshing = useCallback((value: boolean) => {
     isRefreshingRef.current = value;
@@ -184,6 +186,7 @@ export function useChatSession({
       }
       ownSessionRef.current = null;
       historyRequestGenerationRef.current += 1;
+      setHistoryReduced(false);
       statusGenerationRef.current += 1;
       refreshControllerRef.current?.abort();
       setRefreshing(false);
@@ -208,6 +211,7 @@ export function useChatSession({
 
   const applyHistory = useCallback(
     (history: ChatHistoryResponse, incremental = false) => {
+      setHistoryReduced(history.historyReduced === true);
       const messages = history.messages || [];
       if (history.historyMode === "snapshot") {
         const result = reconcileChatSnapshot(messages, pendingUsersRef.current);
@@ -689,6 +693,7 @@ export function useChatSession({
     invalidatePendingRequests,
     isCancelingAgent,
     isRefreshing,
+    historyReduced,
     openClearSessionModal,
     openSessionModal,
     reloadCurrentSession,
