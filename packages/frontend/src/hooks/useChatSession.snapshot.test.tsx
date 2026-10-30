@@ -174,6 +174,15 @@ it("keeps V1 polling's incremental merge and timestamp boundary rather than snap
 });
 
 it("warns for reduced history and clears warning after full recovery", async () => {
+  // This test renders a populated ChatWindow, activating react-virtuoso.
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe = vi.fn();
+      unobserve = vi.fn();
+      disconnect = vi.fn();
+    },
+  );
   const api = snapshotApi(
     vi.fn().mockResolvedValue({ ...snapshot(), historyReduced: true }),
   );
