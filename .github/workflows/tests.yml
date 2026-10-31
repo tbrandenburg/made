@@ -51,7 +51,7 @@ jobs:
             \( -name "*.ts" -o -name "*.tsx" -o -name "*.py" \) \
             ! -path "*/node_modules/*" ! -path "*/.venv/*" \
             ! -name "*.test.*" ! -name "test_*" \
-          | while read f; do
+          | while read -r f; do
               lines=$(wc -l < "$f")
               if [ "$lines" -gt 500 ]; then
                 echo "::warning file=${f}::${f} has ${lines} lines (guideline: 500)"
@@ -64,7 +64,7 @@ jobs:
           find packages/frontend/src packages/pybackend/tests \
             \( -name "*.test.tsx" -o -name "*.test.ts" -o -name "test_*.py" \) \
             ! -path "*/node_modules/*" ! -path "*/.venv/*" \
-          | while read tf; do
+          | while read -r tf; do
               lines=$(wc -l < "$tf")
               if [ "$lines" -gt 500 ]; then
                 echo "::warning file=${tf}::${tf} has ${lines} lines (guideline: 500)"
@@ -73,7 +73,7 @@ jobs:
 
           # --- Test:source ratio: TypeScript ---
           find packages/frontend/src -name "*.test.tsx" -o -name "*.test.ts" \
-          | while read tf; do
+          | while read -r tf; do
               src="${tf%.test.*}.tsx"
               [ -f "$src" ] || src="${tf%.test.*}.ts"
               if [ -f "$src" ]; then
@@ -86,7 +86,7 @@ jobs:
             done
 
           # --- Test:source ratio: Python ---
-          find packages/pybackend/tests/unit -name "test_*.py" | while read tf; do
+          find packages/pybackend/tests/unit -name "test_*.py" | while read -r tf; do
               module=$(basename "$tf" | sed 's/^test_//')
               src=$(find packages/pybackend -maxdepth 1 -name "$module" ! -path "*/tests/*")
               if [ -f "$src" ]; then

@@ -228,6 +228,8 @@ export type ChatSession = {
   id: string;
   title: string;
   updated: string;
+  parentId?: string;
+  parentTitle?: string;
 };
 
 export type CommandDefinition = {
@@ -609,18 +611,30 @@ export const api = {
       `/repositories/${name}/agent/sessions?${params.toString()}`,
     );
   },
+  getRepositoryAgentChildSessions: (name: string) =>
+    request<{ sessions: ChatSession[] }>(
+      `/repositories/${name}/agent/child-sessions`,
+    ),
   getKnowledgeAgentSessions: (name: string, limit = 10) => {
     const params = new URLSearchParams({ limit: String(limit) });
     return request<{ sessions: ChatSession[] }>(
       `/knowledge/${name}/agent/sessions?${params.toString()}`,
     );
   },
+  getKnowledgeAgentChildSessions: (name: string) =>
+    request<{ sessions: ChatSession[] }>(
+      `/knowledge/${name}/agent/child-sessions`,
+    ),
   getConstitutionAgentSessions: (name: string, limit = 10) => {
     const params = new URLSearchParams({ limit: String(limit) });
     return request<{ sessions: ChatSession[] }>(
       `/constitutions/${name}/agent/sessions?${params.toString()}`,
     );
   },
+  getConstitutionAgentChildSessions: (name: string) =>
+    request<{ sessions: ChatSession[] }>(
+      `/constitutions/${name}/agent/child-sessions`,
+    ),
   getRepositoryCommands: (name: string) =>
     request<{ commands: CommandDefinition[] }>(
       `/repositories/${name}/commands`,
@@ -897,6 +911,8 @@ export const api = {
       `/tasks/${name}/agent/sessions?${params.toString()}`,
     );
   },
+  getTaskAgentChildSessions: (name: string) =>
+    request<{ sessions: ChatSession[] }>(`/tasks/${name}/agent/child-sessions`),
   readExternalMatter: (path: string) =>
     request<ExternalMatterPayload>("/external-matter/read", {
       method: "POST",

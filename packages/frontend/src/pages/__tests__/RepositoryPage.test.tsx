@@ -133,6 +133,9 @@ function setupDefaultMocks() {
   vi.mocked(api.getRepositoryAgentHistory).mockResolvedValue(emptyHistory);
   vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({ running: false });
   vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({ sessions: [] });
+  vi.mocked(api.getRepositoryAgentChildSessions).mockResolvedValue({
+    sessions: [],
+  });
   vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
   // Prevent destructure errors from secondary page data loads.
   vi.mocked(api.getAgents).mockResolvedValue({ agents: [] });
@@ -167,6 +170,35 @@ describe("RepositoryPage session selection", () => {
 
     await waitFor(() => {
       expect(api.getRepositoryAgentHistory).toHaveBeenCalled();
+    });
+  });
+
+  it("loads and selects a child whose parent is outside the root page", async () => {
+    vi.mocked(api.getRepositoryAgentSessions).mockResolvedValue({
+      sessions: [sessionA],
+    });
+    const child: ChatSession = {
+      id: "ses_child",
+      title: "Older parent's child",
+      updated: "2026-01-02",
+      parentId: "ses_older_parent",
+      parentTitle: "Older parent",
+    };
+    vi.mocked(api.getRepositoryAgentChildSessions).mockResolvedValue({
+      sessions: [child],
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByLabelText("Choose a session"));
+    fireEvent.click(await screen.findByTitle(child.title));
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledWith(
+        "test-repo",
+        child.id,
+        undefined,
+        expect.anything(),
+      );
     });
   });
 

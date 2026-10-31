@@ -50,9 +50,13 @@ def repo_chat(request: Request, name: str, session_id: str = Query(default="")):
         )
 
     session_cookie_name = f"lite_session_{quote(name, safe='')}"
-    # query param takes priority over cookie (used by the Load button GET form)
+    # The Load form always sends session_id, including its explicit empty
+    # option. Only requests without that key should restore the cookie.
+    has_session_selection = "session_id" in request.query_params
     current_session_id = (
-        session_id.strip() or request.cookies.get(session_cookie_name) or ""
+        session_id.strip()
+        if has_session_selection
+        else request.cookies.get(session_cookie_name, "")
     )
 
     messages = []
@@ -97,11 +101,14 @@ def repo_chat(request: Request, name: str, session_id: str = Query(default="")):
             "model_options": MODEL_OPTIONS,
         },
     )
-    # persist the selected session into the cookie so subsequent POSTs pick it up
+    # Persist a selection for subsequent requests, or forget it when the user
+    # explicitly chose New session. An absent query key preserves the cookie.
     if current_session_id:
         response.set_cookie(
             key=session_cookie_name, value=current_session_id, httponly=True
         )
+    elif has_session_selection:
+        response.delete_cookie(key=session_cookie_name, httponly=True)
     return response
 
 

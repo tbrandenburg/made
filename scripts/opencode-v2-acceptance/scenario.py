@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import sqlite3
 import subprocess
 import uuid
 
@@ -14,6 +15,7 @@ from service import ARTIFACTS, ROOT, client, command, owned
 FIRST = "MADE779_FIRST_COBALT"
 LATE = "MADE779_RESUMED_COBALT"
 TOOL = "MADE779_TOOL_COBALT"
+OWNED_OPENCODE_DB = Path("/opencode-home/data/opencode.db")
 
 
 def request(connection: httpx.Client, method: str, path: str, **kwargs: object) -> dict:
@@ -133,6 +135,64 @@ def fixture(connection: httpx.Client) -> str:
     return template["id"]
 
 
+def child_fixture(
+    connection: httpx.Client,
+    parent: str | None,
+    directory: Path,
+    title: str,
+    text: str,
+    updated: int | None = None,
+) -> str:
+    template = request(
+        connection,
+        "POST",
+        "/api/session",
+        json={"location": {"directory": str(directory)}},
+    )["data"]
+    template["id"] = f"ses_acceptance{uuid.uuid4().hex}"
+    if parent is not None:
+        template["parentID"] = parent
+    template["title"] = title
+    if updated is not None:
+        template["time"]["updated"] = updated
+    message = {
+        "id": f"msg_fixture{uuid.uuid4().hex}",
+        "type": "user",
+        "time": template["time"],
+        "text": text,
+    }
+    request(
+        connection,
+        "POST",
+        "/api/experimental/session/import",
+        json={
+            "info": template,
+            "messages": [message],
+            "location": {"directory": str(directory)},
+        },
+    )
+    if updated is not None:
+        owned()
+        database = Path(os.environ["OPENCODE_DB"]).resolve()
+        if database != OWNED_OPENCODE_DB.resolve():
+            raise RuntimeError("Refusing to adjust a non-acceptance OpenCode DB")
+        with sqlite3.connect(database) as db:
+            changed = db.execute(
+                "UPDATE session_v2 SET time_updated = ? WHERE id = ?",
+                (updated, template["id"]),
+            ).rowcount
+        if changed != 1:
+            raise RuntimeError("Could not timestamp imported acceptance root")
+    observed = request(connection, "GET", f"/api/session/{template['id']}")["data"]
+    if (
+        observed["location"]["directory"] != str(directory)
+        or observed.get("parentID") != parent
+        or (updated is not None and observed["time"]["updated"] != updated)
+    ):
+        raise RuntimeError("Imported child fixture did not preserve its metadata")
+    return template["id"]
+
+
 def prepare(real: bool = True) -> dict:
     owned()
     ARTIFACTS.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -184,9 +244,52 @@ def prepare(real: bool = True) -> dict:
                 raise RuntimeError(
                     "Provider did not return the initial assistant marker"
                 )
+        root_window = [
+            child_fixture(
+                connection,
+                None,
+                Path("/workspace/repoA"),
+                f"Newer root acceptance session {index}",
+                f"MADE800_ROOT_WINDOW_{index}",
+                int(metadata["time"]["updated"]) + (index + 1) * 1000,
+            )
+            for index in range(11)
+        ]
+        child = child_fixture(
+            connection,
+            session,
+            Path("/workspace/repoA"),
+            "Child acceptance session",
+            "MADE800_CHILD_HISTORY_COBALT",
+        )
+        grandchild = child_fixture(
+            connection,
+            child,
+            Path("/workspace/repoA"),
+            "Grandchild acceptance session",
+            "MADE800_GRANDCHILD_HISTORY_COBALT",
+        )
+        foreign_parent = child_fixture(
+            connection,
+            None,
+            Path("/workspace/repoB"),
+            "Foreign parent acceptance session",
+            "MADE800_FOREIGN_PARENT_COBALT",
+        )
+        foreign_child = child_fixture(
+            connection,
+            foreign_parent,
+            Path("/workspace/repoB"),
+            "Foreign child acceptance session",
+            "MADE800_FOREIGN_CHILD_COBALT",
+        )
         manifest = {
             "session": session,
             "fixture": paginated,
+            "child": child,
+            "grandchild": grandchild,
+            "foreignChild": foreign_child,
+            "rootWindow": root_window,
             "version": version,
             "realProvider": real,
             "first": FIRST,

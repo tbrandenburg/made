@@ -67,6 +67,55 @@ def test_no_selected_session_has_no_history_error(history_route):
     exporter.assert_not_called()
 
 
+def test_explicit_empty_selection_clears_cookie_and_does_not_restore_on_refresh(
+    history_route,
+):
+    client, exporter = history_route
+    exporter.return_value = {
+        "messages": [{"role": "assistant", "content": "OLD_TRANSCRIPT_MARKER"}]
+    }
+    client.cookies.set(
+        "lite_session_other-repository", "ses_other", domain="testserver.local"
+    )
+
+    selected = client.get("/lite/repo/repository?session_id=ses_selected")
+    cleared = client.get("/lite/repo/repository?session_id=")
+    refreshed = client.get("/lite/repo/repository")
+
+    assert selected.context["current_session_id"] == "ses_selected"
+    assert cleared.context["current_session_id"] == ""
+    assert cleared.context["messages"] == []
+    assert 'name="session_id" value=""' in cleared.text
+    assert "OLD_TRANSCRIPT_MARKER" in selected.text
+    assert "OLD_TRANSCRIPT_MARKER" not in cleared.text
+    assert "lite_session_repository" not in client.cookies
+    assert client.cookies["lite_session_other-repository"] == "ses_other"
+    assert refreshed.context["current_session_id"] == ""
+    assert refreshed.context["messages"] == []
+    assert "lite_session_repository" not in client.cookies
+    assert exporter.call_count == 1
+
+
+def test_absent_selection_restores_cookie_without_changing_other_repository(
+    history_route,
+):
+    client, exporter = history_route
+    client.cookies.set(
+        "lite_session_repository", "ses_previous", domain="testserver.local"
+    )
+    client.cookies.set(
+        "lite_session_other-repository", "ses_other", domain="testserver.local"
+    )
+
+    response = client.get("/lite/repo/repository")
+
+    assert response.context["current_session_id"] == "ses_previous"
+    assert client.cookies["lite_session_repository"] == "ses_previous"
+    assert client.cookies["lite_session_other-repository"] == "ses_other"
+    assert exporter.call_args.args == ("ses_previous",)
+    assert exporter.call_args.kwargs == {"channel": "repository"}
+
+
 @pytest.mark.parametrize("failure", [RuntimeError, FileNotFoundError, TimeoutError])
 def test_history_failure_keeps_selection_and_logs_no_sensitive_details(
     history_route, caplog, failure

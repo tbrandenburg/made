@@ -176,11 +176,15 @@ depend on the selected CLI and its configuration.
 
 The `opencode-v2` adapter reads selected-session history through OpenCode's
 authenticated local HTTP service. The service must be running; MADE does not
-start/restart it or fall back to SQLite on history failure. V2 session listing
-and activity detection still use SQLite. History reads support up to 10,000
-records within shared resource budgets and run off the server event loop. See the
+start/restart it or fall back to SQLite. If JSON complexity prevents a full
+snapshot, it retries newest-first and may return up to 50 recent records with a
+reduced-history warning. V2 session listing and activity detection still use
+SQLite. History reads support up to 10,000 records within shared resource
+budgets and run off the server event loop. See the
 [history security and refresh contract](/docs/CONFIGURATION.md#opencode-database-history)
 and the [isolated real-service/browser acceptance](/docs/DOCKER.md#opencode-v2-acceptance).
+The session picker also lists v2 child sessions in a separate parent-labeled
+section, scoped to the same repository directory.
 
 ### JavaScript-free Lite chat
 
@@ -188,7 +192,8 @@ Open `/lite/` on the backend or web interface to browse repositories and chat
 without JavaScript. To view an existing conversation, select its session and click
 **Load**; selecting an option alone does not fetch history. A fresh page without
 a selected session explains this workflow instead of implying that saved history
-is empty.
+is empty. Choosing **New session** clears that repository's saved session cookie;
+a page request without a session parameter can still restore the remembered session.
 
 Lite displays each history message once. If history cannot be loaded, it shows a
 generic error and **Retry history** link that preserves the selected session,

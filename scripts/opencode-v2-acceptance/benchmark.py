@@ -51,7 +51,7 @@ def benchmark(transport_only: bool = False) -> dict:
         transport = sum(
             values[3]
             for key, values in statistics.items()
-            if "opencode_v2_http" in key[0] and key[2] == "read_session"
+            if "opencode_v2_http" in key[0] and key[2] == "_read_session"
         )
         discovery = sum(
             values[3]

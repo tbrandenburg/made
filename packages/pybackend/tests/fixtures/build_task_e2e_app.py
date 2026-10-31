@@ -1,12 +1,16 @@
 """Serve the real MADE app and built frontend together on an isolated test port."""
 
+import os
 from pathlib import Path
 
 from fastapi.responses import FileResponse
 
 from app import app
 
-DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
+DIST = Path(
+    os.environ.get("MADE_BUILD_TASK_DIST")
+    or Path(__file__).resolve().parents[3] / "frontend" / "dist"
+).resolve()
 
 
 @app.get("/{path:path}")

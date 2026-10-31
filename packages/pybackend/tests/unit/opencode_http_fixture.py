@@ -21,6 +21,9 @@ class Reply:
     delay: float = 0
     trickle: float = 0
     disconnect: bool = False
+    entered: threading.Event | None = None
+    release: threading.Event | None = None
+    gate_after_headers: bool = False
 
 
 @dataclass
@@ -72,6 +75,10 @@ def serve(
                 self.connection.shutdown(socket.SHUT_RDWR)
                 self.connection.close()
                 return
+            if reply.entered and not reply.gate_after_headers:
+                reply.entered.set()
+            if reply.release and not reply.gate_after_headers:
+                reply.release.wait(timeout=5)
             time.sleep(reply.delay)
             body = (
                 reply.body
@@ -84,10 +91,20 @@ def serve(
                 for name, value in reply.headers.items():
                     self.send_header(name, value)
                 self.end_headers()
+                if reply.gate_after_headers and not reply.trickle:
+                    if reply.entered:
+                        reply.entered.set()
+                    if reply.release:
+                        reply.release.wait(timeout=5)
                 if reply.trickle:
                     for byte in body:
                         self.wfile.write(bytes([byte]))
                         self.wfile.flush()
+                        if reply.entered and reply.gate_after_headers:
+                            reply.entered.set()
+                            if reply.release:
+                                reply.release.wait(timeout=5)
+                            return
                         time.sleep(reply.trickle)
                     return
                 self.wfile.write(body)

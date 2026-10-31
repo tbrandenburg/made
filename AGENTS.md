@@ -141,6 +141,8 @@ It runs `make qa-quick` (lint + format + unit-test) automatically before every `
 
 ## Lessons Learned
 
+- 2026-10-30: Pitfall: A packaging fixture omitted the repository-root `.gitignore`, so its leak reproduction did not match checkout builds. Prevention: preserve VCS context and inspect fresh wheel/sdist member names with synthetic sentinels.
+- 2026-10-30: Pitfall: A deadline test's generic exception assertion passed for malformed fixture data, not timeout cancellation. Prevention: use a valid delayed response and assert phase, deadline, traffic, and cleanup.
 - 2026-10-27: Pitfall: Cancellation and successful completion could both acknowledge winning the same request. Prevention: Commit terminal outcomes under the admission lock, resolve aliases consistently, and verify competing transitions with deterministic barrier tests.
 - 2026-10-26: Pitfall: Subprocess deadline tests expired during coverage-instrumented startup without exercising HTTP. Prevention: Validate timing tests under coverage, allow process-startup headroom, and assert the fixture received the intended traffic.
 - 2026-10-26: Pitfall: A page-wide numeric locator matched explanatory text before retry completion. Prevention: Scope loading assertions to the target metric and await its exact final value before asserting request counts.

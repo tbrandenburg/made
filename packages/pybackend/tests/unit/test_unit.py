@@ -808,6 +808,87 @@ class TestAgentService:
             list_chat_sessions("test-repo", limit=5)
 
     @patch("agent_service.get_agent_cli")
+    def test_list_chat_sessions_keeps_root_limit_and_child_listing_is_separate(
+        self, mock_get_cli
+    ):
+        from agent_service import list_chat_child_sessions, list_chat_sessions
+        from agent_results import SessionListResult, SessionInfo
+
+        roots = [
+            SessionInfo(f"ses_root_{index}", f"Root {index}", "today")
+            for index in range(55)
+        ]
+        children = [
+            SessionInfo(
+                "ses_child_old_parent", "Child", "today", "ses_root_54", "Root 54"
+            ),
+            SessionInfo(
+                "ses_grandchild", "Grandchild", "today", "ses_child_old_parent", "Child"
+            ),
+            *[
+                SessionInfo(
+                    f"ses_child_{index}",
+                    f"Child {index}",
+                    "today",
+                    "ses_root_0",
+                    "Root 0",
+                )
+                for index in range(58)
+            ],
+        ]
+        mock_cli = Mock()
+        mock_get_cli.return_value = mock_cli
+        mock_cli.list_sessions.return_value = SessionListResult(
+            success=True, sessions=roots
+        )
+        mock_cli.list_child_sessions.return_value = SessionListResult(
+            success=True, sessions=children
+        )
+
+        result = list_chat_sessions("test-repo", limit=10)
+
+        assert [session["id"] for session in result] == [
+            f"ses_root_{index}" for index in range(10)
+        ]
+        assert all("ses_child" not in session["id"] for session in result)
+
+        child_result = list_chat_child_sessions("test-repo", limit=500)
+
+        assert len(child_result) == 50
+        assert child_result[0]["id"] == "ses_child_old_parent"
+        assert child_result[0]["parentId"] == "ses_root_54"
+        assert child_result[0]["parentTitle"] == "Root 54"
+        assert child_result[1]["id"] == "ses_grandchild"
+        assert child_result[1]["parentId"] == "ses_child_old_parent"
+
+    @patch("agent_service.get_agent_cli", return_value=object())
+    def test_non_v2_child_listing_is_empty(self, _mock_get_cli):
+        from agent_service import list_chat_child_sessions
+
+        assert list_chat_child_sessions("test-repo") == []
+
+    @patch("agent_service.get_agent_cli")
+    def test_child_listing_failure_does_not_log_adapter_error(
+        self, mock_get_cli, caplog
+    ):
+        from agent_service import list_chat_child_sessions
+        from agent_results import SessionListResult
+
+        mock_cli = Mock()
+        mock_get_cli.return_value = mock_cli
+        mock_cli.list_child_sessions.return_value = SessionListResult(
+            success=False,
+            sessions=[],
+            error_message="synthetic-private-child-list-marker",
+        )
+
+        with pytest.raises(RuntimeError, match="Failed to list child sessions"):
+            list_chat_child_sessions("test-repo")
+
+        assert "Listing child sessions failed" in caplog.text
+        assert "synthetic-private-child-list-marker" not in caplog.text
+
+    @patch("agent_service.get_agent_cli")
     def test_export_chat_history_missing_session_returns_empty(self, mock_get_cli):
         """Test missing sessions return an empty history payload."""
         from agent_service import export_chat_history

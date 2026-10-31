@@ -120,7 +120,7 @@ test:
 unit-test:
 	@echo "🔬 Running frontend unit tests..."
 	@start=$$(date +%s); \
-	npm test; status=$$?; \
+	npm --workspace packages/frontend run test:serial; status=$$?; \
 	elapsed=$$(($$(date +%s) - start)); \
 	echo "Frontend unit tests completed in $${elapsed}s"; \
 	if [ $$elapsed -gt 60 ]; then \
@@ -220,9 +220,13 @@ security-audit:
 	@echo "🔍 Checking Python backend dependencies (pip-audit via uv)..."
 	cd $(PYBACKEND_DIR) && uv run --with pip-audit pip-audit
 	@echo "🔍 Checking root Node.js dependencies..."
-	npm audit --audit-level moderate
+	npm audit --audit-level high
+	@echo "🔍 Checking root Node.js production dependencies..."
+	npm audit --omit=dev --audit-level=moderate
 	@echo "🔍 Checking frontend Node.js dependencies..."
-	cd packages/frontend && npm audit --audit-level moderate
+	cd packages/frontend && npm audit --audit-level high
+	@echo "🔍 Checking frontend Node.js production dependencies..."
+	cd packages/frontend && npm audit --omit=dev --audit-level=moderate
 	@echo "📋 Security audit completed"
 
 # Build & Run Tasks

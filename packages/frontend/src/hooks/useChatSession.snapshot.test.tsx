@@ -188,7 +188,9 @@ it("warns for reduced history and clears warning after full recovery", async () 
   );
   render(<SessionWindow api={api} />);
   await waitFor(() =>
-    expect(screen.getByText(/Only recent history is shown/)).toBeInTheDocument(),
+    expect(
+      screen.getByText(/Only recent history is shown/),
+    ).toBeInTheDocument(),
   );
   expect(screen.getByLabelText("Transcript")).toHaveTextContent("original");
   expect(screen.getByText(/Only recent history is shown/)).toHaveTextContent(

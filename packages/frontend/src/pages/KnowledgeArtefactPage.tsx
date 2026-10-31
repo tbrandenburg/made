@@ -216,6 +216,7 @@ export const KnowledgeArtefactPage: React.FC = () => {
       cancelAgent: api.cancelKnowledgeAgent,
       getHistory: api.getKnowledgeAgentHistory,
       getSessions: api.getKnowledgeAgentSessions,
+      getChildSessions: api.getKnowledgeAgentChildSessions,
     },
     onActivateAgentTab: () => setActiveTab("agent"),
   });

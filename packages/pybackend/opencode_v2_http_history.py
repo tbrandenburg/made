@@ -16,6 +16,7 @@ import ipaddress
 import json
 import os
 from pathlib import Path
+import re
 import time
 from typing import cast
 from urllib.parse import quote, urlsplit
@@ -51,7 +52,7 @@ class SessionNotFound(HistoryReadError):
 
 
 class SessionDirectoryMismatch(HistoryReadError):
-    """The selected root session belongs to a different directory."""
+    """The selected session belongs to a different directory."""
 
 
 class ServiceRetryableError(HistoryReadError):
@@ -251,9 +252,14 @@ class _Read:
             or not directory
         ):
             raise HistoryReadError("OpenCode returned invalid session metadata")
-        if "parentID" in metadata and (not isinstance(parent, str) or not parent):
+        if "parentID" in metadata and (
+            not isinstance(parent, str)
+            or not parent.startswith("ses_")
+            or len(parent) <= 4
+            or re.fullmatch(r"ses_[A-Za-z0-9_-]+", parent) is None
+        ):
             raise HistoryReadError("OpenCode returned invalid session parent")
-        if parent or (self.directory is not None and directory != self.directory):
+        if self.directory is not None and directory != self.directory:
             raise SessionDirectoryMismatch("Session belongs to a different directory")
 
     async def attempt(self, client: _Connection) -> list[dict[str, object]]:

@@ -50,6 +50,33 @@ class TestOpenCodeV2AgentCLI(unittest.TestCase):
             ("ses_child", "proj", directory, "ses_a", "Child", 5000),
         )
         connection.execute(
+            "INSERT INTO session_v2 VALUES (?, ?, ?, ?, ?, ?)",
+            ("ses_grandchild", "proj", directory, "ses_child", "Grandchild", 5500),
+        )
+        connection.execute(
+            "INSERT INTO session_v2 VALUES (?, ?, ?, ?, ?, ?)",
+            ("ses_empty_child", "proj", directory, "ses_a", "Empty child", 6000),
+        )
+        connection.execute(
+            "INSERT INTO session_v2 VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                "ses_orphan_child",
+                "proj",
+                directory,
+                "ses_missing",
+                "Orphan child",
+                4500,
+            ),
+        )
+        connection.execute(
+            "INSERT INTO session_v2 VALUES (?, ?, ?, ?, ?, ?)",
+            ("ses_foreign_child", "proj", other, "ses_b", "Foreign child", 7000),
+        )
+        connection.execute(
+            "INSERT INTO session_v2 VALUES (?, ?, ?, ?, ?, ?)",
+            ("ses_bad_parent", "proj", directory, "bad-parent", "Bad parent", 8000),
+        )
+        connection.execute(
             "INSERT INTO session_message VALUES (?, ?, ?, ?, ?, ?)",
             (
                 "msg_user",
@@ -69,6 +96,39 @@ class TestOpenCodeV2AgentCLI(unittest.TestCase):
                 1,
                 1000,
                 json.dumps({"time": {"created": 1000}, "text": "child question"}),
+            ),
+        )
+        connection.execute(
+            "INSERT INTO session_message VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                "msg_grandchild_user",
+                "ses_grandchild",
+                "user",
+                1,
+                1000,
+                json.dumps({"time": {"created": 1000}, "text": "grandchild question"}),
+            ),
+        )
+        connection.execute(
+            "INSERT INTO session_message VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                "msg_orphan_child_user",
+                "ses_orphan_child",
+                "user",
+                1,
+                1000,
+                json.dumps({"time": {"created": 1000}, "text": "orphan question"}),
+            ),
+        )
+        connection.execute(
+            "INSERT INTO session_message VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                "msg_foreign_child_user",
+                "ses_foreign_child",
+                "user",
+                1,
+                1000,
+                json.dumps({"time": {"created": 1000}, "text": "foreign question"}),
             ),
         )
         connection.execute(
@@ -104,13 +164,99 @@ class TestOpenCodeV2AgentCLI(unittest.TestCase):
         connection.close()
         self.cli = OpenCodeV2AgentCLI()
 
-    def test_listing_remains_sqlite_scoped_root_and_nonempty(self):
+    def test_listing_remains_root_only_and_directory_scoped(self):
         with patch.dict("os.environ", {"OPENCODE_DB": str(self.database)}):
             sessions = self.cli.list_sessions(self.root / "repo")
             other = self.cli.list_sessions(self.root / "other")
         self.assertTrue(sessions.success)
         self.assertEqual([item.session_id for item in sessions.sessions], ["ses_a"])
+        self.assertTrue(all(item.parent_id is None for item in sessions.sessions))
         self.assertEqual(other.sessions, [])
+
+    def test_child_listing_is_bounded_scoped_and_includes_deeper_children(self):
+        connection = sqlite3.connect(self.database)
+        directory = str((self.root / "repo").resolve())
+        for index in range(11):
+            session_id = f"ses_recent_root_{index}"
+            connection.execute(
+                "INSERT INTO session_v2 VALUES (?, ?, ?, ?, ?, ?)",
+                (session_id, "proj", directory, None, f"Root {index}", 10000 + index),
+            )
+            connection.execute(
+                "INSERT INTO session_message VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    f"msg_{session_id}",
+                    session_id,
+                    "user",
+                    1,
+                    1000,
+                    json.dumps({"time": {"created": 1000}, "text": "question"}),
+                ),
+            )
+        connection.commit()
+        connection.close()
+
+        with patch.dict("os.environ", {"OPENCODE_DB": str(self.database)}):
+            roots = self.cli.list_sessions(self.root / "repo")
+            visible_children = self.cli.list_child_sessions(self.root / "repo")
+            foreign = self.cli.list_child_sessions(self.root / "other")
+
+        self.assertEqual(len(roots.sessions), 12)
+        self.assertNotIn("ses_a", [item.session_id for item in roots.sessions[:10]])
+        visible_ids = [item.session_id for item in visible_children.sessions]
+        self.assertIn("ses_child", visible_ids)
+        self.assertIn("ses_grandchild", visible_ids)
+        self.assertNotIn("ses_foreign_child", visible_ids)
+        grandchild = next(
+            item
+            for item in visible_children.sessions
+            if item.session_id == "ses_grandchild"
+        )
+        self.assertEqual(grandchild.parent_id, "ses_child")
+        self.assertEqual(grandchild.parent_title, "Child")
+        self.assertEqual(
+            [item.session_id for item in foreign.sessions], ["ses_foreign_child"]
+        )
+
+        connection = sqlite3.connect(self.database)
+        for index in range(60):
+            session_id = f"ses_many_child_{index}"
+            connection.execute(
+                "INSERT INTO session_v2 VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    session_id,
+                    "proj",
+                    directory,
+                    "ses_a",
+                    f"Child {index}",
+                    20000 + index,
+                ),
+            )
+            connection.execute(
+                "INSERT INTO session_message VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    f"msg_{session_id}",
+                    session_id,
+                    "user",
+                    1,
+                    1000,
+                    json.dumps({"time": {"created": 1000}, "text": "question"}),
+                ),
+            )
+        connection.commit()
+        connection.close()
+
+        with patch.dict("os.environ", {"OPENCODE_DB": str(self.database)}):
+            children = self.cli.list_child_sessions(self.root / "repo", limit=500)
+
+        self.assertTrue(children.success)
+        self.assertEqual(len(children.sessions), 50)
+        self.assertEqual(children.sessions[0].session_id, "ses_many_child_59")
+        self.assertEqual(children.sessions[0].parent_id, "ses_a")
+        self.assertEqual(children.sessions[0].parent_title, "A")
+        self.assertNotIn(
+            "ses_foreign_child", [item.session_id for item in children.sessions]
+        )
 
     def test_agent_listing_discovers_jsonc_and_nested_markdown_and_hides_disabled(self):
         config_home = self.root / "config"

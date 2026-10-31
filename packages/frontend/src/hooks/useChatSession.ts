@@ -48,6 +48,7 @@ export interface ChatSessionApi {
     name: string,
     limit?: number,
   ) => Promise<{ sessions?: ChatSession[] }>;
+  getChildSessions?: (name: string) => Promise<{ sessions?: ChatSession[] }>;
 }
 
 export interface UseChatSessionParams {
@@ -123,6 +124,7 @@ export function useChatSession({
     cancelAgent,
     getHistory: getHistoryApi,
     getSessions,
+    getChildSessions,
   } = api;
   const [agentState, setAgentState] = useState<AgentState>({ status: "idle" });
   // Stable setters that return the previous state reference when logically unchanged,
@@ -580,8 +582,24 @@ export function useChatSession({
     setSessionModalOpen(true);
     setSessionListLoading(true);
     try {
-      const response = await getSessions(name, 10);
-      setSessionOptions(response.sessions || []);
+      const childSessionsPromise = getChildSessions
+        ? Promise.resolve()
+            .then(() => getChildSessions(name))
+            .catch(() => {
+              console.warn(
+                "Failed to load child sessions; showing root sessions only.",
+              );
+              return { sessions: [] };
+            })
+        : Promise.resolve({ sessions: [] });
+      const [response, childResponse] = await Promise.all([
+        getSessions(name, 10),
+        childSessionsPromise,
+      ]);
+      setSessionOptions([
+        ...(response.sessions || []),
+        ...(childResponse.sessions || []),
+      ]);
       setSessionListError(null);
     } catch (error) {
       console.error("Failed to load sessions", error);
@@ -591,7 +609,7 @@ export function useChatSession({
     } finally {
       setSessionListLoading(false);
     }
-  }, [getSessions, isExternal, name]);
+  }, [getChildSessions, getSessions, isExternal, name]);
 
   const closeSessionModal = useCallback(() => {
     setSessionModalOpen(false);

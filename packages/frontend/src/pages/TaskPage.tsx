@@ -198,6 +198,7 @@ export const TaskPage: React.FC = () => {
       cancelAgent: api.cancelTaskAgent,
       getHistory: api.getTaskAgentHistory,
       getSessions: api.getTaskAgentSessions,
+      getChildSessions: api.getTaskAgentChildSessions,
     },
     onActivateAgentTab: () => setActiveTab("agent"),
   });
