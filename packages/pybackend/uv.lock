@@ -567,7 +567,7 @@ requires-dist = [
     { name = "idna", specifier = ">=3.15" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "psutil", specifier = ">=7.2,<8" },
-    { name = "pyasn1", specifier = ">=0.6.4" },
+    { name = "pyasn1", specifier = ">=0.6.5" },
     { name = "pygments", specifier = ">=2.20.0" },
     { name = "pyjwt", specifier = ">=2.15.0" },
     { name = "pyopenssl", specifier = ">=26.0.0" },
