@@ -58,6 +58,32 @@ describe("useChatSession", () => {
     vi.restoreAllMocks();
   });
 
+  it("combines root and child sessions when both lookups succeed", async () => {
+    const rootSession = {
+      id: "ses_root",
+      title: "Root session",
+      updated: "2026-10-31",
+    };
+    const childSession = {
+      id: "ses_child",
+      title: "Child session",
+      updated: "2026-10-31",
+      parentId: rootSession.id,
+      parentTitle: rootSession.title,
+    };
+    const { result, api } = renderSession(
+      vi.fn().mockResolvedValue(historyFor("A")),
+    );
+    api.getSessions.mockResolvedValue({ sessions: [rootSession] });
+    api.getChildSessions.mockResolvedValue({ sessions: [childSession] });
+
+    await act(async () => result.current.openSessionModal());
+
+    expect(result.current.sessionOptions).toEqual([rootSession, childSession]);
+    expect(result.current.sessionListError).toBeNull();
+    expect(result.current.sessionListLoading).toBe(false);
+  });
+
   it("keeps root sessions available when child session lookup fails", async () => {
     const rootSession = {
       id: "ses_root",
@@ -75,9 +101,25 @@ describe("useChatSession", () => {
     expect(result.current.sessionOptions).toEqual([rootSession]);
     expect(result.current.sessionListError).toBeNull();
     expect(result.current.sessionModalOpen).toBe(true);
+    expect(result.current.sessionListLoading).toBe(false);
     expect(warning).toHaveBeenCalledWith(
       "Failed to load child sessions; showing root sessions only.",
     );
+  });
+
+  it("preserves root-session errors when root lookup fails", async () => {
+    const rootFailure = new Error("root lookup failed");
+    const { result, api } = renderSession(
+      vi.fn().mockResolvedValue(historyFor("A")),
+    );
+    api.getSessions.mockRejectedValue(rootFailure);
+
+    await act(async () => result.current.openSessionModal());
+
+    expect(result.current.sessionOptions).toEqual([]);
+    expect(result.current.sessionListError).toBe("root lookup failed");
+    expect(result.current.sessionListLoading).toBe(false);
+    expect(result.current.sessionModalOpen).toBe(true);
   });
 
   it("keeps repeated 409 history failures visible through refresh and idle status probes", async () => {
