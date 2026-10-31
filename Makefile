@@ -220,9 +220,9 @@ security-audit:
 	@echo "🔍 Checking Python backend dependencies (pip-audit via uv)..."
 	cd $(PYBACKEND_DIR) && uv run --with pip-audit pip-audit
 	@echo "🔍 Checking root Node.js dependencies..."
-	npm audit --audit-level moderate
+	npm audit --audit-level high
 	@echo "🔍 Checking frontend Node.js dependencies..."
-	cd packages/frontend && npm audit --audit-level moderate
+	cd packages/frontend && npm audit --audit-level high
 	@echo "📋 Security audit completed"
 
 # Build & Run Tasks
