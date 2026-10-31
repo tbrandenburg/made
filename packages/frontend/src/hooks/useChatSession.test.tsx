@@ -26,6 +26,7 @@ function renderSession(getHistory: ReturnType<typeof vi.fn>) {
     getStatus: vi.fn().mockResolvedValue({ running: false }),
     cancelAgent: vi.fn(),
     getSessions: vi.fn(),
+    getChildSessions: vi.fn().mockResolvedValue({ sessions: [] }),
   };
   const hook = renderHook(() => {
     const [sessionId, setSessionId] = useState<string | null>("A");
@@ -55,6 +56,28 @@ describe("useChatSession", () => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it("keeps root sessions available when child session lookup fails", async () => {
+    const rootSession = {
+      id: "ses_root",
+      title: "Root session",
+      updated: "2026-10-31",
+    };
+    const getHistory = vi.fn().mockResolvedValue(historyFor("A"));
+    const { result, api } = renderSession(getHistory);
+    api.getSessions.mockResolvedValue({ sessions: [rootSession] });
+    api.getChildSessions.mockRejectedValue(new Error("child lookup failed"));
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await act(async () => result.current.openSessionModal());
+
+    expect(result.current.sessionOptions).toEqual([rootSession]);
+    expect(result.current.sessionListError).toBeNull();
+    expect(result.current.sessionModalOpen).toBe(true);
+    expect(warning).toHaveBeenCalledWith(
+      "Failed to load child sessions; showing root sessions only.",
+    );
   });
 
   it("keeps repeated 409 history failures visible through refresh and idle status probes", async () => {

@@ -582,9 +582,19 @@ export function useChatSession({
     setSessionModalOpen(true);
     setSessionListLoading(true);
     try {
+      const childSessionsPromise = getChildSessions
+        ? Promise.resolve()
+            .then(() => getChildSessions(name))
+            .catch(() => {
+              console.warn(
+                "Failed to load child sessions; showing root sessions only.",
+              );
+              return { sessions: [] };
+            })
+        : Promise.resolve({ sessions: [] });
       const [response, childResponse] = await Promise.all([
         getSessions(name, 10),
-        getChildSessions?.(name) ?? Promise.resolve({ sessions: [] }),
+        childSessionsPromise,
       ]);
       setSessionOptions([
         ...(response.sessions || []),
