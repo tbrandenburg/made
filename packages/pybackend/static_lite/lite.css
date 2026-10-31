@@ -45,6 +45,14 @@ li {
     margin-top: 1em;
 }
 
+.chat .warning {
+    background: #fff4d1;
+    color: #4c3400;
+    border: 1px solid #aa7500;
+    padding: 0.6em;
+    margin: 0.5em 0;
+}
+
 .msg-user {
     background: #f0f0f0;
     margin: 0.5em 0;

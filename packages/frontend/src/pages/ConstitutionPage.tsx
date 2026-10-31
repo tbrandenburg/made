@@ -196,6 +196,7 @@ export const ConstitutionPage: React.FC = () => {
     openSessionModal,
     reloadCurrentSession,
     sessionError,
+    historyReduced,
     sessionLoading,
     sessionListError,
     sessionListLoading,
@@ -576,6 +577,7 @@ export const ConstitutionPage: React.FC = () => {
               refreshing={isRefreshing}
               emptyMessage="Start a conversation to discuss this constitution."
               historyError={sessionError}
+              historyReduced={historyReduced}
               sessionId={sessionId}
               onClearSession={openClearSessionModal}
               onSaveSession={handleSaveSession}

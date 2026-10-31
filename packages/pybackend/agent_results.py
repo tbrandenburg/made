@@ -97,6 +97,7 @@ class ExportResult:
     error_message: str | None = None
     error_code: Literal["session_directory_mismatch", "session_not_found"] | None = None
     history_mode: Literal["snapshot"] | None = None
+    history_reduced: bool = False
 
 
 @dataclass

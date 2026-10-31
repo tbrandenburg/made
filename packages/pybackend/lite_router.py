@@ -61,10 +61,12 @@ def repo_chat(request: Request, name: str, session_id: str = Query(default="")):
 
     messages = []
     history_error = False
+    history_reduced = False
     if current_session_id:
         try:
             history = export_chat_history(current_session_id, channel=name)
             messages = history.get("messages", [])
+            history_reduced = history.get("historyReduced") is True
         except Exception:
             history_error = True
             logger.warning("Unable to load Lite chat history")
@@ -88,6 +90,7 @@ def repo_chat(request: Request, name: str, session_id: str = Query(default="")):
             "name": name,
             "messages": messages,
             "history_error": history_error,
+            "history_reduced": history_reduced,
             "history_retry_url": (
                 f"/lite/repo/{quote(name, safe='')}?"
                 f"{urlencode({'session_id': current_session_id})}"

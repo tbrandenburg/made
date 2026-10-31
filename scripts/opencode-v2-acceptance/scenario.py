@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import sqlite3
 import subprocess
 import uuid
 
@@ -14,6 +15,7 @@ from service import ARTIFACTS, ROOT, client, command, owned
 FIRST = "MADE779_FIRST_COBALT"
 LATE = "MADE779_RESUMED_COBALT"
 TOOL = "MADE779_TOOL_COBALT"
+OWNED_OPENCODE_DB = Path("/opencode-home/data/opencode.db")
 
 
 def request(connection: httpx.Client, method: str, path: str, **kwargs: object) -> dict:
@@ -139,6 +141,7 @@ def child_fixture(
     directory: Path,
     title: str,
     text: str,
+    updated: int | None = None,
 ) -> str:
     template = request(
         connection,
@@ -150,6 +153,8 @@ def child_fixture(
     if parent is not None:
         template["parentID"] = parent
     template["title"] = title
+    if updated is not None:
+        template["time"]["updated"] = updated
     message = {
         "id": f"msg_fixture{uuid.uuid4().hex}",
         "type": "user",
@@ -166,12 +171,25 @@ def child_fixture(
             "location": {"directory": str(directory)},
         },
     )
+    if updated is not None:
+        owned()
+        database = Path(os.environ["OPENCODE_DB"]).resolve()
+        if database != OWNED_OPENCODE_DB.resolve():
+            raise RuntimeError("Refusing to adjust a non-acceptance OpenCode DB")
+        with sqlite3.connect(database) as db:
+            changed = db.execute(
+                "UPDATE session_v2 SET time_updated = ? WHERE id = ?",
+                (updated, template["id"]),
+            ).rowcount
+        if changed != 1:
+            raise RuntimeError("Could not timestamp imported acceptance root")
     observed = request(connection, "GET", f"/api/session/{template['id']}")["data"]
     if (
         observed["location"]["directory"] != str(directory)
         or observed.get("parentID") != parent
+        or (updated is not None and observed["time"]["updated"] != updated)
     ):
-        raise RuntimeError("Imported child fixture did not preserve its ownership")
+        raise RuntimeError("Imported child fixture did not preserve its metadata")
     return template["id"]
 
 
@@ -226,6 +244,17 @@ def prepare(real: bool = True) -> dict:
                 raise RuntimeError(
                     "Provider did not return the initial assistant marker"
                 )
+        root_window = [
+            child_fixture(
+                connection,
+                None,
+                Path("/workspace/repoA"),
+                f"Newer root acceptance session {index}",
+                f"MADE800_ROOT_WINDOW_{index}",
+                int(metadata["time"]["updated"]) + (index + 1) * 1000,
+            )
+            for index in range(11)
+        ]
         child = child_fixture(
             connection,
             session,
@@ -240,14 +269,6 @@ def prepare(real: bool = True) -> dict:
             "Grandchild acceptance session",
             "MADE800_GRANDCHILD_HISTORY_COBALT",
         )
-        for index in range(11):
-            child_fixture(
-                connection,
-                None,
-                Path("/workspace/repoA"),
-                f"Newer root acceptance session {index}",
-                f"MADE800_ROOT_WINDOW_{index}",
-            )
         foreign_parent = child_fixture(
             connection,
             None,
@@ -268,6 +289,7 @@ def prepare(real: bool = True) -> dict:
             "child": child,
             "grandchild": grandchild,
             "foreignChild": foreign_child,
+            "rootWindow": root_window,
             "version": version,
             "realProvider": real,
             "first": FIRST,

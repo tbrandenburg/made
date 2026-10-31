@@ -29,6 +29,9 @@ MAX_RECORDS = 10_000
 MAX_BYTES = 32 * 1024 * 1024
 DEADLINE_SECONDS = 30
 PAGE_SIZE = 50
+# Only used when full history fails the JSON complexity preflight.
+RECENT_PAGE_SIZE = 10
+RECENT_RECORD_LIMIT = 50
 # Full final pages can advertise a cursor to an empty terminating page.
 MAX_PAGES = (MAX_RECORDS + PAGE_SIZE - 1) // PAGE_SIZE + 1
 CHUNK_BYTES = 64 * 1024
@@ -38,6 +41,10 @@ READ_SECONDS = 5
 
 class HistoryReadError(RuntimeError):
     """Sanitized failure reading service history."""
+
+
+class HistoryComplexityError(HistoryReadError):
+    """The JSON lexical preflight rejected an over-complex response."""
 
 
 class SessionNotFound(HistoryReadError):
@@ -206,7 +213,7 @@ class _Read:
                 "Unable to read OpenCode session history"
             ) from None
         except JsonComplexityError as error:
-            raise HistoryReadError(str(error)) from None
+            raise HistoryComplexityError(str(error)) from None
 
     @staticmethod
     def status(status: int, envelope: object) -> None:
@@ -300,7 +307,74 @@ class _Read:
             cursors.add(following)
             params = {"limit": str(PAGE_SIZE), "cursor": following}
 
-    async def run(self, path: Path) -> list[dict[str, object]]:
+    async def recent(self, client: _Connection) -> tuple[list[dict[str, object]], bool]:
+        """Recover newest records after complexity failure, not a full snapshot."""
+        await self.metadata(client, initial=True)
+        messages: list[dict[str, object]] = []
+        identifiers: set[str] = set()
+        cursors: set[str] = set()
+        size = RECENT_PAGE_SIZE
+        params = {"limit": str(size), "order": "desc"}
+        reduced = False
+        while True:
+            self.pages += 1
+            if self.pages > MAX_PAGES:
+                raise HistoryReadError("OpenCode history exceeded its page limit")
+            try:
+                status, envelope = await self.request(
+                    client, f"{self.route}/message", params
+                )
+            except HistoryComplexityError:
+                if size > 1:
+                    size = max(1, size // 2)
+                    params["limit"] = str(size)
+                    continue
+                # A single over-complex record cannot be skipped without its
+                # cursor. Return only the newer records already validated.
+                if not messages:
+                    raise
+                reduced = True
+                break
+            self.status(status, envelope)
+            page = object_value(envelope)
+            records = page.get("data")
+            if not isinstance(records, list) or len(records) > size:
+                raise HistoryReadError("OpenCode returned invalid history records")
+            for record in records:
+                self.remaining()
+                self.records += 1
+                if self.records > MAX_RECORDS:
+                    raise HistoryReadError("OpenCode history exceeded its record limit")
+                message = object_value(record)
+                identifier = message.get("id")
+                if not isinstance(identifier, str) or not identifier.startswith("msg_"):
+                    raise HistoryReadError("OpenCode returned an invalid message ID")
+                if identifier in identifiers:
+                    raise ServiceRetryableError("OpenCode history pages overlap")
+                identifiers.add(identifier)
+                messages.append(message)
+            following = _next_cursor(page.get("cursor"))
+            if following is None:
+                break
+            if not records or following in cursors:
+                raise ServiceRetryableError(
+                    "OpenCode returned a repeated pagination cursor"
+                )
+            if len(messages) >= RECENT_RECORD_LIMIT:
+                reduced = True
+                break
+            cursors.add(following)
+            size = min(size, RECENT_RECORD_LIMIT - len(messages))
+            # A cursor carries the ordering. Never combine it with order.
+            params = {"limit": str(size), "cursor": following}
+        # Apply the same before/after ownership checks as the full read.
+        await self.metadata(client, initial=False)
+        self.remaining()
+        return list(reversed(messages)), reduced
+
+    async def run(
+        self, path: Path, *, allow_reduced: bool = False
+    ) -> tuple[list[dict[str, object]], bool]:
         try:
             async with asyncio.timeout(self.remaining()):
                 for attempt in range(2):
@@ -310,9 +384,13 @@ class _Read:
                         async with httpx.AsyncHTTPTransport(
                             trust_env=False, retries=0
                         ) as transport:
-                            return await self.attempt(
-                                _Connection(url, password, transport)
-                            )
+                            client = _Connection(url, password, transport)
+                            try:
+                                return await self.attempt(client), False
+                            except HistoryComplexityError:
+                                if not allow_reduced:
+                                    raise
+                                return await self.recent(client)
                     except ServiceRetryableError:
                         if attempt:
                             raise
@@ -323,10 +401,13 @@ class _Read:
         raise HistoryReadError("Unable to read OpenCode history")
 
 
-def read_session(
-    session_id: str, directory: Path | None, path: Path | None = None
-) -> list[dict[str, object]]:
-    """Blocking reader: async callers must offload it with asyncio.to_thread."""
+def _read_session(
+    session_id: str,
+    directory: Path | None,
+    path: Path | None,
+    *,
+    allow_reduced: bool,
+) -> tuple[list[dict[str, object]], bool]:
     # The public schema is ^ses, not a fixed alphanumeric UUID grammar.
     if not isinstance(session_id, str) or not session_id.startswith("ses"):
         raise HistoryReadError("Invalid OpenCode session ID")
@@ -334,5 +415,21 @@ def read_session(
         asyncio.get_running_loop()
     except RuntimeError:
         read = _Read(session_id, directory)
-        return asyncio.run(read.run(path or registration_path()))
+        return asyncio.run(
+            read.run(path or registration_path(), allow_reduced=allow_reduced)
+        )
     raise HistoryReadError("OpenCode synchronous history must run in a worker thread")
+
+
+def read_session(
+    session_id: str, directory: Path | None, path: Path | None = None
+) -> list[dict[str, object]]:
+    """Full blocking history reader; async callers must use a worker thread."""
+    return _read_session(session_id, directory, path, allow_reduced=False)[0]
+
+
+def read_session_with_fallback(
+    session_id: str, directory: Path | None, path: Path | None = None
+) -> tuple[list[dict[str, object]], bool]:
+    """Full history or recent records plus a true reduced-history indicator."""
+    return _read_session(session_id, directory, path, allow_reduced=True)

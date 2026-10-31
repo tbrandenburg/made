@@ -175,6 +175,7 @@ export const TaskPage: React.FC = () => {
     openSessionModal,
     reloadCurrentSession,
     sessionError,
+    historyReduced,
     sessionLoading,
     sessionListError,
     sessionListLoading,
@@ -512,6 +513,7 @@ export const TaskPage: React.FC = () => {
                   refreshing={isRefreshing}
                   emptyMessage="Start a conversation to discuss this task."
                   historyError={sessionError}
+                  historyReduced={historyReduced}
                   sessionId={sessionId}
                   onClearSession={openClearSessionModal}
                   onSaveSession={handleSaveSession}

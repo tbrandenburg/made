@@ -18,6 +18,7 @@ interface Manifest {
   child: string;
   grandchild: string;
   foreignChild: string;
+  rootWindow: string[];
   realProvider: boolean;
   first: string;
   late: string;
@@ -103,12 +104,16 @@ test("provider-free real browser pagination, isolation, outage and recovery", as
   expect(sessionsResponse.status()).toBe(200);
   const listedSessions: { id: string }[] = (await sessionsResponse.json())
     .sessions;
+  expect(manifest.rootWindow).toHaveLength(11);
+  expect(listedSessions.map((session) => session.id)).toEqual(
+    [...manifest.rootWindow].reverse().slice(0, 10),
+  );
   expect(listedSessions).toHaveLength(10);
-  expect(
-    listedSessions.some((session) => session.id === manifest.session),
-  ).toBe(false);
-  expect(listedSessions.some((session) => session.id === manifest.child)).toBe(
-    false,
+  expect(listedSessions.map((session) => session.id)).not.toContain(
+    manifest.session,
+  );
+  expect(listedSessions.map((session) => session.id)).not.toContain(
+    manifest.child,
   );
   const childSessionsResponse = await request.get(
     "/api/repositories/repoA/agent/child-sessions",
