@@ -134,6 +134,8 @@ class TestModelsEndpoint:
             "openai/gpt-6.1-sol",
             "openai/gpt-6-astra",
             "github-copilot/claude-opus-5.5",
+            "github-copilot/claude-sonnet-5.5",
+            "github-copilot/claude-haiku-5.5",
         } <= set(values)
 
     @patch("app.model_options_as_dicts")
