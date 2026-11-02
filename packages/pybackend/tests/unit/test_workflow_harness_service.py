@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+import yaml
 
 from workflow_harness_service import (
     WorkflowParseError,
@@ -80,6 +81,40 @@ def test_generate_workflow_harnesses_writes_executable_file(tmp_path: Path):
     assert output_path.exists()
     assert output_path.read_text(encoding="utf-8").startswith("#!/usr/bin/env bash\n")
     assert output_path.stat().st_mode & 0o111
+    sidecar_path = tmp_path / ".harness/release-flow.dagu.yml"
+    sidecar = yaml.safe_load(sidecar_path.read_text(encoding="utf-8"))
+    assert sidecar["steps"][-1]["id"] == "execute_harness"
+    assert sidecar["steps"][-1]["run"].endswith('exec bash -- "${env.HARNESS_PATH}" "$@"\n')
+    assert sidecar["working_dir"] == "${params.project_dir}"
+
+
+def test_dagu_sidecars_resolve_project_root_from_each_sidecar_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    output_root = tmp_path / "project"
+    process_cwd = tmp_path / "backend"
+    process_cwd.mkdir()
+    monkeypatch.chdir(process_cwd)
+    payload = sample_payload()
+    nested = deepcopy(payload["workflows"][0])
+    nested["id"] = "wf_nested_flow"
+    nested["shellScriptPath"] = ".harness/nested/release-flow.sh"
+    payload["workflows"].append(nested)
+
+    generate_workflow_harnesses(payload, output_root)
+
+    direct_sidecar = yaml.safe_load(
+        (output_root / ".harness/release-flow.dagu.yml").read_text(encoding="utf-8")
+    )
+    nested_sidecar = yaml.safe_load(
+        (output_root / ".harness/nested/release-flow.dagu.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert direct_sidecar["params"][0]["default"] == ".."
+    assert nested_sidecar["params"][0]["default"] == "../.."
+    assert direct_sidecar["working_dir"] == "${params.project_dir}"
+    assert nested_sidecar["working_dir"] == "${params.project_dir}"
 
 
 def test_parse_workflow_payload_rejects_duplicate_workflow_ids():

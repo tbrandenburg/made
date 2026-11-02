@@ -18,6 +18,7 @@ made keeps its own:
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import stat
@@ -27,6 +28,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+from flowsh_cli.dagu import dagu_sidecar_path as flowsh_dagu_sidecar_path
+from flowsh_cli.dagu import render_dagu_sidecar as flowsh_render_dagu_sidecar
 from flowsh_cli.models import Workflow
 from flowsh_cli.models import WorkflowParseError as FlowshWorkflowParseError
 from flowsh_cli.models import parse_workflows as flowsh_parse_workflows
@@ -104,6 +107,16 @@ def generate_workflow_harnesses(payload: dict, output_root: Path) -> list[str]:
         mode = output_path.stat().st_mode
         output_path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         _verify_harness_script(output_path)
+        sidecar_path = flowsh_dagu_sidecar_path(output_path)
+        sidecar_path.write_text(
+            flowsh_render_dagu_sidecar(
+                output_path.read_text(encoding="utf-8"),
+                project_dir=os.path.relpath(
+                    output_root.absolute(), sidecar_path.absolute().parent
+                ),
+            ),
+            encoding="utf-8",
+        )
         written.append(shell_script_path)
 
     return written
