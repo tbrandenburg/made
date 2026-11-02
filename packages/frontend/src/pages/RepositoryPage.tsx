@@ -131,6 +131,10 @@ const DEFAULT_MODEL_OPTIONS: ModelOption[] = [
     label: "github-copilot/claude-haiku-4.5",
   },
   {
+    value: "github-copilot/claude-haiku-5.5",
+    label: "github-copilot/claude-haiku-5.5",
+  },
+  {
     value: "github-copilot/claude-opus-4.5",
     label: "github-copilot/claude-opus-4.5",
   },
@@ -173,6 +177,10 @@ const DEFAULT_MODEL_OPTIONS: ModelOption[] = [
   {
     value: "github-copilot/claude-sonnet-5",
     label: "github-copilot/claude-sonnet-5",
+  },
+  {
+    value: "github-copilot/claude-sonnet-5.5",
+    label: "github-copilot/claude-sonnet-5.5",
   },
   {
     value: "github-copilot/gemini-2.5-pro",

@@ -25,6 +25,7 @@ MODEL_OPTIONS: list[ModelOption] = [
     ("opencode/gpt-5-nano", "opencode/gpt-5-nano", "opencode"),
     ("opencode/grok-code", "opencode/grok-code", "opencode"),
     ("github-copilot/claude-haiku-4.5", "github-copilot/claude-haiku-4.5", None),
+    ("github-copilot/claude-haiku-5.5", "github-copilot/claude-haiku-5.5", None),
     ("github-copilot/claude-opus-4.5", "github-copilot/claude-opus-4.5", None),
     ("github-copilot/claude-opus-4.6", "github-copilot/claude-opus-4.6", None),
     (
@@ -49,6 +50,7 @@ MODEL_OPTIONS: list[ModelOption] = [
     ("github-copilot/claude-sonnet-4.5", "github-copilot/claude-sonnet-4.5", None),
     ("github-copilot/claude-sonnet-4.6", "github-copilot/claude-sonnet-4.6", None),
     ("github-copilot/claude-sonnet-5", "github-copilot/claude-sonnet-5", None),
+    ("github-copilot/claude-sonnet-5.5", "github-copilot/claude-sonnet-5.5", None),
     ("github-copilot/gemini-2.5-pro", "github-copilot/gemini-2.5-pro", None),
     ("github-copilot/gemini-3.5-flash", "github-copilot/gemini-3.5-flash", None),
     ("github-copilot/gpt-5-mini", "github-copilot/gpt-5-mini", None),
