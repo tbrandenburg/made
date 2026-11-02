@@ -35,7 +35,7 @@ def sample_payload() -> dict:
                     {
                         "type": "bash",
                         "name": "Echo SHA",
-                        "run": "echo \"$GIT_SHA\"\n",
+                        "run": 'echo "$GIT_SHA"\n',
                     },
                     {
                         "type": "agent",
@@ -71,7 +71,9 @@ def test_render_harness_includes_logging_dry_run_and_agent_helpers():
     assert "prompt=$(cat <<'PROMPT_EOF'" in harness
 
 
-def test_generate_workflow_harnesses_writes_executable_file(tmp_path: Path):
+def test_generate_workflow_harnesses_keeps_unsupported_dagu_workflow_functional(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+):
     payload = sample_payload()
 
     written = generate_workflow_harnesses(payload, tmp_path)
@@ -81,11 +83,21 @@ def test_generate_workflow_harnesses_writes_executable_file(tmp_path: Path):
     assert output_path.exists()
     assert output_path.read_text(encoding="utf-8").startswith("#!/usr/bin/env bash\n")
     assert output_path.stat().st_mode & 0o111
+    assert not (tmp_path / ".harness/release-flow.dagu.yml").exists()
+    assert "steps[0].type=vars unsupported for native Dagu v1" in caplog.text
+
+
+def test_unsupported_dagu_workflow_does_not_overwrite_existing_sidecar(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+):
     sidecar_path = tmp_path / ".harness/release-flow.dagu.yml"
-    sidecar = yaml.safe_load(sidecar_path.read_text(encoding="utf-8"))
-    assert sidecar["steps"][-1]["id"] == "execute_harness"
-    assert sidecar["steps"][-1]["run"].endswith('exec bash -- "${env.HARNESS_PATH}" "$@"\n')
-    assert sidecar["working_dir"] == "${params.project_dir}"
+    sidecar_path.parent.mkdir(parents=True)
+    sidecar_path.write_text("existing sidecar\n", encoding="utf-8")
+
+    generate_workflow_harnesses(sample_payload(), tmp_path)
+
+    assert sidecar_path.read_text(encoding="utf-8") == "existing sidecar\n"
+    assert "existing sidecar left unchanged" in caplog.text
 
 
 def test_dagu_sidecars_resolve_project_root_from_each_sidecar_directory(
@@ -96,6 +108,9 @@ def test_dagu_sidecars_resolve_project_root_from_each_sidecar_directory(
     process_cwd.mkdir()
     monkeypatch.chdir(process_cwd)
     payload = sample_payload()
+    payload["workflows"][0]["steps"] = [
+        step for step in payload["workflows"][0]["steps"] if step["type"] != "vars"
+    ]
     nested = deepcopy(payload["workflows"][0])
     nested["id"] = "wf_nested_flow"
     nested["shellScriptPath"] = ".harness/nested/release-flow.sh"
@@ -111,10 +126,20 @@ def test_dagu_sidecars_resolve_project_root_from_each_sidecar_directory(
             encoding="utf-8"
         )
     )
-    assert direct_sidecar["params"][0]["default"] == ".."
-    assert nested_sidecar["params"][0]["default"] == "../.."
+    assert direct_sidecar["params"][0]["default"] == str(output_root.resolve())
+    assert nested_sidecar["params"][0]["default"] == str(output_root.resolve())
     assert direct_sidecar["working_dir"] == "${params.project_dir}"
     assert nested_sidecar["working_dir"] == "${params.project_dir}"
+    assert [step["id"] for step in direct_sidecar["steps"]] == [
+        "step_01_bash",
+        "step_02_agent",
+    ]
+    assert direct_sidecar["steps"][1]["depends"] == ["step_01_bash"]
+    assert (output_root / ".harness/release-flow.sh").exists()
+    assert (
+        output_root / ".harness/release-flow.dagu.yml"
+    ).stat().st_mode & 0o777 == 0o600
+    assert 'echo "$GIT_SHA"' in direct_sidecar["steps"][0]["description"]
 
 
 def test_parse_workflow_payload_rejects_duplicate_workflow_ids():
@@ -128,7 +153,9 @@ def test_parse_workflow_payload_rejects_duplicate_workflow_ids():
 
 
 @patch("workflow_harness_service.subprocess.run")
-def test_generate_workflow_harnesses_verifies_bash_and_dry_run(mock_run: Mock, tmp_path: Path):
+def test_generate_workflow_harnesses_verifies_bash_and_dry_run(
+    mock_run: Mock, tmp_path: Path
+):
     mock_run.side_effect = [
         Mock(returncode=0, stdout="", stderr=""),
         Mock(returncode=0, stdout="", stderr=""),
@@ -143,7 +170,9 @@ def test_generate_workflow_harnesses_verifies_bash_and_dry_run(mock_run: Mock, t
 
 
 @patch("workflow_harness_service.subprocess.run")
-def test_generate_workflow_harnesses_raises_on_dry_run_failure(mock_run: Mock, tmp_path: Path):
+def test_generate_workflow_harnesses_raises_on_dry_run_failure(
+    mock_run: Mock, tmp_path: Path
+):
     mock_run.side_effect = [
         Mock(returncode=0, stdout="", stderr=""),
         Mock(returncode=1, stdout="", stderr="boom"),
@@ -180,7 +209,9 @@ def test_render_harness_delegates_to_flowsh_cli_and_adds_security_hardening():
     communicates intent rather than pinning an opaque string.
     """
     workflow = parse_workflow_payload(sample_payload()).workflows[0]
-    pre_swap_golden = (FIXTURES_DIR / "pre_swap_golden_harness.sh").read_text(encoding="utf-8")
+    pre_swap_golden = (FIXTURES_DIR / "pre_swap_golden_harness.sh").read_text(
+        encoding="utf-8"
+    )
 
     harness = render_harness(workflow)
 
@@ -213,7 +244,9 @@ def test_generate_workflow_harnesses_runs_bash_dry_run_for_real(tmp_path: Path):
 @pytest.mark.parametrize(
     "mutate",
     [
-        pytest.param(lambda p: p["workflows"][0].__setitem__("steps", []), id="empty-steps"),
+        pytest.param(
+            lambda p: p["workflows"][0].__setitem__("steps", []), id="empty-steps"
+        ),
         pytest.param(
             lambda p: p["workflows"][0].__setitem__("id", "not-a-valid-id"), id="bad-id"
         ),
