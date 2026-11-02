@@ -18,7 +18,7 @@ made keeps its own:
 
 from __future__ import annotations
 
-import os
+import logging
 import re
 import shutil
 import stat
@@ -30,12 +30,14 @@ from pathlib import Path
 import yaml
 from flowsh_cli.dagu import dagu_sidecar_path as flowsh_dagu_sidecar_path
 from flowsh_cli.dagu import render_dagu_sidecar as flowsh_render_dagu_sidecar
+from flowsh_cli.dagu import unsupported_dagu_reasons
 from flowsh_cli.models import Workflow
 from flowsh_cli.models import WorkflowParseError as FlowshWorkflowParseError
 from flowsh_cli.models import parse_workflows as flowsh_parse_workflows
 from flowsh_cli.render import render_harness as flowsh_render_harness
 
 SHELL_SCRIPT_PATH_RE = re.compile(r"\.harness/[A-Za-z0-9._/-]+\.sh")
+logger = logging.getLogger(__name__)
 
 
 class WorkflowParseError(ValueError):
@@ -108,15 +110,29 @@ def generate_workflow_harnesses(payload: dict, output_root: Path) -> list[str]:
         output_path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         _verify_harness_script(output_path)
         sidecar_path = flowsh_dagu_sidecar_path(output_path)
-        sidecar_path.write_text(
-            flowsh_render_dagu_sidecar(
-                output_path.read_text(encoding="utf-8"),
-                project_dir=os.path.relpath(
-                    output_root.absolute(), sidecar_path.absolute().parent
+        unsupported_reasons = unsupported_dagu_reasons(workflow)
+        if unsupported_reasons:
+            existing_note = (
+                " (existing sidecar left unchanged)"
+                if sidecar_path.exists() or sidecar_path.is_symlink()
+                else ""
+            )
+            logger.warning(
+                "Dagu sidecar skipped for workflow %s: %s; %s%s",
+                workflow.id,
+                "; ".join(unsupported_reasons),
+                sidecar_path,
+                existing_note,
+            )
+        else:
+            sidecar_path.write_text(
+                flowsh_render_dagu_sidecar(
+                    workflow,
+                    project_dir=str(output_root.resolve()),
                 ),
-            ),
-            encoding="utf-8",
-        )
+                encoding="utf-8",
+            )
+            sidecar_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
         written.append(shell_script_path)
 
     return written
