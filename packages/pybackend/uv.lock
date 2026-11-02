@@ -409,15 +409,15 @@ wheels = [
 
 [[package]]
 name = "flowsh-cli"
-version = "0.11.0"
+version = "0.12.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e0/57/a0788c91a3f536047140d8d13858c78d95cf1cf9629c406d9996d0f78933/flowsh_cli-0.11.0.tar.gz", hash = "sha256:5cc5490d13026087c7160aeea50b52b6a5622a80c7a9b0995587df99156a6f9a", size = 17034, upload-time = "2026-08-03T10:00:05.449Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/72/3a1c77f3d9ed8cb48810359c9f45cd2e5e9939ddd4300789eb104cb71443/flowsh_cli-0.12.1.tar.gz", hash = "sha256:e71f9e6db0c90c735f609bffa9e71de726cc05d7075f88d9c74193946b111938", size = 21397, upload-time = "2026-11-02T05:46:56.585Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/3a/602d10bb3be433a0ae77b26052547fee3ffd00e3e68fdaa97ca8ddfe3e36/flowsh_cli-0.11.0-py3-none-any.whl", hash = "sha256:ad42cfdbfe5361a8f3b06f57327a31f0de40b2f6e3dfbc3fc4af2048607215d1", size = 20270, upload-time = "2026-08-03T10:00:04.248Z" },
+    { url = "https://files.pythonhosted.org/packages/fd/3a/43033c08a9cf37830f09a3e878006fd0bf056871bd2e533e74e23bfa7db3/flowsh_cli-0.12.1-py3-none-any.whl", hash = "sha256:7896f58daa288a22ff3b3b76671607826785cb31f6d077832cb65d51d2497dfa", size = 24382, upload-time = "2026-11-02T05:46:55.498Z" },
 ]
 
 [[package]]
@@ -562,7 +562,7 @@ requires-dist = [
     { name = "click", specifier = ">=8.3.3" },
     { name = "cryptography", specifier = ">=50.0.0" },
     { name = "fastapi", specifier = ">=0.136.1,<0.136.3" },
-    { name = "flowsh-cli", specifier = ">=0.11.0,<0.12" },
+    { name = "flowsh-cli", specifier = ">=0.12.1,<0.13" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "idna", specifier = ">=3.15" },
     { name = "jinja2", specifier = ">=3.1.6" },
