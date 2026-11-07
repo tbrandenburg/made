@@ -239,6 +239,10 @@ const DEFAULT_MODEL_OPTIONS: ModelOption[] = [
     label: "github-copilot/gpt-6.1-sol",
   },
   {
+    value: "github-copilot/gpt-6.1-terra",
+    label: "github-copilot/gpt-6.1-terra",
+  },
+  {
     value: "github-copilot/kimi-k2.7-code",
     label: "github-copilot/kimi-k2.7-code",
   },
@@ -278,6 +282,7 @@ const DEFAULT_MODEL_OPTIONS: ModelOption[] = [
   { value: "openai/gpt-6-luna", label: "openai/gpt-6-luna" },
   { value: "openai/gpt-6-sol", label: "openai/gpt-6-sol" },
   { value: "openai/gpt-6.1-sol", label: "openai/gpt-6.1-sol" },
+  { value: "openai/gpt-6.1-terra", label: "openai/gpt-6.1-terra" },
 ];
 
 type ApiModelOption = { value: string; label: string; group: string | null };
