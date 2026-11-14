@@ -463,8 +463,23 @@ const MagnifyingGlassIcon: React.FC = () => (
   </svg>
 );
 
-const CHAT_ATTACHMENT_TYPES = [".txt", ".md", ".csv", ".json", ".log"];
-const CHAT_ATTACHMENT_MAX_BYTES = 1024 * 1024;
+const CHAT_ATTACHMENT_DENIED_TYPES = [
+  ".exe",
+  ".dll",
+  ".msi",
+  ".bat",
+  ".cmd",
+  ".com",
+  ".scr",
+  ".ps1",
+  ".vbs",
+  ".jar",
+  ".apk",
+  ".app",
+  ".so",
+  ".dylib",
+];
+const CHAT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 
 export const RepositoryPage: React.FC = () => {
   const { name } = useParams();
@@ -823,10 +838,10 @@ export const RepositoryPage: React.FC = () => {
     event.currentTarget.value = "";
     if (!file) return;
     const extension = file.name.match(/\.[^.]+$/)?.[0].toLowerCase();
-    if (!extension || !CHAT_ATTACHMENT_TYPES.includes(extension)) {
-      setAttachmentError("Choose a .txt, .md, .csv, .json, or .log file.");
+    if (extension && CHAT_ATTACHMENT_DENIED_TYPES.includes(extension)) {
+      setAttachmentError(`${extension} files are not allowed.`);
     } else if (file.size > CHAT_ATTACHMENT_MAX_BYTES) {
-      setAttachmentError("The file must be 1 MiB or smaller.");
+      setAttachmentError("The file must be 10 MiB or smaller.");
     } else {
       setAttachmentError("");
       setChatAttachment(file);
@@ -2001,7 +2016,6 @@ export const RepositoryPage: React.FC = () => {
           <input
             ref={attachmentInputRef}
             type="file"
-            accept={CHAT_ATTACHMENT_TYPES.join(",")}
             aria-label="Chat attachment"
             hidden
             onChange={selectChatAttachment}
@@ -2030,8 +2044,8 @@ export const RepositoryPage: React.FC = () => {
             </div>
           )}
           <small id={`${chatInputId}-attachment-help`}>
-            Temporary attachment · One text file up to 1 MiB (.txt, .md, .csv,
-            .json, .log)
+            Temporary attachment · One file up to 10 MiB (executables are not
+            allowed)
           </small>
           <div className="button-bar chat-controls chat-controls--attachments">
             <div className="chat-controls__left">

@@ -156,7 +156,7 @@ function setupDefaultMocks() {
 it("keeps an attachment and its message after the server rejects it", async () => {
   setupDefaultMocks();
   vi.mocked(api.sendAgentAttachment).mockRejectedValueOnce(
-    new HttpError("The file must contain UTF-8 text.", 415),
+    new HttpError("The file must be 10 MiB or smaller.", 413),
   );
   renderPage();
   const input = await screen.findByLabelText("Chat attachment");
@@ -177,7 +177,7 @@ it("keeps an attachment and its message after the server rejects it", async () =
   fireEvent.click(send);
 
   expect(
-    await screen.findByText("The file must contain UTF-8 text."),
+    await screen.findByText("The file must be 10 MiB or smaller."),
   ).toBeVisible();
   expect(prompt).toHaveValue("Please read this file");
   expect(

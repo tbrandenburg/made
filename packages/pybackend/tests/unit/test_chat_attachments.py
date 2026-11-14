@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from app import app
 
 client = TestClient(app)
+_LIMIT = 10 * 1024 * 1024
 
 
 def test_repository_agent_attachment_preserves_unique_files(tmp_path, monkeypatch):
@@ -57,16 +58,17 @@ def test_repository_agent_attachment_preserves_unique_files(tmp_path, monkeypatc
 
 
 @pytest.mark.parametrize(
-    ("filename", "contents", "status_code"),
+    ("filename", "size", "status_code"),
     [
-        ("archive.zip", b"text", 415),
-        ("invalid.txt", b"\xff", 415),
-        ("large.txt", b"x" * (1024 * 1024 + 1), 413),
+        ("setup.exe", 2, 415),
+        ("RUN.BAT", 4, 415),
+        ("large.txt", _LIMIT + 1, 413),
     ],
 )
 def test_repository_agent_attachment_rejects_before_dispatch(
-    filename, contents, status_code, tmp_path, monkeypatch
+    filename, size, status_code, tmp_path, monkeypatch
 ):
+    contents = b"x" * size
     (tmp_path / "sample").mkdir()
     monkeypatch.setenv("MADE_WORKSPACE_HOME", str(tmp_path))
     monkeypatch.setattr("app._CHAT_ATTACHMENT_ROOT", str(tmp_path))
@@ -81,3 +83,38 @@ def test_repository_agent_attachment_rejects_before_dispatch(
         assert response.json()["detail"]
         send.assert_not_called()
     assert not list(tmp_path.glob("made-chat-*"))
+
+
+@pytest.mark.parametrize(
+    ("filename", "contents"),
+    [
+        pytest.param("data.zip", b"PK\x00\xff", id="zip"),
+        pytest.param("pic.png", b"\x89PNG\xff", id="png"),
+        pytest.param("noext", b"x", id="no-extension"),
+        pytest.param("big.log", None, id="exactly-10-mib"),
+    ],
+)
+def test_repository_agent_attachment_accepts_broad_file_types(
+    filename, contents, tmp_path, monkeypatch
+):
+    contents = b"x" * _LIMIT if contents is None else contents
+    (tmp_path / "sample").mkdir()
+    storage = tmp_path / "uploads"
+    storage.mkdir()
+    monkeypatch.setenv("MADE_WORKSPACE_HOME", str(tmp_path))
+    monkeypatch.setattr("app._CHAT_ATTACHMENT_ROOT", str(storage))
+
+    def dispatch(name, message, session_id, agent, model, *, reservation):
+        reservation.process_started = True
+        return {"prompt": message}
+
+    with patch("app.send_agent_message", side_effect=dispatch):
+        response = client.post(
+            "/api/repositories/sample/agent/attachment",
+            headers={"X-MADE-Attachment": "1"},
+            data={"message": "Read the file"},
+            files={"file": (filename, contents)},
+        )
+    assert response.status_code == 200
+    path = Path(response.json()["prompt"].split("`")[1])
+    assert path.name == filename and path.read_bytes() == contents
