@@ -14,6 +14,7 @@ type MentionPathTextareaProps = {
   className?: string;
   disabled?: boolean;
   onMentionQueryChange?: (query: string) => void;
+  overlay?: React.ReactNode;
 };
 
 type ActiveMention = {
@@ -114,6 +115,7 @@ export const MentionPathTextarea: React.FC<MentionPathTextareaProps> = ({
   className,
   disabled,
   onMentionQueryChange,
+  overlay,
 }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -264,6 +266,7 @@ export const MentionPathTextarea: React.FC<MentionPathTextareaProps> = ({
           }
         }}
       />
+      {overlay}
       {activeMention && filteredSuggestions.length > 0 && (
         <div
           className="mention-textarea__menu"

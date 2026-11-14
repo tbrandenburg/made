@@ -335,21 +335,61 @@ textarea {
   margin-top: 0.5rem;
 }
 
-.chat-attachment {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: fit-content;
-  max-width: 100%;
-  margin: 0.5rem 0;
-}
-
-.chat-attachment span {
-  overflow-wrap: anywhere;
-}
-
 .mention-textarea {
   position: relative;
+}
+
+.chat-textarea--attachable {
+  padding-bottom: 2.5rem;
+}
+
+.chat-textarea--attachable.has-attachment {
+  padding-top: 2.75rem;
+}
+
+.chat-attachment-badge {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: calc(100% - 1rem);
+  padding: 0.15rem 0.35rem 0.15rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.4));
+  background: var(--surface-color, rgba(128, 128, 128, 0.15));
+  font-size: 0.8rem;
+}
+
+.chat-attachment-badge span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-attachment-badge button {
+  padding: 0 0.3rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.chat-attach-button {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.5rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 .mention-textarea__menu {
