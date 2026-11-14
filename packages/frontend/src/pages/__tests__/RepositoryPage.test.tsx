@@ -20,7 +20,12 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RepositoryPage } from "../RepositoryPage";
-import { api, ChatHistoryResponse, ChatSession } from "../../hooks/useApi";
+import {
+  api,
+  ChatHistoryResponse,
+  ChatSession,
+  HttpError,
+} from "../../hooks/useApi";
 
 // ── Static stubs ────────────────────────────────────────────────────────────
 
@@ -97,6 +102,10 @@ vi.mock("react-virtuoso", async () => {
 });
 
 vi.mock("../../hooks/useApi", async () => {
+  const actual =
+    await vi.importActual<typeof import("../../hooks/useApi")>(
+      "../../hooks/useApi",
+    );
   const target: Record<string, Mock> = {};
   const handler: ProxyHandler<Record<string, Mock>> = {
     get(_, prop) {
@@ -107,7 +116,7 @@ vi.mock("../../hooks/useApi", async () => {
       return undefined;
     },
   };
-  return { api: new Proxy(target, handler) };
+  return { ...actual, api: new Proxy(target, handler) };
 });
 
 // ── Shared fixtures ─────────────────────────────────────────────────────────
@@ -143,6 +152,47 @@ function setupDefaultMocks() {
   vi.mocked(api.getRepositoryCommands).mockResolvedValue({ commands: [] });
   vi.mocked(api.getRepositoryHarnesses).mockResolvedValue({ harnesses: [] });
 }
+
+it("keeps an attachment and its message after the server rejects it", async () => {
+  setupDefaultMocks();
+  vi.mocked(api.sendAgentAttachment).mockRejectedValueOnce(
+    new HttpError("The file must contain UTF-8 text.", 415),
+  );
+  renderPage();
+  const input = await screen.findByLabelText("Chat attachment");
+  const prompt = screen.getByPlaceholderText(
+    "Describe the change or ask the agent...",
+  );
+  fireEvent.change(prompt, { target: { value: "Please read this file" } });
+  const file = new File(["text"], "requirements.md");
+  const send = screen.getByRole("button", { name: "Send" });
+  fireEvent.change(input, { target: { files: [file] } });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Remove requirements.md" }),
+  );
+  expect(
+    screen.queryByRole("button", { name: "Remove requirements.md" }),
+  ).toBeNull();
+  fireEvent.change(input, { target: { files: [file] } });
+  fireEvent.click(send);
+
+  expect(
+    await screen.findByText("The file must contain UTF-8 text."),
+  ).toBeVisible();
+  expect(prompt).toHaveValue("Please read this file");
+  expect(
+    screen.getByRole("button", { name: "Remove requirements.md" }),
+  ).toBeEnabled();
+  expect(api.sendAgentAttachment).toHaveBeenCalledWith(
+    "test-repo",
+    "Please read this file",
+    file,
+    undefined,
+    undefined,
+    undefined,
+  );
+  expect(api.sendAgentMessage).not.toHaveBeenCalled();
+});
 
 afterEach(() => {
   cleanup();

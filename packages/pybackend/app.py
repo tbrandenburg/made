@@ -25,6 +25,7 @@ from fastapi import (
     FastAPI,
     File,
     Form,
+    Header,
     HTTPException,
     Path as PathParam,
     Query,
@@ -47,6 +48,8 @@ from agent_service import (
     list_agents,
     list_chat_child_sessions,
     list_chat_sessions,
+    release_agent_message,
+    reserve_agent_message,
     send_agent_message,
     terminate_agent_process,
 )
@@ -745,6 +748,97 @@ def repository_agent(name: str, payload: dict = Body(...)):
         return send_agent_message(name, message, session_id, agent, model)
     except ChannelBusyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+_CHAT_ATTACHMENT_MAX_BYTES = 1024 * 1024
+_CHAT_ATTACHMENT_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".log"}
+_CHAT_ATTACHMENT_ROOT = "/tmp"
+
+
+@app.post("/api/repositories/{name}/agent/attachment")
+def repository_agent_attachment(
+    name: str,
+    file: Annotated[UploadFile, File()],
+    message: Annotated[str, Form()],
+    # A cross-origin browser must pass CORS preflight to send this header.
+    made_attachment: Annotated[str, Header(alias="X-MADE-Attachment")],
+    session_id: Annotated[str | None, Form(alias="sessionId")] = None,
+    agent: Annotated[str | None, Form()] = None,
+    model: Annotated[str | None, Form()] = None,
+):
+    if not message.strip():
+        raise HTTPException(
+            status_code=400, detail="Enter a message to send with the file."
+        )
+    if made_attachment != "1":
+        raise HTTPException(status_code=400, detail="Invalid attachment request.")
+    try:
+        repo = _repository_path(name).resolve()
+        workspace = get_workspace_home().resolve()
+        if (
+            repo == workspace
+            or not repo.is_relative_to(workspace)
+            or name.startswith(("task:", "knowledge:", "constitution:"))
+        ):
+            raise FileNotFoundError
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Repository not found.") from exc
+
+    basename = (file.filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+    stem, extension = os.path.splitext(basename)
+    if extension.lower() not in _CHAT_ATTACHMENT_EXTENSIONS:
+        raise HTTPException(
+            status_code=415, detail="Choose a .txt, .md, .csv, .json, or .log file."
+        )
+    contents = file.file.read(_CHAT_ATTACHMENT_MAX_BYTES + 1)
+    if len(contents) > _CHAT_ATTACHMENT_MAX_BYTES:
+        raise HTTPException(
+            status_code=413, detail="The file must be 1 MiB or smaller."
+        )
+    try:
+        contents.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=415, detail="The file must contain UTF-8 text."
+        ) from exc
+    if b"\x00" in contents:
+        raise HTTPException(status_code=415, detail="The file must contain UTF-8 text.")
+
+    try:
+        owner = reserve_agent_message(name, session_id)
+    except ChannelBusyError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    directory = None
+    try:
+        try:
+            directory = Path(
+                tempfile.mkdtemp(prefix="made-chat-", dir=_CHAT_ATTACHMENT_ROOT)
+            )
+            safe_stem = (
+                re.sub(r"[^a-zA-Z0-9._-]", "_", stem)[:120].strip(".") or "attachment"
+            )
+            path = directory / f"{safe_stem}{extension.lower()}"
+            with os.fdopen(
+                os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb"
+            ) as output:
+                output.write(contents)
+        except OSError as exc:
+            logger.exception("Could not stage chat attachment")
+            raise HTTPException(
+                status_code=503, detail="Could not save the attachment. Try again."
+            ) from exc
+
+        prompt = (
+            f"{message.strip()}\n\nAttached file: `{path}`. "
+            "Read this file before answering and use its contents as context for this request."
+        )
+        return send_agent_message(
+            name, prompt, session_id, agent, model, reservation=owner
+        )
+    finally:
+        if directory is not None and not owner.process_started:
+            shutil.rmtree(directory, ignore_errors=True)
+        release_agent_message(owner)
 
 
 @app.get("/api/repositories/{name}/agent/status")
