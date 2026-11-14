@@ -194,6 +194,41 @@ it("keeps an attachment and its message after the server rejects it", async () =
   expect(api.sendAgentMessage).not.toHaveBeenCalled();
 });
 
+it("turns pasted clipboard files into a removable badge and ignores pasted text", async () => {
+  setupDefaultMocks();
+  renderPage();
+  const prompt = await screen.findByPlaceholderText(
+    "Describe the change or ask the agent...",
+  );
+  const image = new File(["png"], "image.png", { type: "image/png" });
+
+  const textPaste = fireEvent.paste(prompt, {
+    clipboardData: { files: [] },
+  });
+  expect(textPaste).toBe(true);
+  expect(screen.queryByRole("button", { name: /^Remove / })).toBeNull();
+
+  const imagePaste = fireEvent.paste(prompt, {
+    clipboardData: { files: [image] },
+  });
+  expect(imagePaste).toBe(false);
+  const remove = await screen.findByRole("button", {
+    name: /^Remove pasted-image-\d+\.png$/,
+  });
+  fireEvent.click(remove);
+  expect(screen.queryByRole("button", { name: /^Remove / })).toBeNull();
+
+  const doc = new File(["x"], "notes.pdf", { type: "application/pdf" });
+  fireEvent.paste(prompt, { clipboardData: { files: [doc] } });
+  expect(
+    await screen.findByRole("button", { name: "Remove notes.pdf" }),
+  ).toBeVisible();
+
+  const exe = new File(["x"], "run.exe");
+  fireEvent.paste(prompt, { clipboardData: { files: [exe] } });
+  expect(await screen.findByText(".exe files are not allowed.")).toBeVisible();
+});
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();

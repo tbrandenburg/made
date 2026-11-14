@@ -833,10 +833,7 @@ export const RepositoryPage: React.FC = () => {
     [chatAttachment, pendingPrompt, sendChatMessage],
   );
 
-  const selectChatAttachment = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.currentTarget.files?.[0];
-    event.currentTarget.value = "";
-    if (!file) return;
+  const acceptChatFile = (file: File) => {
     const extension = file.name.match(/\.[^.]+$/)?.[0].toLowerCase();
     if (extension && CHAT_ATTACHMENT_DENIED_TYPES.includes(extension)) {
       setAttachmentError(`${extension} files are not allowed.`);
@@ -846,6 +843,26 @@ export const RepositoryPage: React.FC = () => {
       setAttachmentError("");
       setChatAttachment(file);
     }
+  };
+
+  const selectChatAttachment = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (file) acceptChatFile(file);
+  };
+
+  const pasteChatFile = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (chatAgentProcessing || sessionLoading) return;
+    const file = event.clipboardData.files[0];
+    if (!file) return;
+    event.preventDefault();
+    if (!file.type.startsWith("image/")) return acceptChatFile(file);
+    const extension = file.type.split("/")[1]?.split("+")[0] || "png";
+    acceptChatFile(
+      new File([file], `pasted-image-${Date.now()}.${extension}`, {
+        type: file.type,
+      }),
+    );
   };
 
   const savedSessionTitles = useMemo(
@@ -2012,6 +2029,7 @@ export const RepositoryPage: React.FC = () => {
             suggestions={displayedMentionSuggestions}
             sections={displayedMentionSections}
             onMentionQueryChange={setMentionQuery}
+            onPaste={pasteChatFile}
             className={`chat-textarea--attachable${chatAttachment ? " has-attachment" : ""}`}
             overlay={
               <>
