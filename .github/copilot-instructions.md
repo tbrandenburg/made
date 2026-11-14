@@ -90,7 +90,6 @@ make clean    # Clean build artifacts and cache
 **GitHub Workflows**:
 - `tests.yml` - Runs QA, coverage tests, and system tests
 - `docker.yml` - Builds and tests Docker containers
-- `nodejs-frontend-preview.yml` - Deploys frontend previews
 
 **Validation Steps** (replicated in CI):
 1. `make install` - Install dependencies

@@ -750,8 +750,23 @@ def repository_agent(name: str, payload: dict = Body(...)):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
 
-_CHAT_ATTACHMENT_MAX_BYTES = 1024 * 1024
-_CHAT_ATTACHMENT_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".log"}
+_CHAT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024
+_CHAT_ATTACHMENT_DENIED_EXTENSIONS = {
+    ".exe",
+    ".dll",
+    ".msi",
+    ".bat",
+    ".cmd",
+    ".com",
+    ".scr",
+    ".ps1",
+    ".vbs",
+    ".jar",
+    ".apk",
+    ".app",
+    ".so",
+    ".dylib",
+}
 _CHAT_ATTACHMENT_ROOT = "/tmp"
 
 
@@ -786,23 +801,15 @@ def repository_agent_attachment(
 
     basename = (file.filename or "").replace("\\", "/").rsplit("/", 1)[-1]
     stem, extension = os.path.splitext(basename)
-    if extension.lower() not in _CHAT_ATTACHMENT_EXTENSIONS:
+    if extension.lower() in _CHAT_ATTACHMENT_DENIED_EXTENSIONS:
         raise HTTPException(
-            status_code=415, detail="Choose a .txt, .md, .csv, .json, or .log file."
+            status_code=415, detail=f"{extension.lower()} files are not allowed."
         )
     contents = file.file.read(_CHAT_ATTACHMENT_MAX_BYTES + 1)
     if len(contents) > _CHAT_ATTACHMENT_MAX_BYTES:
         raise HTTPException(
-            status_code=413, detail="The file must be 1 MiB or smaller."
+            status_code=413, detail="The file must be 10 MiB or smaller."
         )
-    try:
-        contents.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise HTTPException(
-            status_code=415, detail="The file must contain UTF-8 text."
-        ) from exc
-    if b"\x00" in contents:
-        raise HTTPException(status_code=415, detail="The file must contain UTF-8 text.")
 
     try:
         owner = reserve_agent_message(name, session_id)
@@ -817,7 +824,7 @@ def repository_agent_attachment(
             safe_stem = (
                 re.sub(r"[^a-zA-Z0-9._-]", "_", stem)[:120].strip(".") or "attachment"
             )
-            path = directory / f"{safe_stem}{extension.lower()}"
+            path = directory / f"{safe_stem}{re.sub(r'[^a-zA-Z0-9.]', '', extension)}"
             with os.fdopen(
                 os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb"
             ) as output:
