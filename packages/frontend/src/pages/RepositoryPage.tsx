@@ -463,6 +463,9 @@ const MagnifyingGlassIcon: React.FC = () => (
   </svg>
 );
 
+const CHAT_ATTACHMENT_TYPES = [".txt", ".md", ".csv", ".json", ".log"];
+const CHAT_ATTACHMENT_MAX_BYTES = 1024 * 1024;
+
 export const RepositoryPage: React.FC = () => {
   const { name } = useParams();
   const navigate = useNavigate();
@@ -558,6 +561,14 @@ export const RepositoryPage: React.FC = () => {
     oldSavedSessionKey,
   ]);
   const [pendingPrompt, setPendingPrompt] = useState("");
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const attachButtonRef = useRef<HTMLButtonElement>(null);
+  const [chatAttachment, setChatAttachment] = useState<File | null>(null);
+  const [attachmentError, setAttachmentError] = useState("");
+  useLayoutEffect(() => {
+    setChatAttachment(null);
+    setAttachmentError("");
+  }, [name, sessionId, agentCli]);
   const [selectedModel, setSelectedModel] = usePersistentString(
     modelStorageKey,
     "default",
@@ -770,6 +781,7 @@ export const RepositoryPage: React.FC = () => {
     defaultModelValue: "default",
     api: {
       sendMessage: api.sendAgentMessage,
+      sendAttachment: api.sendAgentAttachment,
       getStatus: api.getRepositoryAgentStatus,
       cancelAgent: api.cancelRepositoryAgent,
       getHistory: api.getRepositoryAgentHistory,
@@ -794,10 +806,32 @@ export const RepositoryPage: React.FC = () => {
       const message = (prompt ?? pendingPrompt).trim();
       if (!message) return;
       lastSentPromptRef.current = pendingPrompt;
-      void sendChatMessage(message, { clearPrompt: true });
+      const attachment =
+        prompt === undefined ? (chatAttachment ?? undefined) : undefined;
+      if (attachment) setAttachmentError("");
+      void sendChatMessage(message, {
+        clearPrompt: true,
+        attachment,
+        onAttachmentSent: () => setChatAttachment(null),
+      });
     },
-    [pendingPrompt, sendChatMessage],
+    [chatAttachment, pendingPrompt, sendChatMessage],
   );
+
+  const selectChatAttachment = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    const extension = file.name.match(/\.[^.]+$/)?.[0].toLowerCase();
+    if (!extension || !CHAT_ATTACHMENT_TYPES.includes(extension)) {
+      setAttachmentError("Choose a .txt, .md, .csv, .json, or .log file.");
+    } else if (file.size > CHAT_ATTACHMENT_MAX_BYTES) {
+      setAttachmentError("The file must be 1 MiB or smaller.");
+    } else {
+      setAttachmentError("");
+      setChatAttachment(file);
+    }
+  };
 
   const savedSessionTitles = useMemo(
     () =>
@@ -1958,12 +1992,48 @@ export const RepositoryPage: React.FC = () => {
             id={chatInputId}
             value={pendingPrompt}
             onChange={setPendingPrompt}
+            disabled={chatAgentProcessing && Boolean(chatAttachment)}
             placeholder="Describe the change or ask the agent..."
             suggestions={displayedMentionSuggestions}
             sections={displayedMentionSections}
             onMentionQueryChange={setMentionQuery}
           />
-          <div className="button-bar chat-controls">
+          <input
+            ref={attachmentInputRef}
+            type="file"
+            accept={CHAT_ATTACHMENT_TYPES.join(",")}
+            aria-label="Chat attachment"
+            hidden
+            onChange={selectChatAttachment}
+          />
+          {chatAttachment && (
+            <div className="chat-attachment">
+              <span>{chatAttachment.name}</span>
+              <button
+                type="button"
+                className="secondary"
+                aria-label={`Remove ${chatAttachment.name}`}
+                disabled={chatAgentProcessing}
+                onClick={() => {
+                  setChatAttachment(null);
+                  setAttachmentError("");
+                  attachButtonRef.current?.focus();
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          )}
+          {attachmentError && (
+            <div className="alert error" role="alert">
+              {attachmentError}
+            </div>
+          )}
+          <small id={`${chatInputId}-attachment-help`}>
+            Temporary attachment · One text file up to 1 MiB (.txt, .md, .csv,
+            .json, .log)
+          </small>
+          <div className="button-bar chat-controls chat-controls--attachments">
             <div className="chat-controls__left">
               <AgentSelector
                 selectId="agent-select"
@@ -1993,6 +2063,16 @@ export const RepositoryPage: React.FC = () => {
               </label>
             </div>
             <div className="chat-controls__right">
+              <button
+                ref={attachButtonRef}
+                type="button"
+                className="secondary"
+                aria-describedby={`${chatInputId}-attachment-help`}
+                disabled={chatAgentProcessing || sessionLoading}
+                onClick={() => attachmentInputRef.current?.click()}
+              >
+                Attach file
+              </button>
               {chatAgentProcessing ? (
                 <button
                   className="danger"

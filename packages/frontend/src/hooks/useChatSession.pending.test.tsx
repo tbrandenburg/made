@@ -1,5 +1,5 @@
 import { act, waitFor } from "@testing-library/react";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import type { AgentReply, ChatHistoryMessage } from "./useApi";
 import {
   cleanupSessionTests,
@@ -16,6 +16,49 @@ const persisted = (messageId: string, content: string): ChatHistoryMessage => ({
   role: "user",
   type: "text",
   content,
+});
+
+it("reconciles an attachment using the effective prompt returned by the server", async () => {
+  const upload = deferred<AgentReply>();
+  const api = {
+    ...snapshotApi(),
+    sendAttachment: vi.fn().mockReturnValue(upload.promise),
+  };
+  const { result } = renderSnapshotSession(api);
+  await waitFor(() => expect(result.current.chat).toHaveLength(3));
+  const file = new File(["contents"], "notes.txt");
+  const onAttachmentSent = vi.fn();
+  let sending!: Promise<void>;
+  act(() => {
+    sending = result.current.handleSendMessage("Read it", {
+      attachment: file,
+      onAttachmentSent,
+    });
+    void result.current.handleSendMessage("Read it", { attachment: file });
+  });
+  expect(api.sendAttachment).toHaveBeenCalledTimes(1);
+  expect(result.current.chat.at(-1)?.text).toContain("notes.txt");
+  const prompt = "Read it\n\nAttached file: `/tmp/made-chat-123/notes.txt`.";
+  api.getHistory.mockResolvedValue({
+    ...snapshot(),
+    messages: [...snapshot().messages, persisted("attachment-user", prompt)],
+  });
+  await act(async () => {
+    upload.resolve({
+      prompt,
+      sessionId: "A",
+      messageId: "receipt",
+      sent: "now",
+      response: "",
+    });
+    await sending;
+  });
+  expect(
+    result.current.chat.filter((entry) => entry.text === prompt),
+  ).toHaveLength(1);
+  expect(result.current.chat.at(-1)?.messageKey).toBe("attachment-user");
+  expect(onAttachmentSent).toHaveBeenCalledOnce();
+  expect(api.sendMessage).not.toHaveBeenCalled();
 });
 
 it("preserves optimistic display identity/time before and after send completion, then admits raw policy text once", async () => {

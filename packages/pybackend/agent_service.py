@@ -41,6 +41,7 @@ class MessageReservation:
     key: str
     cancel: Event = field(default_factory=Event)
     running: bool = False
+    process_started: bool = False
     outcome: Literal["succeeded", "failed", "cancelled"] | None = None
 
 
@@ -1235,6 +1236,7 @@ def send_agent_message(
             resolved_model = model if model and model != "default" else None
 
             def on_process(process: subprocess.Popen[str]) -> None:
+                owner.process_started = True
                 _register_active_process(lock_key, process)
                 _record_process(
                     lock_key,

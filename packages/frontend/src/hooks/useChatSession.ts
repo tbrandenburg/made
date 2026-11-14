@@ -28,10 +28,24 @@ type AgentState =
   | { status: "processing" }
   | { status: "error"; message: string };
 
+type SendOptions = {
+  clearPrompt?: boolean;
+  attachment?: File;
+  onAttachmentSent?: () => void;
+};
+
 export interface ChatSessionApi {
   sendMessage: (
     name: string,
     message: string,
+    sessionId?: string,
+    model?: string,
+    agent?: string,
+  ) => Promise<AgentReply>;
+  sendAttachment?: (
+    name: string,
+    message: string,
+    file: File,
     sessionId?: string,
     model?: string,
     agent?: string,
@@ -79,10 +93,7 @@ export interface UseChatSessionResult {
   handleCancel: () => Promise<void>;
   handleClearSessionAndHistory: () => void;
   handleClearSessionOnly: () => void;
-  handleSendMessage: (
-    message: string,
-    options?: { clearPrompt?: boolean },
-  ) => Promise<void>;
+  handleSendMessage: (message: string, options?: SendOptions) => Promise<void>;
   handleSessionSelect: (session: ChatSession) => void;
   invalidatePendingRequests: () => void;
   isCancelingAgent: boolean;
@@ -120,6 +131,7 @@ export function useChatSession({
 }: UseChatSessionParams): UseChatSessionResult {
   const {
     sendMessage,
+    sendAttachment,
     getStatus,
     cancelAgent,
     getHistory: getHistoryApi,
@@ -167,6 +179,7 @@ export function useChatSession({
   const [sessionListLoading, setSessionListLoading] = useState(false);
   const [clearSessionModalOpen, setClearSessionModalOpen] = useState(false);
   const sendRequestIdRef = useRef(0);
+  const attachmentRequestRef = useRef<number | null>(null);
   const historyRequestGenerationRef = useRef(0);
   const pendingUsersRef = useRef<PendingUser[]>([]);
   const persistedUsersRef = useRef<string[] | null>(null);
@@ -183,6 +196,7 @@ export function useChatSession({
         previous.name === name && ownSessionRef.current === sessionId;
       if (!ownTransition) {
         sendRequestIdRef.current += 1;
+        attachmentRequestRef.current = null;
         pendingUsersRef.current = [];
         persistedUsersRef.current = null;
       }
@@ -348,7 +362,7 @@ export function useChatSession({
   const isProcessing = agentState.status === "processing";
 
   useAgentPolling({
-    isProcessing,
+    isProcessing: isProcessing && attachmentRequestRef.current === null,
     syncHistory: syncChatHistory,
     checkStatus: refreshAgentStatus,
   });
@@ -430,30 +444,40 @@ export function useChatSession({
   ]);
 
   const handleSendMessage = useCallback(
-    async (message: string, options?: { clearPrompt?: boolean }) => {
+    async (message: string, options?: SendOptions) => {
       if (!name || isExternal) return;
       const trimmed = message.trim();
       if (!trimmed) return;
 
+      const attachment = options?.attachment;
+      if (
+        attachmentRequestRef.current !== null ||
+        (attachment && !sendAttachment)
+      ) {
+        return;
+      }
       const sendRequestId = ++sendRequestIdRef.current;
+      if (attachment) attachmentRequestRef.current = sendRequestId;
       const timestamp = new Date().toISOString();
       const userMessage: ChatMessage = {
         id: `${timestamp}-user-${sendRequestId}`,
         role: "user",
-        text: trimmed,
+        text: attachment
+          ? `${trimmed}\n\nSending attachment: ${attachment.name}`
+          : trimmed,
         timestamp,
       };
 
       setChat((previousChat) => [...previousChat, userMessage]);
-      if (options?.clearPrompt) {
+      if (options?.clearPrompt && !attachment) {
         setPrompt("");
       }
       setProcessing();
 
       try {
         const promptWithPolicy = appendPolicy
-          ? appendPolicy(userMessage.text, name)
-          : userMessage.text;
+          ? appendPolicy(trimmed, name)
+          : trimmed;
         const pendingUser: PendingUser = {
           message: userMessage,
           submitted: promptWithPolicy,
@@ -461,7 +485,7 @@ export function useChatSession({
             ? []
             : (persistedUsersRef.current?.slice() ?? null),
         };
-        pendingUsersRef.current.push(pendingUser);
+        if (!attachment) pendingUsersRef.current.push(pendingUser);
         const model =
           normalizedSelectedModel &&
           normalizedSelectedModel !== defaultModelValue
@@ -472,15 +496,46 @@ export function useChatSession({
           normalizedSelectedAgent !== defaultAgentValue
             ? normalizedSelectedAgent.trim()
             : undefined;
-        const reply = await sendMessage(
-          name,
-          promptWithPolicy,
-          sessionId || undefined,
-          model,
-          agent,
-        );
+        const reply =
+          attachment && sendAttachment
+            ? await sendAttachment(
+                name,
+                promptWithPolicy,
+                attachment,
+                sessionId || undefined,
+                model,
+                agent,
+              )
+            : await sendMessage(
+                name,
+                promptWithPolicy,
+                sessionId || undefined,
+                model,
+                agent,
+              );
 
         if (sendRequestIdRef.current !== sendRequestId) return;
+        if (attachment) {
+          if (reply.outcome === "failed" || reply.outcome === "cancelled") {
+            await reloadCurrentSession();
+            throw new HttpError(
+              reply.response || "The agent did not complete the request.",
+              400,
+            );
+          }
+          attachmentRequestRef.current = null;
+          const effectivePrompt = reply.prompt ?? promptWithPolicy;
+          pendingUser.submitted = effectivePrompt;
+          pendingUser.message = { ...userMessage, text: effectivePrompt };
+          pendingUsersRef.current.push(pendingUser);
+          setChat((previous) =>
+            previous.map((entry) =>
+              entry.id === userMessage.id ? pendingUser.message : entry,
+            ),
+          );
+          if (options?.clearPrompt) setPrompt("");
+          options?.onAttachmentSent?.();
+        }
         pendingUser.replyId = reply.messageId;
         if (reply.sessionId) {
           ownSessionRef.current = reply.sessionId;
@@ -488,7 +543,11 @@ export function useChatSession({
         }
         setIdle();
         onActivateAgentTab?.();
-        await syncChatHistory(new AbortController().signal);
+        if (attachment && sessionId && reply.sessionId === sessionId) {
+          await reloadCurrentSession();
+        } else {
+          await syncChatHistory(new AbortController().signal);
+        }
         if (sendRequestIdRef.current !== sendRequestId) return;
         // Fix #687: never clear the optimistic `true` from a potentially stale
         // reply.processing value. If the reply says running, trust it; otherwise
@@ -505,6 +564,23 @@ export function useChatSession({
         );
         if (sendRequestIdRef.current !== sendRequestId) return;
         console.error("Failed to contact agent", error);
+        if (attachment) {
+          attachmentRequestRef.current = null;
+          setChat((previous) =>
+            previous.filter((entry) => entry.id !== userMessage.id),
+          );
+          const rejected =
+            error instanceof HttpError &&
+            (error.status < 500 || error.status === 503);
+          if (!rejected) await reloadCurrentSession();
+          if (sendRequestIdRef.current !== sendRequestId) return;
+          setError(
+            rejected
+              ? error.message
+              : "Could not confirm the send. Check your chat or recent sessions before retrying.",
+          );
+          return;
+        }
         const busy = error instanceof HttpError && error.status === 409;
         setError(
           busy
@@ -512,6 +588,10 @@ export function useChatSession({
             : "Agent unavailable",
         );
         await refreshAgentStatus();
+      } finally {
+        if (attachmentRequestRef.current === sendRequestId) {
+          attachmentRequestRef.current = null;
+        }
       }
     },
     [
@@ -524,6 +604,8 @@ export function useChatSession({
       normalizedSelectedModel,
       onActivateAgentTab,
       refreshAgentStatus,
+      reloadCurrentSession,
+      sendAttachment,
       sendMessage,
       setError,
       setIdle,
@@ -540,6 +622,22 @@ export function useChatSession({
     if (!name || isExternal || isCancelingAgentRef.current) return;
 
     isCancelingAgentRef.current = true;
+    if (attachmentRequestRef.current !== null) {
+      const request = attachmentRequestRef.current;
+      setIsCancelingAgent(true);
+      try {
+        await cancelAgent(name, sessionId || undefined);
+      } catch (error) {
+        if (attachmentRequestRef.current === request) {
+          // The upload may still be reaching the server. Keep the send active.
+          console.error("Unable to cancel the attachment request", error);
+        }
+      } finally {
+        isCancelingAgentRef.current = false;
+        setIsCancelingAgent(false);
+      }
+      return;
+    }
     const cancellation = ++sendRequestIdRef.current;
     pendingUsersRef.current = [];
     historyRequestGenerationRef.current += 1;
@@ -617,6 +715,7 @@ export function useChatSession({
 
   const invalidatePendingRequests = useCallback(() => {
     sendRequestIdRef.current += 1;
+    attachmentRequestRef.current = null;
     pendingUsersRef.current = [];
     historyRequestGenerationRef.current += 1;
     refreshControllerRef.current?.abort();

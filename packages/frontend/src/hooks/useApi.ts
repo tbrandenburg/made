@@ -53,9 +53,9 @@ async function executeRequest<T>(
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const response = await fetch(`${API_BASE}${endpoint}`, {
-        headers: {
-          "Content-Type": "application/json",
-        },
+        ...(options.body instanceof FormData
+          ? {}
+          : { headers: { "Content-Type": "application/json" } }),
         ...options,
       });
 
@@ -199,6 +199,7 @@ export type AgentReply = {
   prompt?: string;
   sessionId?: string;
   processing?: boolean; // NEW: indicates polling needed
+  outcome?: "succeeded" | "failed" | "cancelled";
 };
 
 type AgentStatus = {
@@ -546,6 +547,26 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message, sessionId, model, agent }),
     }),
+  sendAgentAttachment: (
+    name: string,
+    message: string,
+    file: File,
+    sessionId?: string,
+    model?: string,
+    agent?: string,
+  ) => {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("message", message);
+    if (sessionId) body.append("sessionId", sessionId);
+    if (model) body.append("model", model);
+    if (agent) body.append("agent", agent);
+    return request<AgentReply>(
+      `/repositories/${encodeURIComponent(name)}/agent/attachment`,
+      { method: "POST", body, headers: { "X-MADE-Attachment": "1" } },
+      false,
+    );
+  },
   getRepositoryAgentStatus: (name: string, sessionId?: string) => {
     const params = sessionId
       ? `?session_id=${encodeURIComponent(sessionId)}`

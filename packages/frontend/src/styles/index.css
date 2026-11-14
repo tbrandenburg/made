@@ -330,6 +330,24 @@ textarea {
   gap: 1rem;
 }
 
+.chat-controls--attachments {
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.chat-attachment {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0.5rem 0;
+}
+
+.chat-attachment span {
+  overflow-wrap: anywhere;
+}
+
 .mention-textarea {
   position: relative;
 }
