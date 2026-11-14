@@ -15,6 +15,7 @@ type MentionPathTextareaProps = {
   disabled?: boolean;
   onMentionQueryChange?: (query: string) => void;
   overlay?: React.ReactNode;
+  onPaste?: React.ClipboardEventHandler<HTMLTextAreaElement>;
 };
 
 type ActiveMention = {
@@ -116,6 +117,7 @@ export const MentionPathTextarea: React.FC<MentionPathTextareaProps> = ({
   disabled,
   onMentionQueryChange,
   overlay,
+  onPaste,
 }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -225,6 +227,7 @@ export const MentionPathTextarea: React.FC<MentionPathTextareaProps> = ({
         className={className}
         disabled={disabled}
         placeholder={placeholder}
+        onPaste={onPaste}
         onChange={(event) => {
           onChange(event.target.value);
           requestAnimationFrame(refreshMention);
