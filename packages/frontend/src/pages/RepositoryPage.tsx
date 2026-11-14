@@ -2012,6 +2012,41 @@ export const RepositoryPage: React.FC = () => {
             suggestions={displayedMentionSuggestions}
             sections={displayedMentionSections}
             onMentionQueryChange={setMentionQuery}
+            className={`chat-textarea--attachable${chatAttachment ? " has-attachment" : ""}`}
+            overlay={
+              <>
+                {chatAttachment && (
+                  <div className="chat-attachment-badge">
+                    <span title={chatAttachment.name}>
+                      {chatAttachment.name}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${chatAttachment.name}`}
+                      disabled={chatAgentProcessing}
+                      onClick={() => {
+                        setChatAttachment(null);
+                        setAttachmentError("");
+                        attachButtonRef.current?.focus();
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+                <button
+                  ref={attachButtonRef}
+                  type="button"
+                  className="chat-attach-button"
+                  aria-label="Attach file"
+                  title="Attach file (up to 10 MiB)"
+                  disabled={chatAgentProcessing || sessionLoading}
+                  onClick={() => attachmentInputRef.current?.click()}
+                >
+                  +
+                </button>
+              </>
+            }
           />
           <input
             ref={attachmentInputRef}
@@ -2020,33 +2055,11 @@ export const RepositoryPage: React.FC = () => {
             hidden
             onChange={selectChatAttachment}
           />
-          {chatAttachment && (
-            <div className="chat-attachment">
-              <span>{chatAttachment.name}</span>
-              <button
-                type="button"
-                className="secondary"
-                aria-label={`Remove ${chatAttachment.name}`}
-                disabled={chatAgentProcessing}
-                onClick={() => {
-                  setChatAttachment(null);
-                  setAttachmentError("");
-                  attachButtonRef.current?.focus();
-                }}
-              >
-                Remove
-              </button>
-            </div>
-          )}
           {attachmentError && (
             <div className="alert error" role="alert">
               {attachmentError}
             </div>
           )}
-          <small id={`${chatInputId}-attachment-help`}>
-            Temporary attachment · One file up to 10 MiB (executables are not
-            allowed)
-          </small>
           <div className="button-bar chat-controls chat-controls--attachments">
             <div className="chat-controls__left">
               <AgentSelector
@@ -2077,16 +2090,6 @@ export const RepositoryPage: React.FC = () => {
               </label>
             </div>
             <div className="chat-controls__right">
-              <button
-                ref={attachButtonRef}
-                type="button"
-                className="secondary"
-                aria-describedby={`${chatInputId}-attachment-help`}
-                disabled={chatAgentProcessing || sessionLoading}
-                onClick={() => attachmentInputRef.current?.click()}
-              >
-                Attach file
-              </button>
               {chatAgentProcessing ? (
                 <button
                   className="danger"
