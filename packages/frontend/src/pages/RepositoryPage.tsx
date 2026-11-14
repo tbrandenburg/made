@@ -2060,9 +2060,7 @@ export const RepositoryPage: React.FC = () => {
                   title="Attach file (up to 10 MiB)"
                   disabled={chatAgentProcessing || sessionLoading}
                   onClick={() => attachmentInputRef.current?.click()}
-                >
-                  +
-                </button>
+                />
               </>
             }
           />
