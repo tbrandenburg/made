@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from app import app
 
 client = TestClient(app)
+_LIMIT = 10 * 1024 * 1024
 
 
 def test_repository_agent_attachment_preserves_unique_files(tmp_path, monkeypatch):
@@ -57,16 +58,17 @@ def test_repository_agent_attachment_preserves_unique_files(tmp_path, monkeypatc
 
 
 @pytest.mark.parametrize(
-    ("filename", "contents", "status_code"),
+    ("filename", "size", "status_code"),
     [
-        ("setup.exe", b"MZ", 415),
-        ("RUN.BAT", b"echo", 415),
-        ("large.txt", b"x" * (10 * 1024 * 1024 + 1), 413),
+        ("setup.exe", 2, 415),
+        ("RUN.BAT", 4, 415),
+        ("large.txt", _LIMIT + 1, 413),
     ],
 )
 def test_repository_agent_attachment_rejects_before_dispatch(
-    filename, contents, status_code, tmp_path, monkeypatch
+    filename, size, status_code, tmp_path, monkeypatch
 ):
+    contents = b"x" * size
     (tmp_path / "sample").mkdir()
     monkeypatch.setenv("MADE_WORKSPACE_HOME", str(tmp_path))
     monkeypatch.setattr("app._CHAT_ATTACHMENT_ROOT", str(tmp_path))
@@ -85,11 +87,17 @@ def test_repository_agent_attachment_rejects_before_dispatch(
 
 @pytest.mark.parametrize(
     ("filename", "contents"),
-    [("data.zip", b"PK\x00\xff"), ("pic.png", b"\x89PNG\xff"), ("noext", b"x"), ("big.log", b"x" * (10 * 1024 * 1024))],
+    [
+        pytest.param("data.zip", b"PK\x00\xff", id="zip"),
+        pytest.param("pic.png", b"\x89PNG\xff", id="png"),
+        pytest.param("noext", b"x", id="no-extension"),
+        pytest.param("big.log", None, id="exactly-10-mib"),
+    ],
 )
 def test_repository_agent_attachment_accepts_broad_file_types(
     filename, contents, tmp_path, monkeypatch
 ):
+    contents = b"x" * _LIMIT if contents is None else contents
     (tmp_path / "sample").mkdir()
     storage = tmp_path / "uploads"
     storage.mkdir()
