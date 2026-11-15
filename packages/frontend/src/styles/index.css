@@ -339,6 +339,10 @@ textarea {
   position: relative;
 }
 
+.mention-textarea > textarea {
+  display: block;
+}
+
 .chat-textarea--attachable {
   padding-bottom: 2.5rem;
 }
@@ -357,7 +361,7 @@ textarea {
   max-width: calc(100% - 1rem);
   padding: 0.15rem 0.3rem 0.15rem 0.7rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border: 1px solid var(--border);
   background: transparent;
   color: color-mix(in srgb, var(--muted) 75%, transparent);
   font-size: 0.8rem;
@@ -367,8 +371,8 @@ textarea {
 }
 
 .chat-attachment-badge:hover {
-  border-color: color-mix(in srgb, var(--accent) 65%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: var(--neutral-strong);
+  box-shadow: 0 0 0 3px var(--neutral);
 }
 
 .chat-attachment-badge span {
@@ -418,7 +422,7 @@ textarea {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border: 1px solid var(--border);
   background: transparent;
   color: color-mix(in srgb, var(--muted) 75%, transparent);
   box-shadow: none;
@@ -447,14 +451,14 @@ textarea {
 .chat-attach-button:hover:not(:disabled) {
   background: transparent;
   color: color-mix(in srgb, var(--muted) 75%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: var(--neutral-strong);
+  box-shadow: 0 0 0 3px var(--neutral);
 }
 
 .chat-attach-button:disabled {
   background: transparent;
   color: color-mix(in srgb, var(--muted) 75%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border: 1px solid var(--border);
   opacity: 0.55;
 }
 
