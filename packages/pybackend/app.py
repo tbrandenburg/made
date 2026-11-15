@@ -767,7 +767,6 @@ _CHAT_ATTACHMENT_DENIED_EXTENSIONS = {
     ".so",
     ".dylib",
 }
-_CHAT_ATTACHMENT_ROOT = "/tmp"
 
 
 @app.post("/api/repositories/{name}/agent/attachment")
@@ -818,13 +817,14 @@ def repository_agent_attachment(
     directory = None
     try:
         try:
-            directory = Path(
-                tempfile.mkdtemp(prefix="made-chat-", dir=_CHAT_ATTACHMENT_ROOT)
-            )
+            directory = Path(tempfile.mkdtemp(prefix=".made-chat-", dir=repo))
+            (directory / ".gitignore").write_text("*\n", encoding="utf-8")
+            files = directory / "files"
+            files.mkdir(mode=0o700)
             safe_stem = (
                 re.sub(r"[^a-zA-Z0-9._-]", "_", stem)[:120].strip(".") or "attachment"
             )
-            path = directory / f"{safe_stem}{re.sub(r'[^a-zA-Z0-9.]', '', extension)}"
+            path = files / f"{safe_stem}{re.sub(r'[^a-zA-Z0-9.]', '', extension)}"
             with os.fdopen(
                 os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb"
             ) as output:
@@ -843,7 +843,7 @@ def repository_agent_attachment(
             name, prompt, session_id, agent, model, reservation=owner
         )
     finally:
-        if directory is not None and not owner.process_started:
+        if directory is not None:
             shutil.rmtree(directory, ignore_errors=True)
         release_agent_message(owner)
 
