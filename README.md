@@ -174,6 +174,10 @@ Agent choices include OpenCode (database, v2, and legacy adapters), Claude Code,
 Codex, GitHub Copilot, Kiro, OB1, and Pi. Capabilities and model availability
 depend on the selected CLI and its configuration.
 
+Repository chat attachments are staged temporarily inside the repository so the
+agent can read them without external-directory permission; they are ignored by
+Git and removed after the request finishes. The repository must be writable.
+
 The `opencode-v2` adapter reads selected-session history through OpenCode's
 authenticated local HTTP service. The service must be running; MADE does not
 start/restart it or fall back to SQLite. If JSON complexity prevents a full

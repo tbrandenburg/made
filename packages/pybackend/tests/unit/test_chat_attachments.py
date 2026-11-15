@@ -11,14 +11,13 @@ client = TestClient(app)
 _LIMIT = 10 * 1024 * 1024
 
 
-def test_repository_agent_attachment_preserves_unique_files(tmp_path, monkeypatch):
+def test_repository_agent_attachment_stages_unique_files(tmp_path, monkeypatch):
     workspace = tmp_path / "workspace"
     (workspace / "sample").mkdir(parents=True)
-    storage = tmp_path / "uploads"
-    storage.mkdir()
     monkeypatch.setenv("MADE_WORKSPACE_HOME", str(workspace))
     monkeypatch.setenv("MADE_HOME", str(tmp_path))
-    monkeypatch.setattr("app._CHAT_ATTACHMENT_ROOT", str(storage))
+    paths = []
+    values = iter((b"first", b"second"))
 
     def dispatch(name, message, session_id, agent, model, *, reservation):
         assert (name, session_id, agent, model) == (
@@ -28,9 +27,14 @@ def test_repository_agent_attachment_preserves_unique_files(tmp_path, monkeypatc
             "model-a",
         )
         reservation.process_started = True
+        path = Path(message.split("`")[1])
+        assert path.parent.parent.parent == workspace / "sample"
+        assert path.name == "requirements.md" and path.read_bytes() == next(values)
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+        assert (path.parent.parent / ".gitignore").read_text() == "*\n"
+        paths.append(path)
         return {"prompt": message, "sessionId": session_id}
 
-    paths = []
     with patch("app.send_agent_message", side_effect=dispatch) as send:
         for value in (b"first", b"second"):
             response = client.post(
@@ -47,14 +51,9 @@ def test_repository_agent_attachment_preserves_unique_files(tmp_path, monkeypatc
             assert response.status_code == 200
             prompt = response.json()["prompt"]
             assert "Read this file before answering" in prompt
-            path = Path(prompt.split("`")[1])
-            assert path.is_absolute() and path.parent.parent == storage
-            assert path.name == "requirements.md" and path.read_bytes() == value
-            assert stat.S_IMODE(path.stat().st_mode) == 0o600
-            paths.append(path)
         assert send.call_count == 2
     assert paths[0] != paths[1]
-    assert paths[0].read_bytes() == b"first"
+    assert all(not path.exists() for path in paths)
 
 
 @pytest.mark.parametrize(
@@ -71,7 +70,6 @@ def test_repository_agent_attachment_rejects_before_dispatch(
     contents = b"x" * size
     (tmp_path / "sample").mkdir()
     monkeypatch.setenv("MADE_WORKSPACE_HOME", str(tmp_path))
-    monkeypatch.setattr("app._CHAT_ATTACHMENT_ROOT", str(tmp_path))
     with patch("app.send_agent_message") as send:
         response = client.post(
             "/api/repositories/sample/agent/attachment",
@@ -82,7 +80,7 @@ def test_repository_agent_attachment_rejects_before_dispatch(
         assert response.status_code == status_code
         assert response.json()["detail"]
         send.assert_not_called()
-    assert not list(tmp_path.glob("made-chat-*"))
+    assert not list((tmp_path / "sample").glob(".made-chat-*"))
 
 
 @pytest.mark.parametrize(
@@ -99,13 +97,12 @@ def test_repository_agent_attachment_accepts_broad_file_types(
 ):
     contents = b"x" * _LIMIT if contents is None else contents
     (tmp_path / "sample").mkdir()
-    storage = tmp_path / "uploads"
-    storage.mkdir()
     monkeypatch.setenv("MADE_WORKSPACE_HOME", str(tmp_path))
-    monkeypatch.setattr("app._CHAT_ATTACHMENT_ROOT", str(storage))
 
     def dispatch(name, message, session_id, agent, model, *, reservation):
         reservation.process_started = True
+        path = Path(message.split("`")[1])
+        assert path.name == filename and path.read_bytes() == contents
         return {"prompt": message}
 
     with patch("app.send_agent_message", side_effect=dispatch):
@@ -117,4 +114,4 @@ def test_repository_agent_attachment_accepts_broad_file_types(
         )
     assert response.status_code == 200
     path = Path(response.json()["prompt"].split("`")[1])
-    assert path.name == filename and path.read_bytes() == contents
+    assert path.name == filename and not path.exists()

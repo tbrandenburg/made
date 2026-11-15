@@ -261,6 +261,53 @@ test("provider-free real browser pagination, isolation, outage and recovery", as
   ).toContain("MADE800_GRANDCHILD_HISTORY_COBALT");
 });
 
+test("real agent reads a chat attachment", async ({ page, request }) => {
+  const manifest: Manifest = JSON.parse(await control("manifest"));
+  expect(manifest.realProvider).toBe(true);
+  await page.goto("/repositories/repoA");
+  await page
+    .getByRole("combobox", { name: "Model", exact: true })
+    .selectOption(manifest.model);
+  await page.getByLabel("Chat attachment").setInputFiles({
+    name: "bot.py",
+    mimeType: "text/x-python",
+    buffer: Buffer.from('print("MADE_ATTACHMENT_COBALT_72491")\n'),
+  });
+  await page
+    .getByPlaceholder("Describe the change or ask the agent...")
+    .fill(
+      "Use your file reading tool to read the attached file. Report exactly the string printed by the code. Do not modify files.",
+    );
+  const posted = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.endsWith("/agent/attachment"),
+  );
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  const response = await posted;
+  expect(response.status()).toBe(200);
+  const result = await response.json();
+  expect(result.outcome).toBe("succeeded");
+  expect(result.sessionId).toBeTruthy();
+  await expect(
+    page.locator(".chat-message.agent.final").filter({
+      hasText: "MADE_ATTACHMENT_COBALT_72491",
+    }),
+  ).toHaveCount(1, { timeout: 240_000 });
+  const messages = (await history(request, result.sessionId)).messages;
+  expect(
+    messages.some(
+      (message) =>
+        message.type === "tool_use" && message.content.includes("bot.py"),
+    ),
+  ).toBe(true);
+  expect(
+    messages.some(
+      (message) =>
+        message.role === "assistant" &&
+        message.content.includes("MADE_ATTACHMENT_COBALT_72491"),
+    ),
+  ).toBe(true);
+});
+
 test("real CLI root, terminal resume/manual refresh, tools and executed polling refresh", async ({
   page,
   request,
