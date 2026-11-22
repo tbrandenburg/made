@@ -1,4 +1,4 @@
-"""Local HTTP history for OpenCode >= 2.0.18; never starts a service.
+"""Local HTTP history for OpenCode >= 2.0.18.
 
 Limits cover both attempts together: 30s, 201 pages, 10,000 records, 32MiB.
 Identity encoding prevents decompression bombs; raw reads are bounded to 64KiB.
@@ -17,6 +17,8 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
+import threading
 import time
 from typing import cast
 from urllib.parse import quote, urlsplit
@@ -45,6 +47,13 @@ class HistoryReadError(RuntimeError):
 
 class HistoryComplexityError(HistoryReadError):
     """The JSON lexical preflight rejected an over-complex response."""
+
+
+class HistoryServiceUnavailable(HistoryReadError):
+    """The local registration is absent or its service cannot be connected to."""
+
+
+_START_LOCK = threading.Lock()
 
 
 class SessionNotFound(HistoryReadError):
@@ -123,8 +132,6 @@ def _next_cursor(value: object) -> str | None:
 
 def _service(path: Path) -> tuple[str, str]:
     try:
-        if not path.is_file():
-            raise ValueError
         with path.open("rb") as file:
             info = object_value(json.loads(file.read(CHUNK_BYTES + 1)))
         raw, password = info.get("url"), info.get("password")
@@ -148,6 +155,10 @@ def _service(path: Path) -> tuple[str, str]:
             raise ValueError
         # Literal addresses only: no DNS lookup/rebinding or localhost aliases.
         return f"http://{parsed.netloc}", password
+    except FileNotFoundError:
+        raise HistoryServiceUnavailable(
+            "OpenCode local service registration is absent"
+        ) from None
     except (OSError, ValueError, TypeError, RecursionError, HistoryReadError):
         raise HistoryReadError(
             "OpenCode local service registration is unavailable or invalid"
@@ -208,6 +219,10 @@ class _Read:
                     envelope = None
                 self.remaining()
                 return response.status_code, envelope
+        except httpx.ConnectError:
+            raise HistoryServiceUnavailable(
+                "OpenCode local service connection failed"
+            ) from None
         except httpx.HTTPError:
             raise ServiceRetryableError(
                 "Unable to read OpenCode session history"
@@ -415,9 +430,39 @@ def _read_session(
         asyncio.get_running_loop()
     except RuntimeError:
         read = _Read(session_id, directory)
-        return asyncio.run(
-            read.run(path or registration_path(), allow_reduced=allow_reduced)
-        )
+        registration = path or registration_path()
+
+        def attempt() -> tuple[list[dict[str, object]], bool]:
+            return asyncio.run(read.run(registration, allow_reduced=allow_reduced))
+
+        try:
+            return attempt()
+        except HistoryServiceUnavailable:
+            if not allow_reduced or path is not None:
+                raise
+        if not _START_LOCK.acquire(timeout=read.remaining()):
+            raise HistoryServiceUnavailable("OpenCode service recovery timed out")
+        try:
+            try:
+                return attempt()
+            except HistoryServiceUnavailable:
+                pass
+            try:
+                subprocess.run(
+                    ["opencode", "api", "get", "/api/info"],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=read.remaining(),
+                    check=True,
+                )
+            except (OSError, subprocess.SubprocessError):
+                raise HistoryServiceUnavailable(
+                    "OpenCode service recovery failed"
+                ) from None
+            return attempt()
+        finally:
+            _START_LOCK.release()
     raise HistoryReadError("OpenCode synchronous history must run in a worker thread")
 
 

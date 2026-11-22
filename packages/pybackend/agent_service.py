@@ -1009,6 +1009,11 @@ def export_chat_history(
         safe_error = (result.error_message or "").lower()
         if "command not found" in safe_error:
             raise FileNotFoundError("Agent CLI command is not installed or unavailable")
+        if (
+            "opencode service recovery" in safe_error
+            or "opencode local service" in safe_error
+        ):
+            raise RuntimeError("OpenCode history service is unavailable")
         if "endpoint" in safe_error:
             raise RuntimeError("History service endpoint is unavailable")
         raise RuntimeError("Failed to export session history")

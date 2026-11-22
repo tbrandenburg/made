@@ -179,8 +179,8 @@ agent can read them without external-directory permission; they are ignored by
 Git and removed after the request finishes. The repository must be writable.
 
 The `opencode-v2` adapter reads selected-session history through OpenCode's
-authenticated local HTTP service. The service must be running; MADE does not
-start/restart it or fall back to SQLite. If JSON complexity prevents a full
+authenticated local HTTP service. MADE can discover or start the shared service
+if it is unavailable; it does not restart it or fall back to SQLite. If JSON complexity prevents a full
 snapshot, it retries newest-first and may return up to 50 recent records with a
 reduced-history warning. V2 session listing and activity detection still use
 SQLite. History reads support up to 10,000 records within shared resource

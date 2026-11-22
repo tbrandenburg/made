@@ -712,15 +712,15 @@ class MyAgentCLI(AgentCLI):
 
 ## Reference: Existing Implementations
 
-| File                             | Agent                                   | Session storage                                                                          | Prompt delivery           | Agent listing                                               |
-| -------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------- |
-| `opencode_database_agent_cli.py` | OpenCode                                | SQLite `~/.local/share/opencode/opencode.db`                                             | stdin                     | CLI subprocess                                              |
+| File                             | Agent                                   | Session storage                                                             | Prompt delivery                                | Agent listing                                               |
+| -------------------------------- | --------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------- |
+| `opencode_database_agent_cli.py` | OpenCode                                | SQLite `~/.local/share/opencode/opencode.db`                                | stdin                                          | CLI subprocess                                              |
 | `opencode_v2_agent_cli.py`       | OpenCode v2 (`agentCli: "opencode-v2"`) | Authenticated local HTTP selected-session snapshots; SQLite session listing | stdin with resolved cwd and matching child PWD | Built-ins plus global/project JSON and Markdown definitions |
-| `claude_agent_cli.py`            | Claude Code                             | JSONL `~/.claude/projects/<slug>/<id>.jsonl`                                             | positional arg            | `claude agents`                                             |
-| `codex_agent_cli.py`             | Codex                                   | JSONL `~/.codex/sessions/YYYY/MM/DD/rollout-<id>.jsonl`                                  | stdin                     | hardcoded                                                   |
-| `copilot_agent_cli.py`           | GitHub Copilot                          | Events JSONL `~/.copilot/session-state/<id>/events.jsonl`                                | `-p` flag                 | hardcoded                                                   |
-| `kiro_agent_cli.py`              | Kiro                                    | SQLite `~/.local/share/kiro-cli/data.sqlite3`                                            | stdin                     | `kiro-cli agent list`                                       |
-| `ob1_agent_cli.py`               | OB1                                     | JSON `~/.ob1/tmp/<project>/chats/session-*.json`                                         | `--prompt` flag           | hardcoded                                                   |
+| `claude_agent_cli.py`            | Claude Code                             | JSONL `~/.claude/projects/<slug>/<id>.jsonl`                                | positional arg                                 | `claude agents`                                             |
+| `codex_agent_cli.py`             | Codex                                   | JSONL `~/.codex/sessions/YYYY/MM/DD/rollout-<id>.jsonl`                     | stdin                                          | hardcoded                                                   |
+| `copilot_agent_cli.py`           | GitHub Copilot                          | Events JSONL `~/.copilot/session-state/<id>/events.jsonl`                   | `-p` flag                                      | hardcoded                                                   |
+| `kiro_agent_cli.py`              | Kiro                                    | SQLite `~/.local/share/kiro-cli/data.sqlite3`                               | stdin                                          | `kiro-cli agent list`                                       |
+| `ob1_agent_cli.py`               | OB1                                     | JSON `~/.ob1/tmp/<project>/chats/session-*.json`                            | `--prompt` flag                                | hardcoded                                                   |
 
 ### OpenCode v2 storage and acceptance
 
@@ -729,8 +729,10 @@ existing `opencode` v1 selector. Selected-session history uses the local V2
 HTTP service, discovered per export from
 `${XDG_STATE_HOME:-~/.local/state}/opencode/service.json`. Authenticate as
 `opencode` using its private password. Never expose registration values in
-logs, API errors, subprocess arguments, or browser state. Do not use a
-per-refresh CLI, a SQL history fallback, or automatic service lifecycle changes.
+logs, API errors, subprocess arguments, or browser state. On absent registration
+or connection failure only, use the bounded OpenCode API discovery command to
+recover the shared service and retry the snapshot; never restart a running service.
+Do not use a per-refresh CLI or a SQL history fallback.
 
 Validate session ID, root status and exact canonical `data.location.directory`
 before fetching messages and again after pagination. Start with `order=asc`

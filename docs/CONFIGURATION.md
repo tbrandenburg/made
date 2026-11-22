@@ -40,8 +40,11 @@ wait for the cache to expire before checking discovery.
 The `opencode` adapter reads saved history using read-only SQLite connections.
 V2 selected-session history uses the authenticated local HTTP service registered
 at `$XDG_STATE_HOME/opencode/service.json` (defaulting to
-`~/.local/state/opencode/service.json`). The service must be running; MADE does
-not start or restart it, invoke a per-refresh CLI, or fall back to SQLite.
+`~/.local/state/opencode/service.json`). When registration is absent or the
+registered service refuses connections, MADE invokes `opencode api get /api/info`
+once to discover or start the shared service, then retries the snapshot. It does
+not restart a running service, invoke the CLI on healthy refreshes, or fall back
+to SQLite. Recovery uses the backend user's environment and remaining deadline.
 Requests accept only literal loopback IP addresses over HTTP (not `localhost`
 or other DNS names), disable environment proxies and redirects, and are
 bounded across discovery/retry/pages to 30 seconds, 201 pages, 10,000 records,

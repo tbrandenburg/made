@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial changelog setup
 
+## [v0.2.2] - 2026-11-22
+
+### Fixed
+- Recover OpenCode v2 history when its local service is unavailable.
+
 ## [v0.2.1] - 2026-11-21
 
 ### Added
