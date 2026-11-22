@@ -145,6 +145,7 @@ function setupDefaultMocks() {
   vi.mocked(api.getRepositoryAgentChildSessions).mockResolvedValue({
     sessions: [],
   });
+  vi.mocked(api.getSettings).mockResolvedValue({ agentCli: "opencode" });
   vi.mocked(api.cancelRepositoryAgent).mockResolvedValue(undefined);
   // Prevent destructure errors from secondary page data loads.
   vi.mocked(api.getAgents).mockResolvedValue({ agents: [] });
@@ -305,6 +306,49 @@ describe("RepositoryPage session selection", () => {
         undefined,
         expect.anything(),
       );
+    });
+  });
+
+  it("URL session overrides the repository's stored latest session", async () => {
+    localStorage.setItem(
+      "repository-session-test-repo-opencode",
+      "latest-session",
+    );
+
+    renderPage(["/repositories/test-repo?tab=agent&session=linked-session"]);
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenCalledWith(
+        "test-repo",
+        "linked-session",
+        undefined,
+        expect.anything(),
+      );
+      expect(
+        localStorage.getItem("repository-session-test-repo-opencode"),
+      ).toBe("linked-session");
+    });
+  });
+
+  it("keeps the URL session when settings switch the agent CLI", async () => {
+    localStorage.setItem(
+      "repository-session-test-repo-opencode-v2",
+      "latest-v2-session",
+    );
+    vi.mocked(api.getSettings).mockResolvedValue({ agentCli: "opencode-v2" });
+
+    renderPage(["/repositories/test-repo?tab=agent&session=linked-session"]);
+
+    await waitFor(() => {
+      expect(api.getRepositoryAgentHistory).toHaveBeenLastCalledWith(
+        "test-repo",
+        "linked-session",
+        undefined,
+        expect.anything(),
+      );
+      expect(
+        localStorage.getItem("repository-session-test-repo-opencode-v2"),
+      ).toBe("linked-session");
     });
   });
 });

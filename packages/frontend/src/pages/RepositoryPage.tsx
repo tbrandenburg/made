@@ -536,6 +536,11 @@ export const RepositoryPage: React.FC = () => {
     null,
     name,
   );
+  const urlSessionOverrideRef = useRef<{
+    name: string;
+    sessionId: string;
+    storageKey: string;
+  } | null>(null);
   const [savedSessionIds, setSavedSessionIds] = usePersistentStringList(
     savedSessionStorageKey,
   );
@@ -889,6 +894,14 @@ export const RepositoryPage: React.FC = () => {
       getChatBootstrapParams(searchParams);
     if (!incomingSessionId && !incomingMessage) return;
 
+    if (name && incomingSessionId) {
+      urlSessionOverrideRef.current = {
+        name,
+        sessionId: incomingSessionId,
+        storageKey: sessionStorageKey,
+      };
+    }
+
     const switchSessionIfNeeded = () => {
       if (!name || !incomingSessionId || incomingSessionId === sessionId) {
         return;
@@ -949,6 +962,23 @@ export const RepositoryPage: React.FC = () => {
       setSearchParams(nextParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const override = urlSessionOverrideRef.current;
+    if (!override || override.name !== name) {
+      urlSessionOverrideRef.current = null;
+      return;
+    }
+    if (override.storageKey === sessionStorageKey) return;
+
+    urlSessionOverrideRef.current = null;
+    setSessionId(override.sessionId);
+    try {
+      localStorage.setItem(sessionStorageKey, override.sessionId);
+    } catch {
+      // localStorage unavailable
+    }
+  }, [name, sessionStorageKey, setSessionId]);
 
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const chatMarkdownOptions = useMemo(
