@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.4] - 2026-11-25
+
+### Security
+- Update TypeScript-ESLint beyond the affected range and force patched minimatch where compatible.
+- Remove unused npm-run-all2 dependency.
+- Stryker 9.6.1 still pins vulnerable minimatch 10.2.6; npm currently reports no available fix for that development-only dependency.
+
 ### Added
 - Initial changelog setup
 
@@ -39,5 +46,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Node.js frontend with npm workspaces
 - Playwright E2E testing framework
 
-[Unreleased]: https://github.com/tbrandenburg/made/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/tbrandenburg/made/compare/v0.2.4...HEAD
+[v0.2.4]: https://github.com/tbrandenburg/made/releases/tag/v0.2.4
 [v0.1.0]: https://github.com/tbrandenburg/made/releases/tag/v0.1.0
