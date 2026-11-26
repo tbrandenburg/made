@@ -397,6 +397,28 @@ describe("RepositoryPage lifecycle guards", () => {
     );
   });
 
+  it("while the agent runs: Cancel on empty input, Send once text is typed", async () => {
+    vi.mocked(api.getRepositoryAgentStatus).mockResolvedValue({
+      running: true,
+    });
+    renderPage(["/repositories/test-repo?tab=agent&sessionId=session-a"]);
+    const input = screen.getByPlaceholderText(
+      "Describe the change or ask the agent...",
+    );
+
+    await screen.findByRole("button", { name: "Cancel" });
+    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+    expect(input).toBeEnabled();
+
+    fireEvent.change(input, { target: { value: "also check the tests" } });
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
+
+    fireEvent.change(input, { target: { value: "  " } });
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+  });
+
   it("loads repository commands on mount", async () => {
     renderPage();
 

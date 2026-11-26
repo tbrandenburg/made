@@ -2146,7 +2146,7 @@ export const RepositoryPage: React.FC = () => {
               </label>
             </div>
             <div className="chat-controls__right">
-              {chatAgentProcessing ? (
+              {chatAgentProcessing && (!pendingPrompt.trim() || !sessionId) ? (
                 <button
                   className="danger"
                   onClick={handleCancel}
@@ -2158,7 +2158,10 @@ export const RepositoryPage: React.FC = () => {
                 <button
                   className="primary"
                   onClick={() => handleSendMessage()}
-                  disabled={!pendingPrompt.trim() || chatAgentProcessing}
+                  disabled={
+                    !pendingPrompt.trim() ||
+                    (chatAgentProcessing && Boolean(chatAttachment))
+                  }
                 >
                   Send
                 </button>

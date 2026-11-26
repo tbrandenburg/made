@@ -604,7 +604,7 @@ export const ConstitutionPage: React.FC = () => {
                 />
               </div>
               <div className="chat-controls__right">
-                {chatAgentProcessing ? (
+                {chatAgentProcessing && (!prompt.trim() || !sessionId) ? (
                   <button className="danger" onClick={handleCancel}>
                     Cancel
                   </button>
