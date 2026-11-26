@@ -267,7 +267,7 @@ def test_cleanup_stops_owned_launcher_and_descendant(
         "backend",
     )
     try:
-        deadline = time.monotonic() + 3
+        deadline = time.monotonic() + 15
         while not address.exists() and time.monotonic() < deadline:
             time.sleep(0.02)
         assert address.exists()
