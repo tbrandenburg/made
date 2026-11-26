@@ -6,12 +6,7 @@ from time import monotonic
 from typing import Literal
 from uuid import uuid4
 
-from agent_service import (
-    MessageReservation,
-    release_agent_message,
-    reserve_agent_message,
-    send_agent_message,
-)
+from agent_service import send_agent_message
 
 MAX_PENDING = 8  # Leave headroom in Starlette's shared default 40-token pool.
 MAX_RECORDS = 128
@@ -60,23 +55,16 @@ def _prune() -> None:
         _submissions.pop(job.id)
 
 
-def accept_submission(
-    repository: str, session_id: str | None
-) -> tuple[Submission, MessageReservation]:
+def accept_submission(repository: str) -> Submission:
     with _lock:
         _prune()
         pending = sum(job.completed is None for job in _submissions.values())
         if pending >= MAX_PENDING:
             raise SubmissionCapacityError()
-        owner = reserve_agent_message(repository, session_id)
-        try:
-            job = Submission(str(uuid4()), repository)
-            _submissions[job.id] = job
-            _prune()
-            return job, owner
-        except BaseException:
-            release_agent_message(owner)
-            raise
+        job = Submission(str(uuid4()), repository)
+        _submissions[job.id] = job
+        _prune()
+        return job
 
 
 def get_submission(repository: str, job_id: str) -> Submission | None:
@@ -86,8 +74,7 @@ def get_submission(repository: str, job_id: str) -> Submission | None:
         return job if job is not None and job.repository == repository else None
 
 
-def fail_scheduling(job: Submission, owner: MessageReservation) -> None:
-    release_agent_message(owner)
+def fail_scheduling(job: Submission) -> None:
     with _lock:
         _submissions[job.id] = replace(
             job, state="failed", error="scheduling", completed=monotonic()
@@ -97,7 +84,6 @@ def fail_scheduling(job: Submission, owner: MessageReservation) -> None:
 
 def run_submission(
     job: Submission,
-    owner: MessageReservation,
     message: str,
     session_id: str | None,
     agent: str | None,
@@ -111,9 +97,7 @@ def run_submission(
         _submissions[job.id] = running
     completed = replace(running, state="failed", error="execution")
     try:
-        result = send_agent_message(
-            job.repository, message, session_id, agent, model, reservation=owner
-        )
+        result = send_agent_message(job.repository, message, session_id, agent, model)
         session = result.get("sessionId")
         if result.get("outcome") == "succeeded" and valid_session_id(session):
             completed = replace(running, state="succeeded", session_id=session)
@@ -123,7 +107,6 @@ def run_submission(
         # Never retain/log raw adapter exceptions, prompts or CLI output.
         completed = replace(running, state="failed", error="execution")
     finally:
-        release_agent_message(owner)
         with _lock:
             _submissions[job.id] = replace(completed, completed=monotonic())
             _prune()
