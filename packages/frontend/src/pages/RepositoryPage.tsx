@@ -13,6 +13,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
+import { showCancel } from "../utils/chatControls";
 import { renderMarkdown } from "../utils/markdown";
 import { Panel } from "../components/Panel";
 import { BuildTasksTab } from "../components/BuildTasksTab";
@@ -2146,7 +2147,7 @@ export const RepositoryPage: React.FC = () => {
               </label>
             </div>
             <div className="chat-controls__right">
-              {chatAgentProcessing && (!pendingPrompt.trim() || !sessionId) ? (
+              {showCancel(chatAgentProcessing, pendingPrompt, sessionId) ? (
                 <button
                   className="danger"
                   onClick={handleCancel}
