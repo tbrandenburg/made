@@ -19,14 +19,13 @@ def test_repository_agent_attachment_stages_unique_files(tmp_path, monkeypatch):
     paths = []
     values = iter((b"first", b"second"))
 
-    def dispatch(name, message, session_id, agent, model, *, reservation):
+    def dispatch(name, message, session_id, agent, model):
         assert (name, session_id, agent, model) == (
             "sample",
             "session-a",
             "reviewer",
             "model-a",
         )
-        reservation.process_started = True
         path = Path(message.split("`")[1])
         assert path.parent.parent.parent == workspace / "sample"
         assert path.name == "requirements.md" and path.read_bytes() == next(values)
@@ -99,8 +98,7 @@ def test_repository_agent_attachment_accepts_broad_file_types(
     (tmp_path / "sample").mkdir()
     monkeypatch.setenv("MADE_WORKSPACE_HOME", str(tmp_path))
 
-    def dispatch(name, message, session_id, agent, model, *, reservation):
-        reservation.process_started = True
+    def dispatch(name, message, session_id, agent, model):
         path = Path(message.split("`")[1])
         assert path.name == filename and path.read_bytes() == contents
         return {"prompt": message}

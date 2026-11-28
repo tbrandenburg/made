@@ -8,7 +8,6 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from agent_service import ChannelBusyError
 
 from app import app
 
@@ -681,17 +680,6 @@ class TestRepositoryEndpoints:
         assert response.status_code == 200
         assert response.json() == {"repository": "sample", "template": "starter"}
         mock_apply_template.assert_called_once_with("sample", "starter")
-
-    @patch("app.send_agent_message")
-    def test_repository_agent_busy(self, mock_send):
-        mock_send.side_effect = ChannelBusyError("busy")
-
-        response = client.post(
-            "/api/repositories/sample/agent", json={"message": "hello"}
-        )
-
-        assert response.status_code == 409
-        assert "busy" in response.json()["detail"]
 
     @patch("app.get_channel_status")
     def test_repository_agent_status(self, mock_status):

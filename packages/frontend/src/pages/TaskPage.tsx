@@ -12,6 +12,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
+import { showCancel } from "../utils/chatControls";
 import { renderMarkdown } from "../utils/markdown";
 import { Panel } from "../components/Panel";
 import { TabView } from "../components/TabView";
@@ -540,7 +541,7 @@ export const TaskPage: React.FC = () => {
                     />
                   </div>
                   <div className="chat-controls__right">
-                    {chatAgentProcessing ? (
+                    {showCancel(chatAgentProcessing, prompt, sessionId) ? (
                       <button className="danger" onClick={handleCancel}>
                         Cancel
                       </button>

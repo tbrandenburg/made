@@ -5,7 +5,7 @@ import re
 import signal
 import subprocess
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Event, Lock
@@ -26,323 +26,63 @@ from settings_service import read_settings
 
 logger = logging.getLogger(__name__)
 
-_REGISTRY_PATH: Path | None = None
-_process_registry: dict[str, dict[str, object]] = {}
-_processing_lock = Lock()
-_processing_channels: dict[str, datetime] = {}
-_cancelled_channels: set[str] = set()
-_active_processes: dict[str, subprocess.Popen[str]] = {}
-_cancel_events: dict[str, Event] = {}
+_SESSIONS_PATH: Path | None = None
+_state_lock = Lock()
 _conversation_sessions: dict[str, str] = {}
 
 
 @dataclass(eq=False)
-class MessageReservation:
+class AgentRun:
+    """One in-flight CLI invocation. Concurrency is the agent CLI's concern."""
+
     key: str
     cancel: Event = field(default_factory=Event)
-    running: bool = False
-    process_started: bool = False
+    process: subprocess.Popen[str] | None = None
     outcome: Literal["succeeded", "failed", "cancelled"] | None = None
 
 
-_processing_owners: dict[str, MessageReservation] = {}
-
-_MAX_PROCESSING_AGE = timedelta(hours=2)
+_active_runs: dict[str, set[AgentRun]] = {}
 
 
-def _get_registry_path() -> Path:
-    global _REGISTRY_PATH
-    if _REGISTRY_PATH is None:
-        _REGISTRY_PATH = get_made_directory() / "agent_processing.json"
-    return _REGISTRY_PATH
+def _get_sessions_path() -> Path:
+    global _SESSIONS_PATH
+    if _SESSIONS_PATH is None:
+        _SESSIONS_PATH = get_made_directory() / "agent_processing.json"
+    return _SESSIONS_PATH
 
 
-def _get_agent_state_path() -> Path:
-    return _get_registry_path()
-
-
-def _load_process_registry() -> None:
-    path = _get_registry_path()
+def _load_conversation_sessions() -> None:
+    path = _get_sessions_path()
     if not path.exists():
         return
-
     try:
         data = json.loads(path.read_text())
-        if not isinstance(data, dict):
-            raise ValueError("Invalid registry payload")
-
-        # Support new wrapper format: {"registry": {...}, "conversationSessions": {...}}
-        # Fall back to old flat format for backward compatibility.
-        if "registry" in data and isinstance(data["registry"], dict):
-            registry_data: dict = data["registry"]
-            sessions_data: dict = data.get("conversationSessions") or {}
-        else:
-            registry_data = data
-            sessions_data = {}
-
-        now = datetime.now(UTC)
-        fresh: dict[str, dict[str, object]] = {}
-        for key, value in registry_data.items():
-            if not isinstance(key, str):
-                continue
-
-            entry: dict[str, object] | None = None
-            if isinstance(value, str):
-                entry = {
-                    "pid": None,
-                    "startedAt": value,
-                    "channel": key,
-                    "sessionId": None,
-                    "agent": None,
-                    "workingDirectory": None,
-                    "cancelled": False,
-                }
-            elif isinstance(value, dict):
-                started_at = value.get("startedAt")
-                if not isinstance(started_at, str):
-                    continue
-
-                pid = value.get("pid")
-                if isinstance(pid, str) and pid.isdigit():
-                    pid = int(pid)
-                elif not isinstance(pid, int):
-                    pid = None
-
-                channel = value.get("channel")
-                session_id = value.get("sessionId")
-                agent = value.get("agent")
-                working_directory = value.get("workingDirectory")
-                entry = {
-                    "pid": pid,
-                    "startedAt": started_at,
-                    "channel": channel if isinstance(channel, str) else key,
-                    "sessionId": session_id if isinstance(session_id, str) else None,
-                    "agent": agent if isinstance(agent, str) else None,
-                    "workingDirectory": (
-                        working_directory
-                        if isinstance(working_directory, str)
-                        else None
-                    ),
-                    "cancelled": bool(value.get("cancelled", False)),
-                }
-
-            if entry is None:
-                continue
-
-            try:
-                started_at_dt = datetime.fromisoformat(str(entry["startedAt"]))
-            except (TypeError, ValueError):
-                continue
-
-            if now - started_at_dt <= _MAX_PROCESSING_AGE:
-                fresh[key] = entry
-
-        with _processing_lock:
-            _process_registry.clear()
-            _process_registry.update(fresh)
-            # Restore conversation sessions from persisted data (issue #691)
-            if isinstance(sessions_data, dict):
-                for k, v in sessions_data.items():
-                    if isinstance(k, str) and isinstance(v, str):
-                        _conversation_sessions[k] = v
+        sessions = data.get("conversationSessions") if isinstance(data, dict) else None
+        if not isinstance(sessions, dict):
+            return
+        with _state_lock:
+            for key, value in sessions.items():
+                if isinstance(key, str) and isinstance(value, str):
+                    _conversation_sessions[key] = value
     except Exception:
-        logger.warning("Failed to load agent process registry", exc_info=True)
-        with _processing_lock:
-            _process_registry.clear()
+        logger.warning("Failed to load conversation sessions", exc_info=True)
 
 
-def _save_process_registry() -> None:
-    path = _get_registry_path()
+def _save_conversation_sessions() -> None:
     try:
-        with _processing_lock:
-            registry_snapshot = dict(_process_registry)
-            sessions_snapshot = dict(_conversation_sessions)
-        payload = {
-            "registry": registry_snapshot,
-            "conversationSessions": sessions_snapshot,
-        }
-        path.write_text(json.dumps(payload, indent=2))
+        with _state_lock:
+            snapshot = dict(_conversation_sessions)
+        _get_sessions_path().write_text(
+            json.dumps({"conversationSessions": snapshot}, indent=2)
+        )
     except Exception:
-        logger.warning("Failed to persist agent process registry", exc_info=True)
+        logger.warning("Failed to persist conversation sessions", exc_info=True)
 
 
-def _find_process_registry_entry_locked(
-    lock_key: str,
-) -> tuple[str, dict[str, object]] | None:
-    entry = _process_registry.get(lock_key)
-    if entry is not None:
-        return lock_key, dict(entry)
-
-    for key, value in _process_registry.items():
-        if value.get("sessionId") == lock_key or value.get("channel") == lock_key:
-            return key, dict(value)
-    return None
+_load_conversation_sessions()
 
 
-def _find_process_registry_entry(
-    lock_key: str,
-) -> tuple[str, dict[str, object]] | None:
-    with _processing_lock:
-        return _find_process_registry_entry_locked(lock_key)
-
-
-def _is_pid_alive(pid: object) -> bool:
-    if not isinstance(pid, int) or pid <= 0:
-        return False
-
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
-
-
-def _record_process(
-    registry_key: str,
-    pid: int,
-    started_at: datetime,
-    *,
-    channel: str,
-    session_id: str | None = None,
-    agent: str | None = None,
-    working_directory: str | None = None,
-) -> None:
-    entry = {
-        "pid": pid,
-        "startedAt": started_at.isoformat(),
-        "channel": channel,
-        "sessionId": session_id,
-        "agent": agent,
-        "workingDirectory": working_directory,
-        "cancelled": False,
-    }
-    with _processing_lock:
-        _process_registry[registry_key] = entry
-        if session_id and session_id != registry_key:
-            _process_registry[session_id] = dict(entry)
-    _save_process_registry()
-
-
-def _remove_process_locked(lock_key: str) -> None:
-    keys_to_remove = {lock_key}
-    for key, value in _process_registry.items():
-        if value.get("sessionId") == lock_key or value.get("channel") == lock_key:
-            keys_to_remove.add(key)
-            session_id = value.get("sessionId")
-            if isinstance(session_id, str):
-                keys_to_remove.add(session_id)
-            channel = value.get("channel")
-            if isinstance(channel, str):
-                keys_to_remove.add(channel)
-
-    for key in keys_to_remove:
-        if key not in _processing_owners:
-            _process_registry.pop(key, None)
-
-
-def _remove_process(lock_key: str) -> None:
-    with _processing_lock:
-        _remove_process_locked(lock_key)
-    _save_process_registry()
-
-
-def _cleanup_process_locked(lock_key: str) -> None:
-    """Atomically clean all 4 in-memory structures + registry for a process.
-
-    Caller MUST hold ``_processing_lock``.  Registry persistence is deferred:
-    call ``_dump_processing_state()`` (or set ``needs_dump = True``) after
-    releasing the lock.
-    """
-    related = _get_related_processing_keys(lock_key)
-    if any(key in _processing_owners for key in related):
-        return
-    for key in related:
-        _processing_channels.pop(key, None)
-        _cancelled_channels.discard(key)
-        _active_processes.pop(key, None)
-        _cancel_events.pop(key, None)
-    _remove_process_locked(lock_key)
-
-
-def _dump_processing_state() -> None:
-    _save_process_registry()
-
-
-def _load_processing_state() -> dict[str, datetime]:
-    _load_process_registry()
-    with _processing_lock:
-        snapshot = dict(_process_registry)
-
-    now = datetime.now(UTC)
-    state: dict[str, datetime] = {}
-    for key, entry in snapshot.items():
-        started_at = entry.get("startedAt")
-        if not isinstance(started_at, str):
-            continue
-
-        try:
-            started_at_dt = datetime.fromisoformat(started_at)
-        except (TypeError, ValueError):
-            continue
-
-        if now - started_at_dt < _MAX_PROCESSING_AGE:
-            state[key] = started_at_dt
-
-    # Populate _processing_channels from the loaded registry so that
-    # stale-entry detection works correctly after a backend restart.
-    with _processing_lock:
-        _processing_channels.update(state)
-
-    return state
-
-
-def _purge_dead_processing_entries() -> None:
-    """Remove stale entries from _processing_channels at startup.
-
-    An entry is considered stale when there is no positive evidence of a live
-    process: no live Popen in ``_active_processes`` AND no live PID in the
-    registry.  Should be called once after ``_load_processing_state()``.
-    """
-    now = datetime.now(UTC)
-    with _processing_lock:
-        keys = list(_processing_channels.keys())
-    for key in keys:
-        with _processing_lock:
-            if key not in _processing_channels:
-                continue  # Already removed by a previous iteration
-            if key in _processing_owners:
-                continue
-            started_at = _processing_channels.get(key)
-            if started_at is not None and now - started_at > _MAX_PROCESSING_AGE:
-                # Too old: remove regardless of PID liveness
-                _processing_channels.pop(key, None)
-                _cancelled_channels.discard(key)
-                _active_processes.pop(key, None)
-                _cancel_events.pop(key, None)
-                continue
-            process = _active_processes.get(key)
-            if process is not None and process.poll() is None:
-                continue  # Live Popen: keep
-            registry_entry = _find_process_registry_entry_locked(key)
-            if registry_entry is not None and _is_pid_alive(
-                registry_entry[1].get("pid")
-            ):
-                continue  # Live PID in registry: keep
-            # No positive evidence of a live process: remove stale entry
-            _processing_channels.pop(key, None)
-            _cancelled_channels.discard(key)
-            _active_processes.pop(key, None)
-            _cancel_events.pop(key, None)
-
-
-# Populate _processing_channels and purge dead entries at module load.
-_load_processing_state()
-_purge_dead_processing_entries()
-
-
-def _get_related_processing_keys(lock_key: str) -> set[str]:
+def _get_related_keys(lock_key: str) -> set[str]:
     related = {lock_key}
     for k, v in list(_conversation_sessions.items()):
         if k == lock_key or v == lock_key:
@@ -400,10 +140,6 @@ def get_agent_cli(context_path: Path | None = None):
 
 # Backward compatibility for tests
 AGENT_CLI = get_agent_cli()
-
-
-class ChannelBusyError(RuntimeError):
-    """Raised when a chat channel already has a pending request."""
 
 
 class SessionDirectoryMismatchError(RuntimeError):
@@ -507,291 +243,49 @@ def _resolve_part_timestamp(
     return fallback
 
 
-def _mark_channel_processing(
-    channel: str, owner: MessageReservation | None = None
-) -> bool:
-    with _processing_lock:
-        if channel in _processing_owners:
-            return False
-        if channel in _processing_channels:
-            process = _active_processes.get(channel)
-            # Positive evidence check: live Popen → truly busy
-            if process is not None and process.poll() is None:
-                return False
-            # No live Popen: check registry for a live PID
-            registry_entry = _find_process_registry_entry_locked(channel)
-            if registry_entry is not None and _is_pid_alive(
-                registry_entry[1].get("pid")
-            ):
-                return False  # Live PID in registry: truly busy
-            # No positive evidence of a live process: treat entry as stale
-            _processing_channels.pop(channel, None)
-            _cancelled_channels.discard(channel)
-            _active_processes.pop(channel, None)
-            _cancel_events.pop(channel, None)
-        _processing_channels[channel] = datetime.now(UTC)
-        if owner is not None:
-            _processing_owners[channel] = owner
-            _cancel_events[channel] = owner.cancel
-    _dump_processing_state()
-    return True
+def start_agent_run(key: str) -> AgentRun:
+    run = AgentRun(key)
+    with _state_lock:
+        _active_runs.setdefault(key, set()).add(run)
+    return run
 
 
-def _clear_channel_processing(channel: str) -> None:
-    with _processing_lock:
-        if any(
-            key in _processing_owners for key in _get_related_processing_keys(channel)
-        ):
+def end_agent_run(run: AgentRun) -> None:
+    with _state_lock:
+        runs = _active_runs.get(run.key)
+        if runs is None:
             return
-        for key in _get_related_processing_keys(channel):
-            _processing_channels.pop(key, None)
-            _cancelled_channels.discard(key)
-            _active_processes.pop(key, None)
-            _cancel_events.pop(key, None)
-    _remove_process(channel)
-    _dump_processing_state()
+        runs.discard(run)
+        if not runs:
+            _active_runs.pop(run.key, None)
 
 
-def reserve_agent_message(
-    channel: str, session_id: str | None = None
-) -> MessageReservation:
-    owner = MessageReservation(session_id or channel)
-    try:
-        if not _mark_channel_processing(owner.key, owner):
-            raise ChannelBusyError(
-                "Agent is still processing a previous message for this chat."
-            )
-    except BaseException:
-        release_agent_message(owner)
-        raise
-    return owner
-
-
-def release_agent_message(owner: MessageReservation) -> None:
-    """Only the matching request may release admission, including after cancellation."""
-    with _processing_lock:
-        if _processing_owners.get(owner.key) is not owner:
-            return
-        _processing_owners.pop(owner.key)
-        _processing_channels.pop(owner.key, None)
-        _cancelled_channels.discard(owner.key)
-        _active_processes.pop(owner.key, None)
-        _cancel_events.pop(owner.key, None)
-        _process_registry.pop(owner.key, None)
-    _dump_processing_state()
-
-
-def _commit_message_outcome(
-    owner: MessageReservation, success: bool = False
-) -> Literal["succeeded", "failed", "cancelled"]:
-    """Commit once against cancellation; retain admission until owner cleanup."""
-    with _processing_lock:
-        if owner.outcome is None:
-            owner.outcome = (
-                "cancelled"
-                if owner.cancel.is_set()
-                else "succeeded"
-                if success
-                else "failed"
-            )
-        return owner.outcome
-
-
-def _mark_channel_cancelled(channel: str) -> None:
-    with _processing_lock:
-        _cancelled_channels.add(channel)
-
-
-def _register_cancel_event(channel: str) -> Event:
-    cancel_event = Event()
-    with _processing_lock:
-        _cancel_events[channel] = cancel_event
-    return cancel_event
-
-
-def _register_active_process(channel: str, process: subprocess.Popen[str]) -> None:
-    with _processing_lock:
-        _active_processes[channel] = process
-
-
-def _was_channel_cancelled(channel: str) -> bool:
-    with _processing_lock:
-        return channel in _cancelled_channels
+def _runs_for(lock_key: str) -> list[AgentRun]:
+    return [
+        run for key in _get_related_keys(lock_key) for run in _active_runs.get(key, ())
+    ]
 
 
 def cancel_agent_message(lock_key: str) -> bool:
-    """Cancel an active agent message for the given lock key."""
-    with _processing_lock:
-        owner = _processing_owners.get(lock_key)
-        if owner is None:
-            owner = next(
-                (
-                    _processing_owners[key]
-                    for key in _get_related_processing_keys(lock_key)
-                    if key in _processing_owners
-                ),
-                None,
-            )
-        if owner is not None:
-            if owner.outcome is not None:
-                return False
-            owner.cancel.set()
-            process = _active_processes.get(owner.key)
-            queued = not owner.running
-    if owner is not None:
-        if queued:
-            release_agent_message(owner)
+    """Cancel every run Made started for this chat; True if any was active."""
+    with _state_lock:
+        runs = [run for run in _runs_for(lock_key) if run.outcome is None]
+    for run in runs:
+        run.cancel.set()
+        process = run.process
         if process is not None and process.poll() is None:
             process.terminate()
             try:
                 process.wait(timeout=1)
             except subprocess.TimeoutExpired:
                 process.kill()
-        return True
-    cancel_event = None
-    process = None
-    started_at = None
-    registry_entry: tuple[str, dict[str, object]] | None = _find_process_registry_entry(
-        lock_key
-    )
-
-    with _processing_lock:
-        started_at = _processing_channels.get(lock_key)
-        if started_at is None:
-            # Fallback 1: reverse lookup via _conversation_sessions mapping.
-            for ch, sid in list(_conversation_sessions.items()):
-                if sid == lock_key:
-                    started_at = _processing_channels.get(ch)
-                    if started_at is not None:
-                        _processing_channels[lock_key] = started_at
-                    break
-
-    if started_at is None:
-        if registry_entry is None:
-            return False
-
-        started_at_str = registry_entry[1].get("startedAt")
-        if isinstance(started_at_str, str):
-            try:
-                started_at = datetime.fromisoformat(started_at_str)
-            except (TypeError, ValueError):
-                started_at = datetime.now(UTC)
-        else:
-            started_at = datetime.now(UTC)
-        with _processing_lock:
-            _processing_channels[lock_key] = started_at
-
-    with _processing_lock:
-        related = _get_related_processing_keys(lock_key)
-        for key in dict.fromkeys(related):
-            candidate_cancel_event = _cancel_events.get(key)
-            candidate_process = _active_processes.get(key)
-            if candidate_process is not None and candidate_process.poll() is None:
-                cancel_event = candidate_cancel_event
-                process = candidate_process
-                break
-            if cancel_event is None:
-                cancel_event = candidate_cancel_event
-            if process is None:
-                process = candidate_process
-
-    if process is None:
-        pid = registry_entry[1].get("pid") if registry_entry is not None else None
-        if not isinstance(pid, int):
-            _clear_channel_processing(lock_key)
-            return False
-        pid_to_kill: int | None = pid
-    elif process.poll() is not None:
-        pid = registry_entry[1].get("pid") if registry_entry is not None else None
-        if not isinstance(pid, int):
-            _clear_channel_processing(lock_key)
-            return False
-        pid_to_kill = pid
-        process = None
-    else:
-        pid_to_kill = None
-
-    with _processing_lock:
-        related = _get_related_processing_keys(lock_key)
-        for key in dict.fromkeys(related):
-            _cancelled_channels.add(key)
-            _processing_channels.pop(key, None)
-            _cancel_events.pop(key, None)
-            _active_processes.pop(key, None)
-
-    _remove_process(lock_key)
-    _dump_processing_state()
-
-    if cancel_event:
-        cancel_event.set()
-    if process is not None:
-        process.terminate()
-        try:
-            process.wait(timeout=1)
-        except subprocess.TimeoutExpired:
-            process.kill()
-    elif pid_to_kill is not None:
-        try:
-            os.kill(pid_to_kill, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-    return True
+    return bool(runs)
 
 
 def get_channel_status(lock_key: str) -> dict[str, object]:
-    needs_dump = False
-
-    # --- STEP 0: Propagate lock key for reverse session_id → channel lookups ---
-    # If lock_key is a session_id that maps to a channel which holds the lock,
-    # copy that lock entry under lock_key so Steps 1/2 can find it directly.
-    with _processing_lock:
-        if any(
-            key in _processing_owners for key in _get_related_processing_keys(lock_key)
-        ):
-            return {"running": True}
-        if (
-            lock_key not in _conversation_sessions
-            and lock_key not in _processing_channels
-        ):
-            for ch, sid in list(_conversation_sessions.items()):
-                if sid == lock_key and ch in _processing_channels:
-                    _processing_channels[lock_key] = _processing_channels[ch]
-                    break
-
-    # --- STEP 1: _active_processes (live Popen – most authoritative) ---
-    # A Popen object never lies: poll() == None means the process is alive.
-    with _processing_lock:
-        process = _active_processes.get(lock_key)
-        if lock_key in _processing_owners:
-            return {"running": True}
-        if process is not None:
-            if process.poll() is None:
-                return {"running": True}
-            # Process confirmed exited – atomically clean all 4 structures + registry.
-            _cleanup_process_locked(lock_key)
-            needs_dump = True
-
-    # --- STEP 2: _processing_channels + registry pid cross-check ---
-    # An in-memory entry exists but there is no live Popen.  Cross-check the
-    # registry to confirm whether the underlying pid is still alive.
-    with _processing_lock:
-        if lock_key in _processing_owners:
-            return {"running": True}
-        started_at = _processing_channels.get(lock_key)
-        if started_at is not None:
-            registry_entry = _find_process_registry_entry_locked(lock_key)
-            if registry_entry is not None and _is_pid_alive(
-                registry_entry[1].get("pid")
-            ):
-                return {"running": True}
-            # Registry pid is dead or absent – stale entry; clean up atomically.
-            _cleanup_process_locked(lock_key)
-            needs_dump = True
-
-    if needs_dump:
-        _dump_processing_state()
-
-    return {"running": False}
+    """Whether a CLI run started by this backend is still in flight."""
+    with _state_lock:
+        return {"running": bool(_runs_for(lock_key))}
 
 
 def _get_registered_agent_executables() -> set[str]:
@@ -1192,157 +686,116 @@ def _parse_agent_list(output: str) -> list[dict[str, object]]:
     return agents
 
 
+def _result(
+    message: str,
+    session: str | None,
+    response: str,
+    outcome: str,
+    *,
+    processing: bool = False,
+) -> dict[str, object]:
+    return {
+        "messageId": str(int(time.time() * 1000)),
+        "sent": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "prompt": message,
+        "response": response,
+        "sessionId": session,
+        "processing": processing,
+        "outcome": outcome,
+    }
+
+
 def send_agent_message(
     channel: str,
     message: str,
     session_id: str | None = None,
     agent: str | None = None,
     model: str | None = None,
-    *,
-    reservation: MessageReservation | None = None,
 ):
+    """Run the agent CLI. Overlapping messages are left to the CLI to queue."""
     lock_key = session_id if session_id else channel
-    owner = reservation or reserve_agent_message(channel, session_id)
-    if owner.key != lock_key:
-        raise ValueError("Reservation does not match chat")
-    cancel_event = owner.cancel
+    run = start_agent_run(lock_key)
     working_dir = None
     active_session = session_id
-    with _processing_lock:
-        if owner.running:
-            raise ChannelBusyError("Reservation has been consumed")
-        if _processing_owners.get(lock_key) is not owner:
-            cancel_event.set()
-        owner.running = True
     try:
-        # Check if cancelled before running
-        if cancel_event.is_set() or _was_channel_cancelled(lock_key):
-            _commit_message_outcome(owner)
-            sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-            return {
-                "messageId": str(int(time.time() * 1000)),
-                "sent": sent_at,
-                "prompt": message,
-                "response": "Agent request cancelled.",
-                "sessionId": _conversation_sessions.get(lock_key),
-                "processing": False,
-                "outcome": "cancelled",
-            }
-        else:
-            working_dir = _get_working_directory(channel)
-            with _processing_lock:
-                if session_id:
-                    _conversation_sessions[lock_key] = session_id
-                else:
-                    _conversation_sessions.pop(lock_key, None)
-            # Use typed interface
-            agent_cli = get_agent_cli(working_dir)
-            start_time = time.monotonic()
-            resolved_model = model if model and model != "default" else None
-
-            def on_process(process: subprocess.Popen[str]) -> None:
-                owner.process_started = True
-                _register_active_process(lock_key, process)
-                _record_process(
-                    lock_key,
-                    process.pid,
-                    datetime.now(UTC),
-                    channel=channel,
-                    session_id=active_session,
-                    agent=agent,
-                    working_directory=str(working_dir),
-                )
-                if cancel_event.is_set() and process.poll() is None:
-                    process.terminate()
-
-            result = agent_cli.run_agent(
+        if run.cancel.is_set():
+            run.outcome = "cancelled"
+            return _result(
                 message,
-                active_session,
-                agent,
-                resolved_model,
-                working_dir,
-                cancel_event=cancel_event,
-                on_process=on_process,
+                _conversation_sessions.get(lock_key),
+                "Agent request cancelled.",
+                "cancelled",
             )
-            duration_seconds = time.monotonic() - start_time
-            logger.info(
-                "Agent CLI run completed (channel: %s, session: %s, duration=%.3fs)",
-                channel,
-                active_session,
-                duration_seconds,
-            )
-
-            outcome = _commit_message_outcome(owner, result.success)
-            if outcome == "succeeded":
-                # Update session if we got a new one
-                if result.session_id:
-                    with _processing_lock:
-                        _conversation_sessions[lock_key] = result.session_id
-                    active_session = result.session_id
-
-                logger.info(
-                    "Agent message processed (channel: %s, session: %s)",
-                    channel,
-                    _conversation_sessions.get(lock_key),
-                )
+        working_dir = _get_working_directory(channel)
+        with _state_lock:
+            if session_id:
+                _conversation_sessions[lock_key] = session_id
             else:
-                response = result.error_message or "Command failed with no output"
+                _conversation_sessions.pop(lock_key, None)
+        agent_cli = get_agent_cli(working_dir)
+        start_time = time.monotonic()
+        resolved_model = model if model and model != "default" else None
 
-                logger.error("Agent command failed")
-                sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-                return {
-                    "messageId": str(int(time.time() * 1000)),
-                    "sent": sent_at,
-                    "prompt": message,
-                    "response": response,
-                    "sessionId": _conversation_sessions.get(lock_key),
-                    "processing": False,
-                    "outcome": outcome,
-                }
+        def on_process(process: subprocess.Popen[str]) -> None:
+            run.process = process
+            if run.cancel.is_set() and process.poll() is None:
+                process.terminate()
 
+        result = agent_cli.run_agent(
+            message,
+            active_session,
+            agent,
+            resolved_model,
+            working_dir,
+            cancel_event=run.cancel,
+            on_process=on_process,
+        )
+        logger.info(
+            "Agent CLI run completed (channel: %s, session: %s, duration=%.3fs)",
+            channel,
+            active_session,
+            time.monotonic() - start_time,
+        )
+        run.outcome = (
+            "cancelled"
+            if run.cancel.is_set()
+            else "succeeded"
+            if result.success
+            else "failed"
+        )
+        if run.outcome != "succeeded":
+            logger.error("Agent command failed")
+            return _result(
+                message,
+                _conversation_sessions.get(lock_key),
+                result.error_message or "Command failed with no output",
+                run.outcome,
+            )
+        if result.session_id:
+            with _state_lock:
+                _conversation_sessions[lock_key] = result.session_id
+            active_session = result.session_id
+        _save_conversation_sessions()
+        return _result(
+            message, active_session, "Processing...", "succeeded", processing=True
+        )
     except FileNotFoundError:
-        outcome = _commit_message_outcome(owner)
-        response = get_agent_cli(working_dir).missing_command_error()
+        run.outcome = "failed"
         logger.error("Agent command not found for channel %s", channel)
-
-        # Return error immediately - no process to poll
-        sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-        return {
-            "messageId": str(int(time.time() * 1000)),
-            "sent": sent_at,
-            "prompt": message,
-            "response": response,
-            "sessionId": None,
-            "processing": False,
-            "outcome": outcome,
-        }
+        return _result(
+            message,
+            None,
+            get_agent_cli(working_dir).missing_command_error(),
+            "failed",
+        )
     except Exception as e:
-        outcome = _commit_message_outcome(owner)
-        response = f"Error: {str(e)}"
+        run.outcome = "failed"
         logger.error("Unexpected error sending agent message")
-
-        # Return error immediately - no process to poll
-        sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-        return {
-            "messageId": str(int(time.time() * 1000)),
-            "sent": sent_at,
-            "prompt": message,
-            "response": response,
-            "sessionId": _conversation_sessions.get(lock_key),
-            "processing": False,
-            "outcome": outcome,
-        }
+        return _result(
+            message,
+            _conversation_sessions.get(lock_key),
+            f"Error: {str(e)}",
+            "failed",
+        )
     finally:
-        release_agent_message(owner)
-
-    sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-
-    return {
-        "messageId": str(int(time.time() * 1000)),
-        "sent": sent_at,
-        "prompt": message,
-        "response": "Processing...",  # Status message only
-        "sessionId": active_session,
-        "processing": True,  # Indicates polling needed
-        "outcome": "succeeded",
-    }
+        end_agent_run(run)

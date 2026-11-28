@@ -8,7 +8,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from agent_service import (
-    ChannelBusyError,
     export_chat_history,
     list_agents,
     list_chat_sessions,
@@ -140,9 +139,7 @@ def post_chat(
         return HTMLResponse("Enter a message and a valid session ID.", status_code=422)
 
     try:
-        job, owner = accept_submission(name, effective_session_id)
-    except ChannelBusyError:
-        return HTMLResponse(content="Agent is busy, try again.", status_code=409)
+        job = accept_submission(name)
     except SubmissionCapacityError:
         return HTMLResponse("Submission capacity is full; try later.", status_code=503)
     except Exception:
@@ -158,14 +155,13 @@ def post_chat(
         background_tasks.add_task(
             run_submission,
             job,
-            owner,
             message,
             effective_session_id,
             resolved_agent,
             resolved_model,
         )
     except Exception:
-        fail_scheduling(job, owner)
+        fail_scheduling(job)
         return HTMLResponse(
             "Could not schedule the request. Try again later.", status_code=503
         )

@@ -581,12 +581,7 @@ export function useChatSession({
           );
           return;
         }
-        const busy = error instanceof HttpError && error.status === 409;
-        setError(
-          busy
-            ? "Agent is still processing the previous message."
-            : "Agent unavailable",
-        );
+        setError("Agent unavailable");
         await refreshAgentStatus();
       } finally {
         if (attachmentRequestRef.current === sendRequestId) {

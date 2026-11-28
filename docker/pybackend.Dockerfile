@@ -11,8 +11,12 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends git curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install the OpenCode agent CLI (used by agent_cli.py to run agent chat sessions)
-RUN curl -fsSL https://opencode.ai/install | bash
+# Install the OpenCode 2 agent CLI (used by agent_cli.py to run agent chat sessions).
+# OpenCode 2 runs sessions on a shared background service, so a message sent
+# while the agent is working is handled by the service instead of a second
+# independent process. The OpenCode 1 installer (opencode.ai/install) does not.
+ARG OPENCODE_VERSION=2.4.1
+RUN curl -fsSL https://opencode.ai/v2/install | bash -s -- --version ${OPENCODE_VERSION}
 ENV PATH="/root/.opencode/bin:${PATH}"
 
 # Install UV package manager
@@ -29,6 +33,11 @@ COPY packages/pybackend/ ./
 
 # Install the local package now that source is present
 RUN uv sync --frozen
+
+# Default to the OpenCode 2 adapter to match the CLI installed above. A fresh
+# made-data volume is initialised from this file; existing volumes keep their
+# own settings.
+RUN mkdir -p /app/.made && printf '{\n  "agentCli": "opencode-v2"\n}\n' > /app/.made/settings.json
 
 # Dedicated workspace directory for user repositories, separate from the
 # backend's own source/build artifacts living in /app

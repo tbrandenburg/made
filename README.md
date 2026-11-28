@@ -232,8 +232,12 @@ docker compose -f docker/docker-compose.yml up --build -d
 - **Persistent data:** named volumes `made-data` (settings and knowledge) and
   `made-workspace` (repositories).
 
-The backend image installs OpenCode. Configure its authentication inside the
-container before chatting; host credentials are not mounted automatically.
+The backend image installs OpenCode 2 (pin a different version with the
+`OPENCODE_VERSION` build argument) and a fresh `made-data` volume defaults to the
+`opencode-v2` adapter. An existing volume keeps its settings; if it still uses
+the `opencode` adapter, switch it to `opencode-v2` in Settings. Configure the
+CLI's authentication inside the container before chatting; host credentials are
+not mounted automatically.
 
 Stop this stack without deleting its data:
 

@@ -39,7 +39,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response
 
 from agent_service import (
-    ChannelBusyError,
     SessionDirectoryMismatchError,
     cancel_agent_message,
     export_chat_history,
@@ -48,8 +47,6 @@ from agent_service import (
     list_agents,
     list_chat_child_sessions,
     list_chat_sessions,
-    release_agent_message,
-    reserve_agent_message,
     send_agent_message,
     terminate_agent_process,
 )
@@ -738,16 +735,13 @@ def repository_agent(name: str, payload: dict = Body(...)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
         )
-    try:
-        logger.info(
-            "Forwarding agent message for repository '%s' (session: %s, agent: %s)",
-            name,
-            session_id or "new",
-            agent or "default",
-        )
-        return send_agent_message(name, message, session_id, agent, model)
-    except ChannelBusyError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    logger.info(
+        "Forwarding agent message for repository '%s' (session: %s, agent: %s)",
+        name,
+        session_id or "new",
+        agent or "default",
+    )
+    return send_agent_message(name, message, session_id, agent, model)
 
 
 _CHAT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024
@@ -810,10 +804,6 @@ def repository_agent_attachment(
             status_code=413, detail="The file must be 10 MiB or smaller."
         )
 
-    try:
-        owner = reserve_agent_message(name, session_id)
-    except ChannelBusyError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
     directory = None
     try:
         try:
@@ -839,13 +829,10 @@ def repository_agent_attachment(
             f"{message.strip()}\n\nAttached file: `{path}`. "
             "Read this file before answering and use its contents as context for this request."
         )
-        return send_agent_message(
-            name, prompt, session_id, agent, model, reservation=owner
-        )
+        return send_agent_message(name, prompt, session_id, agent, model)
     finally:
         if directory is not None:
             shutil.rmtree(directory, ignore_errors=True)
-        release_agent_message(owner)
 
 
 @app.get("/api/repositories/{name}/agent/status")
@@ -1440,18 +1427,13 @@ def knowledge_agent(name: str, payload: dict = Body(...)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
         )
-    try:
-        logger.info(
-            "Forwarding agent message for knowledge '%s' (session: %s, agent: %s)",
-            name,
-            session_id or "new",
-            agent or "default",
-        )
-        return send_agent_message(
-            f"knowledge:{name}", message, session_id, agent, model
-        )
-    except ChannelBusyError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    logger.info(
+        "Forwarding agent message for knowledge '%s' (session: %s, agent: %s)",
+        name,
+        session_id or "new",
+        agent or "default",
+    )
+    return send_agent_message(f"knowledge:{name}", message, session_id, agent, model)
 
 
 @app.get("/api/knowledge/{name:path}/agent/status")
@@ -1668,18 +1650,13 @@ def constitution_agent(name: str, payload: dict = Body(...)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
         )
-    try:
-        logger.info(
-            "Forwarding agent message for constitution '%s' (session: %s, agent: %s)",
-            name,
-            session_id or "new",
-            agent or "default",
-        )
-        return send_agent_message(
-            f"constitution:{name}", message, session_id, agent, model
-        )
-    except ChannelBusyError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    logger.info(
+        "Forwarding agent message for constitution '%s' (session: %s, agent: %s)",
+        name,
+        session_id or "new",
+        agent or "default",
+    )
+    return send_agent_message(f"constitution:{name}", message, session_id, agent, model)
 
 
 @app.get("/api/constitutions/{name:path}/agent/status")
@@ -1828,16 +1805,13 @@ def task_agent(name: str, payload: dict = Body(...)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Message is required"
         )
-    try:
-        logger.info(
-            "Forwarding agent message for task '%s' (session: %s, agent: %s)",
-            name,
-            session_id or "new",
-            agent or "default",
-        )
-        return send_agent_message(f"task:{name}", message, session_id, agent, model)
-    except ChannelBusyError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    logger.info(
+        "Forwarding agent message for task '%s' (session: %s, agent: %s)",
+        name,
+        session_id or "new",
+        agent or "default",
+    )
+    return send_agent_message(f"task:{name}", message, session_id, agent, model)
 
 
 @app.get("/api/tasks/{name:path}/agent/status")
