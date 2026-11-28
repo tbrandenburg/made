@@ -45,7 +45,7 @@ This process checks the real application and selected CLI without mounting
 host agent configuration or using the standard development ports.
 
 1. Check [the backend Dockerfile](/docker/pybackend.Dockerfile). It installs
-   OpenCode by default. For another CLI, replace that install step or add the
+   OpenCode 2 by default. For another CLI, replace that install step or add the
    selected CLI's official non-interactive installer and put it on `PATH`.
 2. Supply the selected CLI's authentication at runtime in the isolated agent
    home, then start the acceptance project:
